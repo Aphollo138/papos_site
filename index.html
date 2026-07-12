@@ -66,8 +66,8 @@
 
     <!-- Manifest & Favicons -->
     <link rel="manifest" href="/manifest.json" />
-    <link rel="icon" type="image/png" sizes="32x32" href="https://img.icons8.com/?size=32&id=118497&format=png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="https://img.icons8.com/?size=16&id=118497&format=png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" type="image/png" sizes="32x32" href="https://img.icons8.com/?size=32&id=118497&format=png" />
     <link rel="apple-touch-icon" sizes="180x180" href="https://img.icons8.com/?size=180&id=118497&format=png" />
 
     <!-- Bootstrap 5 CSS -->
@@ -485,33 +485,27 @@
         <div class="row justify-content-between gy-4">
           <div class="col-md-5">
             <a class="d-flex align-items-center gap-2 mb-3 text-decoration-none text-white animate-brand" href="/">
-              <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: bold; width: 32px; height: 32px;">
-                P
-              </div>
+              <img src="/favicon.svg" alt="Papos Logo" class="footer-logo" />
               <span class="font-display fw-extrabold fs-4 tracking-tight">Papos</span>
             </a>
             <p class="text-secondary small" style="max-width: 420px;">
               Encontre o seu espaço, participe de conversas espontâneas e faça novas conexões em tempo real sem nenhuma barreira ou cadastro corporativo.
             </p>
-            <small class="text-secondary" style="font-size: 0.72rem;">
-              Icons por <a href="https://icons8.com" class="text-secondary text-decoration-underline" target="_blank" rel="noopener noreferrer">Icons8</a>
-            </small>
           </div>
           <div class="col-md-5">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Navegação & Políticas</h3>
-            <ul class="list-unstyled d-flex flex-wrap gap-x-4 gap-y-2">
-              <li><a href="/" class="text-secondary text-decoration-none small hover:text-white">Início</a></li>
-              <li><a href="/salas" class="text-secondary text-decoration-none small hover:text-white">Salas Ativas</a></li>
-              <li><a href="/#safety" class="text-secondary text-decoration-none small hover:text-white">Segurança</a></li>
-              <li><a href="/privacidade" class="text-secondary text-decoration-none small hover:text-white">Privacidade</a></li>
-              <li><a href="/termos" class="text-secondary text-decoration-none small hover:text-white">Termos de Uso</a></li>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Navegação & Políticas</h3>
+            <ul class="list-unstyled footer-nav-container">
+              <li><a href="/" class="footer-link">Início</a></li>
+              <li><a href="/salas" class="footer-link">Salas Ativas</a></li>
+              <li><a href="/#safety" class="footer-link">Segurança</a></li>
+              <li><a href="/privacidade" class="footer-link">Privacidade</a></li>
+              <li><a href="/termos" class="footer-link">Termos de Uso</a></li>
             </ul>
           </div>
         </div>
         <hr class="my-4 border-secondary opacity-25">
         <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
           <p class="mb-0 text-secondary small">&copy; 2026 Papos (papos.net.br). Todos os direitos reservados.</p>
-          <span id="active-server-indicator" class="text-secondary font-mono small text-white-50" style="font-size: 0.75rem;">Servidor ativo: 0.0.0.0:3000</span>
         </div>
       </div>
     </footer>

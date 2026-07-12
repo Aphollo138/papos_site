@@ -1392,3 +1392,49 @@ body.chat-page i.bi {
   font-size: 0.8rem !important;
 }
 
+/* Footer Navigation & Policies spacing, hover, focus and logo */
+.footer-nav-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+@media (min-width: 576px) {
+  .footer-nav-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+}
+@media (min-width: 768px) {
+  .footer-nav-container {
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+}
+
+.footer-link {
+  color: var(--text-secondary) !important;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+  outline: none;
+  display: inline-block;
+}
+.footer-link:hover, .footer-link:focus {
+  color: var(--text-primary) !important;
+  text-shadow: 0 0 1px currentColor;
+}
+/* Ensure footer logo doesn't distort */
+.footer-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+}
+.footer-logo:hover {
+  transform: rotate(5deg) scale(1.05);
+}
+
+

@@ -34,7 +34,23 @@ const INITIAL_MESSAGES: Record<string, any[]> = {
 
 // In-memory data store
 const rooms = [...INITIAL_ROOMS];
-const messages = { ...INITIAL_MESSAGES };
+const messages = { ...INITIAL_MESSAGES } as Record<string, any[]>;
+
+// Pre-fill initial messages with today's reliable timestamps
+Object.keys(messages).forEach(roomId => {
+  messages[roomId].forEach(msg => {
+    if (!msg.timestamp && msg.time) {
+      try {
+        const [h, m] = msg.time.split(":").map(Number);
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        msg.timestamp = d.getTime();
+      } catch (e) {
+        msg.timestamp = Date.now();
+      }
+    }
+  });
+});
 
 // Simulated Bot Users always active in their respective rooms
 const BOTS = [
@@ -322,6 +338,7 @@ async function startServer() {
               broadcastToRoom(oldRoomId, "user_left", {
                 nickname: oldNickname,
                 time: getCurrentTime(),
+                timestamp: Date.now(),
                 onlineUsers: leftUsers
               });
             }
@@ -343,6 +360,7 @@ async function startServer() {
             broadcastToRoom(roomId, "user_joined", {
               nickname: finalNickname,
               time: getCurrentTime(),
+              timestamp: Date.now(),
               onlineUsers: getRoomOnlineUsers(roomId)
             }, ws);
 
@@ -380,6 +398,7 @@ async function startServer() {
                   sender: welcomeBot.nickname,
                   text,
                   time: getCurrentTime(),
+                  timestamp: Date.now(),
                   isSystem: false,
                   reactions: {}
                 };
@@ -420,7 +439,7 @@ async function startServer() {
                   recipientId: finalNickname,
                   recipientName: finalNickname,
                   content: welcomeText,
-                  timestamp: getCurrentTime(),
+                  timestamp: Date.now(),
                   conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
                   isDeleted: false
                 };
@@ -445,6 +464,7 @@ async function startServer() {
               broadcastToRoom(oldRoomId, "user_left", {
                 nickname: session.nickname,
                 time: getCurrentTime(),
+                timestamp: Date.now(),
                 onlineUsers: leftUsers
               });
             }
@@ -465,6 +485,7 @@ async function startServer() {
             broadcastToRoom(roomId, "user_joined", {
               nickname: session.nickname,
               time: getCurrentTime(),
+              timestamp: Date.now(),
               onlineUsers: getRoomOnlineUsers(roomId)
             }, ws);
 
@@ -501,6 +522,7 @@ async function startServer() {
                   sender: welcomeBot.nickname,
                   text,
                   time: getCurrentTime(),
+                  timestamp: Date.now(),
                   isSystem: false,
                   reactions: {}
                 };
@@ -540,6 +562,7 @@ async function startServer() {
               sender: session.nickname,
               text,
               time: getCurrentTime(),
+              timestamp: Date.now(),
               isSystem: false,
               color,
               replyTo: payload.replyTo ? {
@@ -594,7 +617,7 @@ async function startServer() {
                 recipientId: toNick,
                 recipientName: toNick,
                 content: text,
-                timestamp: getCurrentTime(),
+                timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
                 color
@@ -615,7 +638,7 @@ async function startServer() {
                   recipientId: toNick,
                   recipientName: toNick,
                   content: text,
-                  timestamp: getCurrentTime(),
+                  timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,
                   color
@@ -668,7 +691,7 @@ async function startServer() {
                     recipientId: session.nickname,
                     recipientName: session.nickname,
                     content: randomReply,
-                    timestamp: getCurrentTime(),
+                    timestamp: Date.now(),
                     conversationId: [toNick.toLowerCase(), session.nickname.toLowerCase()].sort().join("--"),
                     isDeleted: false
                   });
@@ -766,7 +789,7 @@ async function startServer() {
 
             rooms.push(newRoom);
             messages[newId] = [
-              { id: `sys-init-${newId}`, sender: "Sistema", text: `Sala '${name}' foi criada com sucesso por ${session.nickname}.`, time: getCurrentTime(), isSystem: true }
+              { id: `sys-init-${newId}`, sender: "Sistema", text: `Sala '${name}' foi criada com sucesso por ${session.nickname}.`, time: getCurrentTime(), timestamp: Date.now(), isSystem: true }
             ];
 
             // Send confirmation back to creator
@@ -843,6 +866,7 @@ async function startServer() {
           broadcastToRoom(roomId, "user_left", {
             nickname,
             time: getCurrentTime(),
+            timestamp: Date.now(),
             onlineUsers: leftUsers
           });
         }
@@ -1007,6 +1031,7 @@ async function startServer() {
       sender: bot.nickname,
       text,
       time: getCurrentTime(),
+      timestamp: Date.now(),
       isSystem: false,
       reactions: {}
     };

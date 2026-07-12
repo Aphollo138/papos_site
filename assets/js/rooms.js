@@ -101,10 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="col-12 text-center py-5">
           <div class="display-3 text-secondary mb-3"><i class="bi bi-search"></i></div>
           <h3 class="fw-bold text-white">Nenhuma sala encontrada</h3>
-          <p class="text-secondary small">Nenhuma sala corresponde à pesquisa "${filterText}". Seja o primeiro a criar!</p>
-          <button class="btn btn-premium mt-2" data-bs-toggle="modal" data-bs-target="#createRoomModal" id="btn-create-first">
-            Criar Sala
-          </button>
+          <p class="text-secondary small">Nenhuma sala corresponde à pesquisa "${filterText}".</p>
         </div>
       `;
       return;

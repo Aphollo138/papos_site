@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    
+    <!-- Progressive Enhancement: Only animate if JS is loaded -->
     <script>document.documentElement.classList.add('js-enabled');</script>
     
     <meta charset="UTF-8" />
@@ -11,18 +11,24 @@
     <meta name="description" content="Altere seu apelido e confira suas estatísticas locais de conversação no Papos." />
     <meta name="robots" content="noindex, nofollow" />
 
-    
+    <!-- Manifest & Favicons -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" type="image/png" sizes="32x32" href="https://img.icons8.com/?size=32&id=118497&format=png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="https://img.icons8.com/?size=180&id=118497&format=png" />
+
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     
-    
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-    
+    <!-- Custom Modern CSS styles -->
     <link rel="stylesheet" href="/assets/css/style.css" />
   </head>
   <body>
 
-   
+    <!-- Header & Menu de Navegação -->
     <header class="navbar navbar-expand-lg fixed-top navbar-custom" id="profile-header">
       <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2" href="/" id="profile-logo-brand">
@@ -44,7 +50,7 @@
             </li>
           </ul>
           <div class="d-flex align-items-center gap-3">
-           
+            <!-- Theme Switcher -->
             <div class="theme-switch-container d-flex align-items-center gap-2" role="button" tabindex="0" onclick="window.ChatEngine.toggleTheme()" style="cursor: pointer;" title="Alternar tema" aria-label="Alternar tema">
               <i class="bi bi-sun-fill theme-sun-icon" style="font-size: 0.95rem; color: #ffb300;"></i>
               <img src="/assets/img/toggle-off.svg" class="theme-toggle-img" alt="Alternar tema" style="width: 38px; height: 22px; display: block;" />
@@ -59,20 +65,20 @@
       </div>
     </header>
 
-   
+    <!-- Área Principal do Perfil -->
     <main class="py-5" style="margin-top: 60px;">
       <section class="container py-5">
         <div class="row justify-content-center">
           <div class="col-lg-8 col-xl-7">
             
-            
+            <!-- Card de Configuração de Perfil -->
             <article class="p-4 p-md-5 border border-secondary rounded" style="background-color: var(--surface);">
               
-             
+              <!-- Preview do Avatar -->
               <div class="text-center mb-5">
                 <div class="position-relative d-inline-block">
                   <div id="avatar-preview-container">
-                  
+                    <!-- Gerado dinamicamente via JS -->
                   </div>
                   <span class="status-indicator status-online position-absolute" style="width: 14px; height: 14px; bottom: 2px; right: 2px; border: 2px solid var(--surface);"></span>
                 </div>
@@ -80,12 +86,12 @@
                 <p class="text-secondary small">ID de Usuário Local: <span class="font-mono text-xs text-white-50" id="user-local-id">#local</span></p>
               </div>
 
-            
+              <!-- Toast / Alerta de Sucesso -->
               <div class="alert alert-light border border-white mb-4 d-none" id="success-toast" role="alert" style="background-color: var(--surface-secondary); color: var(--text-primary);">
                 <i class="bi bi-check-circle-fill me-2"></i> Alterações salvas com sucesso!
               </div>
 
-             
+              <!-- Formulário de Perfil -->
               <form id="profile-form">
                 <div class="mb-4">
                   <label for="profile-nickname" class="form-label fw-bold small text-secondary">Alterar Apelido</label>
@@ -100,7 +106,7 @@
                   </div>
                 </div>
 
-               
+                <!-- Estatísticas de Atividade Locais -->
                 <div class="mb-5">
                   <h2 class="h6 fw-bold text-uppercase tracking-wider text-secondary mb-3">Estatísticas de Atividade</h2>
                   <div class="row g-3">
@@ -136,7 +142,7 @@
                   </div>
                 </div>
 
-                
+                <!-- Botões de Ação -->
                 <div class="d-flex flex-column flex-sm-row gap-3">
                   <button type="submit" class="btn btn-premium w-100 py-3 font-display fw-bold" id="btn-save-profile">
                     Salvar Alterações <i class="bi bi-save2 ms-2"></i>
@@ -148,7 +154,7 @@
 
               </form>
 
-           
+              <!-- Perigo: Limpar dados -->
               <div class="mt-5 pt-4 border-top border-secondary">
                 <h3 class="h6 fw-bold text-danger mb-2">Apagar todos os dados</h3>
                 <p class="text-secondary small">Deletar todas as suas preferências e histórico armazenado localmente no navegador. Esta ação é irreversível.</p>
@@ -164,15 +170,13 @@
       </section>
     </main>
 
-   
+    <!-- Footer -->
     <footer class="py-5 mt-5" style="background-color: var(--background); border-top: 1px solid var(--border);">
       <div class="container py-3">
         <div class="row gy-4 justify-content-between">
           <div class="col-md-5">
             <a class="d-flex align-items-center gap-2 mb-3 text-decoration-none text-white" href="/" id="footer-logo-profile">
-              <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: bold; width: 32px; height: 32px;">
-                P
-              </div>
+              <img src="/favicon.svg" alt="Papos Logo" class="footer-logo" />
               <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
             </a>
             <p class="text-secondary small">
@@ -187,13 +191,13 @@
       </div>
     </footer>
 
-   
+    <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-    
+    <!-- Core ChatEngine State JS -->
     <script src="/assets/js/main.js"></script>
 
-    
+    <!-- Lógica de Perfil -->
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         const currentUser = window.ChatEngine ? window.ChatEngine.getUser() : null;
@@ -202,7 +206,7 @@
           return;
         }
 
-       
+        // Elementos DOM
         const inputNickname = document.getElementById("profile-nickname");
         const avatarContainer = document.getElementById("avatar-preview-container");
         const nameDisplay = document.getElementById("username-display-name");
@@ -211,24 +215,24 @@
         const btnResetAll = document.getElementById("btn-reset-all");
         const localIdEl = document.getElementById("user-local-id");
 
-        
+        // Elementos de Estatísticas
         const statMessages = document.getElementById("stat-messages");
         const statStreak = document.getElementById("stat-streak");
         const statRooms = document.getElementById("stat-rooms");
         const statPoints = document.getElementById("stat-points");
 
-       
+        // Inicializar Valores
         inputNickname.value = currentUser;
         nameDisplay.textContent = currentUser;
         
-       
+        // Gerar ID de usuário persistente fictício baseado no nome
         let hash = 1000;
         for (let i = 0; i < currentUser.length; i++) {
           hash += currentUser.charCodeAt(i);
         }
         localIdEl.textContent = `#${hash}-local`;
 
-       
+        // Atribuir estatísticas locais baseadas no apelido
         const randomMsgCount = (hash % 45) + 12;
         const randomStreak = (hash % 6) + 2;
         const randomRooms = (hash % 3) + 2;
@@ -239,7 +243,7 @@
         statRooms.textContent = randomRooms;
         statPoints.textContent = randomXP;
 
-       
+        // Função de Preview de Avatar em Tempo Real
         function updateAvatarPreview(name) {
           if (window.ChatEngine) {
             avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-lg mx-auto");
@@ -248,14 +252,14 @@
 
         updateAvatarPreview(currentUser);
 
-       
+        // Atualizar avatar ao digitação do usuário
         inputNickname.addEventListener("input", (e) => {
           const val = e.target.value.trim() || "A";
           nameDisplay.textContent = val;
           updateAvatarPreview(val);
         });
 
-       
+        // Salvar Modificações
         profileForm.addEventListener("submit", (e) => {
           e.preventDefault();
           const newNick = inputNickname.value.trim();
@@ -271,14 +275,14 @@
               successToast.classList.add("d-none");
             }, 3000);
             
-           
+            // Recarregar para sincronizar
             setTimeout(() => {
               window.location.reload();
             }, 1000);
           }
         });
 
-     
+        // Deletar Tudo do LocalStorage
         btnResetAll.addEventListener("click", () => {
           if (confirm("ATENÇÃO: Deseja apagar todas as configurações? Isso irá apagar seu apelido e preferências definitivamente.")) {
             localStorage.clear();

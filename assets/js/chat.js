@@ -2,6 +2,39 @@
  * chat.js - Real-time WebSocket Client, Private Chats, Modal rooms, and Search engines
  */
 
+// Format message time securely in user's local timezone
+function formatMessageTime(msg) {
+  if (!msg) return "";
+  if (msg.timestamp) {
+    const ts = Number(msg.timestamp);
+    if (!isNaN(ts)) {
+      try {
+        return new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      } catch (e) {
+        console.error("Error formatting timestamp:", e);
+      }
+    } else {
+      try {
+        const d = new Date(msg.timestamp);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        }
+      } catch (e) {
+        console.error("Error parsing date string:", e);
+      }
+    }
+  }
+  if (msg.time) {
+    if (!isNaN(Number(msg.time))) {
+      try {
+        return new Date(Number(msg.time)).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      } catch (e) {}
+    }
+    return msg.time;
+  }
+  return "";
+}
+
 // Global action handles
 let replyTargetMsg = null;
 let blockedUsers = JSON.parse(localStorage.getItem("papos_blocked_users") || "[]");
@@ -348,6 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Append only if not already duplicated (checks using unique identifier)
+    let isNew = false;
     if (!privateChats[partner].some(m => m.id === id)) {
       privateChats[partner].push({
         id: id,
@@ -360,10 +394,11 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Save local persistence
       localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+      isNew = true;
     }
 
     // Direct render if active
-    if (chatMode === "private" && activePrivateRecipient === partner) {
+    if (isNew && chatMode === "private" && activePrivateRecipient === partner) {
       appendSingleMessage({
         id: id,
         sender: sender,
@@ -485,7 +520,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="flex-grow-1 text-start text-truncate">
           <div class="d-flex align-items-center justify-content-between">
             <span class="fw-bold text-white small text-truncate">${partner}</span>
-            <span class="text-secondary font-mono" style="font-size: 0.65rem;">${lastMsg.time}</span>
+            <span class="text-secondary font-mono" style="font-size: 0.65rem;">${formatMessageTime(lastMsg)}</span>
           </div>
           <p class="mb-0 text-secondary text-truncate small">${lastMsg.text}</p>
         </div>
@@ -544,7 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (msg.isSystem) {
         const sysDiv = document.createElement("div");
         sysDiv.className = "msg-system";
-        sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${msg.text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${msg.time})</span>`;
+        sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${msg.text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${formatMessageTime(msg)})</span>`;
         chatMessagesContainer.appendChild(sysDiv);
         lastSender = null; // Break grouping
       } else {
@@ -623,7 +658,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ${replyHtml}
             <div class="msg-header">
               <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important;">${isMe ? 'Você' : msg.sender}</span>
-              <span class="msg-meta">${msg.time}</span>
+              <span class="msg-meta">${formatMessageTime(msg)}</span>
             </div>
             <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
             ${reactionsHtml}
@@ -643,6 +678,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!chatMessagesContainer) return;
     const isBlocked = blockedUsers.includes(msg.sender);
     if (isBlocked) return;
+
+    // Prevent duplicating in the UI if the DOM element with this ID already exists
+    if (msg.id && chatMessagesContainer.querySelector(`#msg-id-${msg.id}`)) {
+      return;
+    }
 
     if (chatMessagesContainer.querySelector(".text-center")) {
       chatMessagesContainer.innerHTML = "";
@@ -708,7 +748,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ${replyHtml}
         <div class="msg-header">
           <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important;">${isMe ? 'Você' : msg.sender}</span>
-          <span class="msg-meta">${msg.time}</span>
+          <span class="msg-meta">${formatMessageTime(msg)}</span>
         </div>
         <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
       </div>
@@ -723,7 +763,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!chatMessagesContainer) return;
     const sysDiv = document.createElement("div");
     sysDiv.className = "msg-system";
-    sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })})</span>`;
+    sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${formatMessageTime({timestamp: Date.now()})})</span>`;
     chatMessagesContainer.appendChild(sysDiv);
     scrollToBottom();
   }
@@ -978,7 +1018,7 @@ document.addEventListener("DOMContentLoaded", () => {
         recipientName: activePrivateRecipient,
         content: text,
         color: activeMessageColor || undefined,
-        timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+        timestamp: Date.now()
       });
     }
 

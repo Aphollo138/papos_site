@@ -134,14 +134,6 @@ document.addEventListener("DOMContentLoaded", () => {
   
   ChatEngine.init();
 
-  // Atualizar o indicador de servidor ativo dinamicamente no rodapé se ele existir
-  const serverIndicator = document.getElementById("active-server-indicator");
-  if (serverIndicator) {
-    const wsUrl = window.CHAT_CONFIG.getWebSocketUrl();
-    const serverHost = wsUrl.replace(/^ws(s)?:\/\//, "");
-    serverIndicator.textContent = `Servidor ativo: ${serverHost}`;
-  }
-
   // 1. Reading Progress Bar Logic
   const progressBar = document.getElementById("scroll-progress-bar");
   window.addEventListener("scroll", () => {
