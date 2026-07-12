@@ -413,11 +413,16 @@ async function startServer() {
                 const welcomeText = `Olá! Seja muito bem-vindo ao **Papos**! 👋\n\nSou o assistente virtual do chat e vou te explicar como tudo funciona por aqui de forma simples:\n\n💬 **Salas Públicas**: Use o botão **Salas** no topo para explorar canais públicos (Geral, Tecnologia, Música...) e debater com todo mundo!\n\n🔒 **Conversas Privadas (DM)**: Para abrir um privado 100% seguro com qualquer usuário, basta clicar sobre o nome dele na lista de membros online à esquerda!\n\n🎨 **Cores de Mensagem**: Personalize suas mensagens clicando no ícone de **paleta** (agora posicionado elegantemente à direita do botão enviar!).\n\n😀 **Emojis**: Use o novo seletor de **emojis** do chat para enviar reações rápidas!\n\n↔️ **Ajustar Painel**: Arraste a linha divisória lateral para ajustar o tamanho da sua lista de conversas.\n\nSinta-se em casa! Qualquer dúvida, pode me mandar uma mensagem direta por aqui! 😊`;
 
                 const pmPayload = {
+                  type: "private_message",
                   id: "pm-welcome-" + Date.now(),
-                  from: "Bot_Papos",
-                  to: finalNickname,
-                  text: welcomeText,
-                  time: getCurrentTime()
+                  senderId: "Bot_Papos",
+                  senderName: "Bot_Papos",
+                  recipientId: finalNickname,
+                  recipientName: finalNickname,
+                  content: welcomeText,
+                  timestamp: getCurrentTime(),
+                  conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
+                  isDeleted: false
                 };
                 sendToClient(ws, "private_message", pmPayload);
               }, 4000);
@@ -576,13 +581,22 @@ async function startServer() {
               }
             });
 
+            const pmId = payload.id || ("pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
+
+            if (toNick.toLowerCase() === session.nickname.toLowerCase()) return;
+
             if (targetWs && targetWs !== ws) {
               const pmPayload = {
-                id: "pm-" + Date.now(),
-                from: session.nickname,
-                to: toNick,
-                text,
-                time: getCurrentTime(),
+                type: "private_message",
+                id: pmId,
+                senderId: session.nickname,
+                senderName: session.nickname,
+                recipientId: toNick,
+                recipientName: toNick,
+                content: text,
+                timestamp: getCurrentTime(),
+                conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
+                isDeleted: false,
                 color
               };
               // Send to recipient
@@ -594,11 +608,16 @@ async function startServer() {
               const isBot = BOTS.some(b => b.nickname.toLowerCase() === toNick.toLowerCase());
               if (isBot) {
                 const pmPayload = {
-                  id: "pm-" + Date.now(),
-                  from: session.nickname,
-                  to: toNick,
-                  text,
-                  time: getCurrentTime(),
+                  type: "private_message",
+                  id: pmId,
+                  senderId: session.nickname,
+                  senderName: session.nickname,
+                  recipientId: toNick,
+                  recipientName: toNick,
+                  content: text,
+                  timestamp: getCurrentTime(),
+                  conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
+                  isDeleted: false,
                   color
                 };
                 // Echo back the sent DM so client UI appends it
@@ -642,11 +661,16 @@ async function startServer() {
                   }
                   const randomReply = botReplies[Math.floor(Math.random() * botReplies.length)];
                   sendToClient(ws, "private_message", {
+                    type: "private_message",
                     id: "pm-reply-" + Date.now(),
-                    from: toNick,
-                    to: session.nickname,
-                    text: randomReply,
-                    time: getCurrentTime()
+                    senderId: toNick,
+                    senderName: toNick,
+                    recipientId: session.nickname,
+                    recipientName: session.nickname,
+                    content: randomReply,
+                    timestamp: getCurrentTime(),
+                    conversationId: [toNick.toLowerCase(), session.nickname.toLowerCase()].sort().join("--"),
+                    isDeleted: false
                   });
                 }, 1700);
               } else {

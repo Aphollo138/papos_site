@@ -146,6 +146,25 @@ document.addEventListener("DOMContentLoaded", () => {
     sidebarAvatarPlaceholder.innerHTML = ChatEngine.renderAvatar(currentUser, "avatar-lg mx-auto mb-2");
   }
 
+  // Validate private message payload safely
+  function isValidPrivateMessage(pm) {
+    if (!pm) return false;
+    if (typeof pm !== "object") return false;
+    if (!pm.id) return false;
+    
+    // Support both standardized and legacy formats
+    const sender = pm.senderName || pm.from;
+    const recipient = pm.recipientName || pm.to;
+    const content = pm.content !== undefined ? pm.content : pm.text;
+    const timestamp = pm.timestamp || pm.time;
+    
+    if (!sender || !recipient) return false;
+    if (content === undefined || content === null) return false;
+    if (!timestamp) return false;
+    
+    return true;
+  }
+
   // Connect WebSockets
   function connect() {
     socket = ChatEngine.connectSocket();
@@ -162,6 +181,8 @@ document.addEventListener("DOMContentLoaded", () => {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+
+        if (!data) return;
 
         switch (data.type) {
           case "room_state":
@@ -227,7 +248,11 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           case "private_message":
-            handleIncomingPrivateMessage(data.message);
+            if (!isValidPrivateMessage(data)) {
+              console.warn("[WebSocket] Received incomplete or invalid private message payload:", data);
+              break;
+            }
+            handleIncomingPrivateMessage(data);
             break;
 
           case "user_joined":
@@ -253,7 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "private_typing":
-            if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === data.from.toLowerCase()) {
+            if (data && data.from && chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === data.from.toLowerCase()) {
               toggleTypingIndicator(data.from, data.isTyping);
             }
             break;
@@ -303,21 +328,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Direct Message Handler
   function handleIncomingPrivateMessage(pm) {
+    if (!pm) return;
+
+    // Map fields supporting both unified and legacy keys for robust backward compatibility
+    const id = pm.id;
+    const sender = pm.senderName || pm.from;
+    const recipient = pm.recipientName || pm.to;
+    const content = pm.content !== undefined ? pm.content : pm.text;
+    const timestamp = pm.timestamp || pm.time;
+    const color = pm.color || "";
+
+    if (!sender || !recipient) return;
+
     // Detect conversation partner name
-    const partner = pm.from === currentUser ? pm.to : pm.from;
+    const partner = sender === currentUser ? recipient : sender;
     
     if (!privateChats[partner]) {
       privateChats[partner] = [];
     }
 
-    // Append only if not already duplicated
-    if (!privateChats[partner].some(m => m.id === pm.id)) {
+    // Append only if not already duplicated (checks using unique identifier)
+    if (!privateChats[partner].some(m => m.id === id)) {
       privateChats[partner].push({
-        id: pm.id,
-        sender: pm.from,
-        text: pm.text,
-        time: pm.time,
-        color: pm.color,
+        id: id,
+        sender: sender,
+        text: content,
+        time: timestamp,
+        color: color,
         unread: (partner !== activePrivateRecipient)
       });
       
@@ -328,11 +365,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Direct render if active
     if (chatMode === "private" && activePrivateRecipient === partner) {
       appendSingleMessage({
-        id: pm.id,
-        sender: pm.from,
-        text: pm.text,
-        time: pm.time,
-        color: pm.color
+        id: id,
+        sender: sender,
+        text: content,
+        time: timestamp,
+        color: color
       });
     }
 
@@ -340,11 +377,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Send Direct Message Frame
-  function sendPrivateMessage(text) {
+  function sendPrivateMessage(text, msgId) {
     if (!activePrivateRecipient || !socket || socket.readyState !== WebSocket.OPEN) return;
     
     socket.send(JSON.stringify({
       type: "private_message",
+      id: msgId,
       to: activePrivateRecipient,
       text: text,
       color: activeMessageColor || undefined
@@ -927,17 +965,20 @@ document.addEventListener("DOMContentLoaded", () => {
       }));
       clearReplyTarget();
     } else {
-      // Send private message
-      sendPrivateMessage(text);
+      // Generate unique client-side message ID to prevent duplicates
+      const msgId = "pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+
+      // Send private message via WebSocket including the client-side ID
+      sendPrivateMessage(text, msgId);
       
-      // Auto-append our sent private message local
+      // Auto-append our sent private message local with standard unified fields
       handleIncomingPrivateMessage({
-        id: "pm-sent-" + Date.now(),
-        from: currentUser,
-        to: activePrivateRecipient,
-        text: text,
+        id: msgId,
+        senderName: currentUser,
+        recipientName: activePrivateRecipient,
+        content: text,
         color: activeMessageColor || undefined,
-        time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+        timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
       });
     }
 
