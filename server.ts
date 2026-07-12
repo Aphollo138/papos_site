@@ -140,7 +140,7 @@ function getCurrentTime() {
   return now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-// Escapes special HTML tags to prevent XSS
+
 function sanitizeHTML(text: string): string {
   if (!text) return "";
   return text
@@ -162,7 +162,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papos.net.br",
+      "https://papo.net.br",
       "https://papos-site.onrender.com"
     ];
     
