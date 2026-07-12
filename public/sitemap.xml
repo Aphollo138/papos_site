@@ -1,33 +1,182 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Páginas Principais -->
   <url>
     <loc>https://papo.net.br/</loc>
-    <lastmod>2026-07-11</lastmod>
+    <lastmod>2026-07-12</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://papo.net.br/pagina-inicial</loc>
-    <lastmod>2026-07-11</lastmod>
+    <lastmod>2026-07-12</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://papo.net.br/salas</loc>
-    <lastmod>2026-07-11</lastmod>
+    <lastmod>2026-07-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/privacidade</loc>
-    <lastmod>2026-07-11</lastmod>
+    <lastmod>2026-07-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
     <loc>https://papo.net.br/termos</loc>
-    <lastmod>2026-07-11</lastmod>
+    <lastmod>2026-07-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
+  </url>
+
+  <!-- Blog Índice e Categorias -->
+  <url>
+    <loc>https://papo.net.br/blog/</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/categoria.html?cat=conexao-amizades</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/categoria.html?cat=psicologia-oratoria</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/categoria.html?cat=seguranca-privacidade</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Artigos Individuais do Blog (SEO Otimizados) -->
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-conversar-com-pessoas-online-com-seguranca</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-puxar-assunto-no-bate-papo-online</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-perder-a-timidez-e-fazer-amigos-na-internet</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=assuntos-mais-engajantes-para-conversas-no-chat</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-lidar-com-rejeicao-em-conversas-virtuais</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-desabafar-online-com-seguranca-e-privacidade</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=gatilhos-mentais-para-gerar-conexao-rapida-com-pessoas</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=linguagem-corporal-digital-como-entender-emoticons-e-pontuacao</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-identificar-perfis-falsos-e-golpes-em-salas-de-bate-papo</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=as-melhores-salas-de-bate-papo-brasileiras-em-2026</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-manter-uma-conversa-fluida-no-chat-virtual</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=por-que-o-anonimato-pode-ajudar-na-saude-mental-e-desabafos</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-fazer-amigos-em-outras-cidades-pelo-bate-papo</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=a-psicologia-por-tras-das-conexoes-espontaneas-na-internet</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-agir-em-casos-de-ofensas-ou-desrespeito-no-chat</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=diferenca-entre-conversas-superficiais-e-conexoes-profundas</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-migrar-do-chat-anonimo-para-uma-amizade-real</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=a-importancia-da-escuta-ativa-em-chats-de-texto</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=como-criar-um-apelido-criativo-e-atraente-no-bate-papo</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://papo.net.br/blog/artigo.html?slug=vicios-de-linguagem-no-chat-texto-como-evitar</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

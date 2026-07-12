@@ -48,6 +48,9 @@
             <li class="nav-item">
               <a class="nav-link active fw-semibold text-white" href="/perfil">Editar Perfil</a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link text-secondary" href="/blog/">Blog</a>
+            </li>
           </ul>
           <div class="d-flex align-items-center gap-3">
             <!-- Theme Switcher -->
@@ -174,14 +177,20 @@
     <footer class="py-5 mt-5" style="background-color: var(--background); border-top: 1px solid var(--border);">
       <div class="container py-3">
         <div class="row gy-4 justify-content-between">
-          <div class="col-md-5">
-            <a class="d-flex align-items-center gap-2 mb-3 text-decoration-none text-white" href="/" id="footer-logo-profile">
-              <img src="/favicon.svg" alt="Papos Logo" class="footer-logo" />
-              <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
-            </a>
-            <p class="text-secondary small">
-              Conexões sem burocracia, anônimo e direto do seu próprio navegador.
-            </p>
+          <div class="col-md-3">
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Navegação</h3>
+            <ul class="list-unstyled footer-nav-container">
+              <li><a href="/" class="footer-link">Início</a></li>
+              <li><a href="/salas" class="footer-link">Salas Ativas</a></li>
+              <li><a href="/perfil" class="footer-link fw-semibold text-white">Editar Perfil</a></li>
+              <li><a href="/blog/" class="footer-link">Blog</a></li>
+            </ul>
+          </div>
+          <div class="col-md-4">
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Artigos Populares</h3>
+            <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
+              <!-- Injetado dinamicamente via JS -->
+            </ul>
           </div>
         </div>
         <hr class="my-4 border-secondary opacity-25">
@@ -199,6 +208,31 @@
 
     <!-- Monetization Manager JS (Monetag) -->
     <script src="/assets/js/monetization.js"></script>
+
+    <!-- Banco de Dados e Motor do Blog -->
+    <script src="/assets/js/blog-posts.js"></script>
+    <script src="/assets/js/blog.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        if (window.BlogEngine) {
+          const footerPopular = document.getElementById("footer-popular-posts");
+          if (footerPopular) {
+            const popular = window.BlogEngine.getPopularPosts(3);
+            let html = "";
+            popular.forEach(post => {
+              html += `
+                <li>
+                  <a href="/blog/artigo.html?slug=${post.slug}" class="text-secondary text-decoration-none small hover:text-success d-block text-truncate" style="max-width: 280px;">
+                    &bull; ${post.title}
+                  </a>
+                </li>
+              `;
+            });
+            footerPopular.innerHTML = html;
+          }
+        }
+      });
+    </script>
 
     <!-- Lógica de Perfil -->
     <script>

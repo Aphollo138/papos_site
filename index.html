@@ -116,6 +116,9 @@
             <li class="nav-item">
               <a class="nav-link fw-medium" href="#safety">Segurança</a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link fw-medium" href="/blog/">Blog</a>
+            </li>
           </ul>
           
           <div class="d-flex align-items-center gap-3">
@@ -440,6 +443,26 @@
         </div>
       </section>
 
+      <!-- Seção Últimos Artigos do Blog -->
+      <section class="py-5" id="latest-blog-posts" style="background-color: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+        <div class="container py-4">
+          <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-5 scroll-reveal">
+            <div class="text-center text-md-start mb-3 mb-md-0">
+              <span class="text-success fw-bold text-uppercase tracking-wider small">Conteúdo & Conexões</span>
+              <h2 class="h1 fw-extrabold text-white mt-1 mb-2 font-display" style="letter-spacing: -1px;">Últimos artigos do Blog</h2>
+              <p class="text-secondary mb-0 small">Aprenda dicas valiosas de comunicação, amizade e navegação segura.</p>
+            </div>
+            <a href="/blog/" class="btn btn-outline-light rounded-pill px-4 py-2 small d-inline-flex align-items-center gap-1.5">
+              Ver todo o Blog <i class="bi bi-arrow-right-short fs-5"></i>
+            </a>
+          </div>
+
+          <div class="row g-4" id="home-blog-grid">
+            <!-- Os três artigos mais recentes serão carregados dinamicamente via JS -->
+          </div>
+        </div>
+      </section>
+
       <!-- Chamada Final (CTA / Entrada) -->
       <section class="py-5" id="login-anchor" style="background-color: var(--background);">
         <div class="container py-5">
@@ -492,14 +515,20 @@
               Encontre o seu espaço, participe de conversas espontâneas e faça novas conexões em tempo real sem nenhuma barreira ou cadastro corporativo.
             </p>
           </div>
-          <div class="col-md-5">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Navegação & Políticas</h3>
+          <div class="col-md-3">
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Políticas</h3>
             <ul class="list-unstyled footer-nav-container">
               <li><a href="/" class="footer-link">Início</a></li>
               <li><a href="/salas" class="footer-link">Salas Ativas</a></li>
               <li><a href="/#safety" class="footer-link">Segurança</a></li>
               <li><a href="/privacidade" class="footer-link">Privacidade</a></li>
               <li><a href="/termos" class="footer-link">Termos de Uso</a></li>
+            </ul>
+          </div>
+          <div class="col-md-4">
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Artigos Populares</h3>
+            <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
+              <!-- Injetado dinamicamente via JS -->
             </ul>
           </div>
         </div>
@@ -518,6 +547,10 @@
 
     <!-- Monetization Manager JS (Monetag) -->
     <script src="/assets/js/monetization.js"></script>
+
+    <!-- Banco de Dados e Motor do Blog -->
+    <script src="/assets/js/blog-posts.js"></script>
+    <script src="/assets/js/blog.js"></script>
 
     <!-- Page Interaction scripts -->
     <script>
@@ -634,6 +667,53 @@
 
         // Launch simulated phone mockup chats
         setTimeout(simulateConversation, 1500);
+
+        // --- CARREGAR CONTEÚDO DO BLOG NA HOME ---
+        if (window.BlogEngine) {
+          const homeGrid = document.getElementById("home-blog-grid");
+          if (homeGrid) {
+            const recent = window.BlogEngine.getRecentPosts(3);
+            let html = "";
+            recent.forEach(post => {
+              html += window.BlogEngine.buildPostCardHtml(post);
+            });
+            homeGrid.innerHTML = html;
+          }
+
+          const footerPopular = document.getElementById("footer-popular-posts");
+          if (footerPopular) {
+            const popular = window.BlogEngine.getPopularPosts(3);
+            let html = "";
+            popular.forEach(post => {
+              html += `
+                <li>
+                  <a href="/blog/artigo.html?slug=${post.slug}" class="text-secondary text-decoration-none small hover:text-success d-block text-truncate" style="max-width: 280px;">
+                    &bull; ${post.title}
+                  </a>
+                </li>
+              `;
+            });
+            footerPopular.innerHTML = html;
+          }
+
+          // Ativar revelações no scroll após renderizar
+          setTimeout(() => {
+            const revealElements = document.querySelectorAll(".scroll-reveal");
+            if ("IntersectionObserver" in window) {
+              const scrollObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                  if (entry.isIntersecting) {
+                    entry.target.classList.add("revealed");
+                    scrollObserver.unobserve(entry.target);
+                  }
+                });
+              }, { root: null, threshold: 0.05 });
+              revealElements.forEach(el => scrollObserver.observe(el));
+            } else {
+              revealElements.forEach(el => el.classList.add("revealed"));
+            }
+          }, 300);
+        }
       });
     </script>
   </body>

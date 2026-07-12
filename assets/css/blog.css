@@ -1,0 +1,173 @@
+/* 
+ * blog.css - Estilos adicionais exclusivos do Blog integrado do Papos
+ * 
+ * Mantém harmonia visual de 100% com style.css, apoiando-se nas variáveis globais
+ * de cores, tipografia, bordas e sombras tanto para tema claro quanto escuro.
+ */
+
+/* Estilos de Estrutura do Blog */
+.blog-hero {
+  padding: 100px 0 60px 0;
+  background-color: var(--background);
+}
+
+.blog-main {
+  background-color: var(--background);
+  min-height: 80vh;
+}
+
+/* Post Cards Adicionais e Adaptação */
+.card-body h3 a:hover {
+  color: var(--accent-color) !important;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+}
+
+/* Sidebar do Blog */
+.blog-sidebar .card {
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
+}
+
+.category-filter-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: var(--transition-smooth);
+}
+
+.category-filter-item:hover {
+  background-color: var(--surface-secondary);
+  color: var(--text-primary);
+  transform: translateX(4px);
+}
+
+.category-filter-item.active {
+  background-color: var(--surface-secondary);
+  color: var(--accent-color) !important;
+  font-weight: 600;
+}
+
+/* TOC (Table of Contents) */
+.toc-link {
+  border-left: 2px solid transparent;
+  padding-left: 12px;
+}
+
+.toc-link:hover {
+  border-left-color: var(--accent-color);
+  color: var(--text-primary) !important;
+  padding-left: 16px;
+}
+
+/* Artigo Completo */
+.article-header {
+  padding-top: 120px;
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.article-content {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  line-height: 1.8;
+}
+
+.article-content h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 40px;
+  margin-bottom: 20px;
+  letter-spacing: -0.5px;
+}
+
+.article-content h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 30px;
+  margin-bottom: 15px;
+}
+
+.article-content p {
+  margin-bottom: 24px;
+  color: var(--text-secondary);
+}
+
+/* FAQ Accordion Styling */
+.faq-accordion .accordion-item {
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.faq-accordion .accordion-button {
+  background-color: var(--surface) !important;
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  padding: 16px 20px;
+  box-shadow: none !important;
+}
+
+.faq-accordion .accordion-button:not(.collapsed) {
+  border-bottom: 1px solid var(--border);
+}
+
+.faq-accordion .accordion-body {
+  background-color: var(--background);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Compartilhamento Social */
+.social-share-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--surface-secondary);
+  color: var(--text-secondary);
+  transition: var(--transition-smooth);
+}
+
+.social-share-btn:hover {
+  background-color: var(--accent-color);
+  color: var(--black);
+  transform: translateY(-2px);
+}
+
+/* Tema Claro Overrides para o Blog */
+[data-theme="light"] .article-content p {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .category-filter-item:hover {
+  background-color: rgba(16, 185, 129, 0.08);
+}
+
+[data-theme="light"] .category-filter-item.active {
+  background-color: rgba(16, 185, 129, 0.12);
+}

@@ -140,7 +140,7 @@ function getCurrentTime() {
   return now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-
+// Escapes special HTML tags to prevent XSS
 function sanitizeHTML(text: string): string {
   if (!text) return "";
   return text
@@ -162,7 +162,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -198,7 +198,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -931,6 +931,13 @@ async function startServer() {
     app.get("/perfil", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/profile.html")));
     app.get("/privacidade", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/privacy.html")));
     app.get("/termos", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/terms.html")));
+
+    // Blog Routes
+    app.get("/blog", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
+    app.get("/blog/", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
+    app.get("/blog/index.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
+    app.get("/blog/categoria.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/categoria.html")));
+    app.get("/blog/artigo.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/artigo.html")));
     app.get("/entrar", (req, res) => {
       res.redirect("/#login-anchor");
     });
@@ -938,6 +945,9 @@ async function startServer() {
     // Fallbacks for direct HTML requests in dev
     app.get("/pages/:page.html", (req, res, next) => {
       serveTemplate(req, res, next, path.resolve(process.cwd(), "pages", `${req.params.page}.html`));
+    });
+    app.get("/blog/:page.html", (req, res, next) => {
+      serveTemplate(req, res, next, path.resolve(process.cwd(), "blog", `${req.params.page}.html`));
     });
 
     app.use(vite.middlewares);
@@ -973,6 +983,23 @@ async function startServer() {
     app.get("/termos", (req, res) => {
       res.sendFile(path.join(distPath, "pages", "terms.html"));
     });
+
+    // Blog Routes in production
+    app.get("/blog", (req, res) => {
+      res.sendFile(path.join(distPath, "blog", "index.html"));
+    });
+    app.get("/blog/", (req, res) => {
+      res.sendFile(path.join(distPath, "blog", "index.html"));
+    });
+    app.get("/blog/index.html", (req, res) => {
+      res.sendFile(path.join(distPath, "blog", "index.html"));
+    });
+    app.get("/blog/categoria.html", (req, res) => {
+      res.sendFile(path.join(distPath, "blog", "categoria.html"));
+    });
+    app.get("/blog/artigo.html", (req, res) => {
+      res.sendFile(path.join(distPath, "blog", "artigo.html"));
+    });
     app.get("/entrar", (req, res) => {
       res.redirect("/#login-anchor");
     });
@@ -980,6 +1007,9 @@ async function startServer() {
     // Fallbacks for direct URLs
     app.get("/pages/:page.html", (req, res) => {
       res.sendFile(path.join(distPath, "pages", `${req.params.page}.html`));
+    });
+    app.get("/blog/:page.html", (req, res) => {
+      res.sendFile(path.join(distPath, "blog", `${req.params.page}.html`));
     });
     
     // Evitar que arquivos estáticos com extensão ausentes (ex: .js, .css, .png, .json)
