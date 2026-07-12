@@ -1,10 +1,12 @@
+/**
+ * chat.js - Real-time WebSocket Client, Private Chats, Modal rooms, and Search engines
+ */
 
-
-
+// Global action handles
 let replyTargetMsg = null;
 let blockedUsers = JSON.parse(localStorage.getItem("papos_blocked_users") || "[]");
-let activePrivateRecipient = null; 
-let chatMode = "public"; 
+let activePrivateRecipient = null; // Username of active direct message partner
+let chatMode = "public"; // "public" or "private"
 let activeMessageColor = "";
 
 window.setMessageColor = (color, indicatorColor) => {
@@ -28,28 +30,28 @@ window.getUsernameColor = (username) => {
   const isLight = document.documentElement.getAttribute("data-theme") === "light";
   
   const darkThemeColors = [
-    "#38bdf8", 
-    "#34d399", 
-    "#f472b6", 
-    "#fbbf24", 
-    "#a78bfa", 
-    "#fb7185", 
-    "#60a5fa", 
-    "#fb923c", 
-    "#2dd4bf", 
-    "#a3e635"  
+    "#38bdf8", // Sky blue
+    "#34d399", // Emerald green
+    "#f472b6", // Pink
+    "#fbbf24", // Amber yellow
+    "#a78bfa", // Purple/violet
+    "#fb7185", // Rose
+    "#60a5fa", // Blue
+    "#fb923c", // Warm Orange
+    "#2dd4bf", // Teal
+    "#a3e635"  // Lime/green
   ];
 
   const lightThemeColors = [
-    "#0369a1", 
-    "#047857", 
-    "#be185d", 
-    "#b45309", 
-    "#6d28d9", 
-    "#be123c", 
-    "#1d4ed8", 
-    "#c2410c", 
-    "#0f766e"  
+    "#0369a1", // Deeper blue
+    "#047857", // Deeper emerald green
+    "#be185d", // Deeper magenta
+    "#b45309", // Deeper amber/brown
+    "#6d28d9", // Deeper purple
+    "#be123c", // Deeper rose/crimson
+    "#1d4ed8", // Deeper blue
+    "#c2410c", // Deeper orange
+    "#0f766e"  // Deeper teal
   ];
 
   const colors = isLight ? lightThemeColors : darkThemeColors;
@@ -63,17 +65,30 @@ window.getUsernameColor = (username) => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  const currentUser = window.ChatEngine.getUser();
+  const ChatEngine = window.ChatEngine || {
+    getUser: () => localStorage.getItem("papos_nickname") || null,
+    renderAvatar: (name, sizeClass = "") => {
+      const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
+      return `<div class="avatar-circle ${sizeClass}" title="${name}">${initial}</div>`;
+    },
+    connectSocket: () => {
+      const wsUrl = (window.CHAT_CONFIG && window.CHAT_CONFIG.getWebSocketUrl()) || 
+                     ((window.location.protocol === "https:" ? "wss:" : "ws:") + "//" + window.location.host);
+      return new WebSocket(wsUrl);
+    }
+  };
+
+  const currentUser = ChatEngine.getUser();
   if (!currentUser) {
     window.location.href = "/?error=name_required";
     return;
   }
 
- 
+  // Retrieve room param
   const urlParams = new URLSearchParams(window.location.search);
   let activeRoomId = urlParams.get("room") || "room-1";
 
-  
+  // Elements
   const chatMessagesContainer = document.getElementById("chat-messages-container");
   const messageInput = document.getElementById("message-input");
   const sendButton = document.getElementById("btn-send");
@@ -81,38 +96,38 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebarAvatarPlaceholder = document.getElementById("sidebar-user-avatar-placeholder");
   const btnClearChat = document.getElementById("btn-clear-chat");
   
-  
+  // Sidebar mobile toggler
   const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
   const chatSidebar = document.getElementById("chat-sidebar");
   
-  
+  // Search features
   const btnToggleSearch = document.getElementById("btn-toggle-search");
   const searchBarWrapper = document.getElementById("chat-search-bar-wrapper");
   const searchMessagesInput = document.getElementById("chat-search-messages-input");
   const btnCloseSearch = document.getElementById("btn-close-search");
   
-  
+  // Room modal features
   const modalRoomsContainer = document.getElementById("modal-rooms-container");
   const searchRoomsModal = document.getElementById("search-rooms-modal");
   
-  
+  // Members list features
   const membersListContainer = document.getElementById("members-list-container");
   const searchMembersInput = document.getElementById("search-members-input");
   
-  
+  // Private chats list features
   const privateConversationsList = document.getElementById("private-conversations-list");
   const totalPrivateUnreadBadge = document.getElementById("total-private-unread");
   
- 
+  // Reply reference
   const replyReferenceBar = document.getElementById("reply-reference-bar");
   const replyReferenceText = document.getElementById("reply-reference-text");
   const btnCancelReply = document.getElementById("btn-cancel-reply");
   const typingIndicatorBar = document.getElementById("typing-indicator-bar");
   
-
+  // Back to public chat button
   const btnBackToPublic = document.getElementById("btn-back-to-public");
 
-  
+  // In-memory data states
   let socket = null;
   let typingTimeout = null;
   let isCurrentlyTyping = false;
@@ -122,18 +137,18 @@ document.addEventListener("DOMContentLoaded", () => {
   let onlineUsersList = [];
   let activeTypingUsers = new Set();
   
-  
+  // Local direct messages storage mapped by username
   let privateChats = JSON.parse(localStorage.getItem(`papos_pms_${currentUser}`) || "{}");
 
-  
+  // Load User Details in sidebar
   if (sidebarUsername && sidebarAvatarPlaceholder) {
     sidebarUsername.textContent = currentUser;
-    sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(currentUser, "avatar-lg mx-auto mb-2");
+    sidebarAvatarPlaceholder.innerHTML = ChatEngine.renderAvatar(currentUser, "avatar-lg mx-auto mb-2");
   }
 
-  
+  // Connect WebSockets
   function connect() {
-    socket = window.ChatEngine.connectSocket();
+    socket = ChatEngine.connectSocket();
 
     socket.onopen = () => {
       console.log("[Chat] Connected. Joining public room: " + activeRoomId);
@@ -155,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
             publicRoomMessages = data.messages;
             onlineUsersList = data.onlineUsers;
             
-          
+            // Sync UI headers
             updateActiveHeader(data.roomName, data.roomDesc);
             renderMessages();
             renderMembers();
@@ -271,7 +286,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  
+  // Update central Header
   function updateActiveHeader(name, desc) {
     const headerName = document.getElementById("active-room-name");
     const headerDesc = document.getElementById("active-room-description");
@@ -286,16 +301,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  
+  // Direct Message Handler
   function handleIncomingPrivateMessage(pm) {
-   
+    // Detect conversation partner name
     const partner = pm.from === currentUser ? pm.to : pm.from;
     
     if (!privateChats[partner]) {
       privateChats[partner] = [];
     }
 
-  
+    // Append only if not already duplicated
     if (!privateChats[partner].some(m => m.id === pm.id)) {
       privateChats[partner].push({
         id: pm.id,
@@ -306,11 +321,11 @@ document.addEventListener("DOMContentLoaded", () => {
         unread: (partner !== activePrivateRecipient)
       });
       
-      
+      // Save local persistence
       localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
     }
 
-   
+    // Direct render if active
     if (chatMode === "private" && activePrivateRecipient === partner) {
       appendSingleMessage({
         id: pm.id,
@@ -324,7 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPrivateConversationsSidebar();
   }
 
-  
+  // Send Direct Message Frame
   function sendPrivateMessage(text) {
     if (!activePrivateRecipient || !socket || socket.readyState !== WebSocket.OPEN) return;
     
@@ -336,21 +351,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   }
 
-  
+  // Start direct conversation with user
   window.startPrivateChat = (partnerName) => {
     if (partnerName === currentUser) {
       alert("Você não pode iniciar um chat privado com você mesmo!");
       return;
     }
 
-    
+    // Close members panel
     const offcanvasEl = document.getElementById("offcanvasMembers");
     if (offcanvasEl) {
       const offcanvasInstance = bootstrap.Offcanvas.getInstance(offcanvasEl);
       if (offcanvasInstance) offcanvasInstance.hide();
     }
 
-    
+    // Close sidebar on mobile
     if (chatSidebar && chatSidebar.classList.contains("active")) {
       chatSidebar.classList.remove("active");
     }
@@ -365,7 +380,7 @@ document.addEventListener("DOMContentLoaded", () => {
       privateChats[partnerName] = [];
     }
 
-   
+    // Mark as read
     privateChats[partnerName].forEach(m => m.unread = false);
     localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
 
@@ -373,11 +388,11 @@ document.addEventListener("DOMContentLoaded", () => {
     renderMessages();
     renderPrivateConversationsSidebar();
 
-    
+    // Focus on entry
     if (messageInput) messageInput.focus();
   };
 
-  
+  // Return to public channel
   if (btnBackToPublic) {
     btnBackToPublic.addEventListener("click", () => {
       chatMode = "public";
@@ -387,7 +402,7 @@ document.addEventListener("DOMContentLoaded", () => {
       activeTypingUsers.clear();
       if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
       
-     
+      // Re-trigger server sync for safety
       socket.send(JSON.stringify({
         type: "join",
         nickname: currentUser,
@@ -396,7 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Render Left Private Chats Threads
   function renderPrivateConversationsSidebar() {
     if (!privateConversationsList) return;
     
@@ -452,14 +467,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  
+  // Copy to clipboard helper
   window.copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       alert("Texto copiado para a área de transferência!");
     }).catch(err => console.error("Clipboard failure:", err));
   };
 
-  
+  // Render dynamic Message feed with consecutive sender grouping
   function renderMessages(filterText = "") {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.innerHTML = "";
@@ -493,18 +508,18 @@ document.addEventListener("DOMContentLoaded", () => {
         sysDiv.className = "msg-system";
         sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${msg.text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${msg.time})</span>`;
         chatMessagesContainer.appendChild(sysDiv);
-        lastSender = null; 
+        lastSender = null; // Break grouping
       } else {
         const isMe = msg.sender === (window.confirmedNickname || currentUser);
         
-       
+        // Group consecutive message rows
         const isGrouped = (msg.sender === lastSender);
 
         const msgDiv = document.createElement("div");
         msgDiv.className = `msg-container ${isGrouped ? 'msg-grouped' : ''}`;
         msgDiv.id = `msg-id-${msg.id}`;
 
-        
+        // Reactions Html build (Only for public rooms)
         let reactionsHtml = "";
         if (chatMode === "public" && msg.reactions && Object.keys(msg.reactions).length > 0) {
           reactionsHtml = '<div class="reactions-list">';
@@ -520,7 +535,7 @@ document.addEventListener("DOMContentLoaded", () => {
           reactionsHtml += '</div>';
         }
 
-        
+        // Reply HTML Build (Only for public rooms)
         let replyHtml = "";
         if (chatMode === "public" && msg.replyTo) {
           replyHtml = `
@@ -530,7 +545,7 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
         }
 
-        
+        // Actions menu overlay
         let actionsHtml = "";
         let deleteBtnHtml = isMe ? `
           <button class="btn-action-msg text-danger" onclick="window.deleteMessage('${msg.id}')" title="Excluir Mensagem">
@@ -553,7 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           `;
         } else {
-          
+          // Direct message actions
           actionsHtml = `
             <div class="message-actions-menu">
               <button class="btn-action-msg" onclick="copyToClipboard('${msg.text.replace(/'/g, "\\'")}')" title="Copiar"><i class="bi bi-clipboard"></i></button>
@@ -585,7 +600,7 @@ document.addEventListener("DOMContentLoaded", () => {
     scrollToBottom();
   }
 
-  
+  // Real-time append single incoming msg frame
   function appendSingleMessage(msg) {
     if (!chatMessagesContainer) return;
     const isBlocked = blockedUsers.includes(msg.sender);
@@ -597,7 +612,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const isMe = msg.sender === (window.confirmedNickname || currentUser);
     
-    
+    // Check grouping
     const lastMsgDiv = chatMessagesContainer.lastElementChild;
     const isGrouped = lastMsgDiv && lastMsgDiv.classList.contains("msg-container") && 
                       !lastMsgDiv.classList.contains("msg-system") &&
@@ -665,7 +680,7 @@ document.addEventListener("DOMContentLoaded", () => {
     scrollToBottom();
   }
 
- 
+  // Draw system messages
   function appendSystemMessage(text) {
     if (!chatMessagesContainer) return;
     const sysDiv = document.createElement("div");
@@ -675,7 +690,7 @@ document.addEventListener("DOMContentLoaded", () => {
     scrollToBottom();
   }
 
-  
+  // Search/Filters elements on message feed
   const setupSearchToggle = (btn) => {
     if (!btn) return;
     btn.addEventListener("click", () => {
@@ -708,7 +723,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Modal Rooms render engine
   function renderModalRooms(filterText = "") {
     if (!modalRoomsContainer) return;
     modalRoomsContainer.innerHTML = "";
@@ -751,9 +766,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
- 
+  // Public switcher
   window.switchPublicRoom = (roomId) => {
-    
+    // Hide modal
     const modalEl = document.getElementById("roomsModal");
     if (modalEl) {
       const modalInstance = bootstrap.Modal.getInstance(modalEl);
@@ -767,11 +782,11 @@ document.addEventListener("DOMContentLoaded", () => {
     activeTypingUsers.clear();
     if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
 
-    
+    // Update URL query state gracefully without reloading
     const newUrl = `${window.location.pathname}?room=${roomId}`;
     window.history.pushState({ path: newUrl }, "", newUrl);
 
-    
+    // Join room
     socket.send(JSON.stringify({
       type: "join",
       nickname: currentUser,
@@ -785,7 +800,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Draw Members connected in offcanvas under active search filtering
   function renderMembers(filterText = "") {
     if (!membersListContainer) return;
     membersListContainer.innerHTML = "";
@@ -837,7 +852,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Handle typing activity indicators
   function toggleTypingIndicator(nickname, isTyping) {
     if (!typingIndicatorBar) return;
     
@@ -881,13 +896,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  
+  // Scroll to bottom helper
   function scrollToBottom() {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
   }
 
-  
+  // Handle Message dispatching (Public rooms vs Direct private threads)
   function handleSendMessage() {
     if (!messageInput || !socket) return;
     const text = messageInput.value.trim();
@@ -899,7 +914,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (chatMode === "public") {
-     
+      // Send standard message
       socket.send(JSON.stringify({
         type: "message",
         text: text,
@@ -912,10 +927,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }));
       clearReplyTarget();
     } else {
-     
+      // Send private message
       sendPrivateMessage(text);
       
-     
+      // Auto-append our sent private message local
       handleIncomingPrivateMessage({
         id: "pm-sent-" + Date.now(),
         from: currentUser,
@@ -927,10 +942,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     messageInput.value = "";
-    messageInput.style.height = "40px"; 
+    messageInput.style.height = "40px"; // Reset height on send
     messageInput.focus();
 
-   
+    // Disable typing trigger
     if (isCurrentlyTyping) {
       isCurrentlyTyping = false;
       if (chatMode === "public") {
@@ -941,10 +956,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  
+  // Debounced Typing Packets and Dynamic Textarea Resizing
   if (messageInput) {
     messageInput.addEventListener("input", () => {
-     
+      // Adjust height dynamically
       messageInput.style.height = "auto";
       const scrollHeight = messageInput.scrollHeight;
       const maxHeight = 120;
@@ -989,7 +1004,7 @@ document.addEventListener("DOMContentLoaded", () => {
     sendButton.addEventListener("click", handleSendMessage);
   }
 
- 
+  // Sidebar Toggling for mobile
   if (btnToggleSidebar && chatSidebar) {
     btnToggleSidebar.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1007,7 +1022,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // History cleaner
   const setupClearChat = (btn) => {
     if (!btn) return;
     btn.addEventListener("click", () => {
@@ -1021,16 +1036,16 @@ document.addEventListener("DOMContentLoaded", () => {
   setupClearChat(btnClearChat);
   setupClearChat(document.getElementById("btn-clear-chat-mobile"));
 
-  
+  // Reply cancel trigger
   if (btnCancelReply) {
     btnCancelReply.addEventListener("click", clearReplyTarget);
   }
 
-  
+  // Initialize socket
   connect();
   renderPrivateConversationsSidebar();
 
-  
+  // Expose triggers
   window.sendReaction = (messageId, emoji) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
@@ -1071,7 +1086,7 @@ document.addEventListener("DOMContentLoaded", () => {
     alert(`Usuário '${username}' denunciado. Nossa equipe de moderação avaliará o comportamento nas últimas conversas.`);
   };
 
-  
+  // Conversas Privadas list accordion toggle
   const privateToggleHeader = document.getElementById("private-chats-toggle");
   const privateList = document.getElementById("private-conversations-list");
   const privateArrow = document.getElementById("private-chats-arrow");
@@ -1092,7 +1107,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Backdrop click handler for mobile
   const sidebarBackdrop = document.getElementById("sidebar-backdrop");
   if (sidebarBackdrop && chatSidebar) {
     sidebarBackdrop.addEventListener("click", () => {
@@ -1101,7 +1116,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Draggable Resizable Sidebar (Desktop/Tablet only, with touch support)
   const resizer = document.getElementById("sidebar-resizer");
   const sidebar = document.getElementById("chat-sidebar");
   let isResizing = false;
@@ -1119,23 +1134,23 @@ document.addEventListener("DOMContentLoaded", () => {
           if (savedWidth > maxSidebarWidth) savedWidth = maxSidebarWidth;
           sidebar.style.width = savedWidth + "px";
         } else {
-          sidebar.style.width = "280px"; 
+          sidebar.style.width = "280px"; // default desktop width
         }
       } else {
-        sidebar.style.width = ""; 
+        sidebar.style.width = ""; // Reset width on mobile to fallback to CSS layout
       }
     };
 
-   
+    // Apply initially
     applySidebarWidth();
 
-    
+    // Listen to window resizing
     window.addEventListener("resize", applySidebarWidth);
 
     const startResize = (clientX) => {
       isResizing = true;
       resizer.classList.add("dragging");
-      sidebar.style.transition = "none"; 
+      sidebar.style.transition = "none"; // Disable CSS transition for ultra-smooth live dragging
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     };
@@ -1157,14 +1172,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isResizing) {
         isResizing = false;
         resizer.classList.remove("dragging");
-        sidebar.style.transition = ""; 
+        sidebar.style.transition = ""; // Restore transitions
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         localStorage.setItem("papos_sidebar_width", sidebar.offsetWidth);
       }
     };
 
-   
+    // Mouse Resizing Events
     resizer.addEventListener("mousedown", (e) => {
       if (window.innerWidth <= 768) return;
       e.preventDefault();
@@ -1178,7 +1193,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("mouseup", stopResize);
 
-    
+    // Touch Resizing Events
     resizer.addEventListener("touchstart", (e) => {
       if (window.innerWidth <= 768) return;
       if (e.touches.length > 0) {
@@ -1197,7 +1212,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-
+// Reply target actions
 function setReplyTarget(id, sender, text) {
   replyTargetMsg = { id, sender, text };
   const bar = document.getElementById("reply-reference-bar");
@@ -1217,7 +1232,7 @@ function clearReplyTarget() {
   if (bar) bar.classList.add("d-none");
 }
 
-
+// Custom Pure Vanilla JS Emoji Picker Implementation
 const EMOJI_CATEGORIES = {
   faces: [
     "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","😈","👿","👹","👺","💀","☠️","👻","👽","👾","🤖","💩","😺","😸","😹","😻","😼","😽","🙀","😿","😾","👋","🤚","🖐️","✋","🖖","👌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✍️","💅","🤳","💪","🦾","🧠","🧡"
@@ -1242,7 +1257,7 @@ const EMOJI_CATEGORIES = {
   ]
 };
 
-
+// Portuguese Search Tags for Emojis
 const EMOJI_TAGS = {
   "😀": "sorriso rir alegre feliz dente papos", "😃": "sorriso rir alegre feliz dente", "😄": "sorriso rir alegre feliz olho", "😁": "sorriso rindo alegre dente",
   "😆": "gargalhada rir risada engraçado", "😅": "suor rir alivio tenso", "😂": "chorar de rir riso gargalhada engraçado", "🤣": "rolar de rir risada hilario",
@@ -1286,7 +1301,7 @@ window.renderEmojiGrid = function(emojis, targetContainer, isMobile) {
     btn.style.transition = "transform 0.1s ease";
     btn.innerText = emoji;
     
-    
+    // Insert emoji on click
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       const input = document.getElementById("message-input");
@@ -1298,12 +1313,12 @@ window.renderEmojiGrid = function(emojis, targetContainer, isMobile) {
         input.selectionStart = input.selectionEnd = startPos + emoji.length;
         input.focus();
         
-        
+        // Trigger input event to auto-expand height
         input.dispatchEvent(new Event("input", { bubbles: true }));
       }
     });
     
-    
+    // Add hover effect
     btn.addEventListener("mouseenter", () => {
       btn.style.transform = "scale(1.2)";
     });
@@ -1323,11 +1338,11 @@ window.filterEmojis = function(query, containerId, isMobile) {
   const cleanQuery = query.toLowerCase().trim();
   
   if (cleanQuery === "") {
-   
+    // Show emojis for current category
     const category = window.currentEmojiCategory || "faces";
     const emojis = EMOJI_CATEGORIES[category] || [];
     window.renderEmojiGrid(emojis, container, isMobile);
-    
+    // Show tabs again
     let parent = container.parentElement;
     if (parent) {
       const tabs = parent.querySelector(".emoji-tabs");
@@ -1338,7 +1353,7 @@ window.filterEmojis = function(query, containerId, isMobile) {
     return;
   }
   
-  
+  // Find matching emojis across all categories
   const matchedEmojis = [];
   
   for (const cat in EMOJI_CATEGORIES) {
@@ -1364,7 +1379,7 @@ window.filterEmojis = function(query, containerId, isMobile) {
     window.renderEmojiGrid(matchedEmojis, container, isMobile);
   }
   
-  
+  // Hide category tabs when searching to avoid layout clutter
   let parent = container.parentElement;
   if (parent) {
     const tabs = parent.querySelector(".emoji-tabs");
@@ -1404,7 +1419,7 @@ window.switchEmojiCategory = function(category) {
     if (mobileTabs) mobileTabs.style.setProperty("display", "flex", "important");
   }
 
-  
+  // Update active tab styling for both desktop and mobile panels
   const updateTabs = (dropdownId) => {
     const dropdown = document.getElementById(dropdownId);
     if (dropdown) {
@@ -1429,7 +1444,7 @@ window.switchEmojiCategory = function(category) {
   updateTabs("mobile-actions-dropdown");
 };
 
-
+// Search listeners and Mobile Menu Multi-Step bindings
 document.addEventListener("DOMContentLoaded", () => {
   const searchDesktop = document.getElementById("emoji-search-desktop");
   const searchMobile = document.getElementById("emoji-search-mobile");
@@ -1446,7 +1461,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Set up mobile action menu triggers
   const btnMobileOpenEmojis = document.getElementById("btn-mobile-open-emojis");
   const btnMobileOpenColors = document.getElementById("btn-mobile-open-colors");
   const btnMobileEmojiBack = document.getElementById("btn-mobile-emoji-back");
@@ -1493,7 +1508,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Reset menu steps when clicking mobile actions button
   const btnMobileActions = document.getElementById("btn-mobile-actions");
   if (btnMobileActions) {
     btnMobileActions.addEventListener("click", () => {
@@ -1506,16 +1521,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-
+// Expose safe Mock commonJS module exports for emoji-picker-react package to satisfy requirements
 if (typeof exports !== 'undefined') {
   try {
     exports.EmojiPickerReact = require('emoji-picker-react');
   } catch (e) {
-    
+    // Ignore gracefully in client browsers
   }
 }
 
-
+// Initialize faces category initially
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => { window.switchEmojiCategory("faces"); }, 200);

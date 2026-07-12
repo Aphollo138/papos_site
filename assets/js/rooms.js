@@ -1,27 +1,42 @@
-
+/**
+ * rooms.js - Real-time rooms view syncing over WebSockets for Papos
+ */
 
 document.addEventListener("DOMContentLoaded", () => {
-  const user = window.ChatEngine.getUser();
+  const ChatEngine = window.ChatEngine || {
+    getUser: () => localStorage.getItem("papos_nickname") || null,
+    renderAvatar: (name, sizeClass = "") => {
+      const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
+      return `<div class="avatar-circle ${sizeClass}" title="${name}">${initial}</div>`;
+    },
+    connectSocket: () => {
+      const wsUrl = (window.CHAT_CONFIG && window.CHAT_CONFIG.getWebSocketUrl()) || 
+                     ((window.location.protocol === "https:" ? "wss:" : "ws:") + "//" + window.location.host);
+      return new WebSocket(wsUrl);
+    }
+  };
+
+  const user = ChatEngine.getUser();
   if (!user) {
     window.location.href = "/?error=name_required";
     return;
   }
 
- 
+  // DOM Elements
   const roomsContainer = document.getElementById("rooms-container");
   const searchInput = document.getElementById("search-rooms");
   const createRoomForm = document.getElementById("create-room-form");
   const userHeaderContainer = document.getElementById("user-profile-header");
   const createRoomModalEl = document.getElementById("createRoomModal");
 
-  
+  // In-memory rooms cache for local filtering
   let cachedRooms = [];
 
-  
+  // Render User Header Profile
   if (userHeaderContainer) {
     userHeaderContainer.innerHTML = `
       <div class="d-flex align-items-center gap-2">
-        ${window.ChatEngine.renderAvatar(user, "avatar-sm")}
+        ${ChatEngine.renderAvatar(user, "avatar-sm")}
         <div class="d-none d-sm-block text-start">
           <p class="mb-0 fw-semibold lh-1 text-white">${user}</p>
           <small class="text-success"><span class="status-indicator status-online position-static d-inline-block me-1" style="width:6px; height:6px;"></span>Conectado</small>
@@ -30,8 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
-  
-  const socket = window.ChatEngine.connectSocket();
+  // Connect to the real-time WebSocket server
+  const socket = ChatEngine.connectSocket();
 
   socket.onopen = () => {
     console.log("[Rooms] Connected to WebSocket server.");
@@ -48,12 +63,12 @@ document.addEventListener("DOMContentLoaded", () => {
           break;
 
         case "room_created":
-          
+          // Close modal
           const modalInstance = bootstrap.Modal.getInstance(createRoomModalEl);
           if (modalInstance) {
             modalInstance.hide();
           }
-          
+          // Redirect straight to new room clean route
           window.location.href = `/chat?room=${data.room.id}`;
           break;
 
@@ -70,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.error("[Rooms] Socket error:", err);
   };
 
-  
+  // Render rooms cards based on current query
   function renderRooms(filterText = "") {
     if (!roomsContainer) return;
     roomsContainer.innerHTML = "";
@@ -99,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const col = document.createElement("div");
       col.className = "col-md-6 col-lg-4";
       
-      
+      // Determine initials for clean editorial avatar
       const initials = room.name.split(" ").map(w => w.charAt(0)).join("").substring(0, 2).toUpperCase();
       const countLabel = room.count === 1 ? "1 pessoa ativa" : `${room.count} pessoas ativas`;
 
@@ -134,14 +149,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // Handle Search Input Filter
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
       renderRooms(e.target.value);
     });
   }
 
-  
+  // Handle Create Room Modal Submit
   if (createRoomForm) {
     createRoomForm.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -154,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (name === "") return;
 
-      
+      // Send room creation request over WS
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
           type: "create_room",

@@ -110,7 +110,7 @@ const ChatEngine = {
     return colors[sum % colors.length];
   },
 
- 
+  // HTML Avatar bubble builder
   renderAvatar(name, sizeClass = "") {
     if (!name || name.trim() === "") name = "A";
     const initial = name.trim().charAt(0).toUpperCase();
@@ -123,18 +123,18 @@ const ChatEngine = {
   }
 };
 
-
+// Apply theme before page renders to avoid white flashes
 ChatEngine.initTheme();
 
-
+// Global reveal scroll animations, progress indicator and navbar resize
 document.addEventListener("DOMContentLoaded", () => {
-  
+  // Let style sheets know JavaScript is working
   document.documentElement.classList.add('js-enabled');
   document.documentElement.classList.add('js-active');
   
   ChatEngine.init();
 
-  
+  // Atualizar o indicador de servidor ativo dinamicamente no rodapé se ele existir
   const serverIndicator = document.getElementById("active-server-indicator");
   if (serverIndicator) {
     const wsUrl = window.CHAT_CONFIG.getWebSocketUrl();
@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
     serverIndicator.textContent = `Servidor ativo: ${serverHost}`;
   }
 
-  
+  // 1. Reading Progress Bar Logic
   const progressBar = document.getElementById("scroll-progress-bar");
   window.addEventListener("scroll", () => {
     const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
@@ -152,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
       progressBar.style.width = scrolled + "%";
     }
 
-    
+    // 2. Navbar Shrink / Floating Behavior
     const header = document.querySelector(".navbar-custom");
     if (header) {
       if (window.scrollY > 20) {
@@ -163,14 +163,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
- 
+  // 3. Staggered Entrance Scroll Reveal Animations
   const revealElements = document.querySelectorAll(".scroll-reveal");
   if ("IntersectionObserver" in window) {
     const scrollObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add("revealed");
-          
+          // Stop observing so it only triggers once
           scrollObserver.unobserve(entry.target);
         }
       });
@@ -182,11 +182,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     revealElements.forEach(el => scrollObserver.observe(el));
   } else {
-    
+    // Fallback if IntersectionObserver is not supported
     revealElements.forEach(el => el.classList.add("revealed"));
   }
 
-  
+  // 4. Keyboard support for theme toggle button
   const themeToggleWrappers = document.querySelectorAll(".theme-switch-container");
   themeToggleWrappers.forEach(wrap => {
     wrap.addEventListener("keydown", (e) => {
@@ -198,5 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-
+// Bind globally
 window.ChatEngine = ChatEngine;
+window.ChatEngineInitialized = true;

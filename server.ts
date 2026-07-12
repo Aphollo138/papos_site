@@ -897,6 +897,12 @@ async function startServer() {
     console.log("Starting server in PRODUCTION mode...");
     const distPath = path.join(process.cwd(), "dist");
 
+    // Servir arquivos estáticos da pasta "assets" raiz primeiro para que scripts não compilados funcionem
+    app.use("/assets", express.static(path.join(process.cwd(), "assets")));
+
+    // Servir arquivos estáticos do build do Vite (dist/)
+    app.use(express.static(distPath));
+
     // Clean routes in production
     app.get("/", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
@@ -923,13 +929,22 @@ async function startServer() {
       res.redirect("/#login-anchor");
     });
 
-    app.use(express.static(distPath));
-    
     // Fallbacks for direct URLs
     app.get("/pages/:page.html", (req, res) => {
       res.sendFile(path.join(distPath, "pages", `${req.params.page}.html`));
     });
     
+    // Evitar que arquivos estáticos com extensão ausentes (ex: .js, .css, .png, .json)
+    // caiam na rota curinga "*" e retornem o index.html, gerando erro de sintaxe.
+    app.use((req, res, next) => {
+      const ext = path.extname(req.path);
+      if (ext && ext !== ".html") {
+        res.status(404).set("Content-Type", "text/plain").send("Not Found");
+        return;
+      }
+      next();
+    });
+
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });

@@ -5,6 +5,19 @@
     <script>
       document.documentElement.classList.add('js-enabled');
       document.documentElement.classList.add('js-active');
+      
+      // Fallback de segurança: Se o script principal do chat (main.js) falhar ou demorar mais de 1.5s
+      // para inicializar devido a problemas de rede/cache/etc, mostre todo o conteúdo automaticamente!
+      setTimeout(function() {
+        if (!window.ChatEngineInitialized) {
+          console.warn("[Progressive Enhancement] Chamando fallback de emergência: main.js não inicializou a tempo.");
+          document.documentElement.classList.remove('js-enabled');
+          const elements = document.querySelectorAll(".scroll-reveal");
+          elements.forEach(function(el) {
+            el.classList.add("revealed");
+          });
+        }
+      }, 1500);
     </script>
     
     <meta charset="UTF-8" />
