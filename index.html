@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    
+    <!-- Progressive Enhancement: Pre-set JS classes to avoid layout flashes -->
     <script>
       document.documentElement.classList.add('js-enabled');
       document.documentElement.classList.add('js-active');
     </script>
     
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Papos - Sempre tem alguém querendo trocar ideia | papos.net.br</title>
     
     <meta name="description" content="Sem perfis perfeitos ou pressão social. Escolha uma sala no Papos, use um apelido temporário e converse em tempo real sobre música, jogos, desabafos e mais." />
@@ -17,7 +17,7 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://papos.net.br/" />
 
-   
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Papos - Sempre tem alguém querendo trocar ideia" />
     <meta property="og:description" content="Entre em salas temáticas de forma instantânea e totalmente anônima. Sem cadastro, sem burocracia, apenas conversas reais." />
@@ -32,7 +32,7 @@
     <meta name="twitter:description" content="Entre para conversar de forma fluida, desabafar com privacidade ou conhecer novas pessoas de todo o Brasil instantaneamente." />
     <meta name="twitter:image" content="https://papos.net.br/assets/img/og-image.jpg" />
 
-    
+    <!-- Structured Data (JSON-LD) for SEO -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -51,30 +51,31 @@
     }
     </script>
 
-   
+    <!-- Manifest & Favicons -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" sizes="32x32" href="https://img.icons8.com/?size=32&id=118497&format=png" />
     <link rel="icon" type="image/png" sizes="16x16" href="https://img.icons8.com/?size=16&id=118497&format=png" />
     <link rel="apple-touch-icon" sizes="180x180" href="https://img.icons8.com/?size=180&id=118497&format=png" />
 
-   
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-   
+    
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
- 
+    <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="/assets/css/style.css" />
   </head>
   <body>
 
-
+    <!-- Scroll Progress Bar -->
     <div id="scroll-progress-bar" style="position: fixed; top: 0; left: 0; height: 4px; background: #00e676; width: 0%; z-index: 9999; transition: width 0.1s ease-out;"></div>
 
-   
+    <!-- Header / Navbar Principal Flutuante -->
     <header class="navbar navbar-expand-lg fixed-top navbar-custom" id="main-header" aria-label="Menu principal">
       <div class="container-fluid d-flex align-items-center justify-content-between">
         
-    
+        <!-- Brand Branding -->
         <a class="navbar-brand d-flex align-items-center gap-2 m-0" href="/">
           <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: 900; width: 34px; height: 34px;">
             P
@@ -82,12 +83,12 @@
           <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
         </a>
         
-    
+        <!-- Toggle button for mobile menu -->
         <button class="navbar-toggler border-0 ms-auto me-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Alternar menu de navegação" style="filter: invert(1);">
           <span class="navbar-toggler-icon"></span>
         </button>
         
-  
+        <!-- Collapsible Navbar Content -->
         <div class="collapse navbar-collapse" id="navbarContent">
           <ul class="navbar-nav mx-auto mb-2 mb-lg-0 gap-1">
             <li class="nav-item">
@@ -105,7 +106,7 @@
           </ul>
           
           <div class="d-flex align-items-center gap-3">
-         
+            <!-- Theme Toggler switch (sun/moon custom toggle from design) -->
             <div class="theme-switch-container d-flex align-items-center gap-2" role="button" tabindex="0" onclick="window.ChatEngine.toggleTheme()" style="cursor: pointer;" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
               <i class="bi bi-sun-fill theme-sun-icon" style="font-size: 1.1rem; color: #ffb300; transition: var(--transition-smooth);"></i>
               <img src="/assets/img/toggle-off.svg" class="theme-toggle-img" alt="Alternar tema" style="width: 44px; height: 26px; transition: var(--transition-smooth); display: block;" />
@@ -119,11 +120,11 @@
     </header>
 
     <main>
-   
+      <!-- Hero Section -->
       <section class="hero-section" id="hero-banner">
         <div class="container position-relative">
           <div class="row align-items-center gy-5">
-       
+            <!-- Textos e Propostas -->
             <div class="col-lg-6 text-center text-lg-start">
               <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 mb-4 border border-secondary rounded-pill bg-dark scroll-reveal" style="font-size: 0.8rem;">
                 <span class="status-indicator status-online d-inline-block"></span>
@@ -150,10 +151,10 @@
               </p>
             </div>
 
-          
+            <!-- Mockup de Smartphone Minimalista (Direito) -->
             <div class="col-lg-6 position-relative d-flex justify-content-center">
               <div class="mockup-wrapper scroll-reveal reveal-right delay-200">
-             
+                <!-- Decorative absolute badges around mockup for visual depth -->
                 <div class="position-absolute bg-dark border border-secondary px-3 py-2 rounded-pill d-none d-md-flex align-items-center gap-2 shadow" style="top: 20%; left: -30px; z-index: 100; font-size: 0.75rem;">
                   <span class="status-indicator status-online"></span>
                   <span class="text-white-50">Música & Playlists ativa</span>
@@ -167,7 +168,7 @@
                   <div class="phone-notch" aria-hidden="true"></div>
                   <div class="phone-screen">
                     
-               
+                    <!-- Cabeçalho do Chat Simulado -->
                     <div class="phone-header">
                       <div class="avatar-circle" style="background-color: #f43f5e; color: #ffffff; width: 32px; height: 32px; font-size: 0.85rem;">P</div>
                       <div>
@@ -179,14 +180,14 @@
                       </div>
                     </div>
 
-                 
+                    <!-- Feed de Mensagens Rolando (Simulado por JavaScript) -->
                     <div class="phone-messages-list" id="hero-messages-simulation" aria-live="polite">
-                  
+                      <!-- Injected and updated dynamically with real timestamps and realistic typing delays -->
                     </div>
 
-                 
+                    <!-- Typing Indicator inside simulation -->
                     <div id="phone-typing-indicator" class="text-secondary p-2 d-none" style="font-size: 0.72rem;">
-               
+                      <!-- Populated dynamically -->
                     </div>
 
                   </div>
@@ -197,7 +198,7 @@
         </div>
       </section>
 
-    
+      <!-- Salas Acontecendo Agora (Bento Grid / Layout Editorial Assimétrico) -->
       <section class="py-5" id="popular-rooms" style="background-color: var(--surface);">
         <div class="container py-5">
           <div class="row mb-5 align-items-end">
@@ -211,10 +212,10 @@
             </div>
           </div>
 
-        
+          <!-- Editorial Grid / Bento asymmetric layouts -->
           <div class="rooms-bento-grid">
             
-         
+            <!-- Bento Box 1: Bate-Papo Geral (Large width) -->
             <div class="bento-large scroll-reveal reveal-left">
               <article class="card card-room d-flex flex-column justify-content-between p-4">
                 <div>
@@ -234,7 +235,7 @@
               </article>
             </div>
 
-        
+            <!-- Bento Box 2: Clube da Madrugada (Medium Width) -->
             <div class="bento-medium scroll-reveal reveal-right delay-150">
               <article class="card card-room d-flex flex-column justify-content-between p-4">
                 <div>
@@ -254,7 +255,7 @@
               </article>
             </div>
 
-          
+            <!-- Bento Box 3: Música & Playlists (Medium width) -->
             <div class="bento-small scroll-reveal delay-100">
               <article class="card card-room d-flex flex-column justify-content-between p-4">
                 <div>
@@ -273,7 +274,7 @@
               </article>
             </div>
 
-         
+            <!-- Bento Box 4: Amizades & Conexões (Medium width) -->
             <div class="bento-small scroll-reveal delay-200">
               <article class="card card-room d-flex flex-column justify-content-between p-4">
                 <div>
@@ -292,7 +293,7 @@
               </article>
             </div>
 
-       
+            <!-- Bento Box 5: Jogos & Parties (Medium width) -->
             <div class="bento-small scroll-reveal delay-300">
               <article class="card card-room d-flex flex-column justify-content-between p-4">
                 <div>
@@ -311,7 +312,7 @@
               </article>
             </div>
 
-        
+            <!-- Bento Box 6: Cantinho dos Desabafos (Large Width, Asymmetric column span on desktop) -->
             <div class="bento-large scroll-reveal reveal-left">
               <article class="card card-room d-flex flex-column justify-content-between p-4">
                 <div>
@@ -335,7 +336,7 @@
         </div>
       </section>
 
-   
+      <!-- Como Funciona (Três Etapas) -->
       <section class="py-5" id="how-it-works" style="background-color: var(--background);">
         <div class="container py-5">
           <div class="text-center mb-5 scroll-reveal">
@@ -345,7 +346,7 @@
           </div>
 
           <div class="row g-4 text-center text-md-start">
-      
+            <!-- Step 1 -->
             <div class="col-md-4 scroll-reveal reveal-left delay-100">
               <article class="p-4 h-100 rounded-4 border border-secondary" style="background-color: var(--surface);">
                 <span class="display-4 font-mono text-white d-block mb-3 fw-bold" style="color: #00e676 !important;">01</span>
@@ -354,7 +355,7 @@
               </article>
             </div>
             
-       
+            <!-- Step 2 -->
             <div class="col-md-4 scroll-reveal delay-200">
               <article class="p-4 h-100 rounded-4 border border-secondary" style="background-color: var(--surface);">
                 <span class="display-4 font-mono text-white d-block mb-3 fw-bold" style="color: #00e676 !important;">02</span>
@@ -363,7 +364,7 @@
               </article>
             </div>
 
-         
+            <!-- Step 3 -->
             <div class="col-md-4 scroll-reveal reveal-right delay-300">
               <article class="p-4 h-100 rounded-4 border border-secondary" style="background-color: var(--surface);">
                 <span class="display-4 font-mono text-white d-block mb-3 fw-bold" style="color: #00e676 !important;">03</span>
@@ -375,7 +376,7 @@
         </div>
       </section>
 
-     
+      <!-- Segurança e Moderação -->
       <section class="py-5" id="safety" style="background-color: var(--surface);">
         <div class="container py-5">
           <div class="row align-items-center gy-5">
@@ -426,7 +427,7 @@
         </div>
       </section>
 
-     
+      <!-- Chamada Final (CTA / Entrada) -->
       <section class="py-5" id="login-anchor" style="background-color: var(--background);">
         <div class="container py-5">
           <div class="row justify-content-center">
@@ -465,7 +466,7 @@
       </section>
     </main>
 
-  
+    <!-- Footer / Rodapé -->
     <footer class="py-5" style="border-top: 1px solid var(--border); background-color: var(--surface);">
       <div class="container py-4">
         <div class="row justify-content-between gy-4">
@@ -488,7 +489,7 @@
             <ul class="list-unstyled d-flex flex-wrap gap-x-4 gap-y-2">
               <li><a href="/" class="text-secondary text-decoration-none small hover:text-white">Início</a></li>
               <li><a href="/salas" class="text-secondary text-decoration-none small hover:text-white">Salas Ativas</a></li>
-              <li><a href="/seguranca" class="text-secondary text-decoration-none small hover:text-white">Segurança</a></li>
+              <li><a href="/#safety" class="text-secondary text-decoration-none small hover:text-white">Segurança</a></li>
               <li><a href="/privacidade" class="text-secondary text-decoration-none small hover:text-white">Privacidade</a></li>
               <li><a href="/termos" class="text-secondary text-decoration-none small hover:text-white">Termos de Uso</a></li>
             </ul>
@@ -497,24 +498,25 @@
         <hr class="my-4 border-secondary opacity-25">
         <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
           <p class="mb-0 text-secondary small">&copy; 2026 Papos (papos.net.br). Todos os direitos reservados.</p>
-          <span class="text-secondary font-mono small text-white-50" style="font-size: 0.75rem;">Servidor ativo: 0.0.0.0:3000</span>
+          <span id="active-server-indicator" class="text-secondary font-mono small text-white-50" style="font-size: 0.75rem;">Servidor ativo: 0.0.0.0:3000</span>
         </div>
       </div>
     </footer>
 
-   
+    <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
-  
+    <!-- Core ChatEngine State JS -->
     <script src="/assets/js/main.js"></script>
 
+    <!-- Page Interaction scripts -->
     <script>
       function setTargetRoom(roomId) {
         localStorage.setItem("target_room_id", roomId);
       }
 
       document.addEventListener("DOMContentLoaded", () => {
-     
+        // Autofill nickname if already saved
         const savedName = window.ChatEngine ? window.ChatEngine.getUser() : null;
         if (savedName) {
           const nameInput = document.getElementById("user-nickname");
@@ -523,7 +525,7 @@
           }
         }
 
-      
+        // Form submission and validation logic
         const nickForm = document.getElementById("nickname-form");
         if (nickForm) {
           nickForm.addEventListener("submit", (e) => {
@@ -543,7 +545,7 @@
           });
         }
 
-      
+        // --- CELLULAR CONVERSATION STREAMING SIMULATOR ---
         const messagesData = [
           { sender: "gabi_coruja", text: "alguém ainda acordado por aqui?", isMe: false, avatarColor: "#f43f5e" },
           { sender: "guilherme_dev", text: "tô procurando uma música boa pra programar", isMe: false, avatarColor: "#3b82f6" },
@@ -565,7 +567,7 @@
         function simulateConversation() {
           if (!container) return;
 
-        
+          // Clear initial placeholders
           if (msgIndex === 0) {
             container.innerHTML = "";
           }
@@ -573,13 +575,13 @@
           if (msgIndex < messagesData.length) {
             const msg = messagesData[msgIndex];
             
-          
+            // Show typing indicator
             if (!msg.isMe && typingIndicator) {
               typingIndicator.classList.remove("d-none");
               typingIndicator.innerHTML = `<span class="fw-bold">${msg.sender}</span> está digitando...`;
             }
 
-            
+            // Time delay before sending
             setTimeout(() => {
               if (typingIndicator) {
                 typingIndicator.classList.add("d-none");
@@ -590,7 +592,7 @@
               
               const avatarLetter = msg.sender.charAt(0).toUpperCase();
 
-             
+              // Build HTML block representing human message
               msgElement.innerHTML = `
                 <div class="d-flex gap-2 align-items-start ${msg.isMe ? 'flex-row-reverse text-end' : ''} mb-2">
                   <div class="avatar-circle avatar-sm" style="background-color: ${msg.avatarColor}; width: 24px; height: 24px; font-size: 0.72rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff;">
@@ -608,11 +610,11 @@
               container.scrollTop = container.scrollHeight;
 
               msgIndex++;
-              
+              // Trigger next message recursive
               setTimeout(simulateConversation, 3000);
             }, msg.isMe ? 1200 : 2200);
           } else {
-            
+            // Loop simulator infinitely after 8 seconds
             setTimeout(() => {
               msgIndex = 0;
               simulateConversation();
@@ -620,7 +622,7 @@
           }
         }
 
-        
+        // Launch simulated phone mockup chats
         setTimeout(simulateConversation, 1500);
       });
     </script>

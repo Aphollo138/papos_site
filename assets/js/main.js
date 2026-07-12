@@ -1,32 +1,66 @@
+/**
+ * main.js - Core State, Theme management, Navbar reactions, and Reveal Animations
+ */
 
+// Configuração centralizada do servidor do Chat (Express + WebSocket)
+const CHAT_CONFIG = {
+  // Altere esta variável para apontar para o seu servidor backend do Render quando estiver em produção
+  productionServerUrl: "https://papos-site.onrender.com",
+  
+  // Função para retornar a URL do WebSocket de forma dinâmica
+  getWebSocketUrl() {
+    const isLocalhost = window.location.hostname === "localhost" || 
+                        window.location.hostname === "127.0.0.1" || 
+                        window.location.hostname === "0.0.0.0" ||
+                        window.location.hostname.includes("ais-dev-") || // AI Studio dev
+                        window.location.hostname.includes("ais-pre-") || // AI Studio preview
+                        window.location.hostname.includes(".run.app");   // AI Studio run.app
+    
+    if (isLocalhost) {
+      // Se estiver rodando localmente, conecta ao mesmo host
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      return `${protocol}//${window.location.host}`;
+    } else {
+      // Em produção, converte o link do Render (HTTPS) para o protocolo WebSocket correto (WSS)
+      let cleanUrl = this.productionServerUrl.trim();
+      if (cleanUrl.endsWith("/")) {
+        cleanUrl = cleanUrl.slice(0, -1);
+      }
+      return cleanUrl.replace(/^http/, "ws");
+    }
+  }
+};
+
+// Expor globalmente para a aplicação usar em qualquer lugar
+window.CHAT_CONFIG = CHAT_CONFIG;
 
 const ChatEngine = {
- 
+  // Get persistent nickname
   getUser() {
     return localStorage.getItem("papos_nickname") || null;
   },
 
-
+  // Save persistent nickname
   saveUser(nickname) {
     if (!nickname || nickname.trim() === "") return false;
     localStorage.setItem("papos_nickname", nickname.trim());
     return true;
   },
 
- 
+  // Clear nickname (logout)
   logoutUser() {
     localStorage.removeItem("papos_nickname");
   },
 
-  
+  // Initiate WebSocket connection on correct host/port
   connectSocket() {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    const socket = new WebSocket(`${protocol}//${host}`);
+    const wsUrl = window.CHAT_CONFIG.getWebSocketUrl();
+    console.log("[ChatEngine] Conectando WebSocket em:", wsUrl);
+    const socket = new WebSocket(wsUrl);
     return socket;
   },
 
- 
+  // Theme Management
   initTheme() {
     const savedTheme = localStorage.getItem("papos_theme");
     if (savedTheme) {
@@ -41,14 +75,14 @@ const ChatEngine = {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("papos_theme", theme);
     
-    
+    // Update all toggle image elements on the page
     const toggles = document.querySelectorAll(".theme-toggle-img");
     toggles.forEach(img => {
       img.src = (theme === "dark") ? "/assets/img/toggle-on.svg" : "/assets/img/toggle-off.svg";
       img.alt = (theme === "dark") ? "Tema Escuro Ligado" : "Tema Claro Ligado";
     });
 
-    
+    // Sync any standard checkbox toggles if they exist (backward compatibility)
     const togglerCheckbox = document.getElementById("theme-toggle-checkbox");
     if (togglerCheckbox) {
       togglerCheckbox.checked = (theme === "dark");
@@ -61,7 +95,7 @@ const ChatEngine = {
     this.setTheme(next);
   },
 
-  
+  // Avatar visual color generation based on name
   getAvatarColor(name) {
     if (!name) return "#ffffff";
     const colors = [
@@ -76,7 +110,7 @@ const ChatEngine = {
     return colors[sum % colors.length];
   },
 
-  
+ 
   renderAvatar(name, sizeClass = "") {
     if (!name || name.trim() === "") name = "A";
     const initial = name.trim().charAt(0).toUpperCase();
@@ -99,6 +133,14 @@ document.addEventListener("DOMContentLoaded", () => {
   document.documentElement.classList.add('js-active');
   
   ChatEngine.init();
+
+  
+  const serverIndicator = document.getElementById("active-server-indicator");
+  if (serverIndicator) {
+    const wsUrl = window.CHAT_CONFIG.getWebSocketUrl();
+    const serverHost = wsUrl.replace(/^ws(s)?:\/\//, "");
+    serverIndicator.textContent = `Servidor ativo: ${serverHost}`;
+  }
 
   
   const progressBar = document.getElementById("scroll-progress-bar");
@@ -128,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add("revealed");
-         
+          
           scrollObserver.unobserve(entry.target);
         }
       });

@@ -3,7 +3,7 @@ import http from "http";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 
-
+// Initial standard rooms list (matches frontend)
 const INITIAL_ROOMS = [
   { id: "room-1", name: "Bate-Papo Geral 💬", desc: "A sala principal para falar sobre qualquer assunto, mandar memes ou só ver o que o pessoal está comentando.", count: 0, icon: "chat-dots" },
   { id: "room-2", name: "Tecnologia & Devs 💻", desc: "Espaço descontraído para falar sobre programação, hardware, carreira tech e inteligência artificial.", count: 0, icon: "code" },
@@ -32,11 +32,11 @@ const INITIAL_MESSAGES: Record<string, any[]> = {
   ]
 };
 
-
+// In-memory data store
 const rooms = [...INITIAL_ROOMS];
 const messages = { ...INITIAL_MESSAGES };
 
-
+// Simulated Bot Users always active in their respective rooms
 const BOTS = [
   { nickname: "Mariana_Tech", rooms: ["room-1", "room-2", "room-7"] },
   { nickname: "Carlos_Meme", rooms: ["room-1", "room-4", "room-11"] },
@@ -48,7 +48,7 @@ const BOTS = [
   { nickname: "Bot_Papos", rooms: ["room-1"] }
 ];
 
-
+// Message pools for bots per room to trigger interesting conversation starters
 const BOT_MESSAGES: Record<string, string[]> = {
   "room-1": [
     "Eae pessoal! Como está o dia de vocês por aí?",
@@ -114,7 +114,7 @@ interface ClientSession {
   ws: WebSocket;
   nickname: string;
   roomId: string;
-  lastMessageTime: number[]; 
+  lastMessageTime: number[]; // For spam prevention rate limits
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
@@ -124,7 +124,7 @@ function getCurrentTime() {
   return now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-
+// Escapes special HTML tags to prevent XSS
 function sanitizeHTML(text: string): string {
   if (!text) return "";
   return text
@@ -138,29 +138,76 @@ function sanitizeHTML(text: string): string {
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
+  // Middleware de segurança (CORS) para aceitar conexões apenas de origens permitidas
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "https://papos.net.br",
+      "https://papos-site.onrender.com"
+    ];
+    
+    if (origin) {
+      const isAllowed = allowedOrigins.includes(origin) || 
+        origin.includes("localhost") || 
+        origin.includes("127.0.0.1") || 
+        origin.includes("run.app") || 
+        origin.includes("vercel.app");
+        
+      if (isAllowed) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      }
+    }
+    next();
+  });
+
+  // Simple endpoint for health checks
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
   });
 
-  
+  // Attach WebSocket server on the same HTTP server instance
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (request, socket, head) => {
+    const origin = request.headers.origin;
+    
+    // Em produção, valida se a origem é permitida (localhost, papos.net.br, onrender, vercel, run.app)
+    if (origin) {
+      const isAllowed = 
+        origin.includes("localhost") || 
+        origin.includes("127.0.0.1") || 
+        origin.includes("papos.net.br") ||
+        origin.includes("onrender.com") ||
+        origin.includes("run.app") ||
+        origin.includes("vercel.app");
+        
+      if (!isAllowed) {
+        console.warn(`[Security] Conexão WebSocket bloqueada de origem não autorizada: ${origin}`);
+        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+    }
+
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit("connection", ws, request);
     });
   });
 
-  
+  // Helper to send messages to a specific client safely
   function sendToClient(ws: WebSocket, type: string, payload: any) {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type, ...payload }));
     }
   }
 
-  
+  // Helper to broadcast to a specific room
   function broadcastToRoom(roomId: string, type: string, payload: any, excludeWs?: WebSocket) {
     activeSessions.forEach((session, ws) => {
       if (session.roomId === roomId && ws.readyState === WebSocket.OPEN) {
@@ -170,7 +217,7 @@ async function startServer() {
     });
   }
 
- 
+  // Get active online nickname list in a room (including active simulated bots)
   function getRoomOnlineUsers(roomId: string): string[] {
     const list: string[] = [];
     activeSessions.forEach((session) => {
@@ -179,17 +226,17 @@ async function startServer() {
       }
     });
     
-   
+    // Inject bots allocated to this room
     BOTS.forEach(bot => {
       if (bot.rooms.includes(roomId)) {
         list.push(bot.nickname);
       }
     });
 
-    return Array.from(new Set(list)); 
+    return Array.from(new Set(list)); // Deduplicate
   }
 
- 
+  // Update count in rooms list based on actual connections
   function updateRoomCounts() {
     rooms.forEach((room) => {
       let count = 0;
@@ -202,7 +249,7 @@ async function startServer() {
     });
   }
 
-  
+  // Broadcast overall rooms list update to all connected clients
   function broadcastRoomsList() {
     updateRoomCounts();
     const roomsPayload = { rooms };
@@ -214,7 +261,7 @@ async function startServer() {
   }
 
   wss.on("connection", (ws: WebSocket) => {
-   
+    // Add new inactive connection to map
     activeSessions.set(ws, {
       ws,
       nickname: "",
@@ -222,7 +269,7 @@ async function startServer() {
       lastMessageTime: []
     });
 
-   
+    // Send the current room list immediately to the new connection
     updateRoomCounts();
     sendToClient(ws, "room_list", { rooms });
 
@@ -242,7 +289,7 @@ async function startServer() {
               return;
             }
 
-            
+            // Terminate duplicate connections with the same nickname to prevent duplicates on reconnection
             activeSessions.forEach((s, key) => {
               if (key !== ws && s.nickname && s.nickname.toLowerCase() === nickname.toLowerCase()) {
                 try {
@@ -252,7 +299,7 @@ async function startServer() {
               }
             });
 
-           
+            // Check if nickname is already taken in the SAME room
             let taken = false;
             activeSessions.forEach((s, key) => {
               if (key !== ws && s.roomId === roomId && s.nickname.toLowerCase() === nickname.toLowerCase()) {
@@ -262,14 +309,14 @@ async function startServer() {
 
             const finalNickname = taken ? `${nickname}#${Math.floor(100 + Math.random() * 900)}` : nickname;
 
-            
+            // Handle switching rooms if already in one
             const oldRoomId = session.roomId;
             const oldNickname = session.nickname;
 
             session.nickname = finalNickname;
             session.roomId = roomId;
 
-           
+            // Alert old room about departure
             if (oldRoomId && oldRoomId !== roomId) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
               broadcastToRoom(oldRoomId, "user_left", {
@@ -279,12 +326,12 @@ async function startServer() {
               });
             }
 
-           
+            // Make sure messages list exist for the target room
             if (!messages[roomId]) {
               messages[roomId] = [];
             }
 
-            
+            // Send full room state (messages + online users list + confirmed nickname)
             sendToClient(ws, "room_state", {
               roomId,
               nickname: finalNickname,
@@ -292,18 +339,18 @@ async function startServer() {
               onlineUsers: getRoomOnlineUsers(roomId)
             });
 
-           
+            // Notify everyone in new room about arrival
             broadcastToRoom(roomId, "user_joined", {
               nickname: finalNickname,
               time: getCurrentTime(),
               onlineUsers: getRoomOnlineUsers(roomId)
             }, ws);
 
-           
+            // Simulate bot welcome for new joiner
             const roomBots = BOTS.filter(b => b.rooms.includes(roomId));
             if (roomBots.length > 0) {
               const welcomeBot = roomBots[Math.floor(Math.random() * roomBots.length)];
-           
+              // Start typing at 500ms
               setTimeout(() => {
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
@@ -311,9 +358,9 @@ async function startServer() {
                 });
               }, 500);
 
-            
+              // Send message at 2500ms
               setTimeout(() => {
-           
+                // Stop typing
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
                   isTyping: false
@@ -346,7 +393,7 @@ async function startServer() {
             broadcastRoomsList();
 
             if (!oldNickname) {
-             
+              // Send an automated beautiful private message from Bot_Papos
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
                 sendToClient(ws, "private_typing", {
@@ -357,7 +404,7 @@ async function startServer() {
 
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
-              
+                // Stop typing
                 sendToClient(ws, "private_typing", {
                   from: "Bot_Papos",
                   isTyping: false
@@ -387,7 +434,7 @@ async function startServer() {
 
             session.roomId = roomId;
 
-          
+            // Notify old room departure
             if (oldRoomId) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
               broadcastToRoom(oldRoomId, "user_left", {
@@ -401,7 +448,7 @@ async function startServer() {
               messages[roomId] = [];
             }
 
-         
+            // Send new room state
             sendToClient(ws, "room_state", {
               roomId,
               nickname: session.nickname,
@@ -409,18 +456,18 @@ async function startServer() {
               onlineUsers: getRoomOnlineUsers(roomId)
             });
 
-           
+            // Notify new room about arrival
             broadcastToRoom(roomId, "user_joined", {
               nickname: session.nickname,
               time: getCurrentTime(),
               onlineUsers: getRoomOnlineUsers(roomId)
             }, ws);
 
-            
+            // Simulate bot welcome for switching room
             const roomBots = BOTS.filter(b => b.rooms.includes(roomId));
             if (roomBots.length > 0) {
               const welcomeBot = roomBots[Math.floor(Math.random() * roomBots.length)];
-            
+              // Start typing at 500ms
               setTimeout(() => {
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
@@ -428,9 +475,9 @@ async function startServer() {
                 });
               }, 500);
 
-             
+              // Send message at 2500ms
               setTimeout(() => {
-             
+                // Stop typing
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
                   isTyping: false
@@ -469,9 +516,9 @@ async function startServer() {
               return;
             }
 
-        
+            // Spam Rate Limiting
             const now = Date.now();
-            session.lastMessageTime = session.lastMessageTime.filter(t => now - t < 4000); 
+            session.lastMessageTime = session.lastMessageTime.filter(t => now - t < 4000); // Keep last 4 seconds
             if (session.lastMessageTime.length >= 4) {
               sendToClient(ws, "error", { message: "Você está enviando mensagens rápido demais. Aguarde um instante." });
               return;
@@ -503,7 +550,7 @@ async function startServer() {
             }
             messages[session.roomId].push(msgObj);
 
-          
+            // Cap memory storage to last 100 messages per room
             if (messages[session.roomId].length > 100) {
               messages[session.roomId].shift();
             }
@@ -521,7 +568,7 @@ async function startServer() {
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 
-       
+            // Find target socket
             let targetWs: WebSocket | null = null;
             activeSessions.forEach((s, key) => {
               if (s.nickname.toLowerCase() === toNick.toLowerCase()) {
@@ -538,12 +585,12 @@ async function startServer() {
                 time: getCurrentTime(),
                 color
               };
-           
+              // Send to recipient
               sendToClient(targetWs, "private_message", pmPayload);
-             
+              // Send confirmation to sender
               sendToClient(ws, "private_message", pmPayload);
             } else {
-             
+              // Check if recipient is a simulated Bot!
               const isBot = BOTS.some(b => b.nickname.toLowerCase() === toNick.toLowerCase());
               if (isBot) {
                 const pmPayload = {
@@ -554,10 +601,11 @@ async function startServer() {
                   time: getCurrentTime(),
                   color
                 };
-              
+                // Echo back the sent DM so client UI appends it
                 sendToClient(ws, "private_message", pmPayload);
 
-              
+                // Trigger a nice simulated auto-response from the bot
+                // Start typing at 200ms
                 setTimeout(() => {
                   if (ws.readyState !== WebSocket.OPEN) return;
                   sendToClient(ws, "private_typing", {
@@ -566,10 +614,10 @@ async function startServer() {
                   });
                 }, 200);
 
-              
+                // Send message at 1700ms
                 setTimeout(() => {
                   if (ws.readyState !== WebSocket.OPEN) return;
-               
+                  // Stop typing
                   sendToClient(ws, "private_typing", {
                     from: toNick,
                     isTyping: false
@@ -643,7 +691,7 @@ async function startServer() {
             const { messageId, emoji } = payload;
             if (!messageId || !emoji) return;
 
-           
+            // Update in-memory message list
             const roomMsgs = messages[session.roomId] || [];
             const msgObj = roomMsgs.find(m => m.id === messageId);
             if (msgObj) {
@@ -653,7 +701,7 @@ async function startServer() {
               const reactors = msgObj.reactions[emoji];
               const index = reactors.indexOf(session.nickname);
               if (index > -1) {
-                reactors.splice(index, 1); 
+                reactors.splice(index, 1); // Remove reaction if already reacted (toggle)
               } else {
                 reactors.push(session.nickname);
               }
@@ -677,7 +725,7 @@ async function startServer() {
 
             if (!name) return;
 
-            
+            // Prevent duplicate room names
             if (rooms.some(r => r.name.toLowerCase() === name.toLowerCase())) {
               sendToClient(ws, "error", { message: "Já existe uma sala com este nome." });
               return;
@@ -697,10 +745,10 @@ async function startServer() {
               { id: `sys-init-${newId}`, sender: "Sistema", text: `Sala '${name}' foi criada com sucesso por ${session.nickname}.`, time: getCurrentTime(), isSystem: true }
             ];
 
-          
+            // Send confirmation back to creator
             sendToClient(ws, "room_created", { room: newRoom });
 
-           
+            // Broadcast updated list to everyone
             broadcastRoomsList();
             break;
           }
@@ -714,7 +762,7 @@ async function startServer() {
             const index = roomMsgs.findIndex(m => m.id === messageId);
             if (index > -1) {
               const msgObj = roomMsgs[index];
-             
+              // Ensure we do not delete system messages or messages sent by other people
               if (!msgObj.isSystem && msgObj.sender === session.nickname) {
                 roomMsgs.splice(index, 1);
                 broadcastToRoom(session.roomId, "message_deleted", { messageId });
@@ -730,7 +778,8 @@ async function startServer() {
             const { messageId, to } = payload;
             if (!messageId || !to) return;
 
-            
+            // Direct messages are stored on client's localstorage, so we just broadcast the deletion event 
+            // so both clients can remove it from their respective histories in real-time.
             let targetWs: WebSocket | null = null;
             activeSessions.forEach((s, key) => {
               if (s.nickname.toLowerCase() === to.toLowerCase()) {
@@ -738,10 +787,10 @@ async function startServer() {
               }
             });
 
-          
+            // Notify the sender
             sendToClient(ws, "private_message_deleted", { messageId, partner: to });
 
-            
+            // Notify the recipient if online
             if (targetWs) {
               sendToClient(targetWs, "private_message_deleted", { messageId, partner: session.nickname });
             }
@@ -749,7 +798,7 @@ async function startServer() {
           }
 
           case "pong": {
-            
+            // Heartbeat response, handled by ping interval
             break;
           }
         }
@@ -765,7 +814,7 @@ async function startServer() {
         activeSessions.delete(ws);
 
         if (nickname && roomId) {
-         
+          // Notify room about departure
           const leftUsers = getRoomOnlineUsers(roomId);
           broadcastToRoom(roomId, "user_left", {
             nickname,
@@ -782,14 +831,14 @@ async function startServer() {
     });
   });
 
- 
+  // Keep-alive connection heartbeat check (every 30 seconds)
   const interval = setInterval(() => {
     wss.clients.forEach((ws) => {
       if (ws.readyState === WebSocket.CLOSED) {
         activeSessions.delete(ws);
         return;
       }
-      ws.ping(); 
+      ws.ping(); // Send low-level WS ping frame
     });
   }, 30000);
 
@@ -797,16 +846,16 @@ async function startServer() {
     clearInterval(interval);
   });
 
- 
+  // Serve static UI assets using Vite middleware in dev, and direct express.static in production
   if (process.env.NODE_ENV !== "production") {
     console.log("Starting server in DEVELOPMENT mode with Vite Middleware...");
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "custom" 
+      appType: "custom" // Use custom to serve multi-page setup nicely
     });
 
-   
+    // Helper to serve and transform HTML templates
     const serveTemplate = async (req: express.Request, res: express.Response, next: express.NextFunction, filePath: string) => {
       try {
         const fs = await import("fs");
@@ -822,7 +871,7 @@ async function startServer() {
       }
     };
 
-    
+    // Clean routes in development
     app.get("/robots.txt", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/robots.txt")));
     app.get("/sitemap.xml", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/sitemap.xml")));
     app.get("/manifest.json", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/manifest.json")));
@@ -838,7 +887,7 @@ async function startServer() {
       res.redirect("/#login-anchor");
     });
 
-   
+    // Fallbacks for direct HTML requests in dev
     app.get("/pages/:page.html", (req, res, next) => {
       serveTemplate(req, res, next, path.resolve(process.cwd(), "pages", `${req.params.page}.html`));
     });
@@ -848,7 +897,7 @@ async function startServer() {
     console.log("Starting server in PRODUCTION mode...");
     const distPath = path.join(process.cwd(), "dist");
 
-   
+    // Clean routes in production
     app.get("/", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
@@ -876,7 +925,7 @@ async function startServer() {
 
     app.use(express.static(distPath));
     
-  
+    // Fallbacks for direct URLs
     app.get("/pages/:page.html", (req, res) => {
       res.sendFile(path.join(distPath, "pages", `${req.params.page}.html`));
     });
@@ -886,21 +935,21 @@ async function startServer() {
     });
   }
 
-  
+  // Set to keep track of bots currently typing to avoid duplicate typing events
   const currentlyTypingBots = new Set<string>();
 
   const triggerBotSpeech = (bot: typeof BOTS[0]) => {
     if (currentlyTypingBots.has(bot.nickname)) return;
     
-   
+    // Choose room
     const roomId = bot.rooms[Math.floor(Math.random() * bot.rooms.length)];
     const roomMsgs = BOT_MESSAGES[roomId];
     if (!roomMsgs || roomMsgs.length === 0) return;
 
     let text = "";
     if (bot.nickname === "Bot_Papos") {
-      
-      if (Math.random() > 0.15) return; 
+      // Small chance to talk in general room
+      if (Math.random() > 0.15) return; // limit Bot_Papos general room spam
       const paposTips = [
         "Olá pessoal! Se quiserem saber as novidades ou tirar dúvidas sobre o chat, basta clicar no meu nome na lista de online e me mandar uma DM privada! 😊",
         "Dica: Personalize o visual das suas mensagens clicando no botão da paleta colorida no campo de texto!",
@@ -923,14 +972,14 @@ async function startServer() {
       reactions: {}
     };
 
-   
+    // Mark as typing
     currentlyTypingBots.add(bot.nickname);
     broadcastToRoom(roomId, "typing", {
       nickname: bot.nickname,
       isTyping: true
     });
 
-    
+    // Random typing duration between 1.5s and 3.5s
     const typingDuration = 1500 + Math.random() * 2000;
     setTimeout(() => {
       broadcastToRoom(roomId, "typing", {
@@ -951,19 +1000,19 @@ async function startServer() {
     }, typingDuration);
   };
 
-  
+  // Periodic simulated bot conversations (every 4.5 seconds for hyper-active feel)
   const botInterval = setInterval(() => {
     try {
-      
+      // Determine how many bots will speak (1 to 3)
       const r = Math.random();
       const count = r < 0.5 ? 1 : r < 0.85 ? 2 : 3;
       
-      
+      // Shuffle BOTS to select unique ones
       const shuffled = [...BOTS].sort(() => 0.5 - Math.random());
       const selected = shuffled.slice(0, count);
 
       selected.forEach((bot, index) => {
-        
+        // Stagger their typing starts slightly so they don't start at the exact same millisecond
         setTimeout(() => {
           triggerBotSpeech(bot);
         }, index * 600);
@@ -973,7 +1022,7 @@ async function startServer() {
     }
   }, 4500);
 
- 
+  // Stop intervals when server/websocket terminates
   wss.on("close", () => {
     clearInterval(interval);
     clearInterval(botInterval);
