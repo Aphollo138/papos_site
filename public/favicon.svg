@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <style>
+    .logo-color {
+      fill: #111827;
+    }
+    .logo-stroke {
+      stroke: #111827;
+      fill: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      .logo-color {
+        fill: #ffffff;
+      }
+      .logo-stroke {
+        stroke: #ffffff;
+        fill: none;
+      }
+    }
+  </style>
+  <mask id="logo-mask">
+    <!-- Everything white by default (fully visible) -->
+    <rect x="0" y="0" width="100" height="100" fill="white" />
+    <!-- Cut out a thick channel along the diagonal line (black) -->
+    <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+  </mask>
+  <g mask="url(#logo-mask)">
+    <!-- Speech bubble (evenodd fills outer ring and hollows inner circle) -->
+    <path class="logo-color" d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" />
+    <!-- Stylized letter P (evenodd fills outer shape and hollows loop inner) -->
+    <path class="logo-color" d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" />
+  </g>
+  <!-- Diagonal crossing line -->
+  <line class="logo-stroke" x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" />
+  <!-- Line end dot -->
+  <circle class="logo-color" cx="78" cy="26" r="6" />
+</svg>
