@@ -199,7 +199,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papos.net.br") ||
+        origin.includes("papo.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
