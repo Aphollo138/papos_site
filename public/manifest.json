@@ -1,0 +1,25 @@
+{
+  "name": "Papos - Bate-papo em Tempo Real",
+  "short_name": "Papos",
+  "description": "Sempre tem alguém querendo trocar ideia. Escolha uma sala de bate-papo, use um apelido e comece.",
+  "start_url": "/pagina-inicial",
+  "display": "standalone",
+  "background_color": "#0d0e12",
+  "theme_color": "#00ff66",
+  "orientation": "portrait-primary",
+  "categories": ["social", "communication"],
+  "icons": [
+    {
+      "src": "https://img.icons8.com/?size=192&id=118497&format=png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://img.icons8.com/?size=512&id=118497&format=png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

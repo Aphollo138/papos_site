@@ -1,0 +1,6 @@
+{
+  "name": "Papos",
+  "description": "Papos - Uma plataforma moderna de salas de bate-papo online em tempo real para conversar, fazer amigos e interagir sem complicação.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

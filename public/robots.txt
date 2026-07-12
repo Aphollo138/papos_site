@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /pagina-inicial
+Allow: /salas
+Disallow: /chat
+Disallow: /perfil
+
+Sitemap: https://papos.net.br/sitemap.xml

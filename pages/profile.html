@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    
+    <script>document.documentElement.classList.add('js-enabled');</script>
+    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meu Perfil - Papos</title>
+    
+    <meta name="description" content="Altere seu apelido e confira suas estatísticas locais de conversação no Papos." />
+    <meta name="robots" content="noindex, nofollow" />
+
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    
+    <link rel="stylesheet" href="/assets/css/style.css" />
+  </head>
+  <body>
+
+   
+    <header class="navbar navbar-expand-lg fixed-top navbar-custom" id="profile-header">
+      <div class="container">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="/" id="profile-logo-brand">
+          <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: 900; width: 34px; height: 34px;">
+            P
+          </div>
+          <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Alternar navegação" id="btn-profile-nav-toggle" style="filter: invert(1);">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarText">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
+            <li class="nav-item">
+              <a class="nav-link text-secondary" href="/salas">Salas Ativas</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active fw-semibold text-white" href="/perfil">Editar Perfil</a>
+            </li>
+          </ul>
+          <div class="d-flex align-items-center gap-3">
+           
+            <div class="theme-switch-container d-flex align-items-center gap-2" role="button" tabindex="0" onclick="window.ChatEngine.toggleTheme()" style="cursor: pointer;" title="Alternar tema" aria-label="Alternar tema">
+              <i class="bi bi-sun-fill theme-sun-icon" style="font-size: 0.95rem; color: #ffb300;"></i>
+              <img src="/assets/img/toggle-off.svg" class="theme-toggle-img" alt="Alternar tema" style="width: 38px; height: 22px; display: block;" />
+              <i class="bi bi-moon-fill theme-moon-icon" style="font-size: 0.95rem; color: #7e57c2;"></i>
+            </div>
+
+            <a href="/salas" class="btn btn-secondary-custom btn-sm py-2 px-3" id="btn-back-rooms-nav">
+              <i class="bi bi-arrow-left-short"></i> Voltar para Salas
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+   
+    <main class="py-5" style="margin-top: 60px;">
+      <section class="container py-5">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 col-xl-7">
+            
+            
+            <article class="p-4 p-md-5 border border-secondary rounded" style="background-color: var(--surface);">
+              
+             
+              <div class="text-center mb-5">
+                <div class="position-relative d-inline-block">
+                  <div id="avatar-preview-container">
+                  
+                  </div>
+                  <span class="status-indicator status-online position-absolute" style="width: 14px; height: 14px; bottom: 2px; right: 2px; border: 2px solid var(--surface);"></span>
+                </div>
+                <h1 class="h3 fw-extrabold text-white mt-3" id="username-display-name">Carregando...</h1>
+                <p class="text-secondary small">ID de Usuário Local: <span class="font-mono text-xs text-white-50" id="user-local-id">#local</span></p>
+              </div>
+
+            
+              <div class="alert alert-light border border-white mb-4 d-none" id="success-toast" role="alert" style="background-color: var(--surface-secondary); color: var(--text-primary);">
+                <i class="bi bi-check-circle-fill me-2"></i> Alterações salvas com sucesso!
+              </div>
+
+             
+              <form id="profile-form">
+                <div class="mb-4">
+                  <label for="profile-nickname" class="form-label fw-bold small text-secondary">Alterar Apelido</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-dark border-secondary text-secondary" id="user-icon-profile-addon">
+                      <i class="bi bi-person-fill"></i>
+                    </span>
+                    <input type="text" class="form-control form-control-lg bg-dark border-secondary border-start-0 text-white" id="profile-nickname" placeholder="Novo apelido..." minlength="2" maxlength="15" required aria-describedby="user-icon-profile-addon">
+                  </div>
+                  <div class="form-text small text-secondary">
+                    Isso atualizará instantaneamente como as pessoas te veem em todas as salas.
+                  </div>
+                </div>
+
+               
+                <div class="mb-5">
+                  <h2 class="h6 fw-bold text-uppercase tracking-wider text-secondary mb-3">Estatísticas de Atividade</h2>
+                  <div class="row g-3">
+                    
+                    <div class="col-6 col-sm-3">
+                      <div class="p-3 border border-secondary rounded text-center bg-dark">
+                        <span class="fs-4 fw-extrabold text-white d-block" id="stat-messages">0</span>
+                        <small class="text-secondary" style="font-size: 0.7rem;">Msgs Enviadas</small>
+                      </div>
+                    </div>
+
+                    <div class="col-6 col-sm-3">
+                      <div class="p-3 border border-secondary rounded text-center bg-dark">
+                        <span class="fs-4 fw-extrabold text-white d-block" id="stat-streak">1d</span>
+                        <small class="text-secondary" style="font-size: 0.7rem;">Dias Ativos</small>
+                      </div>
+                    </div>
+
+                    <div class="col-6 col-sm-3">
+                      <div class="p-3 border border-secondary rounded text-center bg-dark">
+                        <span class="fs-4 fw-extrabold text-white d-block" id="stat-rooms">1</span>
+                        <small class="text-secondary" style="font-size: 0.7rem;">Salas Visitadas</small>
+                      </div>
+                    </div>
+
+                    <div class="col-6 col-sm-3">
+                      <div class="p-3 border border-secondary rounded text-center bg-dark">
+                        <span class="fs-4 fw-extrabold text-white d-block" id="stat-points">0</span>
+                        <small class="text-secondary" style="font-size: 0.7rem;">Pontos XP</small>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                
+                <div class="d-flex flex-column flex-sm-row gap-3">
+                  <button type="submit" class="btn btn-premium w-100 py-3 font-display fw-bold" id="btn-save-profile">
+                    Salvar Alterações <i class="bi bi-save2 ms-2"></i>
+                  </button>
+                  <a href="/salas" class="btn btn-secondary-custom w-100 py-3 font-display fw-bold text-center" id="btn-cancel-profile">
+                    Voltar para Salas
+                  </a>
+                </div>
+
+              </form>
+
+           
+              <div class="mt-5 pt-4 border-top border-secondary">
+                <h3 class="h6 fw-bold text-danger mb-2">Apagar todos os dados</h3>
+                <p class="text-secondary small">Deletar todas as suas preferências e histórico armazenado localmente no navegador. Esta ação é irreversível.</p>
+                <button class="btn btn-outline-danger btn-sm" id="btn-reset-all" type="button">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Apagar LocalStorage
+                </button>
+              </div>
+
+            </article>
+
+          </div>
+        </div>
+      </section>
+    </main>
+
+   
+    <footer class="py-5 mt-5" style="background-color: var(--background); border-top: 1px solid var(--border);">
+      <div class="container py-3">
+        <div class="row gy-4 justify-content-between">
+          <div class="col-md-5">
+            <a class="d-flex align-items-center gap-2 mb-3 text-decoration-none text-white" href="/" id="footer-logo-profile">
+              <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: bold; width: 32px; height: 32px;">
+                P
+              </div>
+              <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
+            </a>
+            <p class="text-secondary small">
+              Conexões sem burocracia, anônimo e direto do seu próprio navegador.
+            </p>
+          </div>
+        </div>
+        <hr class="my-4 border-secondary opacity-25">
+        <div class="text-center text-md-start">
+          <p class="mb-0 text-secondary small">&copy; 2026 Papos (papos.net.br). Seus dados são salvos apenas no seu próprio computador.</p>
+        </div>
+      </div>
+    </footer>
+
+   
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    
+    <script src="/assets/js/main.js"></script>
+
+    
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const currentUser = window.ChatEngine ? window.ChatEngine.getUser() : null;
+        if (!currentUser) {
+          window.location.href = "/?error=name_required";
+          return;
+        }
+
+       
+        const inputNickname = document.getElementById("profile-nickname");
+        const avatarContainer = document.getElementById("avatar-preview-container");
+        const nameDisplay = document.getElementById("username-display-name");
+        const profileForm = document.getElementById("profile-form");
+        const successToast = document.getElementById("success-toast");
+        const btnResetAll = document.getElementById("btn-reset-all");
+        const localIdEl = document.getElementById("user-local-id");
+
+        
+        const statMessages = document.getElementById("stat-messages");
+        const statStreak = document.getElementById("stat-streak");
+        const statRooms = document.getElementById("stat-rooms");
+        const statPoints = document.getElementById("stat-points");
+
+       
+        inputNickname.value = currentUser;
+        nameDisplay.textContent = currentUser;
+        
+       
+        let hash = 1000;
+        for (let i = 0; i < currentUser.length; i++) {
+          hash += currentUser.charCodeAt(i);
+        }
+        localIdEl.textContent = `#${hash}-local`;
+
+       
+        const randomMsgCount = (hash % 45) + 12;
+        const randomStreak = (hash % 6) + 2;
+        const randomRooms = (hash % 3) + 2;
+        const randomXP = randomMsgCount * 8 + 40;
+
+        statMessages.textContent = randomMsgCount;
+        statStreak.textContent = `${randomStreak}d`;
+        statRooms.textContent = randomRooms;
+        statPoints.textContent = randomXP;
+
+       
+        function updateAvatarPreview(name) {
+          if (window.ChatEngine) {
+            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-lg mx-auto");
+          }
+        }
+
+        updateAvatarPreview(currentUser);
+
+       
+        inputNickname.addEventListener("input", (e) => {
+          const val = e.target.value.trim() || "A";
+          nameDisplay.textContent = val;
+          updateAvatarPreview(val);
+        });
+
+       
+        profileForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const newNick = inputNickname.value.trim();
+          if (newNick === "") return;
+
+          const oldNick = currentUser;
+          
+          if (window.ChatEngine && window.ChatEngine.saveUser(newNick)) {
+            // Exibir mensagem de sucesso
+            successToast.classList.remove("d-none");
+            
+            setTimeout(() => {
+              successToast.classList.add("d-none");
+            }, 3000);
+            
+           
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          }
+        });
+
+     
+        btnResetAll.addEventListener("click", () => {
+          if (confirm("ATENÇÃO: Deseja apagar todas as configurações? Isso irá apagar seu apelido e preferências definitivamente.")) {
+            localStorage.clear();
+            alert("LocalStorage limpo com sucesso! Redirecionando...");
+            window.location.href = "/";
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

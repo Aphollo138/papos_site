@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    
+    <script>document.documentElement.classList.add('js-enabled');</script>
+    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Bate-papo em Tempo Real - Papos</title>
+    
+    <meta name="description" content="Sua sala de bate-papo criptografada localmente. Converse com segurança de ponta a ponta sem criar contas." />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="canonical" href="https://papos.net.br/chat" />
+
+   
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/png" sizes="32x32" href="https://img.icons8.com/?size=32&id=118497&format=png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="https://img.icons8.com/?size=16&id=118497&format=png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="https://img.icons8.com/?size=180&id=118497&format=png" />
+
+   
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    
+   
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    
+    <link rel="stylesheet" href="/assets/css/style.css" />
+  </head>
+  <body class="chat-page">
+
+   
+    <main class="container-fluid p-0">
+      <section class="chat-wrapper">
+        
+       
+        <aside class="chat-sidebar" id="chat-sidebar">
+          
+          
+          <div class="p-3 border-bottom border-secondary d-flex flex-column align-items-center text-center gap-2 position-relative" id="user-profile-sidebar-card" style="background-color: var(--surface-secondary);">
+          
+            <button class="btn btn-close btn-close-white d-md-none position-absolute" type="button" id="btn-close-sidebar" aria-label="Fechar" style="top: 12px; right: 12px; font-size: 0.8rem;"></button>
+            
+            <div id="sidebar-user-avatar-placeholder">
+              
+            </div>
+            <div class="w-100">
+              <h3 class="h6 fw-bold mb-1 text-white text-truncate" id="sidebar-username">Carregando...</h3>
+              <div class="d-flex align-items-center justify-content-center gap-1.5 mb-2">
+                <span class="status-indicator status-online d-inline-block" style="width: 8px; height: 8px;"></span>
+                <span class="text-success" style="font-size: 0.72rem; font-weight: 500;">Conectado</span>
+              </div>
+              <a href="/perfil" class="btn btn-secondary-custom w-100 py-1.5 px-3" style="font-size: 0.75rem !important; border-radius: var(--radius-sm) !important;">
+                <i class="bi bi-pencil-square me-1"></i> Editar Perfil
+              </a>
+            </div>
+          </div>
+
+          
+          <div class="flex-grow-1 d-flex flex-column overflow-hidden">
+            <div class="p-3 border-bottom border-secondary d-flex align-items-center justify-content-between bg-dark" id="private-chats-toggle" style="cursor: pointer; user-select: none;">
+              <div class="d-flex align-items-center gap-2">
+                <h4 class="h6 fw-bold text-uppercase tracking-wider text-secondary mb-0" style="font-size: 0.72rem;">Conversas Privadas</h4>
+                <i class="bi bi-chevron-down text-secondary" id="private-chats-arrow" style="font-size: 0.8rem; transition: transform 0.3s ease;"></i>
+              </div>
+              <span class="badge rounded-pill bg-danger d-none" id="total-private-unread" style="font-size: 0.65rem;">0</span>
+            </div>
+            
+           
+            <div class="flex-grow-1 overflow-y-auto p-2" id="private-conversations-list" role="navigation" aria-label="Canais privados">
+              <div class="text-center py-5 text-secondary small" id="no-private-chats-placeholder">
+                <div class="fs-4 mb-2"><i class="bi bi-chat-left-dots"></i></div>
+                Nenhuma conversa privada.<br>Clique em um membro na lista lateral para abrir um chat seguro.
+              </div>
+            </div>
+          </div>
+          
+         
+          <div class="sidebar-resizer" id="sidebar-resizer"></div>
+        </aside>
+
+       
+        <section class="chat-area" id="chat-conversation-panel">
+          
+         
+          <header class="chat-header">
+            <div class="d-flex align-items-center gap-2" style="min-width: 0; flex: 1; margin-right: 8px;">
+              
+              <button class="btn btn-secondary-custom d-md-none border-0 px-2.5 py-1.5" type="button" id="btn-toggle-sidebar" aria-label="Alternar conversas" style="border-radius: var(--radius-sm); flex-shrink: 0;">
+                <i class="bi bi-chat-dots fs-5"></i>
+              </button>
+
+             
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-none" id="btn-back-to-public" title="Voltar para a sala pública" style="border-radius: var(--radius-sm); flex-shrink: 0;">
+                <i class="bi-arrow-left"></i> <span class="d-none d-sm-inline ms-1">Voltar ao Público</span>
+              </button>
+
+              <div class="d-flex flex-column justify-content-center" style="min-width: 0; flex: 1;">
+                <div class="d-flex align-items-center gap-1.5" style="min-width: 0;">
+                  <span class="status-indicator status-online position-static d-inline-block" id="active-chat-status" style="width: 8px; height: 8px; flex-shrink: 0;"></span>
+                  <h2 class="h6 fw-bold mb-0 text-white text-truncate" id="active-room-name" style="font-size: 0.88rem; min-width: 0;">Buscando sala...</h2>
+                </div>
+                <p class="mb-0 text-secondary text-truncate" id="active-room-description" style="font-size: 0.68rem; min-width: 0;">
+                  Conectando ao servidor...
+                </p>
+              </div>
+            </div>
+
+           
+            <div class="d-none d-md-flex align-items-center gap-1.5">
+              
+             
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center gap-1.5" id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-grid-fill"></i> <span class="d-none d-lg-inline">Salas</span>
+              </button>
+              
+             
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5" id="btn-toggle-search" title="Pesquisar nesta sala" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-search"></i>
+              </button>
+
+            
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center gap-1.5" id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-people-fill"></i> <span class="d-none d-lg-inline">Membros</span>
+              </button>
+
+             
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5" onclick="window.ChatEngine.toggleTheme()" title="Alternar tema" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-sun-fill theme-sun-icon-btn text-warning"></i>
+                <i class="bi bi-moon-fill theme-moon-icon-btn text-primary"></i>
+              </button>
+            </div>
+
+           
+            <div class="d-flex d-md-none align-items-center gap-1.5">
+              
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" style="border-radius: var(--radius-sm);">
+                <i class="bi bi-grid-fill"></i>
+              </button>
+              
+              
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Membros" style="border-radius: var(--radius-sm);">
+                <i class="bi bi-people-fill"></i>
+              </button>
+
+              
+              <div class="dropdown">
+                <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 dropdown-toggle-no-caret" type="button" id="dropdownMenuMobile" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm);" title="Mais Opções">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end border-secondary" aria-labelledby="dropdownMenuMobile" style="background-color: var(--surface);">
+                  <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2 py-2" id="btn-toggle-search-mobile">
+                      <i class="bi bi-search text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Pesquisar Mensagens</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2 py-2" onclick="window.ChatEngine.toggleTheme()">
+                      <i class="bi bi-sun text-warning theme-sun-icon-btn"></i>
+                      <i class="bi bi-moon text-primary theme-moon-icon-btn"></i>
+                      <span class="text-white" style="font-size: 0.85rem;">Alternar Tema</span>
+                    </button>
+                  </li>
+                  <li>
+                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/perfil">
+                      <i class="bi bi-gear-fill text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Meu Perfil</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </header>
+
+          
+          <div class="bg-dark p-2 border-bottom border-secondary d-none" id="chat-search-bar-wrapper">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-transparent border-secondary text-secondary"><i class="bi bi-funnel"></i></span>
+              <input type="text" class="form-control bg-transparent text-white border-secondary" id="chat-search-messages-input" placeholder="Filtrar mensagens na tela atual...">
+              <button class="btn btn-sm btn-secondary-custom px-2" type="button" id="btn-close-search" title="Fechar pesquisa"><i class="bi bi-x-lg"></i></button>
+            </div>
+          </div>
+
+        
+          <div class="chat-messages" id="chat-messages-container" aria-live="polite">
+            <div class="text-center py-5">
+              <div class="spinner-border text-white" role="status">
+                <span class="visually-hidden">Conectando...</span>
+              </div>
+              <p class="text-secondary mt-2 small">Estabilizando canal de conversa...</p>
+            </div>
+          </div>
+
+         
+          <div class="typing-text d-none" id="typing-indicator-bar">
+         
+          </div>
+
+          
+          <footer class="chat-input-area">
+            
+           
+            <div class="reply-reference-bar d-none" id="reply-reference-bar">
+              <div class="d-flex align-items-center gap-2 text-truncate">
+                <i class="bi bi-reply-fill text-secondary"></i>
+                <span class="text-secondary small text-truncate" id="reply-reference-text">Respondendo...</span>
+              </div>
+              <button class="btn btn-sm p-1 border-0" type="button" id="btn-cancel-reply" title="Cancelar resposta" style="background: none !important;">
+                <i class="bi bi-x-circle-fill text-secondary hover:text-white"></i>
+              </button>
+            </div>
+
+           
+            <form id="message-form" class="m-0" onsubmit="return false;">
+              <div class="input-group flex-nowrap align-items-end">
+                <textarea class="form-control bg-dark border-secondary px-3 py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none;"></textarea>
+                
+             
+                <div class="dropdown d-none d-md-block" style="align-self: flex-end;">
+                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-emoji-picker" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Escolher emoji" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0; padding: 0; border-left: none; border-right: none;">
+                    <i class="bi bi-emoji-smile" style="color: var(--text-primary); font-size: 1.15rem;"></i>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end p-2 border-secondary shadow-lg" id="emoji-picker-dropdown" aria-labelledby="btn-emoji-picker" style="background-color: var(--surface); width: 310px; max-width: 90vw; z-index: 1060; border-radius: var(--radius-md);">
+                  
+                    <div class="mb-2">
+                      <input type="text" id="emoji-search-desktop" class="form-control form-control-sm bg-dark border-secondary text-white" placeholder="Pesquisar emoji..." style="font-size: 0.85rem;">
+                    </div>
+                   
+                    <div class="d-flex justify-content-between border-bottom border-secondary pb-2 mb-2 emoji-tabs" style="font-size: 1.1rem; overflow-x: auto; scrollbar-width: none;">
+                      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none active-emoji-tab" onclick="window.switchEmojiCategory('faces')" style="box-shadow: none;">😀</button>
+                      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('animals')" style="box-shadow: none;">🐱</button>
+                      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('food')" style="box-shadow: none;">🍔</button>
+                      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('activities')" style="box-shadow: none;">⚽</button>
+                      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('travel')" style="box-shadow: none;">🚗</button>
+                      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('objects')" style="box-shadow: none;">💡</button>
+                      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('hearts')" style="box-shadow: none;">💖</button>
+                    </div>
+                   
+                    <div class="emoji-grid d-flex flex-wrap gap-1" id="emoji-grid-container" style="max-height: 180px; overflow-y: auto; font-size: 1.3rem; padding: 2px; justify-content: center;">
+                      
+                    </div>
+                  </div>
+                </div>
+
+                
+                <button class="btn btn-premium d-flex align-items-center justify-content-center" type="submit" id="btn-send" title="Enviar mensagem" aria-label="Enviar" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; align-self: flex-end; border-radius: 0; border-right: none; padding: 0;">
+                  <i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>
+                </button>
+
+                
+                <div class="dropdown d-block d-md-none" style="align-self: flex-end;">
+                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-mobile-actions" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Mais opções" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0; border-left: none;">
+                    <img src="https://img.icons8.com/?size=100&id=102729&format=png&color=000000" width="16" height="16" style="filter: brightness(0) invert(1);" alt="Opções" referrerpolicy="no-referrer">
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end p-3 border-secondary shadow-lg" id="mobile-actions-dropdown" aria-labelledby="btn-mobile-actions" style="background-color: var(--surface); width: 320px; max-width: 90vw; z-index: 1060; border-radius: var(--radius-md);">
+                    
+                  
+                    <div id="mobile-menu-step-1" class="d-flex justify-content-around py-2 gap-3">
+                      <button type="button" class="btn btn-secondary-custom d-flex flex-column align-items-center justify-content-center p-3 text-white border-secondary transition-all" id="btn-mobile-open-emojis" style="width: 110px; height: 95px; border-radius: var(--radius-md); background-color: rgba(255, 255, 255, 0.03);">
+                        <i class="bi bi-emoji-smile text-warning mb-2" style="font-size: 1.8rem;"></i>
+                        <span style="font-size: 0.82rem; font-weight: 500;">Emojis</span>
+                      </button>
+                      <button type="button" class="btn btn-secondary-custom d-flex flex-column align-items-center justify-content-center p-3 text-white border-secondary transition-all" id="btn-mobile-open-colors" style="width: 110px; height: 95px; border-radius: var(--radius-md); background-color: rgba(255, 255, 255, 0.03);">
+                        <i class="bi bi-palette-fill mb-2" style="font-size: 1.8rem; color: #00d2ff;"></i>
+                        <span style="font-size: 0.82rem; font-weight: 500;">Cor Texto</span>
+                      </button>
+                    </div>
+
+                   
+                    <div id="mobile-menu-emojis" class="d-none">
+                      <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                        <button type="button" class="btn btn-sm text-secondary p-0 d-flex align-items-center gap-1" id="btn-mobile-emoji-back" style="box-shadow: none; font-size: 0.85rem;">
+                          <i class="bi bi-chevron-left"></i> Voltar
+                        </button>
+                        <span class="text-white small fw-bold">Emojis</span>
+                        <span style="width: 50px;"></span>
+                      </div>
+
+                      
+                      <div class="mb-2">
+                        <input type="text" id="emoji-search-mobile" class="form-control form-control-sm bg-dark border-secondary text-white" placeholder="Pesquisar emoji..." style="font-size: 0.85rem;">
+                      </div>
+
+                      <div class="d-flex justify-content-between border-bottom border-secondary pb-2 mb-2 emoji-tabs" style="font-size: 1.1rem; overflow-x: auto; scrollbar-width: none;">
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none active-emoji-tab" onclick="window.switchEmojiCategory('faces')" style="box-shadow: none;">😀</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('animals')" style="box-shadow: none;">🐱</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('food')" style="box-shadow: none;">🍔</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('activities')" style="box-shadow: none;">⚽</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('travel')" style="box-shadow: none;">🚗</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('objects')" style="box-shadow: none;">💡</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('hearts')" style="box-shadow: none;">💖</button>
+                      </div>
+                      <div class="emoji-grid d-flex flex-wrap gap-1" id="mobile-emoji-grid-container" style="max-height: 180px; overflow-y: auto; font-size: 1.3rem; padding: 2px; justify-content: center;">
+                       
+                      </div>
+                    </div>
+
+                    
+                    <div id="mobile-menu-colors" class="d-none">
+                      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
+                        <button type="button" class="btn btn-sm text-secondary p-0 d-flex align-items-center gap-1" id="btn-mobile-color-back" style="box-shadow: none; font-size: 0.85rem;">
+                          <i class="bi bi-chevron-left"></i> Voltar
+                        </button>
+                        <span class="text-white small fw-bold">Cor das Mensagens</span>
+                        <span style="width: 50px;"></span>
+                      </div>
+                      <div class="p-1">
+                        <div class="d-flex flex-wrap gap-3 justify-content-center">
+                          <button type="button" class="btn p-0 rounded-circle border border-secondary" style="width: 32px; height: 32px; background-color: var(--text-primary);" onclick="window.setMessageColor('', 'var(--text-primary)'); window.closeMobileDropdown();" title="Cor padrão"></button>
+                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #00d2ff;" onclick="window.setMessageColor('#00d2ff', '#00d2ff'); window.closeMobileDropdown();" title="Azul Claro"></button>
+                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #ff4d4d;" onclick="window.setMessageColor('#ff4d4d', '#ff4d4d'); window.closeMobileDropdown();" title="Vermelho"></button>
+                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #ff66cc;" onclick="window.setMessageColor('#ff66cc', '#ff66cc'); window.closeMobileDropdown();" title="Rosa Lindo"></button>
+                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #2ecc71;" onclick="window.setMessageColor('#2ecc71', '#2ecc71'); window.closeMobileDropdown();" title="Verde Esmeralda"></button>
+                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #f1c40f;" onclick="window.setMessageColor('#f1c40f', '#f1c40f'); window.closeMobileDropdown();" title="Amarelo Sol"></button>
+                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #e67e22;" onclick="window.setMessageColor('#e67e22', '#e67e22'); window.closeMobileDropdown();" title="Laranja Cenoura"></button>
+                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #9b59b6;" onclick="window.setMessageColor('#9b59b6', '#9b59b6'); window.closeMobileDropdown();" title="Roxo Ametista"></button>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                
+                <div class="dropdown d-none d-md-block" style="align-self: flex-end;">
+                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-color-picker" data-bs-toggle="dropdown" aria-expanded="false" title="Escolher cor do texto" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0;">
+                    <i class="bi bi-palette-fill" id="selected-color-indicator" style="color: var(--text-primary); font-size: 1.1rem;"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end p-2 border-secondary" aria-labelledby="btn-color-picker" style="background-color: var(--surface); min-width: 150px; z-index: 1050;">
+                    <li class="dropdown-header text-secondary small p-1">Cor do texto</li>
+                    <li>
+                      <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 rounded" onclick="window.setMessageColor('', 'var(--text-primary)')">
+                        <span class="d-inline-block rounded-circle" style="width: 12px; height: 12px; background-color: var(--text-primary); border: 1px solid var(--border);"></span>
+                        <span class="text-white small">Padrão</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 rounded" onclick="window.setMessageColor('#00d2ff', '#00d2ff')">
+                        <span class="d-inline-block rounded-circle" style="width: 12px; height: 12px; background-color: #00d2ff;"></span>
+                        <span class="text-white small">Azul Claro</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 rounded" onclick="window.setMessageColor('#ff4d4d', '#ff4d4d')">
+                        <span class="d-inline-block rounded-circle" style="width: 12px; height: 12px; background-color: #ff4d4d;"></span>
+                        <span class="text-white small">Vermelho</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 rounded" onclick="window.setMessageColor('#ff66cc', '#ff66cc')">
+                        <span class="d-inline-block rounded-circle" style="width: 12px; height: 12px; background-color: #ff66cc;"></span>
+                        <span class="text-white small">Rosa Lindo</span>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+
+              </div>
+            </form>
+          </footer>
+
+        </section>
+
+      </section>
+    </main>
+
+    
+    <div class="modal fade" id="roomsModal" tabindex="-1" aria-labelledby="roomsModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-secondary shadow-lg rounded-4" style="background-color: var(--surface);">
+          <div class="modal-header border-secondary py-3">
+            <h5 class="modal-title h6 fw-bold text-white" id="roomsModalLabel">
+              <i class="bi bi-grid-fill me-2 text-success"></i> Salas de Bate-papo Ativas
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar" style="filter: invert(1);"></button>
+          </div>
+          <div class="modal-body p-4">
+            
+          
+            <div class="mb-4">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control bg-dark text-white border-secondary" id="search-rooms-modal" placeholder="Pesquisar salas por assunto...">
+              </div>
+            </div>
+
+            
+            <div class="row g-3" id="modal-rooms-container">
+              <div class="col-12 text-center py-4 text-secondary">
+                <div class="spinner-border spinner-border-sm text-white" role="status"></div>
+                <p class="mt-2 small">Buscando canais de bate-papo...</p>
+              </div>
+            </div>
+
+          </div>
+          <div class="modal-footer border-secondary">
+            <button type="button" class="btn btn-secondary-custom py-2 px-4" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasMembers" aria-labelledby="offcanvasMembersLabel">
+      <div class="offcanvas-header">
+        <h5 class="h6 fw-bold text-white mb-0" id="offcanvasMembersLabel">
+          <i class="bi bi-people-fill me-2 text-success"></i> Membros Conectados
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar" style="filter: invert(1);"></button>
+      </div>
+      <div class="offcanvas-body d-flex flex-column" style="background-color: var(--background) !important;">
+        
+      
+        <div class="p-3 border-bottom border-secondary bg-dark">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-transparent border-secondary text-secondary"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control bg-transparent border-secondary text-white" id="search-members-input" placeholder="Pesquisar por nome...">
+          </div>
+        </div>
+
+        
+        <div class="flex-grow-1 overflow-y-auto" id="members-list-container">
+         
+        </div>
+
+      </div>
+    </div>
+
+   
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+   
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+  
+    <script src="/assets/js/main.js"></script>
+
+  
+    <script src="/assets/js/chat.js"></script>
+  </body>
+</html>
