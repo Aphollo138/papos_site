@@ -5,4 +5,4 @@ Allow: /salas
 Disallow: /chat
 Disallow: /perfil
 
-Sitemap: https://papos.net.br/sitemap.xml
+Sitemap: https://papo.net.br/sitemap.xml
