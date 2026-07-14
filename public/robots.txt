@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 Allow: /pagina-inicial
 Allow: /salas
-Disallow: /chat
-Disallow: /perfil
+Allow: /chat
+Allow: /perfil
 
 Sitemap: https://papo.net.br/sitemap.xml
