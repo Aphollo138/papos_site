@@ -185,7 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof pm !== "object") return false;
     if (!pm.id) return false;
     
-    // Support both standardized and legacy formats
+    
     const sender = pm.senderName || pm.from;
     const recipient = pm.recipientName || pm.to;
     const content = pm.content !== undefined ? pm.content : pm.text;
@@ -198,9 +198,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  // Cache para perfis de outros usuários para evitar requisições sequenciais repetidas
+  
   const profileCache = new Map();
-  const CACHE_TTL_MS = 15000; // 15 segundos
+  const CACHE_TTL_MS = 15000; 
 
   function sendJoinRoom(roomId) {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
@@ -1651,14 +1651,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+  // --- INÍCIO DA INTEGRAÇÃO DO PERFIL PÚBLICO ---
   window.openUserProfile = (nickname) => {
     if (!nickname) return;
     
-    
+    // Ignorar bots ou sistema
     if (nickname === "Sistema" || nickname === "System") return;
     
-    
+    // Converter nome "Você" para o apelido real
     const realName = (nickname === "Você") ? (window.confirmedNickname || currentUser) : nickname;
     const isMe = (realName.toLowerCase() === (window.confirmedNickname || currentUser).toLowerCase());
 
@@ -1704,7 +1704,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const reqInfo = window.pendingProfileRequest;
     const isMe = reqInfo ? (data.nickname.toLowerCase() === (window.confirmedNickname || currentUser).toLowerCase()) : false;
     
-    
+    // Salvar no cache
     profileCache.set(data.nickname.toLowerCase(), {
       data: data,
       timestamp: Date.now()
@@ -1727,12 +1727,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const bioEl = document.getElementById("modal-profile-bio");
     const actionBtn = document.getElementById("btn-modal-profile-action");
 
-    
+    // 1. Avatar
     if (avatarContainer) {
       avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-lg mx-auto");
     }
 
-    
+    // 2. Indicador Online
     if (onlineIndicator) {
       if (profile.online) {
         onlineIndicator.classList.remove("d-none");
@@ -1741,18 +1741,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    
+    // 3. Nome
     if (nicknameEl) {
       nicknameEl.textContent = profile.nickname;
     }
 
-    
+    // 4. Status de texto
     if (statusTextEl) {
       statusTextEl.textContent = profile.online ? "Membro conectado" : "Offline no momento";
       statusTextEl.className = profile.online ? "text-success small mb-4" : "text-secondary small mb-4";
     }
 
-    
+    // 5. Idade
     if (ageEl) {
       if (profile.age !== null && profile.age !== undefined && profile.age !== "") {
         ageEl.textContent = `${profile.age} anos`;
@@ -1763,7 +1763,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    
+    // 6. Sexo
     if (genderEl) {
       if (profile.gender && profile.gender.trim() !== "") {
         genderEl.textContent = profile.gender;
@@ -1774,7 +1774,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    
+    // 7. Biografia (texto seguro, sem HTML injection)
     if (bioEl) {
       if (profile.bio && profile.bio.trim() !== "") {
         bioEl.textContent = profile.bio;
@@ -1785,7 +1785,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    
+    // 8. Botão de Ação
     if (actionBtn) {
       actionBtn.classList.remove("d-none");
       if (isMe) {
@@ -1807,23 +1807,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    
+    // Mostrar modal com a API do Bootstrap
     const modalInstance = new bootstrap.Modal(modalEl);
     modalInstance.show();
   }
-  
+  // --- FIM DA INTEGRAÇÃO DO PERFIL PÚBLICO ---
 });
 
-
+// Expose safe Mock commonJS module exports for emoji-picker-react package to satisfy requirements
 if (typeof exports !== 'undefined') {
   try {
     exports.EmojiPickerReact = require('emoji-picker-react');
   } catch (e) {
-    
+    // Ignore gracefully in client browsers
   }
 }
 
-
+// Initialize faces category initially
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => { window.switchEmojiCategory("faces"); }, 200);

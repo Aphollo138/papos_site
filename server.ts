@@ -3,7 +3,7 @@ import http from "http";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 
-// Initial standard rooms list (matches frontend)
+
 const INITIAL_ROOMS = [
   { id: "room-1", name: "Bate-Papo Geral 💬", desc: "A sala principal para falar sobre qualquer assunto, mandar memes ou só ver o que o pessoal está comentando.", count: 0, icon: "chat-dots" },
   { id: "room-2", name: "Tecnologia & Devs 💻", desc: "Espaço descontraído para falar sobre programação, hardware, carreira tech e inteligência artificial.", count: 0, icon: "code" },
@@ -130,7 +130,7 @@ interface ClientSession {
   ws: WebSocket;
   nickname: string;
   roomId: string;
-  lastMessageTime: number[]; // For spam prevention rate limits
+  lastMessageTime: number[]; 
   bio?: string;
   age?: number;
   gender?: string;
@@ -144,7 +144,7 @@ function getCurrentTime() {
   return now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-// Escapes special HTML tags to prevent XSS
+
 function sanitizeHTML(text: string): string {
   if (!text) return "";
   return text
@@ -161,13 +161,13 @@ async function startServer() {
   app.use(express.json());
   const PORT = Number(process.env.PORT) || 3000;
 
-  // Middleware de segurança (CORS) para aceitar conexões apenas de origens permitidas
+  
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papos.net.br",
+      "https://papo.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -175,7 +175,8 @@ async function startServer() {
       const isAllowed = allowedOrigins.includes(origin) || 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("run.app") || 
+        origin.includes("run.app") ||
+        origin.includes("papo.net.br") ||  
         origin.includes("vercel.app");
         
       if (isAllowed) {
@@ -187,7 +188,7 @@ async function startServer() {
     next();
   });
 
-  // Simple endpoint for health checks
+  
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
   });
@@ -226,12 +227,12 @@ async function startServer() {
   server.on("upgrade", (request, socket, head) => {
     const origin = request.headers.origin;
     
-    // Em produção, valida se a origem é permitida (localhost, papos.net.br, onrender, vercel, run.app)
+    
     if (origin) {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papos.net.br") ||
+        origin.includes("papo.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -249,14 +250,14 @@ async function startServer() {
     });
   });
 
-  // Helper to send messages to a specific client safely
+ 
   function sendToClient(ws: WebSocket, type: string, payload: any) {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type, ...payload }));
     }
   }
 
-  // Helper to broadcast to a specific room
+  
   function broadcastToRoom(roomId: string, type: string, payload: any, excludeWs?: WebSocket) {
     activeSessions.forEach((session, ws) => {
       if (session.roomId === roomId && ws.readyState === WebSocket.OPEN) {
@@ -266,7 +267,7 @@ async function startServer() {
     });
   }
 
-  // Get active online nickname list in a room (including active simulated bots)
+  
   function getRoomOnlineUsers(roomId: string): string[] {
     const list: string[] = [];
     activeSessions.forEach((session) => {
@@ -275,14 +276,14 @@ async function startServer() {
       }
     });
     
-    // Inject bots allocated to this room
+    
     BOTS.forEach(bot => {
       if (bot.rooms.includes(roomId)) {
         list.push(bot.nickname);
       }
     });
 
-    return Array.from(new Set(list)); // Deduplicate
+    return Array.from(new Set(list)); 
   }
 
   // Update count in rooms list based on actual connections

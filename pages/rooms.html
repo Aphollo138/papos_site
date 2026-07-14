@@ -32,8 +32,21 @@
     <header class="navbar navbar-expand-lg fixed-top navbar-custom" id="rooms-header">
       <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2" href="/" id="brand-logo-internal">
-          <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: 900; width: 34px; height: 34px;">
-            P
+          <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+              <g>
+                <mask id="logo-mask-rooms">
+                  <rect x="0" y="0" width="100" height="100" fill="white" />
+                  <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+                </mask>
+                <g mask="url(#logo-mask-rooms)">
+                  <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
+                  <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
+                </g>
+                <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" style="stroke: var(--text-primary) !important; fill: none;" />
+                <circle cx="78" cy="26" r="6" style="fill: var(--text-primary) !important;" />
+              </g>
+            </svg>
           </div>
           <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
         </a>

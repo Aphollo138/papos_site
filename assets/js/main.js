@@ -1,4 +1,5 @@
 
+
 const CHAT_CONFIG = {
   
   productionServerUrl: "https://papos-site.onrender.com",
@@ -13,11 +14,11 @@ const CHAT_CONFIG = {
                         window.location.hostname.includes(".run.app");   
     
     if (isLocalhost) {
-      // Se estiver rodando localmente, conecta ao mesmo host
+     
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       return `${protocol}//${window.location.host}`;
     } else {
-      // Em produção, converte o link do Render (HTTPS) para o protocolo WebSocket correto (WSS)
+      
       let cleanUrl = this.productionServerUrl.trim();
       if (cleanUrl.endsWith("/")) {
         cleanUrl = cleanUrl.slice(0, -1);
@@ -36,19 +37,19 @@ const ChatEngine = {
     return localStorage.getItem("papos_nickname") || null;
   },
 
-  // Save persistent nickname
+  
   saveUser(nickname) {
     if (!nickname || nickname.trim() === "") return false;
     localStorage.setItem("papos_nickname", nickname.trim());
     return true;
   },
 
-  // Clear nickname (logout)
+  
   logoutUser() {
     localStorage.removeItem("papos_nickname");
   },
 
-  // Initiate WebSocket connection on correct host/port
+ 
   connectSocket() {
     const wsUrl = window.CHAT_CONFIG.getWebSocketUrl();
     console.log("[ChatEngine] Conectando WebSocket em:", wsUrl);
@@ -56,7 +57,7 @@ const ChatEngine = {
     return socket;
   },
 
-  // Theme Management
+  
   initTheme() {
     const savedTheme = localStorage.getItem("papos_theme");
     if (savedTheme) {
@@ -71,14 +72,14 @@ const ChatEngine = {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("papos_theme", theme);
     
-    // Update all toggle image elements on the page
+    
     const toggles = document.querySelectorAll(".theme-toggle-img");
     toggles.forEach(img => {
       img.src = (theme === "dark") ? "/assets/img/toggle-on.svg" : "/assets/img/toggle-off.svg";
       img.alt = (theme === "dark") ? "Tema Escuro Ligado" : "Tema Claro Ligado";
     });
 
-    // Sync any standard checkbox toggles if they exist (backward compatibility)
+   
     const togglerCheckbox = document.getElementById("theme-toggle-checkbox");
     if (togglerCheckbox) {
       togglerCheckbox.checked = (theme === "dark");
@@ -91,7 +92,7 @@ const ChatEngine = {
     this.setTheme(next);
   },
 
-  // Avatar visual color generation based on name
+  
   getAvatarColor(name) {
     if (!name) return "#ffffff";
     const colors = [
@@ -106,12 +107,27 @@ const ChatEngine = {
     return colors[sum % colors.length];
   },
 
-  // HTML Avatar bubble builder
+  
   renderAvatar(name, sizeClass = "") {
     if (!name || name.trim() === "") name = "A";
-    const initial = name.trim().charAt(0).toUpperCase();
-    const bgColor = this.getAvatarColor(name);
-    return `<div class="avatar-circle ${sizeClass}" style="background-color: ${bgColor}" title="${name}">${initial}</div>`;
+    const cleanName = name.trim();
+    const initial = cleanName.charAt(0).toUpperCase();
+    
+    
+    let photoUrl = null;
+    const currentUser = localStorage.getItem("papos_nickname");
+    if (cleanName === currentUser || cleanName === "Você") {
+      photoUrl = localStorage.getItem("papos_photo");
+    } else {
+      photoUrl = localStorage.getItem(`papos_photo_${cleanName}`);
+    }
+    
+    if (photoUrl && photoUrl.trim() !== "" && !photoUrl.includes("undefined") && !photoUrl.includes("null")) {
+      return `<img src="${photoUrl}" class="avatar-circle ${sizeClass}" alt="${cleanName}" title="${cleanName}" referrerPolicy="no-referrer" style="object-fit: cover;" />`;
+    }
+    
+    const bgColor = this.getAvatarColor(cleanName);
+    return `<div class="avatar-circle ${sizeClass}" style="background-color: ${bgColor}" title="${cleanName}">${initial}</div>`;
   },
 
   init() {
@@ -119,10 +135,10 @@ const ChatEngine = {
   }
 };
 
-// Apply theme before page renders to avoid white flashes
+
 ChatEngine.initTheme();
 
-// Global reveal scroll animations, progress indicator and navbar resize
+
 document.addEventListener("DOMContentLoaded", () => {
   // Let style sheets know JavaScript is working
   document.documentElement.classList.add('js-enabled');
@@ -130,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   ChatEngine.init();
 
-  // 1. Reading Progress Bar Logic
+  
   const progressBar = document.getElementById("scroll-progress-bar");
   window.addEventListener("scroll", () => {
     const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
@@ -140,7 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
       progressBar.style.width = scrolled + "%";
     }
 
-    // 2. Navbar Shrink / Floating Behavior
+    
     const header = document.querySelector(".navbar-custom");
     if (header) {
       if (window.scrollY > 20) {
@@ -151,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 3. Staggered Entrance Scroll Reveal Animations
+  
   const revealElements = document.querySelectorAll(".scroll-reveal");
   if ("IntersectionObserver" in window) {
     const scrollObserver = new IntersectionObserver((entries) => {
@@ -186,6 +202,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-
+// Bind globally
 window.ChatEngine = ChatEngine;
 window.ChatEngineInitialized = true;
