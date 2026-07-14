@@ -579,6 +579,19 @@ html {
   font-size: 1.3rem;
   border-width: 2px;
 }
+.avatar-member {
+  width: 24px;
+  height: 24px;
+  font-size: 0.65rem;
+  border-width: 1px;
+}
+@media (max-width: 576px) {
+  .avatar-member {
+    width: 20px;
+    height: 20px;
+    font-size: 0.55rem;
+  }
+}
 
 /* Sidebar Resize Handler */
 .sidebar-resizer {
@@ -731,7 +744,7 @@ html {
   flex-direction: column;
 }
 .mock-message.me {
-  align-self: flex-end;
+  align-self: flex-start;
 }
 .mock-message.other {
   align-self: flex-start;
@@ -746,7 +759,7 @@ html {
   background: var(--surface-secondary);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-top-right-radius: 2px;
+  border-top-left-radius: 2px;
 }
 .mock-message.other .mock-bubble {
   background: var(--surface);
@@ -761,7 +774,7 @@ html {
   margin-bottom: 2px;
 }
 .mock-message.me .mock-time {
-  align-self: flex-end;
+  align-self: flex-start;
 }
 
 /* Theme Switching Elements */
@@ -1436,5 +1449,152 @@ body.chat-page i.bi {
 .footer-logo:hover {
   transform: rotate(5deg) scale(1.05);
 }
+
+/* --- CHAT MESSAGE ALIGNMENT AND CONTENT PROTECTIONS --- */
+
+/* Force all message containers (including own, bot, system, public, private) to remain strictly left-aligned */
+.msg-container {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  align-self: flex-start !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 12px !important;
+  padding-right: 16px !important;
+  gap: 8px !important;
+  float: none !important;
+  text-align: left !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+}
+
+/* Bulletproof styling to collapse the avatar button padding/margins */
+.msg-container button.flex-shrink-0 {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Ensure the avatar itself stays at its visual dimensions */
+.msg-container .avatar-sm {
+  width: 28px !important;
+  height: 28px !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Clean hover state on messages */
+.msg-container:hover {
+  background-color: var(--surface-secondary) !important;
+}
+[data-theme="light"] .msg-container:hover {
+  background-color: #f3f4f6 !important;
+}
+
+/* Subtle, tasteful visual accent on own messages - strictly keeping left alignment */
+.msg-container.msg-me {
+  border-left: 3px solid #00e676 !important;
+  background-color: rgba(0, 230, 118, 0.02) !important;
+}
+[data-theme="light"] .msg-container.msg-me {
+  border-left: 3px solid #00c853 !important;
+  background-color: rgba(0, 200, 83, 0.02) !important;
+}
+
+/* Ensure consecutive grouped messages also obey strict left alignment and spacing */
+.msg-grouped {
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}
+.msg-grouped button.flex-shrink-0 {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Ensure message content takes all available width dynamically without breaking overflow */
+.msg-content {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Bulletproof text wrapping for long words, links, and long strings of emojis */
+.msg-bubble {
+  font-size: 0.86rem !important;
+  line-height: 1.45 !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  max-width: 100% !important;
+}
+
+/* Ensure images, links, or reply bars inside messages stay properly left-aligned and respect limits */
+.msg-content img,
+.msg-content video,
+.msg-content .reply-reference-bar {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Message actions menu: stays absolute at the right-side without shifting page elements */
+.message-actions-menu {
+  position: absolute !important;
+  top: -12px !important;
+  right: 20px !important;
+  z-index: 20 !important;
+  display: none;
+  max-width: calc(100% - 40px) !important;
+  flex-wrap: wrap !important;
+}
+.msg-container:hover .message-actions-menu {
+  display: flex !important;
+}
+
+/* Strict protections for the main chat messages container to avoid horizontal scrolling */
+.chat-messages {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+/* System messages styling and left/center safety */
+.msg-system {
+  align-self: center !important;
+  text-align: center !important;
+  max-width: 90% !important;
+  word-break: break-word !important;
+}
+
+/* Ensure sidebar resizing or member drawer toggling does not cause layout overflow or shift alignment */
+@media (max-width: 768px) {
+  .msg-container {
+    padding: 6px 14px !important;
+    gap: 8px !important;
+  }
+  .message-actions-menu {
+    right: 12px !important;
+    top: -10px !important;
+  }
+}
+
 
 

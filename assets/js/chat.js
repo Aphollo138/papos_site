@@ -198,17 +198,30 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
+  // Cache para perfis de outros usuários para evitar requisições sequenciais repetidas
+  const profileCache = new Map();
+  const CACHE_TTL_MS = 15000; // 15 segundos
+
+  function sendJoinRoom(roomId) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({
+      type: "join",
+      nickname: currentUser,
+      roomId: roomId,
+      bio: localStorage.getItem("papos_bio") || "",
+      age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
+      gender: localStorage.getItem("papos_gender") || "",
+      photoUrl: localStorage.getItem("papos_photo") || ""
+    }));
+  }
+
   // Connect WebSockets
   function connect() {
     socket = ChatEngine.connectSocket();
 
     socket.onopen = () => {
       console.log("[Chat] Connected. Joining public room: " + activeRoomId);
-      socket.send(JSON.stringify({
-        type: "join",
-        nickname: currentUser,
-        roomId: activeRoomId
-      }));
+      sendJoinRoom(activeRoomId);
     };
 
     socket.onmessage = (event) => {
@@ -327,6 +340,12 @@ document.addEventListener("DOMContentLoaded", () => {
           case "error":
             appendSystemMessage(`Erro do servidor: ${data.message}`);
             break;
+
+          case "profile_data":
+            if (window.handleProfileDataResponse) {
+              window.handleProfileDataResponse(data);
+            }
+            break;
         }
       } catch (err) {
         console.error("[Chat] Error parsing server frame:", err);
@@ -348,14 +367,42 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateActiveHeader(name, desc) {
     const headerName = document.getElementById("active-room-name");
     const headerDesc = document.getElementById("active-room-description");
+    const headerAvatarContainer = document.getElementById("active-chat-avatar-container");
+    const headerStatus = document.getElementById("active-chat-status");
+
     if (chatMode === "public") {
-      if (headerName) headerName.textContent = name || "Canal Geral";
+      if (headerName) {
+        headerName.textContent = name || "Canal Geral";
+        headerName.removeAttribute("onclick");
+        headerName.removeAttribute("role");
+        headerName.removeAttribute("tabindex");
+        headerName.style.cursor = "default";
+        headerName.className = "h6 fw-bold mb-0 text-white text-truncate";
+      }
       if (headerDesc) headerDesc.textContent = desc || "Bate-papo público livre.";
       if (btnBackToPublic) btnBackToPublic.classList.add("d-none");
+      if (headerAvatarContainer) {
+        headerAvatarContainer.classList.add("d-none");
+        headerAvatarContainer.innerHTML = "";
+      }
+      if (headerStatus) headerStatus.classList.remove("d-none");
     } else {
-      if (headerName) headerName.textContent = `Conversa com ${activePrivateRecipient}`;
+      if (headerName) {
+        headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
+        headerName.style.cursor = "default";
+      }
       if (headerDesc) headerDesc.textContent = "Chat privado de ponta-a-ponta. Conversas salvas localmente.";
       if (btnBackToPublic) btnBackToPublic.classList.remove("d-none");
+      
+      if (headerAvatarContainer) {
+        headerAvatarContainer.classList.remove("d-none");
+        headerAvatarContainer.innerHTML = `
+          <button class="btn p-0 border-0" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
+            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm")}
+          </button>
+        `;
+      }
+      if (headerStatus) headerStatus.classList.add("d-none");
     }
   }
 
@@ -476,11 +523,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
       
       // Re-trigger server sync for safety
-      socket.send(JSON.stringify({
-        type: "join",
-        nickname: currentUser,
-        roomId: activeRoomId
-      }));
+      sendJoinRoom(activeRoomId);
     });
   }
 
@@ -589,7 +632,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const isGrouped = (msg.sender === lastSender);
 
         const msgDiv = document.createElement("div");
-        msgDiv.className = `msg-container ${isGrouped ? 'msg-grouped' : ''}`;
+        msgDiv.className = `msg-container ${isMe ? 'msg-me' : ''} ${isGrouped ? 'msg-grouped' : ''}`;
         msgDiv.id = `msg-id-${msg.id}`;
 
         // Reactions Html build (Only for public rooms)
@@ -653,11 +696,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         msgDiv.innerHTML = `
           ${actionsHtml}
-          ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm")}
+          <button class="btn p-0 border-0 flex-shrink-0" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+            ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm")}
+          </button>
           <div class="msg-content">
             ${replyHtml}
             <div class="msg-header">
-              <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important;">${isMe ? 'Você' : msg.sender}</span>
+              <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
               <span class="msg-meta">${formatMessageTime(msg)}</span>
             </div>
             <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
@@ -698,7 +743,7 @@ document.addEventListener("DOMContentLoaded", () => {
                       (lastMsgDiv.querySelector(".msg-username").textContent === (isMe ? 'Você' : msg.sender));
 
     const msgDiv = document.createElement("div");
-    msgDiv.className = `msg-container ${isGrouped ? 'msg-grouped' : ''}`;
+    msgDiv.className = `msg-container ${isMe ? 'msg-me' : ''} ${isGrouped ? 'msg-grouped' : ''}`;
     msgDiv.id = `msg-id-${msg.id}`;
 
     let replyHtml = "";
@@ -743,11 +788,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     msgDiv.innerHTML = `
       ${actionsHtml}
-      ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm")}
+      <button class="btn p-0 border-0 flex-shrink-0" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+        ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm")}
+      </button>
       <div class="msg-content">
         ${replyHtml}
         <div class="msg-header">
-          <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important;">${isMe ? 'Você' : msg.sender}</span>
+          <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
           <span class="msg-meta">${formatMessageTime(msg)}</span>
         </div>
         <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
@@ -865,11 +912,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.history.pushState({ path: newUrl }, "", newUrl);
 
     // Join room
-    socket.send(JSON.stringify({
-      type: "join",
-      nickname: currentUser,
-      roomId: roomId
-    }));
+    sendJoinRoom(roomId);
   };
 
   if (searchRoomsModal) {
@@ -899,15 +942,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const isMe = u === (window.confirmedNickname || currentUser);
         const isMod = u.toLowerCase().includes("mod") || u.toLowerCase().includes("admin") || u === "Sistema";
         
+        const avatarHtml = window.ChatEngine ? window.ChatEngine.renderAvatar(u, "avatar-member") : `<div class="avatar-member bg-secondary">P</div>`;
+        const statusHtml = `<span class="status-indicator status-online ms-1.5" style="width: 8px; height: 8px; flex-shrink: 0; position: static; display: inline-block; ${isMod ? 'background-color: #ff4a4a !important;' : ''}"></span>`;
+        
         html += `
-          <div class="member-item d-flex align-items-center justify-content-between">
-            <div class="d-flex align-items-center gap-2">
-              <span class="status-indicator status-online" style="width: 8px; height: 8px; ${isMod ? 'background-color: #ff4a4a !important;' : ''}"></span>
-              <span class="${isMe ? 'fw-bold text-white' : 'text-secondary'} small">${u} ${isMe ? '(Você)' : ''} ${isMod ? '<span class="badge bg-danger-subtle text-danger ms-1" style="font-size:0.55rem; padding: 2px 4px;">MOD</span>' : ''}</span>
-            </div>
+          <div class="member-item d-flex align-items-center justify-content-between py-1.5 px-3">
+            <button class="btn p-0 border-0 d-flex align-items-center gap-2 text-truncate text-start" onclick="window.openUserProfile('${u}')" style="cursor: pointer; background: transparent; color: inherit; min-width: 0; flex: 1;" tabindex="0" aria-label="Ver perfil de ${u}">
+              ${avatarHtml}
+              <span class="${isMe ? 'fw-bold text-white' : 'text-secondary'} small text-truncate d-inline-flex align-items-center gap-1.5" title="${u}" style="min-width: 0; pointer-events: none;">
+                <span class="text-truncate">${u} ${isMe ? '(Você)' : ''}</span>
+                ${isMod ? '<span class="badge bg-danger-subtle text-danger flex-shrink-0" style="font-size:0.55rem; padding: 2px 4px;">MOD</span>' : ''}
+                ${statusHtml}
+              </span>
+            </button>
             
             ${!isMe ? `
-              <div class="d-flex gap-1">
+              <div class="d-flex gap-1 flex-shrink-0">
                 <button class="btn btn-sm btn-secondary-custom p-1" onclick="startPrivateChat('${u}')" title="Conversar Privado" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">
                   <i class="bi bi-chat-left-text-fill"></i>
                 </button>
@@ -1600,18 +1650,180 @@ document.addEventListener("DOMContentLoaded", () => {
       window.switchEmojiCategory("faces");
     });
   }
+
+  
+  window.openUserProfile = (nickname) => {
+    if (!nickname) return;
+    
+    
+    if (nickname === "Sistema" || nickname === "System") return;
+    
+    
+    const realName = (nickname === "Você") ? (window.confirmedNickname || currentUser) : nickname;
+    const isMe = (realName.toLowerCase() === (window.confirmedNickname || currentUser).toLowerCase());
+
+    const now = Date.now();
+    const cached = profileCache.get(realName.toLowerCase());
+    
+    if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+      displayUserProfileModal(cached.data, isMe);
+      return;
+    }
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      window.pendingProfileRequest = {
+        nickname: realName,
+        isMe: isMe,
+        timestamp: now
+      };
+      
+      socket.send(JSON.stringify({
+        type: "get_profile",
+        nickname: realName
+      }));
+    } else {
+      if (isMe) {
+        const localProfile = {
+          nickname: realName,
+          photoUrl: localStorage.getItem("papos_photo") || "",
+          bio: localStorage.getItem("papos_bio") || "",
+          age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
+          gender: localStorage.getItem("papos_gender") || "",
+          online: true
+        };
+        displayUserProfileModal(localProfile, true);
+      } else {
+        alert("Não foi possível carregar o perfil. Verifique sua conexão.");
+      }
+    }
+  };
+
+  window.handleProfileDataResponse = (data) => {
+    if (!data || !data.nickname) return;
+    
+    const reqInfo = window.pendingProfileRequest;
+    const isMe = reqInfo ? (data.nickname.toLowerCase() === (window.confirmedNickname || currentUser).toLowerCase()) : false;
+    
+    
+    profileCache.set(data.nickname.toLowerCase(), {
+      data: data,
+      timestamp: Date.now()
+    });
+
+    displayUserProfileModal(data, isMe);
+    window.pendingProfileRequest = null;
+  };
+
+  function displayUserProfileModal(profile, isMe) {
+    const modalEl = document.getElementById("userProfileModal");
+    if (!modalEl) return;
+
+    const avatarContainer = document.getElementById("modal-profile-avatar-container");
+    const onlineIndicator = document.getElementById("modal-profile-online-indicator");
+    const nicknameEl = document.getElementById("modal-profile-nickname");
+    const statusTextEl = document.getElementById("modal-profile-status-text");
+    const ageEl = document.getElementById("modal-profile-age");
+    const genderEl = document.getElementById("modal-profile-gender");
+    const bioEl = document.getElementById("modal-profile-bio");
+    const actionBtn = document.getElementById("btn-modal-profile-action");
+
+    
+    if (avatarContainer) {
+      avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-lg mx-auto");
+    }
+
+    
+    if (onlineIndicator) {
+      if (profile.online) {
+        onlineIndicator.classList.remove("d-none");
+      } else {
+        onlineIndicator.classList.add("d-none");
+      }
+    }
+
+    
+    if (nicknameEl) {
+      nicknameEl.textContent = profile.nickname;
+    }
+
+    
+    if (statusTextEl) {
+      statusTextEl.textContent = profile.online ? "Membro conectado" : "Offline no momento";
+      statusTextEl.className = profile.online ? "text-success small mb-4" : "text-secondary small mb-4";
+    }
+
+    
+    if (ageEl) {
+      if (profile.age !== null && profile.age !== undefined && profile.age !== "") {
+        ageEl.textContent = `${profile.age} anos`;
+        ageEl.className = "text-white";
+      } else {
+        ageEl.textContent = "Idade não informada";
+        ageEl.className = "text-secondary small";
+      }
+    }
+
+    
+    if (genderEl) {
+      if (profile.gender && profile.gender.trim() !== "") {
+        genderEl.textContent = profile.gender;
+        genderEl.className = "text-white";
+      } else {
+        genderEl.textContent = "Sexo não informado";
+        genderEl.className = "text-secondary small";
+      }
+    }
+
+    
+    if (bioEl) {
+      if (profile.bio && profile.bio.trim() !== "") {
+        bioEl.textContent = profile.bio;
+        bioEl.className = "text-white-50 small text-break";
+      } else {
+        bioEl.textContent = "Sem biografia ainda";
+        bioEl.className = "text-secondary small italic";
+      }
+    }
+
+    
+    if (actionBtn) {
+      actionBtn.classList.remove("d-none");
+      if (isMe) {
+        actionBtn.textContent = "Editar meu perfil";
+        actionBtn.className = "btn btn-secondary-custom w-100 py-2.5";
+        actionBtn.onclick = () => {
+          const modalInstance = bootstrap.Modal.getInstance(modalEl);
+          if (modalInstance) modalInstance.hide();
+          window.location.href = "/perfil";
+        };
+      } else {
+        actionBtn.textContent = "Conversar no privado";
+        actionBtn.className = "btn btn-premium w-100 py-2.5";
+        actionBtn.onclick = () => {
+          const modalInstance = bootstrap.Modal.getInstance(modalEl);
+          if (modalInstance) modalInstance.hide();
+          window.startPrivateChat(profile.nickname);
+        };
+      }
+    }
+
+    
+    const modalInstance = new bootstrap.Modal(modalEl);
+    modalInstance.show();
+  }
+  
 });
 
-// Expose safe Mock commonJS module exports for emoji-picker-react package to satisfy requirements
+
 if (typeof exports !== 'undefined') {
   try {
     exports.EmojiPickerReact = require('emoji-picker-react');
   } catch (e) {
-    // Ignore gracefully in client browsers
+    
   }
 }
 
-// Initialize faces category initially
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => { window.switchEmojiCategory("faces"); }, 200);

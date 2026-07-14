@@ -131,6 +131,10 @@ interface ClientSession {
   nickname: string;
   roomId: string;
   lastMessageTime: number[]; // For spam prevention rate limits
+  bio?: string;
+  age?: number;
+  gender?: string;
+  photoUrl?: string;
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
@@ -154,6 +158,7 @@ function sanitizeHTML(text: string): string {
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
+  app.use(express.json());
   const PORT = Number(process.env.PORT) || 3000;
 
   // Middleware de segurança (CORS) para aceitar conexões apenas de origens permitidas
@@ -162,7 +167,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -170,7 +175,6 @@ async function startServer() {
       const isAllowed = allowedOrigins.includes(origin) || 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") || 
         origin.includes("run.app") || 
         origin.includes("vercel.app");
         
@@ -188,6 +192,34 @@ async function startServer() {
     res.json({ status: "ok", activeConnections: activeSessions.size });
   });
 
+  // Profile validation endpoint
+  app.post("/api/profile/validate", (req, res) => {
+    const { bio, age, gender } = req.body;
+    
+    if (bio !== undefined && bio !== null && typeof bio === "string" && bio.length > 400) {
+      res.status(400).json({ error: "A biografia não pode ter mais de 400 caracteres." });
+      return;
+    }
+    
+    if (age !== undefined && age !== null) {
+      const ageNum = Number(age);
+      if (isNaN(ageNum) || ageNum < 17 || ageNum > 80 || !Number.isInteger(ageNum)) {
+        res.status(400).json({ error: "A idade deve ser um número inteiro entre 17 e 80 anos." });
+        return;
+      }
+    }
+
+    if (gender !== undefined && gender !== null && gender !== "") {
+      const validGenders = ["Masculino", "Feminino", "Outro", "Prefiro não informar"];
+      if (!validGenders.includes(gender)) {
+        res.status(400).json({ error: "O sexo selecionado é inválido." });
+        return;
+      }
+    }
+    
+    res.json({ success: true });
+  });
+
   // Attach WebSocket server on the same HTTP server instance
   const wss = new WebSocketServer({ noServer: true });
 
@@ -199,7 +231,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -332,6 +364,10 @@ async function startServer() {
 
             session.nickname = finalNickname;
             session.roomId = roomId;
+            session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
+            session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
+            session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
+            session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
 
             // Alert old room about departure
             if (oldRoomId && oldRoomId !== roomId) {
@@ -842,6 +878,51 @@ async function startServer() {
             if (targetWs) {
               sendToClient(targetWs, "private_message_deleted", { messageId, partner: session.nickname });
             }
+            break;
+          }
+
+          case "get_profile": {
+            const requestedNickname = payload.nickname;
+            if (!requestedNickname || typeof requestedNickname !== "string") {
+              sendToClient(ws, "error", { message: "Apelido inválido." });
+              return;
+            }
+
+            // Procurar nas sessões ativas (online)
+            let foundSession: ClientSession | null = null;
+            activeSessions.forEach((s) => {
+              if (s.nickname && s.nickname.toLowerCase() === requestedNickname.toLowerCase()) {
+                foundSession = s;
+              }
+            });
+
+            if (foundSession) {
+              sendToClient(ws, "profile_data", {
+                nickname: (foundSession as ClientSession).nickname,
+                photoUrl: (foundSession as ClientSession).photoUrl || "",
+                bio: (foundSession as ClientSession).bio || "",
+                age: (foundSession as ClientSession).age || null,
+                gender: (foundSession as ClientSession).gender || "",
+                online: true
+              });
+            } else {
+              sendToClient(ws, "profile_data", {
+                nickname: requestedNickname,
+                photoUrl: "",
+                bio: "",
+                age: null,
+                gender: "",
+                online: false
+              });
+            }
+            break;
+          }
+
+          case "update_profile": {
+            session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
+            session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
+            session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
+            session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
             break;
           }
 

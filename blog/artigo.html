@@ -4,32 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
-    <!-- SEO Primário (Fallback) -->
+    
     <title>Artigo | Blog do Papos</title>
     <meta name="description" content="Leia nosso artigo exclusivo sobre comunicação, amizades e segurança digital nas salas de bate-papo brasileiras." />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://papos.net.br/blog/artigo.html" />
 
-    <!-- Bootstrap 5 CSS -->
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     
-    <!-- Bootstrap Icons -->
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-    <!-- Custom Style Sheets -->
+    
     <link rel="stylesheet" href="/assets/css/style.css" />
     <link rel="stylesheet" href="/assets/css/blog.css" />
   </head>
   <body>
 
-    <!-- Scroll Progress Bar -->
+    
     <div id="scroll-progress-bar" style="position: fixed; top: 0; left: 0; height: 4px; background: #00e676; width: 0%; z-index: 9999; transition: width 0.1s ease-out;"></div>
 
-    <!-- Header / Navbar Principal Flutuante -->
+    
     <header class="navbar navbar-expand-lg fixed-top navbar-custom" id="main-header" aria-label="Menu principal">
       <div class="container-fluid d-flex align-items-center justify-content-between">
         
-        <!-- Brand Branding -->
+        
         <a class="navbar-brand d-flex align-items-center gap-2 m-0" href="/">
           <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: 900; width: 34px; height: 34px;">
             P
@@ -37,12 +37,12 @@
           <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
         </a>
         
-        <!-- Toggle button for mobile menu -->
+        
         <button class="navbar-toggler border-0 ms-auto me-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Alternar menu de navegação" style="filter: invert(1);">
           <span class="navbar-toggler-icon"></span>
         </button>
         
-        <!-- Collapsible Navbar Content -->
+        
         <div class="collapse navbar-collapse" id="navbarContent">
           <ul class="navbar-nav mx-auto mb-2 mb-lg-0 gap-1">
             <li class="nav-item">
@@ -63,7 +63,7 @@
           </ul>
           
           <div class="d-flex align-items-center gap-3">
-            <!-- Theme Toggler switch -->
+            
             <div class="theme-switch-container d-flex align-items-center gap-2" role="button" tabindex="0" onclick="window.ChatEngine.toggleTheme()" style="cursor: pointer;" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
               <i class="bi bi-sun-fill theme-sun-icon" style="font-size: 1.1rem; color: #ffb300; transition: var(--transition-smooth);"></i>
               <img src="/assets/img/toggle-off.svg" class="theme-toggle-img" alt="Alternar tema" style="width: 44px; height: 26px; transition: var(--transition-smooth); display: block;" />
@@ -76,14 +76,14 @@
       </div>
     </header>
 
-    <!-- Artigo Principal -->
+    
     <article class="blog-main">
       
-      <!-- Cabeçalho do Artigo -->
+      
       <header class="article-header py-5">
         <div class="container text-center text-lg-start">
           
-          <!-- Breadcrumb -->
+          
           <nav aria-label="breadcrumb" class="mb-4 d-inline-block">
             <ol class="breadcrumb mb-0 py-1 px-3 border border-secondary rounded-pill bg-dark bg-opacity-50 small">
               <li class="breadcrumb-item"><a href="/" class="text-secondary text-decoration-none">Início</a></li>
@@ -117,7 +117,7 @@
               </div>
             </div>
             
-            <!-- Botões de Compartilhamento -->
+            
             <div class="col-lg-4 text-center text-lg-end">
               <span class="text-secondary d-block small mb-2">Compartilhar Artigo</span>
               <div class="d-flex justify-content-center justify-content-lg-end gap-2">
@@ -139,39 +139,39 @@
         </div>
       </header>
 
-      <!-- Corpo do Artigo com TOC -->
+      
       <section class="py-5" style="background-color: var(--background);">
         <div class="container">
           <div class="row g-5">
             
-            <!-- Conteúdo Principal do Post (Esquerdo) -->
+            
             <div class="col-lg-8">
               
-              <!-- Imagem Principal -->
+              
               <div class="rounded-4 overflow-hidden border border-secondary mb-5 shadow-lg" style="max-height: 440px;">
                 <img src="" id="article-banner-image" class="w-100 h-100 object-fit-cover" alt="Banner do artigo" style="min-height: 300px;" />
               </div>
 
-              <!-- Texto do Artigo -->
+              
               <div class="article-content" id="post-body-content">
-                <!-- Injetado dinamicamente via JS -->
+                
               </div>
 
-              <!-- FAQ Section (Surgirá se o artigo possuir FAQ) -->
+              
               <div class="mt-5 pt-4 border-top border-secondary d-none" id="article-faq-wrapper">
                 <h3 class="h4 fw-bold text-white mb-4 font-display">Perguntas Frequentes (FAQ)</h3>
                 <div class="accordion faq-accordion" id="faqAccordion">
-                  <!-- Injetado dinamicamente via JS -->
+                  
                 </div>
               </div>
 
-              <!-- Tags do Artigo -->
+              
               <div class="mt-5 pt-3 border-top border-secondary d-flex flex-wrap align-items-center gap-2" id="article-tags-wrapper">
                 <span class="text-secondary small me-2"><i class="bi bi-tags-fill"></i> Tags:</span>
-                <!-- Injetado dinamicamente via JS -->
+                
               </div>
 
-              <!-- Caixa de Compartilhamento / Autoria -->
+             
               <div class="p-4 rounded-4 border border-secondary bg-dark mt-5 d-flex flex-column flex-sm-row align-items-center gap-4">
                 <div class="avatar-circle" style="background: var(--surface-secondary); color: var(--accent-color); font-weight: 800; width: 64px; height: 64px; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; min-width: 64px;">
                   P
@@ -182,11 +182,11 @@
                 </div>
               </div>
 
-              <!-- Seção de Comentários Integrada -->
+              
               <section class="mt-5 pt-5 border-top border-secondary">
                 <h3 class="h4 fw-bold text-white mb-4 font-display"><i class="bi bi-chat-left-text-fill me-2 text-success"></i> Comentários (<span id="comments-count">3</span>)</h3>
                 
-                <!-- Lista de Comentários Existentes -->
+                
                 <div class="d-flex flex-column gap-4 mb-5" id="comments-list">
                   <div class="p-3 border border-secondary rounded-4 bg-dark">
                     <div class="d-flex align-items-center gap-2 mb-2">
@@ -206,7 +206,7 @@
                   </div>
                 </div>
 
-                <!-- Formulário de Comentário -->
+                
                 <div class="p-4 border border-secondary rounded-4 bg-dark">
                   <h4 class="h6 fw-bold text-white mb-3 font-display">Deixe seu comentário</h4>
                   <form id="comment-form" onsubmit="submitComment(event)">
@@ -229,14 +229,14 @@
 
             </div>
 
-            <!-- Sidebar Fixa (Direito) -->
+            
             <div class="col-lg-4 blog-sidebar">
               
-              <!-- Índice Automático (TOC) -->
+              
               <div class="card p-4 position-sticky" style="top: 100px;">
                 <h3 class="h6 fw-bold text-uppercase tracking-wider text-white mb-3 font-display"><i class="bi bi-list-nested text-success me-2"></i> Índice de Leitura</h3>
                 <nav id="auto-toc-container" aria-label="Navegação interna do artigo">
-                  <!-- Injetado dinamicamente via JS -->
+                  
                 </nav>
               </div>
 
@@ -246,7 +246,7 @@
         </div>
       </section>
 
-      <!-- Artigos Relacionados (Carregamento Automático) -->
+      
       <section class="py-5" style="border-top: 1px solid var(--border); background-color: var(--surface);">
         <div class="container">
           <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom border-secondary">
@@ -255,12 +255,12 @@
           </div>
           
           <div class="row g-4" id="related-posts-grid">
-            <!-- Injetado dinamicamente via JS -->
+            
           </div>
         </div>
       </section>
 
-      <!-- Chamada Final (CTA) -->
+      
       <section class="py-5" style="border-top: 1px solid var(--border); background-color: var(--background);">
         <div class="container py-4 text-center">
           <div class="p-4 p-md-5 border border-secondary rounded-4 bg-dark max-width-md mx-auto" style="max-width: 720px;">
@@ -276,7 +276,7 @@
 
     </article>
 
-    <!-- Footer / Rodapé -->
+    
     <footer class="py-5" style="border-top: 1px solid var(--border); background-color: var(--surface);">
       <div class="container py-4">
         <div class="row justify-content-between gy-4">
@@ -317,19 +317,19 @@
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
-    <!-- Core ChatEngine State JS -->
+    
     <script src="/assets/js/main.js"></script>
 
-    <!-- Monetization Manager JS (Monetag) -->
+    
     <script src="/assets/js/monetization.js"></script>
 
-    <!-- Banco de Dados do Blog -->
+    
     <script src="/assets/js/blog-posts.js"></script>
 
-    <!-- Motor Central do Blog -->
+    
     <script src="/assets/js/blog.js"></script>
 
-    <!-- Lógica de Carregamento Dinâmico do Artigo -->
+    
     <script>
       let commentsCount = 2;
 
@@ -346,7 +346,7 @@
           return;
         }
 
-        // 1. Atualizar SEO Completo (Title, Meta, JSON-LD, FAQ)
+        
         BlogEngine.updateSEO(post);
 
         // 2. Preencher Breadcrumb e Dados Textuais
@@ -382,7 +382,7 @@
           postBody.innerHTML = bodyHtml;
         }
 
-        // 4. Renderizar o FAQ se houver
+        
         if (post.faq && post.faq.length > 0) {
           const faqWrapper = document.getElementById("article-faq-wrapper");
           const accordion = document.getElementById("faqAccordion");
@@ -420,12 +420,12 @@
           });
         }
 
-        // 6. Renderizar Artigos Relacionados
+        
         const relatedGrid = document.getElementById("related-posts-grid");
         if (relatedGrid) {
           const related = BlogEngine.getRelatedPosts(post.categorySlug, post.slug, 3);
           if (related.length === 0) {
-            // Se não houver relacionados na mesma categoria, pega posts aleatórios/recentes
+           
             const fallbackRelated = BlogEngine.getPosts().filter(p => p.slug !== post.slug).slice(0, 3);
             let relatedHtml = "";
             fallbackRelated.forEach(rp => {
@@ -446,7 +446,7 @@
           BlogEngine.renderTOC();
         }, 100);
 
-        // 8. Renderizar artigos populares no Footer
+        
         const footerPopularList = document.getElementById("footer-popular-posts");
         if (footerPopularList) {
           const popular = BlogEngine.getPopularPosts(3);
@@ -463,7 +463,7 @@
           footerPopularList.innerHTML = html;
         }
 
-        // Re-sincronizar revelações de scroll
+        
         setTimeout(() => {
           const revealElements = document.querySelectorAll(".scroll-reveal");
           if ("IntersectionObserver" in window) {
@@ -483,7 +483,7 @@
 
       });
 
-      // Lógica de Comentários em JS Local
+      
       function submitComment(e) {
         e.preventDefault();
         const authorEl = document.getElementById("comment-author");
@@ -518,7 +518,7 @@
         commentsCount++;
         if (countEl) countEl.textContent = commentsCount;
 
-        // Limpar form
+        
         authorEl.value = "";
         textEl.value = "";
         

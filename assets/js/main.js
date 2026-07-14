@@ -1,20 +1,16 @@
-/**
- * main.js - Core State, Theme management, Navbar reactions, and Reveal Animations
- */
 
-// Configuração centralizada do servidor do Chat (Express + WebSocket)
 const CHAT_CONFIG = {
-  // Altere esta variável para apontar para o seu servidor backend do Render quando estiver em produção
+  
   productionServerUrl: "https://papos-site.onrender.com",
   
-  // Função para retornar a URL do WebSocket de forma dinâmica
+  
   getWebSocketUrl() {
     const isLocalhost = window.location.hostname === "localhost" || 
                         window.location.hostname === "127.0.0.1" || 
                         window.location.hostname === "0.0.0.0" ||
-                        window.location.hostname.includes("ais-dev-") || // AI Studio dev
-                        window.location.hostname.includes("ais-pre-") || // AI Studio preview
-                        window.location.hostname.includes(".run.app");   // AI Studio run.app
+                        window.location.hostname.includes("ais-dev-") || 
+                        window.location.hostname.includes("ais-pre-") || 
+                        window.location.hostname.includes(".run.app");   
     
     if (isLocalhost) {
       // Se estiver rodando localmente, conecta ao mesmo host
@@ -31,11 +27,11 @@ const CHAT_CONFIG = {
   }
 };
 
-// Expor globalmente para a aplicação usar em qualquer lugar
+
 window.CHAT_CONFIG = CHAT_CONFIG;
 
 const ChatEngine = {
-  // Get persistent nickname
+  
   getUser() {
     return localStorage.getItem("papos_nickname") || null;
   },
@@ -190,6 +186,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// Bind globally
+
 window.ChatEngine = ChatEngine;
 window.ChatEngineInitialized = true;

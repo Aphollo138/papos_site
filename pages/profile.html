@@ -32,8 +32,21 @@
     <header class="navbar navbar-expand-lg fixed-top navbar-custom" id="profile-header">
       <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2" href="/" id="profile-logo-brand">
-          <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: 900; width: 34px; height: 34px;">
-            P
+          <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+              <g>
+                <mask id="logo-mask-profile">
+                  <rect x="0" y="0" width="100" height="100" fill="white" />
+                  <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+                </mask>
+                <g mask="url(#logo-mask-profile)">
+                  <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
+                  <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
+                </g>
+                <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" style="stroke: var(--text-primary) !important; fill: none;" />
+                <circle cx="78" cy="26" r="6" style="fill: var(--text-primary) !important;" />
+              </g>
+            </svg>
           </div>
           <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
         </a>
@@ -109,39 +122,51 @@
                   </div>
                 </div>
 
-                <!-- Estatísticas de Atividade Locais -->
+                <!-- Biografia e Idade -->
+                <div class="mb-4">
+                  <label for="profile-bio" class="form-label fw-bold small text-secondary">Biografia</label>
+                  <textarea class="form-control bg-dark border-secondary text-white" id="profile-bio" rows="4" placeholder="Fale um pouco sobre você... (máximo 400 caracteres)" maxlength="400" style="resize: none;"></textarea>
+                  <div class="d-flex justify-content-between mt-1">
+                    <span class="form-text small text-secondary">Sua biografia será vista por outros membros no chat.</span>
+                    <span class="form-text small text-secondary" id="bio-char-counter" style="font-weight: 500;">0/400</span>
+                  </div>
+                </div>
+
+                <div class="mb-4">
+                  <label for="profile-age" class="form-label fw-bold small text-secondary">Idade</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-dark border-secondary text-secondary" id="age-profile-addon">
+                      <i class="bi bi-calendar-event-fill"></i>
+                    </span>
+                    <input type="number" class="form-control bg-dark border-secondary border-start-0 text-white" id="profile-age" placeholder="Sua idade (entre 17 e 80 anos)" min="17" max="80" aria-describedby="age-profile-addon">
+                  </div>
+                  <div class="form-text small text-secondary">
+                    Apenas membros de 17 a 80 anos podem utilizar o Papos.
+                  </div>
+                  <div class="invalid-feedback d-none mt-2" id="age-error-feedback" style="color: #ff4a4a; font-size: 0.8rem;">
+                    A idade deve ser um número inteiro entre 17 e 80 anos.
+                  </div>
+                </div>
+
                 <div class="mb-5">
-                  <h2 class="h6 fw-bold text-uppercase tracking-wider text-secondary mb-3">Estatísticas de Atividade</h2>
-                  <div class="row g-3">
-                    
-                    <div class="col-6 col-sm-3">
-                      <div class="p-3 border border-secondary rounded text-center bg-dark">
-                        <span class="fs-4 fw-extrabold text-white d-block" id="stat-messages">0</span>
-                        <small class="text-secondary" style="font-size: 0.7rem;">Msgs Enviadas</small>
-                      </div>
-                    </div>
-
-                    <div class="col-6 col-sm-3">
-                      <div class="p-3 border border-secondary rounded text-center bg-dark">
-                        <span class="fs-4 fw-extrabold text-white d-block" id="stat-streak">1d</span>
-                        <small class="text-secondary" style="font-size: 0.7rem;">Dias Ativos</small>
-                      </div>
-                    </div>
-
-                    <div class="col-6 col-sm-3">
-                      <div class="p-3 border border-secondary rounded text-center bg-dark">
-                        <span class="fs-4 fw-extrabold text-white d-block" id="stat-rooms">1</span>
-                        <small class="text-secondary" style="font-size: 0.7rem;">Salas Visitadas</small>
-                      </div>
-                    </div>
-
-                    <div class="col-6 col-sm-3">
-                      <div class="p-3 border border-secondary rounded text-center bg-dark">
-                        <span class="fs-4 fw-extrabold text-white d-block" id="stat-points">0</span>
-                        <small class="text-secondary" style="font-size: 0.7rem;">Pontos XP</small>
-                      </div>
-                    </div>
-
+                  <label for="profile-gender" class="form-label fw-bold small text-secondary">Sexo</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-dark border-secondary text-secondary" id="gender-profile-addon">
+                      <i class="bi bi-gender-ambiguous"></i>
+                    </span>
+                    <select class="form-select bg-dark border-secondary border-start-0 text-white" id="profile-gender" aria-describedby="gender-profile-addon">
+                      <option value="">Selecione seu sexo...</option>
+                      <option value="Masculino">Masculino</option>
+                      <option value="Feminino">Feminino</option>
+                      <option value="Outro">Outro</option>
+                      <option value="Prefiro não informar">Prefiro não informar</option>
+                    </select>
+                  </div>
+                  <div class="form-text small text-secondary">
+                    Seu sexo será visível no seu perfil público.
+                  </div>
+                  <div class="invalid-feedback d-none mt-2" id="gender-error-feedback" style="color: #ff4a4a; font-size: 0.8rem;">
+                    Selecione uma opção válida para o campo sexo.
                   </div>
                 </div>
 
@@ -252,33 +277,34 @@
         const btnResetAll = document.getElementById("btn-reset-all");
         const localIdEl = document.getElementById("user-local-id");
 
-        // Elementos de Estatísticas
-        const statMessages = document.getElementById("stat-messages");
-        const statStreak = document.getElementById("stat-streak");
-        const statRooms = document.getElementById("stat-rooms");
-        const statPoints = document.getElementById("stat-points");
+        // Novos Elementos DOM
+        const inputBio = document.getElementById("profile-bio");
+        const bioCharCounter = document.getElementById("bio-char-counter");
+        const inputAge = document.getElementById("profile-age");
+        const ageErrorFeedback = document.getElementById("age-error-feedback");
+        const inputGender = document.getElementById("profile-gender");
+        const genderErrorFeedback = document.getElementById("gender-error-feedback");
 
         // Inicializar Valores
         inputNickname.value = currentUser;
         nameDisplay.textContent = currentUser;
         
+        // Carregar Biografia, Idade e Sexo do LocalStorage
+        const savedBio = localStorage.getItem("papos_bio") || "";
+        const savedAge = localStorage.getItem("papos_age") || "";
+        const savedGender = localStorage.getItem("papos_gender") || "";
+        
+        inputBio.value = savedBio;
+        bioCharCounter.textContent = `${savedBio.length}/400`;
+        inputAge.value = savedAge;
+        inputGender.value = savedGender;
+
         // Gerar ID de usuário persistente fictício baseado no nome
         let hash = 1000;
         for (let i = 0; i < currentUser.length; i++) {
           hash += currentUser.charCodeAt(i);
         }
         localIdEl.textContent = `#${hash}-local`;
-
-        // Atribuir estatísticas locais baseadas no apelido
-        const randomMsgCount = (hash % 45) + 12;
-        const randomStreak = (hash % 6) + 2;
-        const randomRooms = (hash % 3) + 2;
-        const randomXP = randomMsgCount * 8 + 40;
-
-        statMessages.textContent = randomMsgCount;
-        statStreak.textContent = `${randomStreak}d`;
-        statRooms.textContent = randomRooms;
-        statPoints.textContent = randomXP;
 
         // Função de Preview de Avatar em Tempo Real
         function updateAvatarPreview(name) {
@@ -296,27 +322,105 @@
           updateAvatarPreview(val);
         });
 
+        // Contador de caracteres da biografia
+        inputBio.addEventListener("input", () => {
+          let val = inputBio.value;
+          if (val.length > 400) {
+            val = val.substring(0, 400);
+            inputBio.value = val;
+          }
+          bioCharCounter.textContent = `${val.length}/400`;
+        });
+
         // Salvar Modificações
         profileForm.addEventListener("submit", (e) => {
           e.preventDefault();
           const newNick = inputNickname.value.trim();
           if (newNick === "") return;
 
-          const oldNick = currentUser;
-          
-          if (window.ChatEngine && window.ChatEngine.saveUser(newNick)) {
-            // Exibir mensagem de sucesso
-            successToast.classList.remove("d-none");
-            
-            setTimeout(() => {
-              successToast.classList.add("d-none");
-            }, 3000);
-            
-            // Recarregar para sincronizar
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
+          const bioVal = inputBio.value.trim();
+          const ageValStr = inputAge.value.trim();
+          const ageVal = ageValStr ? Number(ageValStr) : null;
+          const genderVal = inputGender.value;
+
+          const validGenders = ["Masculino", "Feminino", "Outro", "Prefiro não informar"];
+
+          // Validação no cliente
+          if (bioVal.length > 400) {
+            alert("A biografia não pode ter mais de 400 caracteres.");
+            return;
           }
+
+          if (ageVal !== null) {
+            if (isNaN(ageVal) || ageVal < 17 || ageVal > 80 || !Number.isInteger(ageVal)) {
+              ageErrorFeedback.classList.remove("d-none");
+              inputAge.focus();
+              return;
+            }
+          }
+          ageErrorFeedback.classList.add("d-none");
+
+          if (genderVal !== "" && !validGenders.includes(genderVal)) {
+            genderErrorFeedback.classList.remove("d-none");
+            inputGender.focus();
+            return;
+          }
+          genderErrorFeedback.classList.add("d-none");
+
+          // Mostrar loader ou desabilitar botão temporariamente
+          const btnSave = document.getElementById("btn-save-profile");
+          if (btnSave) btnSave.disabled = true;
+
+          // Validação no servidor
+          fetch("/api/profile/validate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ bio: bioVal, age: ageVal, gender: genderVal })
+          })
+          .then(res => {
+            if (!res.ok) {
+              return res.json().then(data => {
+                throw new Error(data.error || "Erro de validação no servidor.");
+              });
+            }
+            return res.json();
+          })
+          .then(data => {
+            // Salvar localmente após validação com sucesso do servidor
+            localStorage.setItem("papos_bio", bioVal);
+            if (ageVal !== null) {
+              localStorage.setItem("papos_age", String(ageVal));
+            } else {
+              localStorage.removeItem("papos_age");
+            }
+            if (genderVal) {
+              localStorage.setItem("papos_gender", genderVal);
+            } else {
+              localStorage.removeItem("papos_gender");
+            }
+
+            if (window.ChatEngine && window.ChatEngine.saveUser(newNick)) {
+              // Exibir mensagem de sucesso
+              successToast.classList.remove("d-none");
+              
+              setTimeout(() => {
+                successToast.classList.add("d-none");
+              }, 3000);
+              
+              // Recarregar para sincronizar
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+            } else {
+              if (btnSave) btnSave.disabled = false;
+            }
+          })
+          .catch(err => {
+            alert(err.message || "Não foi possível validar seus dados no servidor.");
+            if (btnSave) btnSave.disabled = false;
+          });
         });
 
         // Deletar Tudo do LocalStorage
