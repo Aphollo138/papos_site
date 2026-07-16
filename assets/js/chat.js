@@ -1,4 +1,8 @@
+/**
+ * chat.js - Real-time WebSocket Client, Private Chats, Modal rooms, and Search engines
+ */
 
+// Format message time securely in user's local timezone
 function formatMessageTime(msg) {
   if (!msg) return "";
   if (msg.timestamp) {

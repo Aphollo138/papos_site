@@ -1,246 +1,202 @@
+import { auth, db } from "./firebase.js";
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail, 
+  updateProfile, 
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence
+} from "firebase/auth";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDocs, 
+  query, 
+  where, 
+  onSnapshot, 
+  updateDoc, 
+  deleteDoc,
+  writeBatch
+} from "firebase/firestore";
 
-import FirebaseService from "/firebase/auth.js";
+const FirebaseService = {
+  // Get active user from Firebase Auth
+  getCurrentUser() {
+    return auth.currentUser;
+  },
 
-document.addEventListener("DOMContentLoaded", () => {
-  
-  const authModalEl = document.getElementById("authModal");
-  if (!authModalEl) return;
+  // Listen to Auth State Changes
+  subscribeToAuth(callback) {
+    return onAuthStateChanged(auth, callback);
+  },
 
-  const tabLogin = document.getElementById("tab-login");
-  const tabRegister = document.getElementById("tab-register");
-  const loginForm = document.getElementById("login-form");
-  const registerForm = document.getElementById("register-form");
-
-  const loginEmail = document.getElementById("login-email");
-  const loginPassword = document.getElementById("login-password");
-  const loginRemember = document.getElementById("login-remember");
-  const loginAlert = document.getElementById("login-alert");
-  const loginSpinner = document.getElementById("login-spinner");
-  const loginBtnText = document.getElementById("login-btn-text");
-  const btnSubmitLogin = document.getElementById("btn-submit-login");
-  const btnForgotPassword = document.getElementById("btn-forgot-password");
-
-  const registerNickname = document.getElementById("register-nickname");
-  const registerEmail = document.getElementById("register-email");
-  const registerPassword = document.getElementById("register-password");
-  const registerConfirmPassword = document.getElementById("register-confirm-password");
-  const registerAlert = document.getElementById("register-alert");
-  const registerSpinner = document.getElementById("register-spinner");
-  const registerBtnText = document.getElementById("register-btn-text");
-  const btnSubmitRegister = document.getElementById("btn-submit-register");
-  const registerConfirmError = document.getElementById("register-confirm-error");
-
-  
-  function showLoginTab() {
-    tabLogin.classList.remove("text-secondary", "border-secondary", "border-1");
-    tabLogin.classList.add("text-white", "border-success", "border-2");
-
-    tabRegister.classList.remove("text-white", "border-success", "border-2");
-    tabRegister.classList.add("text-secondary", "border-secondary", "border-1");
-
-    loginForm.classList.remove("d-none");
-    registerForm.classList.add("d-none");
-  }
-
-  function showRegisterTab() {
-    tabRegister.classList.remove("text-secondary", "border-secondary", "border-1");
-    tabRegister.classList.add("text-white", "border-success", "border-2");
-
-    tabLogin.classList.remove("text-white", "border-success", "border-2");
-    tabLogin.classList.add("text-secondary", "border-secondary", "border-1");
-
-    registerForm.classList.remove("d-none");
-    loginForm.classList.add("d-none");
-  }
-
-  tabLogin.addEventListener("click", showLoginTab);
-  tabRegister.addEventListener("click", showRegisterTab);
-
-  
-  function translateAuthError(code) {
-    switch (code) {
-      case "auth/invalid-email":
-        return "O formato do e-mail inserido é inválido.";
-      case "auth/user-disabled":
-        return "Esta conta de usuário foi desativada.";
-      case "auth/user-not-found":
-        return "Não há nenhum usuário cadastrado com este e-mail.";
-      case "auth/wrong-password":
-        return "A senha inserida está incorreta.";
-      case "auth/email-already-in-use":
-        return "Este endereço de e-mail já está sendo utilizado por outra conta.";
-      case "auth/weak-password":
-        return "A senha escolhida é muito fraca. Deve ter pelo menos 6 caracteres.";
-      case "auth/invalid-credential":
-        return "E-mail ou senha incorretos. Por favor, tente novamente.";
-      case "auth/too-many-requests":
-        return "Acesso temporariamente bloqueado devido a muitas tentativas incorretas. Tente mais tarde.";
-      default:
-        return "Ocorreu um erro ao processar sua solicitação. Tente novamente.";
-    }
-  }
-
-  
-  function validatePasswordsMatch() {
-    if (registerPassword.value !== registerConfirmPassword.value) {
-      registerConfirmPassword.classList.add("is-invalid");
-      registerConfirmError.classList.remove("d-none");
-      return false;
-    } else {
-      registerConfirmPassword.classList.remove("is-invalid");
-      registerConfirmError.classList.add("d-none");
-      return true;
-    }
-  }
-
-  registerConfirmPassword.addEventListener("input", validatePasswordsMatch);
-  registerPassword.addEventListener("input", () => {
-    if (registerConfirmPassword.value) {
-      validatePasswordsMatch();
-    }
-  });
-
-  
-  registerNickname.addEventListener("input", () => {
+  // Register user
+  async register(email, password, nickname) {
+    // 1. Create the account
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
     
-    let val = registerNickname.value;
-    val = val.replace(/[^a-zA-Z0-9_]/g, "");
-    if (val.length > 15) {
-      val = val.substring(0, 15);
-    }
-    registerNickname.value = val;
-  });
-
-  
-  loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    loginAlert.classList.add("d-none");
-
-    const email = loginEmail.value.trim();
-    const password = loginPassword.value;
-    const rememberMe = loginRemember.checked;
-
+    // 2. Update their display name
+    await updateProfile(user, {
+      displayName: nickname
+    });
     
-    loginSpinner.classList.remove("d-none");
-    loginBtnText.textContent = "Entrando...";
-    btnSubmitLogin.disabled = true;
+    return user;
+  },
 
-    try {
-      const user = await FirebaseService.login(email, password, rememberMe);
-      
-      
-      const displayName = user.displayName || email.split("@")[0];
-      localStorage.setItem("papos_nickname", displayName);
-
-      
-      const modalInstance = bootstrap.Modal.getInstance(authModalEl);
-      if (modalInstance) modalInstance.hide();
-      
-      
-      loginForm.reset();
-
-      
-      window.location.reload();
-    } catch (error) {
-      console.error("Erro de login:", error);
-      loginAlert.textContent = translateAuthError(error.code);
-      loginAlert.classList.remove("d-none");
-    } finally {
-      loginSpinner.classList.add("d-none");
-      loginBtnText.textContent = "Entrar";
-      btnSubmitLogin.disabled = false;
-    }
-  });
-
-  
-  registerForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    registerAlert.classList.add("d-none");
-
-    const nickname = registerNickname.value.trim();
-    const email = registerEmail.value.trim();
-    const password = registerPassword.value;
-
-    if (!validatePasswordsMatch()) return;
-
-    if (nickname.length < 2) {
-      registerAlert.textContent = "O apelido deve ter no mínimo 2 caracteres.";
-      registerAlert.classList.remove("d-none");
-      return;
-    }
-
+  // Login user
+  async login(email, password, rememberMe = true) {
+    // 1. Set persistence based on rememberMe checkbox
+    const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+    await setPersistence(auth, persistence);
     
-    registerSpinner.classList.remove("d-none");
-    registerBtnText.textContent = "Criando conta...";
-    btnSubmitRegister.disabled = true;
+    // 2. Sign in
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  },
 
-    try {
-      await FirebaseService.register(email, password, nickname);
-      
-      
-      localStorage.setItem("papos_nickname", nickname);
+  // Logout user
+  async logout() {
+    await signOut(auth);
+  },
 
-      
-      const modalInstance = bootstrap.Modal.getInstance(authModalEl);
-      if (modalInstance) modalInstance.hide();
-      
-      
-      registerForm.reset();
+  // Forgot Password / Reset Password
+  async resetPassword(email) {
+    await sendPasswordResetEmail(auth, email);
+  },
 
-      
-      window.location.reload();
-    } catch (error) {
-      console.error("Erro no cadastro:", error);
-      registerAlert.textContent = translateAuthError(error.code);
-      registerAlert.classList.remove("d-none");
-    } finally {
-      registerSpinner.classList.add("d-none");
-      registerBtnText.textContent = "Criar conta";
-      btnSubmitRegister.disabled = false;
+  // Update profile details (nickname, photoUrl)
+  async updateProfileDetails(nickname, photoUrl) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+    
+    const updatePayload = {};
+    if (nickname) updatePayload.displayName = nickname;
+    if (photoUrl) updatePayload.photoURL = photoUrl;
+    
+    await updateProfile(user, updatePayload);
+  },
+
+  // --- FIRESTORE PRIVATE CHATS HISTORIES ---
+
+  // Save a private message (for logged-in user inbox/outbox history)
+  async savePrivateMessage(partnerNickname, messageObj) {
+    const user = auth.currentUser;
+    if (!user || !user.email) return;
+
+    // Use a unique document path: userEmail_messageId
+    // This avoids duplicates and allows clean updates
+    const docId = `${user.email}_${messageObj.id}`;
+    const docRef = doc(db, "privateChats", docId);
+
+    const messageData = {
+      userEmail: user.email,
+      partner: partnerNickname,
+      id: messageObj.id,
+      sender: messageObj.sender,
+      recipient: messageObj.recipient || partnerNickname,
+      text: messageObj.text,
+      timestamp: messageObj.timestamp || Date.now(),
+      time: messageObj.time || new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      unread: messageObj.unread !== undefined ? messageObj.unread : false
+    };
+
+    if (messageObj.color) {
+      messageData.color = messageObj.color;
     }
-  });
 
-  
-  btnForgotPassword.addEventListener("click", async () => {
-    const email = loginEmail.value.trim();
-    if (!email) {
-      loginAlert.textContent = "Por favor, digite seu e-mail no campo acima para recuperar a senha.";
-      loginAlert.className = "alert alert-warning py-2 px-3 small border border-warning mb-3";
-      loginAlert.classList.remove("d-none");
-      return;
+    await setDoc(docRef, messageData);
+  },
+
+  // Mark all messages from a partner as read
+  async markMessagesAsRead(partnerNickname) {
+    const user = auth.currentUser;
+    if (!user || !user.email) return;
+
+    const q = query(
+      collection(db, "privateChats"),
+      where("userEmail", "==", user.email),
+      where("partner", "==", partnerNickname),
+      where("unread", "==", true)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    
+    querySnapshot.forEach((document) => {
+      batch.update(document.ref, { unread: false });
+    });
+
+    await batch.commit();
+  },
+
+  // Delete a private message document
+  async deletePrivateMessage(messageId) {
+    const user = auth.currentUser;
+    if (!user || !user.email) return;
+
+    const docId = `${user.email}_${messageId}`;
+    const docRef = doc(db, "privateChats", docId);
+    await deleteDoc(docRef);
+  },
+
+  // Real-time listener for user's private messages
+  subscribeToPrivateMessages(callback) {
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+      callback({});
+      return () => {};
     }
 
-    try {
-      await FirebaseService.resetPassword(email);
-      loginAlert.textContent = "Um link para redefinir a senha foi enviado para o seu e-mail!";
-      loginAlert.className = "alert alert-success py-2 px-3 small border border-success mb-3";
-      loginAlert.classList.remove("d-none");
-    } catch (error) {
-      console.error("Erro ao enviar reset:", error);
-      loginAlert.textContent = translateAuthError(error.code);
-      loginAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
-      loginAlert.classList.remove("d-none");
-    }
-  });
+    const q = query(
+      collection(db, "privateChats"),
+      where("userEmail", "==", user.email)
+    );
 
-  
-  const handleLogout = async () => {
-    if (confirm("Deseja realmente sair da sua conta?")) {
-      try {
-        await FirebaseService.logout();
-       
-        localStorage.removeItem("papos_nickname");
-        localStorage.removeItem("papos_photo");
-        window.location.reload();
-      } catch (error) {
-        console.error("Erro ao fazer logout:", error);
-      }
-    }
-  };
+    return onSnapshot(q, (querySnapshot) => {
+      const privateChats = {};
+      
+      querySnapshot.forEach((document) => {
+        const data = document.data();
+        const partner = data.partner;
+        if (!privateChats[partner]) {
+          privateChats[partner] = [];
+        }
+        
+        const msg = {
+          id: data.id,
+          sender: data.sender,
+          recipient: data.recipient,
+          text: data.text,
+          time: data.time,
+          timestamp: data.timestamp,
+          unread: data.unread
+        };
 
-  const btnLogout = document.getElementById("btn-logout-trigger");
-  if (btnLogout) btnLogout.addEventListener("click", handleLogout);
+        if (data.color) {
+          msg.color = data.color;
+        }
 
-  const btnLogoutMobile = document.getElementById("btn-logout-trigger-mobile");
-  if (btnLogoutMobile) btnLogoutMobile.addEventListener("click", handleLogout);
-});
+        privateChats[partner].push(msg);
+      });
+
+      // Sort messages for each partner by timestamp
+      Object.keys(privateChats).forEach(partner => {
+        privateChats[partner].sort((a, b) => a.timestamp - b.timestamp);
+      });
+
+      callback(privateChats);
+    }, (error) => {
+      console.error("Erro ao sincronizar mensagens do Firestore:", error);
+    });
+  }
+};
+
+// Expose services on the window object
+window.FirebaseService = FirebaseService;
+export default FirebaseService;
+export { auth, db };
