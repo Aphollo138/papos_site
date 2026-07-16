@@ -1,9 +1,3 @@
-/**
- * blog-search.js - Motor de Pesquisa Interna para o Blog do Papos
- * 
- * Permite buscar artigos por título, resumo, categoria ou conteúdo das seções,
- * atualizando dinamicamente a listagem de posts no cliente sem recarregar a página.
- */
 
 document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("blog-search-input");
@@ -18,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // Monitorar digitação com debouncing sutil
+  
   let searchTimeout = null;
   searchInput.addEventListener("input", (e) => {
     clearTimeout(searchTimeout);
@@ -30,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 250);
   });
 
-  // Listener para o botão de pesquisa se houver
+  
   const searchButton = document.getElementById("blog-search-btn");
   if (searchButton) {
     searchButton.addEventListener("click", () => {
@@ -42,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log(`[Blog Search] Buscando posts por: "${query}"`);
     const filteredPosts = BlogEngine.searchPosts(query);
     
-    // Atualiza contador de resultados
+    
     if (resultsCounter) {
       if (query.trim() === "") {
         resultsCounter.classList.add("d-none");
@@ -52,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Renderiza os posts filtrados
+    
     if (filteredPosts.length === 0) {
       postsContainer.innerHTML = `
         <div class="col-12 text-center py-5">
@@ -75,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     postsContainer.innerHTML = postsHtml;
 
-    // Reinicializar IntersectionObserver para novos cards
+    
     if ("IntersectionObserver" in window) {
       const revealElements = postsContainer.querySelectorAll(".scroll-reveal");
       const scrollObserver = new IntersectionObserver((entries) => {

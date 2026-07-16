@@ -1,8 +1,4 @@
-/**
- * chat.js - Real-time WebSocket Client, Private Chats, Modal rooms, and Search engines
- */
 
-// Format message time securely in user's local timezone
 function formatMessageTime(msg) {
   if (!msg) return "";
   if (msg.timestamp) {
@@ -35,11 +31,11 @@ function formatMessageTime(msg) {
   return "";
 }
 
-// Global action handles
+
 let replyTargetMsg = null;
 let blockedUsers = JSON.parse(localStorage.getItem("papos_blocked_users") || "[]");
-let activePrivateRecipient = null; // Username of active direct message partner
-let chatMode = "public"; // "public" or "private"
+let activePrivateRecipient = null; 
+let chatMode = "public"; 
 let activeMessageColor = "";
 
 window.setMessageColor = (color, indicatorColor) => {
@@ -63,7 +59,7 @@ window.getUsernameColor = (username) => {
   const isLight = document.documentElement.getAttribute("data-theme") === "light";
   
   const darkThemeColors = [
-    "#38bdf8", // Sky blue
+    "#38bdf8", 
     "#34d399", // Emerald green
     "#f472b6", // Pink
     "#fbbf24", // Amber yellow
@@ -117,11 +113,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // Retrieve room param
+  
   const urlParams = new URLSearchParams(window.location.search);
   let activeRoomId = urlParams.get("room") || "room-1";
 
-  // Elements
+  
   const chatMessagesContainer = document.getElementById("chat-messages-container");
   const messageInput = document.getElementById("message-input");
   const sendButton = document.getElementById("btn-send");
@@ -129,38 +125,38 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebarAvatarPlaceholder = document.getElementById("sidebar-user-avatar-placeholder");
   const btnClearChat = document.getElementById("btn-clear-chat");
   
-  // Sidebar mobile toggler
+  
   const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
   const chatSidebar = document.getElementById("chat-sidebar");
   
-  // Search features
+  
   const btnToggleSearch = document.getElementById("btn-toggle-search");
   const searchBarWrapper = document.getElementById("chat-search-bar-wrapper");
   const searchMessagesInput = document.getElementById("chat-search-messages-input");
   const btnCloseSearch = document.getElementById("btn-close-search");
   
-  // Room modal features
+  
   const modalRoomsContainer = document.getElementById("modal-rooms-container");
   const searchRoomsModal = document.getElementById("search-rooms-modal");
   
-  // Members list features
+  
   const membersListContainer = document.getElementById("members-list-container");
   const searchMembersInput = document.getElementById("search-members-input");
   
-  // Private chats list features
+  
   const privateConversationsList = document.getElementById("private-conversations-list");
   const totalPrivateUnreadBadge = document.getElementById("total-private-unread");
   
-  // Reply reference
+  
   const replyReferenceBar = document.getElementById("reply-reference-bar");
   const replyReferenceText = document.getElementById("reply-reference-text");
   const btnCancelReply = document.getElementById("btn-cancel-reply");
   const typingIndicatorBar = document.getElementById("typing-indicator-bar");
   
-  // Back to public chat button
+  
   const btnBackToPublic = document.getElementById("btn-back-to-public");
 
-  // In-memory data states
+  
   let socket = null;
   let typingTimeout = null;
   let isCurrentlyTyping = false;
@@ -170,16 +166,16 @@ document.addEventListener("DOMContentLoaded", () => {
   let onlineUsersList = [];
   let activeTypingUsers = new Set();
   
-  // Local direct messages storage mapped by username
+  
   let privateChats = JSON.parse(localStorage.getItem(`papos_pms_${currentUser}`) || "{}");
 
-  // Load User Details in sidebar
+  
   if (sidebarUsername && sidebarAvatarPlaceholder) {
     sidebarUsername.textContent = currentUser;
     sidebarAvatarPlaceholder.innerHTML = ChatEngine.renderAvatar(currentUser, "avatar-lg mx-auto mb-2");
   }
 
-  // Validate private message payload safely
+  
   function isValidPrivateMessage(pm) {
     if (!pm) return false;
     if (typeof pm !== "object") return false;
@@ -215,7 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   }
 
-  // Connect WebSockets
+  
   function connect() {
     socket = ChatEngine.connectSocket();
 
@@ -237,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
             publicRoomMessages = data.messages;
             onlineUsersList = data.onlineUsers;
             
-            // Sync UI headers
+            
             updateActiveHeader(data.roomName, data.roomDesc);
             renderMessages();
             renderMembers();
@@ -363,7 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  // Update central Header
+  
   function updateActiveHeader(name, desc) {
     const headerName = document.getElementById("active-room-name");
     const headerDesc = document.getElementById("active-room-description");
@@ -406,11 +402,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Direct Message Handler
+  
   function handleIncomingPrivateMessage(pm) {
     if (!pm) return;
 
-    // Map fields supporting both unified and legacy keys for robust backward compatibility
+   
     const id = pm.id;
     const sender = pm.senderName || pm.from;
     const recipient = pm.recipientName || pm.to;
@@ -420,14 +416,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!sender || !recipient) return;
 
-    // Detect conversation partner name
+    
     const partner = sender === currentUser ? recipient : sender;
     
     if (!privateChats[partner]) {
       privateChats[partner] = [];
     }
 
-    // Append only if not already duplicated (checks using unique identifier)
+    
     let isNew = false;
     if (!privateChats[partner].some(m => m.id === id)) {
       privateChats[partner].push({
@@ -439,12 +435,12 @@ document.addEventListener("DOMContentLoaded", () => {
         unread: (partner !== activePrivateRecipient)
       });
       
-      // Save local persistence
+      
       localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
       isNew = true;
     }
 
-    // Direct render if active
+    
     if (isNew && chatMode === "private" && activePrivateRecipient === partner) {
       appendSingleMessage({
         id: id,
@@ -458,7 +454,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPrivateConversationsSidebar();
   }
 
-  // Send Direct Message Frame
+  
   function sendPrivateMessage(text, msgId) {
     if (!activePrivateRecipient || !socket || socket.readyState !== WebSocket.OPEN) return;
     
@@ -471,21 +467,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   }
 
-  // Start direct conversation with user
+  
   window.startPrivateChat = (partnerName) => {
     if (partnerName === currentUser) {
       alert("Você não pode iniciar um chat privado com você mesmo!");
       return;
     }
 
-    // Close members panel
+    
     const offcanvasEl = document.getElementById("offcanvasMembers");
     if (offcanvasEl) {
       const offcanvasInstance = bootstrap.Offcanvas.getInstance(offcanvasEl);
       if (offcanvasInstance) offcanvasInstance.hide();
     }
 
-    // Close sidebar on mobile
+    
     if (chatSidebar && chatSidebar.classList.contains("active")) {
       chatSidebar.classList.remove("active");
     }
@@ -500,7 +496,7 @@ document.addEventListener("DOMContentLoaded", () => {
       privateChats[partnerName] = [];
     }
 
-    // Mark as read
+    
     privateChats[partnerName].forEach(m => m.unread = false);
     localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
 
@@ -508,11 +504,11 @@ document.addEventListener("DOMContentLoaded", () => {
     renderMessages();
     renderPrivateConversationsSidebar();
 
-    // Focus on entry
+    
     if (messageInput) messageInput.focus();
   };
 
-  // Return to public channel
+  
   if (btnBackToPublic) {
     btnBackToPublic.addEventListener("click", () => {
       chatMode = "public";
@@ -522,12 +518,12 @@ document.addEventListener("DOMContentLoaded", () => {
       activeTypingUsers.clear();
       if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
       
-      // Re-trigger server sync for safety
+      
       sendJoinRoom(activeRoomId);
     });
   }
 
-  // Render Left Private Chats Threads
+  
   function renderPrivateConversationsSidebar() {
     if (!privateConversationsList) return;
     
@@ -583,14 +579,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Copy to clipboard helper
+  
   window.copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       alert("Texto copiado para a área de transferência!");
     }).catch(err => console.error("Clipboard failure:", err));
   };
 
-  // Render dynamic Message feed with consecutive sender grouping
+  
   function renderMessages(filterText = "") {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.innerHTML = "";
@@ -624,18 +620,18 @@ document.addEventListener("DOMContentLoaded", () => {
         sysDiv.className = "msg-system";
         sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${msg.text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${formatMessageTime(msg)})</span>`;
         chatMessagesContainer.appendChild(sysDiv);
-        lastSender = null; // Break grouping
+        lastSender = null; 
       } else {
         const isMe = msg.sender === (window.confirmedNickname || currentUser);
         
-        // Group consecutive message rows
+        
         const isGrouped = (msg.sender === lastSender);
 
         const msgDiv = document.createElement("div");
         msgDiv.className = `msg-container ${isMe ? 'msg-me' : ''} ${isGrouped ? 'msg-grouped' : ''}`;
         msgDiv.id = `msg-id-${msg.id}`;
 
-        // Reactions Html build (Only for public rooms)
+        
         let reactionsHtml = "";
         if (chatMode === "public" && msg.reactions && Object.keys(msg.reactions).length > 0) {
           reactionsHtml = '<div class="reactions-list">';
@@ -651,7 +647,7 @@ document.addEventListener("DOMContentLoaded", () => {
           reactionsHtml += '</div>';
         }
 
-        // Reply HTML Build (Only for public rooms)
+        
         let replyHtml = "";
         if (chatMode === "public" && msg.replyTo) {
           replyHtml = `
@@ -661,7 +657,7 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
         }
 
-        // Actions menu overlay
+        
         let actionsHtml = "";
         let deleteBtnHtml = isMe ? `
           <button class="btn-action-msg text-danger" onclick="window.deleteMessage('${msg.id}')" title="Excluir Mensagem">
@@ -684,7 +680,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           `;
         } else {
-          // Direct message actions
+          
           actionsHtml = `
             <div class="message-actions-menu">
               <button class="btn-action-msg" onclick="copyToClipboard('${msg.text.replace(/'/g, "\\'")}')" title="Copiar"><i class="bi bi-clipboard"></i></button>

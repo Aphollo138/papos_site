@@ -1,13 +1,6 @@
-/**
- * blog.js - Motor de Renderização, SEO e Lógica Central do Blog do Papos
- * 
- * Gerencia o carregamento dinâmico dos artigos e categorias, o preenchimento de
- * metadados exclusivos de SEO (incluindo JSON-LD Schema e FAQ Schema) e a geração
- * automática do índice de leitura (TOC).
- */
 
 (function() {
-  // Evita carregamento duplo
+  
   if (window.BLOG_ENGINE_INITIALIZED) return;
   window.BLOG_ENGINE_INITIALIZED = true;
 
@@ -27,7 +20,7 @@
     },
 
     getPopularPosts(limit = 4) {
-      // Retorna posts alternados para simular popularidade
+     
       return this.getPosts().filter((_, i) => i % 2 === 0).slice(0, limit);
     },
 
@@ -57,47 +50,44 @@
       });
     },
 
-    /**
-     * Atualiza todas as tags de SEO na página de forma ultra responsiva,
-     * injetando também os esquemas JSON-LD (Article, Breadcrumbs, FAQ).
-     */
+    
     updateSEO(post) {
       if (!post) return;
 
       const fullTitle = `${post.title} | Blog Papos`;
       document.title = fullTitle;
 
-      // Meta tags padrão
+     
       this.setMeta("description", post.description);
       
-      // Canonical
+      
       let canonicalEl = document.querySelector("link[rel='canonical']");
       if (!canonicalEl) {
         canonicalEl = document.createElement("link");
         canonicalEl.setAttribute("rel", "canonical");
         document.head.appendChild(canonicalEl);
       }
-      const canonicalUrl = `https://papos.net.br/blog/artigo.html?slug=${post.slug}`;
+      const canonicalUrl = `https://papo.net.br/blog/artigo.html?slug=${post.slug}`;
       canonicalEl.setAttribute("href", canonicalUrl);
 
-      // Open Graph (Facebook/LinkedIn)
+      
       this.setMetaProperty("og:type", "article");
       this.setMetaProperty("og:title", fullTitle);
       this.setMetaProperty("og:description", post.description);
       this.setMetaProperty("og:url", canonicalUrl);
       this.setMetaProperty("og:image", post.image);
 
-      // Twitter Cards
+      
       this.setMeta("twitter:card", "summary_large_image");
       this.setMeta("twitter:title", fullTitle);
       this.setMeta("twitter:description", post.description);
       this.setMeta("twitter:image", post.image);
 
-      // Remover esquemas JSON-LD anteriores para evitar duplicação
+      
       const oldSchemas = document.querySelectorAll("script[data-schema='blog']");
       oldSchemas.forEach(el => el.remove());
 
-      // 1. JSON-LD Article Schema
+      
       const articleSchema = {
         "@context": "https://schema.org",
         "@type": "BlogPosting",
@@ -113,7 +103,7 @@
         "publisher": {
           "@type": "Organization",
           "name": "Papos",
-          "url": "https://papos.net.br/",
+          "url": "https://papo.net.br/",
           "logo": {
             "@type": "ImageObject",
             "url": "https://papos.net.br/favicon.svg"
@@ -131,7 +121,7 @@
       articleScript.textContent = JSON.stringify(articleSchema);
       document.head.appendChild(articleScript);
 
-      // 2. JSON-LD BreadcrumbList Schema
+      
       const breadcrumbSchema = {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
@@ -140,19 +130,19 @@
             "@type": "ListItem",
             "position": 1,
             "name": "Papos",
-            "item": "https://papos.net.br/"
+            "item": "https://papo.net.br/"
           },
           {
             "@type": "ListItem",
             "position": 2,
             "name": "Blog",
-            "item": "https://papos.net.br/blog/"
+            "item": "https://papo.net.br/blog/"
           },
           {
             "@type": "ListItem",
             "position": 3,
             "name": post.category,
-            "item": `https://papos.net.br/blog/categoria.html?cat=${post.categorySlug}`
+            "item": `https://papo.net.br/blog/categoria.html?cat=${post.categorySlug}`
           },
           {
             "@type": "ListItem",
@@ -169,7 +159,7 @@
       breadcrumbScript.textContent = JSON.stringify(breadcrumbSchema);
       document.head.appendChild(breadcrumbScript);
 
-      // 3. JSON-LD FAQ Schema (se houver perguntas e respostas)
+      
       if (post.faq && post.faq.length > 0) {
         const faqSchema = {
           "@context": "https://schema.org",
@@ -212,9 +202,7 @@
       el.setAttribute("content", content);
     },
 
-    /**
-     * Renderiza o índice dinâmico (Table of Contents) baseado nas seções H2
-     */
+    
     renderTOC() {
       const tocContainer = document.getElementById("auto-toc-container");
       if (!tocContainer) return;
@@ -243,7 +231,7 @@
       tocHtml += `</ul>`;
       tocContainer.innerHTML = tocHtml;
 
-      // Adiciona scroll suave para os cliques do TOC
+      
       tocContainer.querySelectorAll("a").forEach(link => {
         link.addEventListener("click", (e) => {
           e.preventDefault();
@@ -263,9 +251,7 @@
       });
     },
 
-    /**
-     * Método auxiliar para criar cards elegantes para listagens de artigos
-     */
+    
     buildPostCardHtml(post) {
       return `
         <div class="col-md-6 col-lg-4 scroll-reveal">

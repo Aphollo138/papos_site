@@ -1,10 +1,4 @@
-/**
- * blog-posts.js - Banco de Dados de Artigos do Blog do Papos (papos.net.br)
- * 
- * Este arquivo contém os metadados e os conteúdos ricos para os 20 artigos requisitados.
- * A estrutura é altamente otimizada para SEO, incluindo suporte nativo a FAQ Schema,
- * tags, canonicals, metatags exclusivas e breadcrumbs.
- */
+
 
 window.BLOG_CATEGORIES = [
   { name: "Amizade", slug: "amizade", icon: "bi-people-fill", description: "Dicas de ouro para criar laços reais e conexões saudáveis pela internet." },
