@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper to check if id is valid
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+    
+    // Helper to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+    
+    // Helper to validate a private message shape
+    function isValidMessage(data) {
+      return data.userEmail is string
+        && data.userEmail.size() > 0
+        && data.userEmail.size() <= 128
+        && data.partner is string
+        && data.partner.size() > 0
+        && data.partner.size() <= 64
+        && data.id is string
+        && data.id.size() > 0
+        && data.id.size() <= 128
+        && data.sender is string
+        && data.sender.size() > 0
+        && data.sender.size() <= 64
+        && data.recipient is string
+        && data.recipient.size() > 0
+        && data.recipient.size() <= 64
+        && data.text is string
+        && data.text.size() <= 500
+        && data.timestamp is int
+        && data.time is string
+        && data.time.size() <= 10
+        && data.unread is bool;
+    }
+
+    match /privateChats/{messageId} {
+      allow read, delete: if isAuthenticated() && resource.data.userEmail == request.auth.token.email;
+      
+      allow create: if isAuthenticated() 
+        && isValidId(messageId)
+        && request.resource.data.userEmail == request.auth.token.email
+        && isValidMessage(request.resource.data);
+        
+      allow update: if isAuthenticated() 
+        && isValidId(messageId)
+        && resource.data.userEmail == request.auth.token.email
+        && request.resource.data.userEmail == request.auth.token.email
+        && isValidMessage(request.resource.data)
+        // Only allow updating 'unread' field
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread']);
+    }
+  }
+}

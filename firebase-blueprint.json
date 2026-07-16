@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "privateMessage": {
+      "title": "Private Chat Message",
+      "description": "Represents a single private message stored for a specific logged-in user",
+      "type": "object",
+      "properties": {
+        "userEmail": {
+          "type": "string",
+          "description": "Email of the logged-in user who owns this message history"
+        },
+        "partner": {
+          "type": "string",
+          "description": "Nickname of the chat partner"
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the message"
+        },
+        "sender": {
+          "type": "string",
+          "description": "Nickname of the sender"
+        },
+        "recipient": {
+          "type": "string",
+          "description": "Nickname of the recipient"
+        },
+        "text": {
+          "type": "string",
+          "description": "Content of the private message"
+        },
+        "timestamp": {
+          "type": "integer",
+          "description": "Epoch millisecond timestamp of the message"
+        },
+        "time": {
+          "type": "string",
+          "description": "Formatted time string (HH:MM)"
+        },
+        "unread": {
+          "type": "boolean",
+          "description": "Unread status of the message"
+        },
+        "color": {
+          "type": "string",
+          "description": "Custom color of the message"
+        }
+      },
+      "required": ["userEmail", "partner", "id", "sender", "recipient", "text", "timestamp", "time", "unread"]
+    }
+  },
+  "firestore": {
+    "/privateChats/{messageId}": {
+      "schema": "privateMessage",
+      "description": "Collection storing per-user private message history"
+    }
+  }
+}
