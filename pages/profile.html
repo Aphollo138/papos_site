@@ -299,12 +299,21 @@
         inputAge.value = savedAge;
         inputGender.value = savedGender;
 
-        // Gerar ID de usuário persistente fictício baseado no nome
-        let hash = 1000;
-        for (let i = 0; i < currentUser.length; i++) {
-          hash += currentUser.charCodeAt(i);
+        // Usar o ID Permanente real se autenticado, caso contrário gerar ID local temporário
+        const savedPermanentId = localStorage.getItem("papos_permanent_id");
+        if (savedPermanentId && savedPermanentId.startsWith("USR-")) {
+          localIdEl.textContent = savedPermanentId;
+          const labelEl = localIdEl.closest("p");
+          if (labelEl) {
+            labelEl.innerHTML = `Identificador Único: <span class="font-mono text-xs text-white-50" id="user-local-id">${savedPermanentId}</span>`;
+          }
+        } else {
+          let hash = 1000;
+          for (let i = 0; i < currentUser.length; i++) {
+            hash += currentUser.charCodeAt(i);
+          }
+          localIdEl.textContent = `#${hash}-local`;
         }
-        localIdEl.textContent = `#${hash}-local`;
 
         // Função de Preview de Avatar em Tempo Real
         function updateAvatarPreview(name) {

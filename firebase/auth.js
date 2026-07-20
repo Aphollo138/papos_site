@@ -55,15 +55,42 @@ const FirebaseService = {
           window.location.reload();
           return null;
         }
+
+        // Auto-migrate old permanentId format to new USR-XXXXXXXX format
+        if (!data.permanentId || !data.permanentId.startsWith("USR-")) {
+          let permanentId = "";
+          let unique = false;
+          while (!unique) {
+            const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            let randStr = "";
+            for (let i = 0; i < 8; i++) {
+              randStr += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            permanentId = `USR-${randStr}`;
+            
+            const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
+            const snap = await getDocs(q);
+            if (snap.empty) {
+              unique = true;
+            }
+          }
+          await updateDoc(userDocRef, { permanentId });
+          data.permanentId = permanentId;
+        }
+
         return data;
       }
 
-      // Generate a brand new unique permanent ID (format PAPO-XXXXXX)
+      // Generate a brand new unique permanent ID (format USR-XXXXXXXX)
       let permanentId = "";
       let unique = false;
       while (!unique) {
-        const rand = Math.floor(0x100000 + Math.random() * 0x900000).toString(16).toUpperCase();
-        permanentId = `PAPO-${rand}`;
+        const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        let randStr = "";
+        for (let i = 0; i < 8; i++) {
+          randStr += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        permanentId = `USR-${randStr}`;
         
         const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
         const snap = await getDocs(q);

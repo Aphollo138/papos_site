@@ -23,7 +23,7 @@ const firebaseApp = initializeApp({
 });
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || "(default)");
 
-// Helper to fetch Google's OAuth/Securetoken public certificates for JWT signature verification
+
 let googlePublicKeys: Record<string, string> = {};
 let lastFetchTime = 0;
 
@@ -254,7 +254,7 @@ interface ClientSession {
   ws: WebSocket;
   nickname: string;
   roomId: string;
-  lastMessageTime: number[]; 
+  lastMessageTime: number[]; // For spam prevention rate limits
   bio?: string;
   age?: number;
   gender?: string;
@@ -297,7 +297,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -361,7 +361,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -518,12 +518,36 @@ async function startServer() {
                 const userData = docSnap.data();
                 permanentId = userData.permanentId;
                 nickname = userData.nickname || nickname;
+
+                // Auto-migrate legacy formats to USR-XXXXXXXX format on server side too
+                if (!permanentId || !permanentId.startsWith("USR-")) {
+                  let unique = false;
+                  while (!unique) {
+                    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                    let randStr = "";
+                    for (let i = 0; i < 8; i++) {
+                      randStr += chars.charAt(Math.floor(Math.random() * chars.length));
+                    }
+                    permanentId = `USR-${randStr}`;
+                    
+                    const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
+                    const snap = await getDocs(q);
+                    if (snap.empty) {
+                      unique = true;
+                    }
+                  }
+                  await updateDoc(userDocRef, { permanentId });
+                }
               } else {
-                // Generate a random unique permanent ID
+                // Generate a random unique permanent ID (format USR-XXXXXXXX)
                 let unique = false;
                 while (!unique) {
-                  const rand = crypto.randomBytes(3).toString("hex").toUpperCase();
-                  permanentId = `PAPO-${rand}`;
+                  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                  let randStr = "";
+                  for (let i = 0; i < 8; i++) {
+                    randStr += chars.charAt(Math.floor(Math.random() * chars.length));
+                  }
+                  permanentId = `USR-${randStr}`;
                   
                   // Check uniqueness in Firestore
                   const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
@@ -1332,25 +1356,55 @@ async function startServer() {
               }
             });
 
+            let bio = "";
+            let age: number | null = null;
+            let gender = "";
+            let photoUrl = "";
+            let permanentId = "";
+            const isOnline = !!foundSession;
+
             if (foundSession) {
-              sendToClient(ws, "profile_data", {
-                nickname: (foundSession as ClientSession).nickname,
-                photoUrl: (foundSession as ClientSession).photoUrl || "",
-                bio: (foundSession as ClientSession).bio || "",
-                age: (foundSession as ClientSession).age || null,
-                gender: (foundSession as ClientSession).gender || "",
-                online: true
-              });
-            } else {
-              sendToClient(ws, "profile_data", {
-                nickname: requestedNickname,
-                photoUrl: "",
-                bio: "",
-                age: null,
-                gender: "",
-                online: false
-              });
+              bio = (foundSession as ClientSession).bio || "";
+              age = (foundSession as ClientSession).age || null;
+              gender = (foundSession as ClientSession).gender || "";
+              photoUrl = (foundSession as ClientSession).photoUrl || "";
+              permanentId = (foundSession as ClientSession).permanentId || "";
             }
+
+            // Fetch/fallback from Firestore to get permanentId and details
+            try {
+              const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
+              const snap = await getDocs(q);
+              if (!snap.empty) {
+                const userData = snap.docs[0].data();
+                if (!bio) bio = userData.bio || "";
+                if (!age) age = userData.age || null;
+                if (!gender) gender = userData.gender || "";
+                if (!photoUrl) photoUrl = userData.photoUrl || "";
+                if (!permanentId) permanentId = userData.permanentId || "";
+              }
+            } catch (err) {
+              console.error("[Firestore] Error fetching profile:", err);
+            }
+
+            // If we still don't have permanentId (e.g., bot), set a readable placeholder
+            if (!permanentId) {
+              if (BOTS.some(b => b.nickname.toLowerCase() === requestedNickname.toLowerCase())) {
+                permanentId = "BOT-ASSISTANT";
+              } else {
+                permanentId = "USR-Membro";
+              }
+            }
+
+            sendToClient(ws, "profile_data", {
+              nickname: foundSession ? (foundSession as ClientSession).nickname : requestedNickname,
+              photoUrl,
+              bio,
+              age,
+              gender,
+              online: isOnline,
+              permanentId
+            });
             break;
           }
 

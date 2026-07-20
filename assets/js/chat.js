@@ -1840,6 +1840,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const avatarContainer = document.getElementById("modal-profile-avatar-container");
     const onlineIndicator = document.getElementById("modal-profile-online-indicator");
     const nicknameEl = document.getElementById("modal-profile-nickname");
+    const permanentIdEl = document.getElementById("modal-profile-permanent-id");
     const statusTextEl = document.getElementById("modal-profile-status-text");
     const ageEl = document.getElementById("modal-profile-age");
     const genderEl = document.getElementById("modal-profile-gender");
@@ -1863,6 +1864,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // 3. Nome
     if (nicknameEl) {
       nicknameEl.textContent = profile.nickname;
+    }
+
+    // 3.5 Identificador Único
+    if (permanentIdEl) {
+      permanentIdEl.textContent = profile.permanentId || "USR-Membro";
     }
 
     // 4. Status de texto

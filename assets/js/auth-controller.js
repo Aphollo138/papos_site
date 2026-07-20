@@ -249,6 +249,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const nickname = user.displayName || user.email.split("@")[0];
         localStorage.setItem("papos_nickname", nickname);
 
+        // Fetch and save the real permanentId to localStorage for the profile page to consume
+        fService.syncUserProfile().then((profileData) => {
+          if (profileData && profileData.permanentId) {
+            localStorage.setItem("papos_permanent_id", profileData.permanentId);
+            
+            // Also update any displayed user-local-id elements if they exist on current page
+            const localIdEl = document.getElementById("user-local-id");
+            if (localIdEl) {
+              localIdEl.textContent = profileData.permanentId;
+            }
+          }
+        }).catch((err) => {
+          console.error("Error syncing profile on auth:", err);
+        });
+
         // Hide "Entrar" buttons
         if (btnAuthTrigger) btnAuthTrigger.classList.add("d-none");
         if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.add("d-none");
@@ -326,6 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         localStorage.removeItem("papos_nickname");
         localStorage.removeItem("papos_photo");
+        localStorage.removeItem("papos_permanent_id");
 
         // Close logout modal
         const logoutModalEl = document.getElementById("logoutConfirmModal");
