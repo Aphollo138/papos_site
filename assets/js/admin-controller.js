@@ -47,20 +47,25 @@
           </div>
 
           <div class="modal-body p-0 d-flex flex-column flex-md-row" style="min-height: 500px;">
-            <!-- Tabs Menu Left/Top -->
+            <!-- Tabs Menu Left/Top using Bootstrap components -->
             <div class="col-md-3 border-end border-secondary p-3 d-flex flex-column gap-2" style="background-color: rgba(0,0,0,0.15); min-width: 220px;">
-              <button class="btn text-start text-white py-2 px-3 w-100 btn-admin-tab active" id="tab-btn-users" data-tab="users" style="border-radius: var(--radius-sm); font-size: 0.85rem; transition: background-color 0.2s;">
-                <i class="bi bi-people-fill me-2"></i> Usuários Online
-              </button>
-              <button class="btn text-start text-white-50 py-2 px-3 w-100 btn-admin-tab" id="tab-btn-global" data-tab="global" style="border-radius: var(--radius-sm); font-size: 0.85rem; transition: background-color 0.2s;">
-                <i class="bi bi-megaphone-fill me-2"></i> Aviso Global
-              </button>
-              <button class="btn text-start text-white-50 py-2 px-3 w-100 btn-admin-tab" id="tab-btn-individual" data-tab="individual" style="border-radius: var(--radius-sm); font-size: 0.85rem; transition: background-color 0.2s;">
-                <i class="bi bi-chat-text-fill me-2"></i> Mensagem Individual
-              </button>
-              <button class="btn text-start text-white-50 py-2 px-3 w-100 btn-admin-tab" id="tab-btn-audits" data-tab="audits" style="border-radius: var(--radius-sm); font-size: 0.85rem; transition: background-color 0.2s;">
-                <i class="bi bi-journal-text me-2"></i> Registro de Auditoria
-              </button>
+              <ul class="nav nav-pills flex-column gap-2 border-0 w-100" id="adminTab" role="tablist">
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab active text-start text-white w-100 border-0" id="tab-btn-users" data-tab="users" style="border-radius: var(--radius-sm); font-size: 0.85rem; transition: background-color 0.2s; background-color: var(--surface-secondary);" type="button" role="tab">
+                    <i class="bi bi-people-fill me-2"></i> Usuários
+                  </button>
+                </li>
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start text-white-50 w-100 border-0" id="tab-btn-global" data-tab="global" style="border-radius: var(--radius-sm); font-size: 0.85rem; transition: background-color 0.2s; background-color: transparent;" type="button" role="tab">
+                    <i class="bi bi-megaphone-fill me-2"></i> Mensagem Global
+                  </button>
+                </li>
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start text-white-50 w-100 border-0" id="tab-btn-individual" data-tab="individual" style="border-radius: var(--radius-sm); font-size: 0.85rem; transition: background-color 0.2s; background-color: transparent;" type="button" role="tab">
+                    <i class="bi bi-chat-text-fill me-2"></i> Mensagem Individual
+                  </button>
+                </li>
+              </ul>
             </div>
 
             <!-- Tab Content Right -->
@@ -199,9 +204,11 @@
         tabBtns.forEach(b => {
           b.classList.remove("active");
           b.classList.replace("text-white", "text-white-50");
+          b.style.backgroundColor = "transparent";
         });
         btn.classList.add("active");
         btn.classList.replace("text-white-50", "text-white");
+        btn.style.backgroundColor = "var(--surface-secondary)";
 
         activeTab = btn.getAttribute("data-tab");
         showActiveTabContent();
@@ -749,7 +756,7 @@
   }
 
   window.getChatSocket = function () {
-    return currentSocketInstance;
+    return currentSocketInstance || window.activeChatSocket;
   };
 
 })();

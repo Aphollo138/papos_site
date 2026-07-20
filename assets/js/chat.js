@@ -188,22 +188,83 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           });
 
-          // Sync user profile (updates permanent ID and checks active ban/suspension states)
-          window.FirebaseService.syncUserProfile().then((profile) => {
-            if (profile) {
-              user.getIdToken().then((token) => {
-                const sendAuth = () => {
-                  if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({
-                      type: "sync_auth",
-                      token: token
-                    }));
-                  } else {
-                    setTimeout(sendAuth, 100);
+          // Subscribe to real-time updates for checking ban, suspension, and admin status
+          let profileUnsubscribe = null;
+          window.FirebaseService.syncUserProfile().then((initialProfile) => {
+            if (initialProfile) {
+              if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
+                profileUnsubscribe = window.FirebaseService.subscribeToUserProfile((profile) => {
+                  if (profile) {
+                    // Check bans or suspensions in real-time
+                    if (profile.banned) {
+                      window.FirebaseService.logout().then(() => {
+                        localStorage.removeItem("papos_nickname");
+                        window.location.href = "/?error=banned";
+                      });
+                      return;
+                    }
+                    if (profile.suspendedUntil && profile.suspendedUntil > Date.now()) {
+                      const remaining = Math.ceil((profile.suspendedUntil - Date.now()) / 60000);
+                      window.FirebaseService.logout().then(() => {
+                        localStorage.removeItem("papos_nickname");
+                        window.location.href = `/?error=suspended&remaining=${remaining}`;
+                      });
+                      return;
+                    }
+
+                    // Dynamically load the admin controller if they are validated as admin
+                    if (profile.admin) {
+                      if (!window.injectAdminPanelUI) {
+                        console.log("[Admin] Usuário validado como administrador pelo Firestore. Carregando script de moderação...");
+                        const script = document.createElement("script");
+                        script.src = "/assets/js/admin-controller.js";
+                        script.onload = () => {
+                          if (window.injectAdminPanelUI) {
+                            window.injectAdminPanelUI();
+                          }
+                        };
+                        document.body.appendChild(script);
+                      } else {
+                        window.injectAdminPanelUI();
+                        const trigger = document.getElementById("admin-trigger-container");
+                        if (trigger) {
+                          trigger.classList.remove("d-none");
+                        }
+                      }
+                    } else {
+                      // If admin status is revoked
+                      const trigger = document.getElementById("admin-trigger-container");
+                      if (trigger) {
+                        trigger.classList.add("d-none");
+                      }
+                      const modalEl = document.getElementById("adminPanelModal");
+                      if (modalEl) {
+                        try {
+                          const bootstrapModal = bootstrap.Modal.getInstance(modalEl);
+                          if (bootstrapModal) {
+                            bootstrapModal.hide();
+                          }
+                        } catch (e) {}
+                      }
+                    }
+
+                    // Force token refresh and sync with WebSocket server
+                    user.getIdToken(true).then((token) => {
+                      const sendAuth = () => {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                          socket.send(JSON.stringify({
+                            type: "sync_auth",
+                            token: token
+                          }));
+                        } else {
+                          setTimeout(sendAuth, 100);
+                        }
+                      };
+                      sendAuth();
+                    });
                   }
-                };
-                sendAuth();
-              });
+                });
+              }
             }
           }).catch(err => {
             console.error("Error during profile sync:", err);
@@ -261,6 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Connect WebSockets
   function connect() {
     socket = ChatEngine.connectSocket();
+    window.activeChatSocket = socket;
 
     socket.onopen = () => {
       console.log("[Chat] Connected. Joining public room: " + activeRoomId);

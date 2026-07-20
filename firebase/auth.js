@@ -289,6 +289,26 @@ const FirebaseService = {
     }, (error) => {
       console.error("Erro ao sincronizar mensagens do Firestore:", error);
     });
+  },
+
+  // Real-time listener for user profile document to check ban, suspension, and admin statuses dynamically
+  subscribeToUserProfile(callback) {
+    const user = auth.currentUser;
+    if (!user) {
+      callback(null);
+      return () => {};
+    }
+
+    const userDocRef = doc(db, "users", user.uid);
+    return onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data());
+      } else {
+        callback(null);
+      }
+    }, (error) => {
+      console.error("Erro ao sincronizar perfil do usuário do Firestore:", error);
+    });
   }
 };
 
