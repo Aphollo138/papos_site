@@ -467,8 +467,9 @@ async function startServer() {
         if (!session) return;
 
         // Security check: intercept and block any action if the session UID is banned or suspended in Firestore
-        if (session.uid) {
-          const blockCheck = await checkUserBlockStatus(session.uid);
+        const sessionUid = session.uid;
+        if (typeof sessionUid === "string" && sessionUid) {
+          const blockCheck = await checkUserBlockStatus(sessionUid);
           if (blockCheck.blocked) {
             if (blockCheck.reason === "ban") {
               sendToClient(ws, "banned", {});
@@ -496,6 +497,11 @@ async function startServer() {
 
               const uid = decoded.uid;
               const email = decoded.email;
+
+              if (typeof uid !== "string" || !uid || typeof email !== "string" || !email) {
+                console.warn("[SecureAuth] Invalid uid or email in verified token");
+                return;
+              }
 
               // Check Firestore database block/suspension status
               const blockCheck = await checkUserBlockStatus(uid);
@@ -594,7 +600,7 @@ async function startServer() {
           }
 
           case "admin_action": {
-            if (!session.isAdmin) {
+            if (!session.isAdmin || typeof session.uid !== "string" || typeof session.email !== "string") {
               console.warn("[Admin] Unauthorized attempt to execute administrative action!");
               return;
             }
@@ -602,7 +608,7 @@ async function startServer() {
             const { action, targetUid, durationMs, text } = payload;
             
             if (action === "suspend") {
-              if (!targetUid) return;
+              if (typeof targetUid !== "string" || !targetUid) return;
               const suspendedUntil = Date.now() + Number(durationMs);
               
               // 1. Update Firestore
@@ -644,7 +650,7 @@ async function startServer() {
               sendToClient(ws, "admin_action_success", { message: `Usuário ${targetName} suspenso com sucesso.` });
               
             } else if (action === "ban") {
-              if (!targetUid) return;
+              if (typeof targetUid !== "string" || !targetUid) return;
 
               // 1. Update Firestore
               const targetDocRef = doc(db, "users", targetUid);
@@ -685,7 +691,7 @@ async function startServer() {
               sendToClient(ws, "admin_action_success", { message: `Usuário ${targetName} banido com sucesso.` });
 
             } else if (action === "global_warning") {
-              if (!text) return;
+              if (typeof text !== "string" || !text) return;
 
               // 1. Log to Audit
               await addDoc(collection(db, "audits"), {
@@ -709,7 +715,7 @@ async function startServer() {
               sendToClient(ws, "admin_action_success", { message: `Aviso global enviado.` });
 
             } else if (action === "individual_warning") {
-              if (!targetUid || !text) return;
+              if (typeof targetUid !== "string" || !targetUid || typeof text !== "string" || !text) return;
 
               const targetDocRef = doc(db, "users", targetUid);
               let targetName = "Desconhecido";
@@ -750,7 +756,7 @@ async function startServer() {
           }
 
           case "get_online_users": {
-            if (!session.isAdmin) return;
+            if (!session.isAdmin || typeof session.uid !== "string") return;
 
             // Fetch list of active authenticated user sessions
             const onlineUsers: any[] = [];
@@ -773,7 +779,7 @@ async function startServer() {
           }
 
           case "get_audit_logs": {
-            if (!session.isAdmin) return;
+            if (!session.isAdmin || typeof session.uid !== "string") return;
 
             try {
               const q = query(collection(db, "audits"));
