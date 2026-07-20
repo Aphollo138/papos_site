@@ -14,6 +14,7 @@ import {
   collection, 
   doc, 
   setDoc, 
+  getDoc,
   getDocs, 
   query, 
   where, 
@@ -27,6 +28,66 @@ const FirebaseService = {
   // Get active user from Firebase Auth
   getCurrentUser() {
     return auth.currentUser;
+  },
+
+  // Sync user profile to Firestore, check bans/suspensions, and return profile data
+  async syncUserProfile() {
+    const user = auth.currentUser;
+    if (!user) return null;
+
+    const userDocRef = doc(db, "users", user.uid);
+    try {
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.banned) {
+          await signOut(auth);
+          localStorage.removeItem("papos_nickname");
+          alert("Você foi banido permanentemente deste chat.");
+          window.location.reload();
+          return null;
+        }
+        if (data.suspendedUntil && data.suspendedUntil > Date.now()) {
+          const remaining = Math.ceil((data.suspendedUntil - Date.now()) / 60000);
+          await signOut(auth);
+          localStorage.removeItem("papos_nickname");
+          alert(`Sua conta está suspensa. Tempo restante: ${remaining} minuto(s).`);
+          window.location.reload();
+          return null;
+        }
+        return data;
+      }
+
+      // Generate a brand new unique permanent ID (format PAPO-XXXXXX)
+      let permanentId = "";
+      let unique = false;
+      while (!unique) {
+        const rand = Math.floor(0x100000 + Math.random() * 0x900000).toString(16).toUpperCase();
+        permanentId = `PAPO-${rand}`;
+        
+        const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          unique = true;
+        }
+      }
+
+      const profileData = {
+        uid: user.uid,
+        email: user.email,
+        nickname: user.displayName || user.email.split("@")[0],
+        permanentId: permanentId,
+        createdAt: Date.now(),
+        banned: false,
+        suspendedUntil: null
+      };
+
+      await setDoc(userDocRef, profileData);
+      return profileData;
+    } catch (err) {
+      console.error("Erro ao sincronizar perfil de usuário:", err);
+      return null;
+    }
   },
 
   // Listen to Auth State Changes

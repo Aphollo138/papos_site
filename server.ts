@@ -2,8 +2,132 @@ import express from "express";
 import http from "http";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import fs from "fs";
+import crypto from "crypto";
+import https from "https";
 
+// Load Firebase Config safely from firebase-applet-config.json
+const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
 
+// Initialize Firebase client on the server
+const firebaseApp = initializeApp({
+  apiKey: firebaseConfig.apiKey,
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  storageBucket: firebaseConfig.storageBucket,
+  messagingSenderId: firebaseConfig.messagingSenderId,
+  appId: firebaseConfig.appId
+});
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || "(default)");
+
+// Helper to fetch Google's OAuth/Securetoken public certificates for JWT signature verification
+let googlePublicKeys: Record<string, string> = {};
+let lastFetchTime = 0;
+
+async function fetchGooglePublicKeys(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (Object.keys(googlePublicKeys).length > 0 && now - lastFetchTime < 3600000) {
+    return googlePublicKeys;
+  }
+
+  return new Promise((resolve, reject) => {
+    https.get("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com", (res) => {
+      let data = "";
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        try {
+          googlePublicKeys = JSON.parse(data);
+          lastFetchTime = Date.now();
+          resolve(googlePublicKeys);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }).on("error", (err) => {
+      reject(err);
+    });
+  });
+}
+
+// Securely decodes and cryptographically verifies Firebase Auth ID Token (JWT)
+async function verifyFirebaseIdToken(token: string, projectId: string): Promise<any | null> {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+
+    const [headerB64, payloadB64, signatureB64] = parts;
+
+    // Decode header
+    const header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf-8"));
+    if (header.alg !== "RS256" || !header.kid) return null;
+
+    // Decode payload
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
+
+    // Verify standard claims
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    if (payload.exp < nowInSeconds) {
+      console.warn("[SecureAuth] Token has expired");
+      return null;
+    }
+    if (payload.aud !== projectId) {
+      console.warn("[SecureAuth] Audience mismatch:", payload.aud, "expected:", projectId);
+      return null;
+    }
+    if (payload.iss !== `https://securetoken.google.com/${projectId}`) {
+      console.warn("[SecureAuth] Issuer mismatch:", payload.iss);
+      return null;
+    }
+
+    // Get public certificate matching kid
+    const publicKeys = await fetchGooglePublicKeys();
+    const cert = publicKeys[header.kid];
+    if (!cert) {
+      console.warn("[SecureAuth] Key ID not found in certificate roster:", header.kid);
+      return null;
+    }
+
+    // Cryptographically verify signature
+    const verify = crypto.createVerify("RSA-SHA256");
+    verify.update(`${headerB64}.${payloadB64}`);
+    const verified = verify.verify(cert, signatureB64, "base64url");
+
+    if (verified) {
+      return payload;
+    }
+    return null;
+  } catch (err) {
+    console.error("[SecureAuth] Error verifying signature:", err);
+    return null;
+  }
+}
+
+// Check user suspension or ban status in Firestore
+async function checkUserBlockStatus(uid: string): Promise<{ blocked: boolean; reason: string; until?: number }> {
+  try {
+    const userDocRef = doc(db, "users", uid);
+    const docSnap = await getDoc(userDocRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data.banned) {
+        return { blocked: true, reason: "ban" };
+      }
+      if (data.suspendedUntil && data.suspendedUntil > Date.now()) {
+        return { blocked: true, reason: "suspension", until: data.suspendedUntil };
+      }
+    }
+  } catch (err) {
+    console.error("[Moderation] Error checking user block status for", uid, err);
+  }
+  return { blocked: false, reason: "" };
+}
+
+// Initial standard rooms list (matches frontend)
 const INITIAL_ROOMS = [
   { id: "room-1", name: "Bate-Papo Geral 💬", desc: "A sala principal para falar sobre qualquer assunto, mandar memes ou só ver o que o pessoal está comentando.", count: 0, icon: "chat-dots" },
   { id: "room-2", name: "Tecnologia & Devs 💻", desc: "Espaço descontraído para falar sobre programação, hardware, carreira tech e inteligência artificial.", count: 0, icon: "code" },
@@ -13,10 +137,8 @@ const INITIAL_ROOMS = [
   { id: "room-5", name: "Amizade & Jogos 🎮", desc: "Para quem quer achar duo, montar party ou apenas discutir o meta atual e os lançamentos dos games.", count: 0, icon: "game" },
   { id: "room-9", name: "Relacionamentos & Amor 🌹", desc: "Debates saudáveis sobre relacionamentos, encontros, vida a dois e as ciladas de aplicativos de paquera.", count: 0, icon: "heart-half" },
   { id: "room-10", name: "Clube da Madrugada 🌙", desc: "A sala das corujas. Conversas profundas, pensamentos aleatórios e companheirismo nas horas de silêncio.", count: 0, icon: "moon" },
-  { id: "room-11", name: "Papo Brasil 🇧🇷", desc: "Mistura boa de sotaques de norte a sul. Fale sobre cultura local, piadas internas de cada estado e rotina.", count: 0, icon: "globe" },
-  { id: "room-12", name: "Sexo", desc: "Sala para conversa mais quentes. Especificamente para adultos que se interessam.", count: 0, icon: "globe" }
+  { id: "room-11", name: "Papo Brasil 🇧🇷", desc: "Mistura boa de sotaques de norte a sul. Fale sobre cultura local, piadas internas de cada estado e rotina.", count: 0, icon: "globe" }
 ];
-
 
 const INITIAL_MESSAGES: Record<string, any[]> = {
   "room-1": [
@@ -137,6 +259,12 @@ interface ClientSession {
   age?: number;
   gender?: string;
   photoUrl?: string;
+  uid?: string;
+  email?: string;
+  permanentId?: string;
+  joinTime?: number;
+  isAuthenticated?: boolean;
+  isAdmin?: boolean;
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
@@ -146,7 +274,7 @@ function getCurrentTime() {
   return now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-
+// Escapes special HTML tags to prevent XSS
 function sanitizeHTML(text: string): string {
   if (!text) return "";
   return text
@@ -163,7 +291,7 @@ async function startServer() {
   app.use(express.json());
   const PORT = Number(process.env.PORT) || 3000;
 
-  
+  // Middleware de segurança (CORS) para aceitar conexões apenas de origens permitidas
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     const allowedOrigins = [
@@ -177,8 +305,7 @@ async function startServer() {
       const isAllowed = allowedOrigins.includes(origin) || 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("run.app") ||
-        origin.includes("papo.net.br") ||  
+        origin.includes("run.app") || 
         origin.includes("vercel.app");
         
       if (isAllowed) {
@@ -190,7 +317,7 @@ async function startServer() {
     next();
   });
 
-  
+  // Simple endpoint for health checks
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
   });
@@ -229,7 +356,7 @@ async function startServer() {
   server.on("upgrade", (request, socket, head) => {
     const origin = request.headers.origin;
     
-    
+    // Em produção, valida se a origem é permitida (localhost, papos.net.br, onrender, vercel, run.app)
     if (origin) {
       const isAllowed = 
         origin.includes("localhost") || 
@@ -252,14 +379,14 @@ async function startServer() {
     });
   });
 
- 
+  // Helper to send messages to a specific client safely
   function sendToClient(ws: WebSocket, type: string, payload: any) {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type, ...payload }));
     }
   }
 
-  
+  // Helper to broadcast to a specific room
   function broadcastToRoom(roomId: string, type: string, payload: any, excludeWs?: WebSocket) {
     activeSessions.forEach((session, ws) => {
       if (session.roomId === roomId && ws.readyState === WebSocket.OPEN) {
@@ -269,7 +396,7 @@ async function startServer() {
     });
   }
 
-  
+  // Get active online nickname list in a room (including active simulated bots)
   function getRoomOnlineUsers(roomId: string): string[] {
     const list: string[] = [];
     activeSessions.forEach((session) => {
@@ -278,14 +405,14 @@ async function startServer() {
       }
     });
     
-    
+    // Inject bots allocated to this room
     BOTS.forEach(bot => {
       if (bot.rooms.includes(roomId)) {
         list.push(bot.nickname);
       }
     });
 
-    return Array.from(new Set(list)); 
+    return Array.from(new Set(list)); // Deduplicate
   }
 
   // Update count in rooms list based on actual connections
@@ -325,13 +452,319 @@ async function startServer() {
     updateRoomCounts();
     sendToClient(ws, "room_list", { rooms });
 
-    ws.on("message", (rawMessage) => {
+    ws.on("message", async (rawMessage) => {
       try {
         const payload = JSON.parse(rawMessage.toString());
         const session = activeSessions.get(ws);
         if (!session) return;
 
+        // Security check: intercept and block any action if the session UID is banned or suspended in Firestore
+        if (session.uid) {
+          const blockCheck = await checkUserBlockStatus(session.uid);
+          if (blockCheck.blocked) {
+            if (blockCheck.reason === "ban") {
+              sendToClient(ws, "banned", {});
+            } else {
+              sendToClient(ws, "suspended", { until: blockCheck.until });
+            }
+            try { ws.close(); } catch (e) {}
+            activeSessions.delete(ws);
+            return;
+          }
+        }
+
         switch (payload.type) {
+          case "sync_auth":
+          case "admin_auth": {
+            const token = payload.token;
+            if (!token) return;
+
+            try {
+              const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+              if (!decoded) {
+                console.warn("[SecureAuth] Invalid or unverified token sent");
+                return;
+              }
+
+              const uid = decoded.uid;
+              const email = decoded.email;
+
+              // Check Firestore database block/suspension status
+              const blockCheck = await checkUserBlockStatus(uid);
+              if (blockCheck.blocked) {
+                if (blockCheck.reason === "ban") {
+                  sendToClient(ws, "banned", {});
+                } else {
+                  sendToClient(ws, "suspended", { until: blockCheck.until });
+                }
+                try { ws.close(); } catch (e) {}
+                activeSessions.delete(ws);
+                return;
+              }
+
+              // Update session data with verified details
+              session.uid = uid;
+              session.email = email;
+              session.isAuthenticated = true;
+              session.joinTime = session.joinTime || Date.now();
+
+              // Fetch or generate permanent ID from Firestore
+              const userDocRef = doc(db, "users", uid);
+              const docSnap = await getDoc(userDocRef);
+              let permanentId = "";
+              let nickname = decoded.name || email.split("@")[0];
+
+              if (docSnap.exists()) {
+                const userData = docSnap.data();
+                permanentId = userData.permanentId;
+                nickname = userData.nickname || nickname;
+              } else {
+                // Generate a random unique permanent ID
+                let unique = false;
+                while (!unique) {
+                  const rand = crypto.randomBytes(3).toString("hex").toUpperCase();
+                  permanentId = `PAPO-${rand}`;
+                  
+                  // Check uniqueness in Firestore
+                  const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
+                  const snap = await getDocs(q);
+                  if (snap.empty) {
+                    unique = true;
+                  }
+                }
+
+                await setDoc(userDocRef, {
+                  uid,
+                  email,
+                  nickname,
+                  permanentId,
+                  createdAt: Date.now(),
+                  banned: false,
+                  suspendedUntil: null
+                });
+              }
+
+              session.permanentId = permanentId;
+              session.nickname = nickname;
+
+              // If admin, grant admin rights and verify to client
+              if (uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+                session.isAdmin = true;
+                sendToClient(ws, "admin_verified", { isAdmin: true });
+                console.log(`[Admin] Administrator iMDKTiIEezc2w2VQ2SO27bXsQTd2 successfully authorized!`);
+              } else {
+                session.isAdmin = false;
+                sendToClient(ws, "admin_verified", { isAdmin: false });
+              }
+
+            } catch (err) {
+              console.error("[SecureAuth] Error syncing auth:", err);
+            }
+            break;
+          }
+
+          case "admin_action": {
+            if (!session.isAdmin) {
+              console.warn("[Admin] Unauthorized attempt to execute administrative action!");
+              return;
+            }
+
+            const { action, targetUid, durationMs, text } = payload;
+            
+            if (action === "suspend") {
+              if (!targetUid) return;
+              const suspendedUntil = Date.now() + Number(durationMs);
+              
+              // 1. Update Firestore
+              const targetDocRef = doc(db, "users", targetUid);
+              await updateDoc(targetDocRef, {
+                suspendedUntil: suspendedUntil
+              });
+
+              // Fetch target details for audit
+              let targetName = "Desconhecido";
+              try {
+                const docSnap = await getDoc(targetDocRef);
+                if (docSnap.exists()) {
+                  targetName = docSnap.data().nickname || "Desconhecido";
+                }
+              } catch (e) {}
+
+              // 2. Add Audit Log
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "suspension",
+                targetUid: targetUid,
+                targetNickname: targetName,
+                details: `Suspenso por ${Number(durationMs) / 60000} minutos`,
+                timestamp: Date.now()
+              });
+
+              // 3. Find and forcefully disconnect the user in real-time
+              activeSessions.forEach((s, key) => {
+                if (s.uid === targetUid) {
+                  sendToClient(key, "suspended", { until: suspendedUntil });
+                  try { key.close(); } catch (err) {}
+                  activeSessions.delete(key);
+                }
+              });
+
+              // 4. Notify admin about success
+              sendToClient(ws, "admin_action_success", { message: `Usuário ${targetName} suspenso com sucesso.` });
+              
+            } else if (action === "ban") {
+              if (!targetUid) return;
+
+              // 1. Update Firestore
+              const targetDocRef = doc(db, "users", targetUid);
+              await updateDoc(targetDocRef, {
+                banned: true
+              });
+
+              // Fetch target details for audit
+              let targetName = "Desconhecido";
+              try {
+                const docSnap = await getDoc(targetDocRef);
+                if (docSnap.exists()) {
+                  targetName = docSnap.data().nickname || "Desconhecido";
+                }
+              } catch (e) {}
+
+              // 2. Add Audit Log
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "ban",
+                targetUid: targetUid,
+                targetNickname: targetName,
+                details: `Banido permanentemente`,
+                timestamp: Date.now()
+              });
+
+              // 3. Find and forcefully disconnect the user in real-time
+              activeSessions.forEach((s, key) => {
+                if (s.uid === targetUid) {
+                  sendToClient(key, "banned", {});
+                  try { key.close(); } catch (err) {}
+                  activeSessions.delete(key);
+                }
+              });
+
+              // 4. Notify admin about success
+              sendToClient(ws, "admin_action_success", { message: `Usuário ${targetName} banido com sucesso.` });
+
+            } else if (action === "global_warning") {
+              if (!text) return;
+
+              // 1. Log to Audit
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "global_warning",
+                targetUid: "ALL",
+                targetNickname: "Todos Usuários",
+                details: text.substring(0, 100),
+                timestamp: Date.now()
+              });
+
+              // 2. Broadcast warning to everyone in real-time
+              activeSessions.forEach((s, key) => {
+                if (key.readyState === WebSocket.OPEN) {
+                  sendToClient(key, "global_warning", { text });
+                }
+              });
+
+              // 3. Notify admin
+              sendToClient(ws, "admin_action_success", { message: `Aviso global enviado.` });
+
+            } else if (action === "individual_warning") {
+              if (!targetUid || !text) return;
+
+              const targetDocRef = doc(db, "users", targetUid);
+              let targetName = "Desconhecido";
+              try {
+                const docSnap = await getDoc(targetDocRef);
+                if (docSnap.exists()) {
+                  targetName = docSnap.data().nickname || "Desconhecido";
+                }
+              } catch (e) {}
+
+              // 1. Log to Audit
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "individual_warning",
+                targetUid: targetUid,
+                targetNickname: targetName,
+                details: text.substring(0, 100),
+                timestamp: Date.now()
+              });
+
+              // 2. Send warning to target session
+              let foundOnline = false;
+              activeSessions.forEach((s, key) => {
+                if (s.uid === targetUid && key.readyState === WebSocket.OPEN) {
+                  sendToClient(key, "individual_warning", { text });
+                  foundOnline = true;
+                }
+              });
+
+              // 3. Notify admin
+              sendToClient(ws, "admin_action_success", { 
+                message: foundOnline ? `Aviso individual entregue para ${targetName}.` : `Aviso gravado na auditoria, mas usuário ${targetName} está offline.` 
+              });
+            }
+
+            break;
+          }
+
+          case "get_online_users": {
+            if (!session.isAdmin) return;
+
+            // Fetch list of active authenticated user sessions
+            const onlineUsers: any[] = [];
+            activeSessions.forEach((s) => {
+              if (s.isAuthenticated && s.uid) {
+                onlineUsers.push({
+                  uid: s.uid,
+                  nickname: s.nickname || "Desconhecido",
+                  email: s.email || "",
+                  permanentId: s.permanentId || "",
+                  joinTime: s.joinTime || Date.now(),
+                  roomId: s.roomId || "room-1",
+                  online: true
+                });
+              }
+            });
+
+            sendToClient(ws, "admin_online_users", { users: onlineUsers });
+            break;
+          }
+
+          case "get_audit_logs": {
+            if (!session.isAdmin) return;
+
+            try {
+              const q = query(collection(db, "audits"));
+              const docSnap = await getDocs(q);
+              const logs: any[] = [];
+              docSnap.forEach((docDoc) => {
+                logs.push({
+                  id: docDoc.id,
+                  ...docDoc.data()
+                });
+              });
+
+              // Sort audit logs descending by timestamp
+              logs.sort((a, b) => b.timestamp - a.timestamp);
+
+              sendToClient(ws, "admin_audit_logs", { logs });
+            } catch (err) {
+              console.error("[Admin] Error retrieving audit logs:", err);
+            }
+            break;
+          }
           case "join": {
             const nickname = sanitizeHTML(payload.nickname?.trim() || "").substring(0, 15);
             const roomId = payload.roomId || "room-1";

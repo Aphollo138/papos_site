@@ -187,6 +187,27 @@ document.addEventListener("DOMContentLoaded", () => {
               renderMessages();
             }
           });
+
+          // Sync user profile (updates permanent ID and checks active ban/suspension states)
+          window.FirebaseService.syncUserProfile().then((profile) => {
+            if (profile) {
+              user.getIdToken().then((token) => {
+                const sendAuth = () => {
+                  if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                      type: "sync_auth",
+                      token: token
+                    }));
+                  } else {
+                    setTimeout(sendAuth, 100);
+                  }
+                };
+                sendAuth();
+              });
+            }
+          }).catch(err => {
+            console.error("Error during profile sync:", err);
+          });
         }
       });
     } else {
@@ -372,6 +393,55 @@ document.addEventListener("DOMContentLoaded", () => {
             if (window.handleProfileDataResponse) {
               window.handleProfileDataResponse(data);
             }
+            break;
+
+          case "admin_verified":
+            if (data.isAdmin) {
+              const trigger = document.getElementById("admin-trigger-container");
+              if (trigger) {
+                trigger.classList.remove("d-none");
+              }
+            }
+            break;
+
+          case "admin_online_users":
+            if (window.handleAdminOnlineUsers) {
+              window.handleAdminOnlineUsers(data.users);
+            }
+            break;
+
+          case "admin_audit_logs":
+            if (window.handleAdminAuditLogs) {
+              window.handleAdminAuditLogs(data.logs);
+            }
+            break;
+
+          case "admin_action_success":
+            alert(data.message);
+            if (window.refreshAdminData) {
+              window.refreshAdminData();
+            }
+            break;
+
+          case "global_warning":
+          case "individual_warning":
+            if (window.showAdminWarningModal) {
+              window.showAdminWarningModal(data.text);
+            }
+            break;
+
+          case "suspended": {
+            const until = data.until ? new Date(data.until).toLocaleString("pt-BR") : "algum tempo";
+            alert(`Sua conta foi suspensa pela administração até: ${until}. Você será desconectado.`);
+            localStorage.removeItem("papos_nickname");
+            window.location.href = "/";
+            break;
+          }
+
+          case "banned":
+            alert("Você foi banido permanentemente pela administração deste chat.");
+            localStorage.removeItem("papos_nickname");
+            window.location.href = "/";
             break;
         }
       } catch (err) {
