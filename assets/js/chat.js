@@ -397,6 +397,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
           case "admin_verified":
             if (data.isAdmin) {
+              if (window.injectAdminPanelUI) {
+                window.injectAdminPanelUI();
+              }
               const trigger = document.getElementById("admin-trigger-container");
               if (trigger) {
                 trigger.classList.remove("d-none");
