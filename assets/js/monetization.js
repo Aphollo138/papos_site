@@ -1,20 +1,8 @@
-/**
- * monetization.js - Gerenciador Centralizado de Monetização (Monetag) para o Papos
- * 
- * Este arquivo gerencia de forma isolada, segura, assíncrona e à prova de falhas a inicialização
- * dos formatos de anúncios da Monetag, protegendo a experiência do usuário e garantindo que
- * nenhum erro de rede ou bloqueador de anúncios quebre as funcionalidades essenciais do site.
- * 
- * Formatos configurados conforme as zonas oficiais criadas no painel da Monetag:
- * 
- * MONETAG_IN_PAGE_PUSH — <script>(function(s){s.dataset.zone='11276687',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
- * MONETAG_VIGNETTE_BANNER — <script>(function(s){s.dataset.zone='11276686',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
- */
 
-// Configuração simples para ativar/desativar cada formato individualmente de forma rápida
+
 window.MONETAG_CONFIG = {
-  enableInPagePush: true,  // Altere para false para desativar o In-Page Push
-  enableVignette: true     // Altere para false para desativar o Vignette Banner
+  enableInPagePush: true,  
+  enableVignette: true     
 };
 
 (function() {

@@ -174,21 +174,26 @@ document.addEventListener("DOMContentLoaded", () => {
   let privateChats = JSON.parse(localStorage.getItem(`papos_pms_${currentUser}`) || "{}");
 
   // Subscribe to Firebase Auth and sync private messages if authenticated
-  if (window.FirebaseService) {
-    window.FirebaseService.subscribeToAuth((user) => {
-      if (user) {
-        console.log("[Firebase] Sincronizando mensagens privadas do Firestore...");
-        window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
-          privateChats = syncedChats;
-          localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
-          renderPrivateConversationsSidebar();
-          if (chatMode === "private") {
-            renderMessages();
-          }
-        });
-      }
-    });
-  }
+  const initializeFirebaseSync = () => {
+    if (window.FirebaseService) {
+      window.FirebaseService.subscribeToAuth((user) => {
+        if (user) {
+          console.log("[Firebase] Sincronizando mensagens privadas do Firestore...");
+          window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
+            privateChats = syncedChats;
+            localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+            renderPrivateConversationsSidebar();
+            if (chatMode === "private") {
+              renderMessages();
+            }
+          });
+        }
+      });
+    } else {
+      setTimeout(initializeFirebaseSync, 50);
+    }
+  };
+  initializeFirebaseSync();
 
   // Load User Details in sidebar
   if (sidebarUsername && sidebarAvatarPlaceholder) {

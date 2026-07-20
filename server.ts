@@ -13,8 +13,10 @@ const INITIAL_ROOMS = [
   { id: "room-5", name: "Amizade & Jogos 🎮", desc: "Para quem quer achar duo, montar party ou apenas discutir o meta atual e os lançamentos dos games.", count: 0, icon: "game" },
   { id: "room-9", name: "Relacionamentos & Amor 🌹", desc: "Debates saudáveis sobre relacionamentos, encontros, vida a dois e as ciladas de aplicativos de paquera.", count: 0, icon: "heart-half" },
   { id: "room-10", name: "Clube da Madrugada 🌙", desc: "A sala das corujas. Conversas profundas, pensamentos aleatórios e companheirismo nas horas de silêncio.", count: 0, icon: "moon" },
-  { id: "room-11", name: "Papo Brasil 🇧🇷", desc: "Mistura boa de sotaques de norte a sul. Fale sobre cultura local, piadas internas de cada estado e rotina.", count: 0, icon: "globe" }
+  { id: "room-11", name: "Papo Brasil 🇧🇷", desc: "Mistura boa de sotaques de norte a sul. Fale sobre cultura local, piadas internas de cada estado e rotina.", count: 0, icon: "globe" },
+  { id: "room-12", name: "Sexo", desc: "Sala para conversa mais quentes. Especificamente para adultos que se interessam.", count: 0, icon: "globe" }
 ];
+
 
 const INITIAL_MESSAGES: Record<string, any[]> = {
   "room-1": [

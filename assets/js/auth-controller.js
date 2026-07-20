@@ -223,24 +223,122 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- LOGOUT TRIGGERS ---
-  const handleLogout = async () => {
-    if (confirm("Deseja realmente sair da sua conta?")) {
+  // --- AUTH STATE SYNC FOR UI ---
+  const fService = window.FirebaseService || FirebaseService;
+  if (fService) {
+    fService.subscribeToAuth((user) => {
+      const btnAuthTrigger = document.getElementById("btn-auth-trigger");
+      const btnAuthTriggerMobile = document.getElementById("btn-auth-trigger-mobile");
+      const btnLogoutAction = document.getElementById("btn-logout-action");
+      const btnLogoutActionMobile = document.getElementById("btn-logout-action-mobile");
+      
+      const userProfileDesktop = document.getElementById("user-profile-dropdown-desktop");
+      const userProfileMobile = document.getElementById("user-profile-dropdown-mobile");
+
+      const desktopUserName = document.getElementById("desktop-user-name");
+      const desktopDropdownName = document.getElementById("desktop-dropdown-user-name");
+      const desktopDropdownEmail = document.getElementById("desktop-dropdown-user-email");
+      const desktopAvatarContainer = document.getElementById("desktop-user-avatar-container");
+
+      const mobileDropdownName = document.getElementById("mobile-dropdown-user-name");
+      const mobileDropdownEmail = document.getElementById("mobile-dropdown-user-email");
+      const mobileAvatarContainer = document.getElementById("mobile-user-avatar-container");
+
+      if (user) {
+        // Authenticated
+        const nickname = user.displayName || user.email.split("@")[0];
+        localStorage.setItem("papos_nickname", nickname);
+
+        // Hide "Entrar" buttons
+        if (btnAuthTrigger) btnAuthTrigger.classList.add("d-none");
+        if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.add("d-none");
+
+        // Show "Sair" buttons
+        if (btnLogoutAction) {
+          btnLogoutAction.classList.remove("d-none");
+          btnLogoutAction.classList.add("d-flex");
+        }
+        if (btnLogoutActionMobile) {
+          btnLogoutActionMobile.classList.remove("d-none");
+          btnLogoutActionMobile.classList.add("d-flex");
+        }
+
+        // Show Profile Dropdowns
+        if (userProfileDesktop) userProfileDesktop.classList.remove("d-none");
+        if (userProfileMobile) userProfileMobile.classList.remove("d-none");
+
+        // Set name/email info
+        if (desktopUserName) desktopUserName.textContent = nickname;
+        if (desktopDropdownName) desktopDropdownName.textContent = nickname;
+        if (desktopDropdownEmail) desktopDropdownEmail.textContent = user.email;
+
+        if (mobileDropdownName) mobileDropdownName.textContent = nickname;
+        if (mobileDropdownEmail) mobileDropdownEmail.textContent = user.email;
+
+        // Render Avatars
+        const renderAvatar = (name, size) => {
+          const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
+          return `<div class="avatar-circle ${size}" title="${name}">${initial}</div>`;
+        };
+
+        if (desktopAvatarContainer) {
+          desktopAvatarContainer.innerHTML = renderAvatar(nickname, "avatar-xs");
+        }
+        if (mobileAvatarContainer) {
+          mobileAvatarContainer.innerHTML = renderAvatar(nickname, "avatar-xs");
+        }
+
+      } else {
+        // Visitor/Not Authenticated
+        // Show "Entrar" buttons
+        if (btnAuthTrigger) btnAuthTrigger.classList.remove("d-none");
+        if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.remove("d-none");
+
+        // Hide "Sair" buttons
+        if (btnLogoutAction) {
+          btnLogoutAction.classList.add("d-none");
+          btnLogoutAction.classList.remove("d-flex");
+        }
+        if (btnLogoutActionMobile) {
+          btnLogoutActionMobile.classList.add("d-none");
+          btnLogoutActionMobile.classList.remove("d-flex");
+        }
+
+        // Hide Profile Dropdowns
+        if (userProfileDesktop) userProfileDesktop.classList.add("d-none");
+        if (userProfileMobile) userProfileMobile.classList.add("d-none");
+      }
+    });
+  }
+
+  // --- LOGOUT EVENT HANDLER FOR CONFIRM MODAL ---
+  const btnConfirmLogoutAction = document.getElementById("btn-confirm-logout-action");
+  if (btnConfirmLogoutAction) {
+    btnConfirmLogoutAction.addEventListener("click", async () => {
       try {
-        await FirebaseService.logout();
-        // Clear locally stored credentials
+        const currentNickname = localStorage.getItem("papos_nickname");
+        
+        await fService.logout();
+
+        // Clear local storage session and private messages cache
+        if (currentNickname) {
+          localStorage.removeItem(`papos_pms_${currentNickname}`);
+        }
         localStorage.removeItem("papos_nickname");
         localStorage.removeItem("papos_photo");
+
+        // Close logout modal
+        const logoutModalEl = document.getElementById("logoutConfirmModal");
+        if (logoutModalEl) {
+          const modalInstance = bootstrap.Modal.getInstance(logoutModalEl);
+          if (modalInstance) modalInstance.hide();
+        }
+
+        // Reload to completely clean up the state and redirect to welcome/visitor setup
         window.location.reload();
       } catch (error) {
         console.error("Erro ao fazer logout:", error);
       }
-    }
-  };
-
-  const btnLogout = document.getElementById("btn-logout-trigger");
-  if (btnLogout) btnLogout.addEventListener("click", handleLogout);
-
-  const btnLogoutMobile = document.getElementById("btn-logout-trigger-mobile");
-  if (btnLogoutMobile) btnLogoutMobile.addEventListener("click", handleLogout);
+    });
+  }
 });

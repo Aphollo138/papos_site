@@ -10,7 +10,7 @@
     
     <meta name="description" content="Sua sala de bate-papo criptografada localmente. Converse com segurança de ponta a ponta sem criar contas." />
     <meta name="robots" content="noindex, nofollow" />
-    <link rel="canonical" href="https://papo.net.br/chat" />
+    <link rel="canonical" href="https://papos.net.br/chat" />
 
     <!-- Manifest & Favicons -->
     <link rel="manifest" href="/manifest.json" />
@@ -235,6 +235,11 @@
                 <i class="bi bi-box-arrow-in-right"></i> <span>Entrar</span>
               </button>
 
+              <!-- Botão Sair (Apenas logado) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-3 d-none align-items-center gap-1.5 text-danger" id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-box-arrow-right text-danger"></i> <span>Sair</span>
+              </button>
+
               <!-- Dropdown Perfil Logado (Desktop) -->
               <div class="dropdown d-none" id="user-profile-dropdown-desktop">
                 <button class="btn btn-secondary-custom btn-sm py-1 px-2 d-flex align-items-center gap-2 border-0" type="button" id="dropdownUserDesktop" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm); background: transparent;">
@@ -262,7 +267,7 @@
                   </li>
                   <li><hr class="dropdown-divider border-secondary"></li>
                   <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" id="btn-logout-trigger">
+                    <button class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" id="btn-logout-trigger" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
                       <i class="bi bi-box-arrow-right"></i> <span style="font-size: 0.85rem;">Sair</span>
                     </button>
                   </li>
@@ -286,6 +291,11 @@
               <!-- Botão Entrar Mobile -->
               <button class="btn btn-premium btn-sm py-1.5 px-2" id="btn-auth-trigger-mobile" data-bs-toggle="modal" data-bs-target="#authModal" style="border-radius: var(--radius-sm);">
                 <i class="bi bi-box-arrow-in-right"></i>
+              </button>
+
+              <!-- Botão Sair Mobile (Apenas logado) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 d-none text-danger" id="btn-logout-action-mobile" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" style="border-radius: var(--radius-sm);">
+                <i class="bi bi-box-arrow-right text-danger"></i>
               </button>
 
               <!-- Dropdown Perfil Logado (Mobile) -->
@@ -313,7 +323,7 @@
                   </li>
                   <li><hr class="dropdown-divider border-secondary"></li>
                   <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" id="btn-logout-trigger-mobile">
+                    <button class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" id="btn-logout-trigger-mobile" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
                       <i class="bi bi-box-arrow-right"></i> <span style="font-size: 0.85rem;">Sair</span>
                     </button>
                   </li>
@@ -745,6 +755,21 @@
                 <span id="register-btn-text">Criar conta</span>
               </button>
             </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMAÇÃO DE LOGOUT -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true" style="z-index: 1070;">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: var(--surface);">
+          <div class="modal-body p-4 text-center">
+            <h5 class="h6 fw-bold text-white mb-3" id="logoutConfirmModalLabel">Deseja realmente sair da sua conta?</h5>
+            <div class="d-flex gap-2 justify-content-center">
+              <button type="button" class="btn btn-secondary-custom px-4 py-2" data-bs-dismiss="modal" style="font-size: 0.85rem; border-radius: var(--radius-sm);">Cancelar</button>
+              <button type="button" class="btn btn-danger px-4 py-2" id="btn-confirm-logout-action" style="font-size: 0.85rem; border-radius: var(--radius-sm); background-color: #dc3545; border-color: #dc3545;">Sair</button>
+            </div>
           </div>
         </div>
       </div>
