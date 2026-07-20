@@ -12,12 +12,11 @@ import https from "https";
 // Load Firebase Config safely from environment variables
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
+  authDomain: process.env.VITE_FIREBASE_APP_ID || "",
+  projectId: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  storageBucket: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  messagingSenderId: process.env.VITE_FIREBASE_PROJECT_ID || "",
+  appId: process.env.VITE_FIREBASE_STORAGE_BUCKET || "(default)",
 };
 
 // Initialize Firebase client on the server
@@ -29,7 +28,7 @@ const firebaseApp = initializeApp({
   messagingSenderId: firebaseConfig.messagingSenderId,
   appId: firebaseConfig.appId
 });
-const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+const db = getFirestore(firebaseApp, firebaseConfig.messagingSenderId);
 
 // Helper to fetch Google's OAuth/Securetoken public certificates for JWT signature verification
 let googlePublicKeys: Record<string, string> = {};
