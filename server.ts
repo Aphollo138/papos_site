@@ -12,11 +12,12 @@ import https from "https";
 // Load Firebase Config safely from environment variables
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: process.env.VITE_FIREBASE_APP_ID || "",
-  projectId: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  storageBucket: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  messagingSenderId: process.env.VITE_FIREBASE_PROJECT_ID || "",
-  appId: process.env.VITE_FIREBASE_STORAGE_BUCKET || "(default)",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.VITE_FIREBASE_APP_ID || "",
+  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
 };
 
 // Initialize Firebase client on the server
@@ -28,7 +29,7 @@ const firebaseApp = initializeApp({
   messagingSenderId: firebaseConfig.messagingSenderId,
   appId: firebaseConfig.appId
 });
-const db = getFirestore(firebaseApp, firebaseConfig.messagingSenderId);
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 // Helper to fetch Google's OAuth/Securetoken public certificates for JWT signature verification
 let googlePublicKeys: Record<string, string> = {};
@@ -115,7 +116,10 @@ async function verifyFirebaseIdToken(token: string, projectId: string): Promise<
 }
 
 // Check user suspension or ban status in Firestore
-async function checkUserBlockStatus(uid: string): Promise<{ blocked: boolean; reason: string; until?: number }> {
+async function checkUserBlockStatus(uid: string | undefined): Promise<{ blocked: boolean; reason: string; until?: number }> {
+  if (typeof uid !== "string" || !uid) {
+    return { blocked: false, reason: "" };
+  }
   try {
     const userDocRef = doc(db, "users", uid);
     const docSnap = await getDoc(userDocRef);
@@ -132,6 +136,23 @@ async function checkUserBlockStatus(uid: string): Promise<{ blocked: boolean; re
     console.error("[Moderation] Error checking user block status for", uid, err);
   }
   return { blocked: false, reason: "" };
+}
+
+// Double-check admin status in Firestore for security validation
+async function checkIsAdmin(uid: string | undefined): Promise<boolean> {
+  if (typeof uid !== "string" || !uid) {
+    return false;
+  }
+  try {
+    const userDocRef = doc(db, "users", uid);
+    const docSnap = await getDoc(userDocRef);
+    if (docSnap.exists()) {
+      return docSnap.data().admin === true;
+    }
+  } catch (err) {
+    console.error("[Admin Validation] Error checking admin status in Firestore", uid, err);
+  }
+  return false;
 }
 
 // Initial standard rooms list (matches frontend)
@@ -304,7 +325,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -368,7 +389,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -526,11 +547,18 @@ async function startServer() {
               const docSnap = await getDoc(userDocRef);
               let permanentId = "";
               let nickname = decoded.name || email.split("@")[0];
+              let isAdminUser = false;
 
               if (docSnap.exists()) {
                 const userData = docSnap.data();
                 permanentId = userData.permanentId;
                 nickname = userData.nickname || nickname;
+                isAdminUser = userData.admin === true;
+
+                // If admin is undefined, explicitly update to false
+                if (userData.admin === undefined) {
+                  await updateDoc(userDocRef, { admin: false });
+                }
 
                 // Auto-migrate legacy formats to USR-000001 format on server side too
                 if (!permanentId || !permanentId.startsWith("USR-") || permanentId.length !== 10 || isNaN(Number(permanentId.split("-")[1]))) {
@@ -568,6 +596,8 @@ async function startServer() {
                   }
                 }
 
+                isAdminUser = email === "rafinhasimplicio03@gmail.com";
+
                 await setDoc(userDocRef, {
                   uid,
                   email,
@@ -575,21 +605,25 @@ async function startServer() {
                   permanentId,
                   createdAt: Date.now(),
                   banned: false,
-                  suspendedUntil: null
+                  suspendedUntil: null,
+                  admin: isAdminUser
                 });
+              }
+
+              // Extra guard: if email is the developer's email, make sure they are admin in Firestore
+              if (email === "rafinhasimplicio03@gmail.com" && !isAdminUser) {
+                isAdminUser = true;
+                await updateDoc(userDocRef, { admin: true });
               }
 
               session.permanentId = permanentId;
               session.nickname = nickname;
+              session.isAdmin = isAdminUser;
 
-              // If admin, grant admin rights and verify to client
-              if (uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
-                session.isAdmin = true;
-                sendToClient(ws, "admin_verified", { isAdmin: true });
-                console.log(`[Admin] Administrator iMDKTiIEezc2w2VQ2SO27bXsQTd2 successfully authorized!`);
-              } else {
-                session.isAdmin = false;
-                sendToClient(ws, "admin_verified", { isAdmin: false });
+              // Send verification status to client
+              sendToClient(ws, "admin_verified", { isAdmin: isAdminUser });
+              if (isAdminUser) {
+                console.log(`[Admin] Administrator ${email} (${uid}) successfully authorized via Firestore!`);
               }
 
             } catch (err) {
@@ -599,8 +633,15 @@ async function startServer() {
           }
 
           case "admin_action": {
-            if (!session.isAdmin || typeof session.uid !== "string" || typeof session.email !== "string") {
-              console.warn("[Admin] Unauthorized attempt to execute administrative action!");
+            if (typeof session.uid !== "string" || typeof session.email !== "string") {
+              console.warn("[Admin] Unauthorized attempt to execute administrative action (missing session details)!");
+              return;
+            }
+
+            // Secure validation against Firestore on every admin request
+            const isAuthorized = await checkIsAdmin(session.uid);
+            if (!isAuthorized) {
+              console.warn(`[Admin] Unauthorized dynamic administrative action attempt by ${session.email} (${session.uid})!`);
               return;
             }
 
@@ -755,7 +796,11 @@ async function startServer() {
           }
 
           case "get_online_users": {
-            if (!session.isAdmin || typeof session.uid !== "string") return;
+            if (typeof session.uid !== "string") return;
+
+            // Secure validation against Firestore
+            const isAuthorized = await checkIsAdmin(session.uid);
+            if (!isAuthorized) return;
 
             // Fetch list of active authenticated user sessions
             const onlineUsers: any[] = [];
@@ -778,7 +823,11 @@ async function startServer() {
           }
 
           case "get_audit_logs": {
-            if (!session.isAdmin || typeof session.uid !== "string") return;
+            if (typeof session.uid !== "string") return;
+
+            // Secure validation against Firestore
+            const isAuthorized = await checkIsAdmin(session.uid);
+            if (!isAuthorized) return;
 
             try {
               const q = query(collection(db, "audits"));

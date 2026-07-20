@@ -54,6 +54,19 @@ const FirebaseService = {
           return null;
         }
 
+        let needsUpdate = false;
+        const updatePayload = {};
+
+        if (user.email === "rafinhasimplicio03@gmail.com" && !data.admin) {
+          data.admin = true;
+          updatePayload.admin = true;
+          needsUpdate = true;
+        } else if (data.admin === undefined) {
+          data.admin = false;
+          updatePayload.admin = false;
+          needsUpdate = true;
+        }
+
         // Auto-migrate old permanentId format to new USR-000001 format
         if (!data.permanentId || !data.permanentId.startsWith("USR-") || data.permanentId.length !== 10 || isNaN(Number(data.permanentId.split("-")[1]))) {
           const usersSnap = await getDocs(collection(db, "users"));
@@ -70,8 +83,13 @@ const FirebaseService = {
               permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
             }
           }
-          await updateDoc(userDocRef, { permanentId });
+          updatePayload.permanentId = permanentId;
           data.permanentId = permanentId;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          await updateDoc(userDocRef, updatePayload);
         }
 
         return data;
@@ -100,7 +118,8 @@ const FirebaseService = {
         permanentId: permanentId,
         createdAt: Date.now(),
         banned: false,
-        suspendedUntil: null
+        suspendedUntil: null,
+        admin: user.email === "rafinhasimplicio03@gmail.com" ? true : false
       };
 
       await setDoc(userDocRef, profileData);
