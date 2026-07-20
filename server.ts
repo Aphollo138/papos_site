@@ -11,12 +11,12 @@ import https from "https";
 
 // Load Firebase Config safely from environment variables
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY,
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.VITE_FIREBASE_APP_ID,
+  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.VITE_FIREBASE_APP_ID || "",
   firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
 };
 
@@ -527,41 +527,39 @@ async function startServer() {
                 permanentId = userData.permanentId;
                 nickname = userData.nickname || nickname;
 
-                // Auto-migrate legacy formats to USR-XXXXXXXX format on server side too
-                if (!permanentId || !permanentId.startsWith("USR-")) {
+                // Auto-migrate legacy formats to USR-000001 format on server side too
+                if (!permanentId || !permanentId.startsWith("USR-") || permanentId.length !== 10 || isNaN(Number(permanentId.split("-")[1]))) {
+                  const usersSnap = await getDocs(collection(db, "users"));
+                  let nextNum = usersSnap.size + 1;
+                  permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
                   let unique = false;
                   while (!unique) {
-                    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-                    let randStr = "";
-                    for (let i = 0; i < 8; i++) {
-                      randStr += chars.charAt(Math.floor(Math.random() * chars.length));
-                    }
-                    permanentId = `USR-${randStr}`;
-                    
                     const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
                     const snap = await getDocs(q);
                     if (snap.empty) {
                       unique = true;
+                    } else {
+                      nextNum++;
+                      permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
                     }
                   }
                   await updateDoc(userDocRef, { permanentId });
                 }
               } else {
-                // Generate a random unique permanent ID (format USR-XXXXXXXX)
+                // Generate a sequential unique permanent ID (format USR-000001)
+                const usersSnap = await getDocs(collection(db, "users"));
+                let nextNum = usersSnap.size + 1;
+                permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
                 let unique = false;
                 while (!unique) {
-                  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-                  let randStr = "";
-                  for (let i = 0; i < 8; i++) {
-                    randStr += chars.charAt(Math.floor(Math.random() * chars.length));
-                  }
-                  permanentId = `USR-${randStr}`;
-                  
                   // Check uniqueness in Firestore
                   const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
                   const snap = await getDocs(q);
                   if (snap.empty) {
                     unique = true;
+                  } else {
+                    nextNum++;
+                    permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
                   }
                 }
 

@@ -420,7 +420,12 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "admin_action_success":
-            alert(data.message);
+            if (window.showAdminLoading) {
+              window.showAdminLoading(false);
+            }
+            if (window.showAdminToast) {
+              window.showAdminToast(data.message, "success");
+            }
             if (window.refreshAdminData) {
               window.refreshAdminData();
             }
@@ -435,16 +440,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
           case "suspended": {
             const until = data.until ? new Date(data.until).toLocaleString("pt-BR") : "algum tempo";
-            alert(`Sua conta foi suspensa pela administração até: ${until}. Você será desconectado.`);
-            localStorage.removeItem("papos_nickname");
-            window.location.href = "/";
+            if (window.showAdminWarningModal) {
+              window.showAdminWarningModal(
+                `Sua conta foi suspensa pela administração até: ${until}. Você será desconectado.`,
+                "Conta Suspensa",
+                () => {
+                  localStorage.removeItem("papos_nickname");
+                  window.location.href = "/";
+                }
+              );
+            } else {
+              localStorage.removeItem("papos_nickname");
+              window.location.href = "/";
+            }
             break;
           }
 
           case "banned":
-            alert("Você foi banido permanentemente pela administração deste chat.");
-            localStorage.removeItem("papos_nickname");
-            window.location.href = "/";
+            if (window.showAdminWarningModal) {
+              window.showAdminWarningModal(
+                "Você foi banido permanentemente pela administração deste chat.",
+                "Conta Banida",
+                () => {
+                  localStorage.removeItem("papos_nickname");
+                  window.location.href = "/";
+                }
+              );
+            } else {
+              localStorage.removeItem("papos_nickname");
+              window.location.href = "/";
+            }
             break;
         }
       } catch (err) {

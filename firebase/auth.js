@@ -43,35 +43,31 @@ const FirebaseService = {
         if (data.banned) {
           await signOut(auth);
           localStorage.removeItem("papos_nickname");
-          alert("Você foi banido permanentemente deste chat.");
-          window.location.reload();
+          window.location.href = "/?error=banned";
           return null;
         }
         if (data.suspendedUntil && data.suspendedUntil > Date.now()) {
           const remaining = Math.ceil((data.suspendedUntil - Date.now()) / 60000);
           await signOut(auth);
           localStorage.removeItem("papos_nickname");
-          alert(`Sua conta está suspensa. Tempo restante: ${remaining} minuto(s).`);
-          window.location.reload();
+          window.location.href = `/?error=suspended&remaining=${remaining}`;
           return null;
         }
 
-        // Auto-migrate old permanentId format to new USR-XXXXXXXX format
-        if (!data.permanentId || !data.permanentId.startsWith("USR-")) {
-          let permanentId = "";
+        // Auto-migrate old permanentId format to new USR-000001 format
+        if (!data.permanentId || !data.permanentId.startsWith("USR-") || data.permanentId.length !== 10 || isNaN(Number(data.permanentId.split("-")[1]))) {
+          const usersSnap = await getDocs(collection(db, "users"));
+          let nextNum = usersSnap.size + 1;
+          let permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
           let unique = false;
           while (!unique) {
-            const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            let randStr = "";
-            for (let i = 0; i < 8; i++) {
-              randStr += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            permanentId = `USR-${randStr}`;
-            
             const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
             const snap = await getDocs(q);
             if (snap.empty) {
               unique = true;
+            } else {
+              nextNum++;
+              permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
             }
           }
           await updateDoc(userDocRef, { permanentId });
@@ -81,21 +77,19 @@ const FirebaseService = {
         return data;
       }
 
-      // Generate a brand new unique permanent ID (format USR-XXXXXXXX)
-      let permanentId = "";
+      // Generate a brand new unique permanent ID (format USR-000001)
+      const usersSnap = await getDocs(collection(db, "users"));
+      let nextNum = usersSnap.size + 1;
+      let permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
       let unique = false;
       while (!unique) {
-        const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        let randStr = "";
-        for (let i = 0; i < 8; i++) {
-          randStr += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        permanentId = `USR-${randStr}`;
-        
         const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
         const snap = await getDocs(q);
         if (snap.empty) {
           unique = true;
+        } else {
+          nextNum++;
+          permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
         }
       }
 

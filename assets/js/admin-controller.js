@@ -247,18 +247,23 @@
         const textEl = document.getElementById("admin-global-message");
         const text = textEl ? textEl.value.trim() : "";
         if (!text) {
-          alert("Por favor, digite o conteúdo do aviso global.");
+          window.showAdminToast("Por favor, digite o conteúdo do aviso global.", "error");
           return;
         }
 
-        if (confirm("Deseja realmente enviar este aviso global para TODOS os usuários online?")) {
-          sendAdminAction({
-            type: "admin_action",
-            action: "global_warning",
-            text: text
-          });
-          textEl.value = "";
-        }
+        window.showAdminConfirmModal(
+          "Confirmar Aviso Global",
+          "Deseja realmente enviar este aviso global para TODOS os usuários online?",
+          () => {
+            window.showAdminLoading(true);
+            sendAdminAction({
+              type: "admin_action",
+              action: "global_warning",
+              text: text
+            });
+            textEl.value = "";
+          }
+        );
       });
     }
 
@@ -272,22 +277,28 @@
         const text = textEl ? textEl.value.trim() : "";
 
         if (!targetUid) {
-          alert("Por favor, selecione um usuário destinatário.");
+          window.showAdminToast("Por favor, selecione um usuário destinatário.", "error");
           return;
         }
         if (!text) {
-          alert("Por favor, digite o aviso privado.");
+          window.showAdminToast("Por favor, digite o aviso privado.", "error");
           return;
         }
 
-        sendAdminAction({
-          type: "admin_action",
-          action: "individual_warning",
-          targetUid: targetUid,
-          text: text
-        });
-
-        textEl.value = "";
+        window.showAdminConfirmModal(
+          "Confirmar Aviso Individual",
+          "Deseja realmente enviar este aviso privado para o usuário selecionado?",
+          () => {
+            window.showAdminLoading(true);
+            sendAdminAction({
+              type: "admin_action",
+              action: "individual_warning",
+              targetUid: targetUid,
+              text: text
+            });
+            textEl.value = "";
+          }
+        );
       });
     }
 
@@ -412,14 +423,19 @@
         const minutes = Number(ms) / 60000;
         const msg = minutes > 50000000 ? "permanentemente" : `por ${minutes} minutos`;
         
-        if (confirm(`Deseja realmente SUSPENDER este usuário ${msg}?`)) {
-          sendAdminAction({
-            type: "admin_action",
-            action: "suspend",
-            targetUid: targetUid,
-            durationMs: Number(ms)
-          });
-        }
+        window.showAdminConfirmModal(
+          "Confirmar Suspensão",
+          `Deseja realmente SUSPENDER este usuário ${msg}?`,
+          () => {
+            window.showAdminLoading(true);
+            sendAdminAction({
+              type: "admin_action",
+              action: "suspend",
+              targetUid: targetUid,
+              durationMs: Number(ms)
+            });
+          }
+        );
       });
     });
 
@@ -427,13 +443,18 @@
     banBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
         const targetUid = btn.getAttribute("data-uid");
-        if (confirm("Deseja realmente BANIR este usuário permanentemente do chat? Esta ação desconectará e invalidará a sessão.")) {
-          sendAdminAction({
-            type: "admin_action",
-            action: "ban",
-            targetUid: targetUid
-          });
-        }
+        window.showAdminConfirmModal(
+          "Confirmar Banimento",
+          "Deseja realmente BANIR este usuário permanentemente do chat? Esta ação desconectará e invalidará a sessão.",
+          () => {
+            window.showAdminLoading(true);
+            sendAdminAction({
+              type: "admin_action",
+              action: "ban",
+              targetUid: targetUid
+            });
+          }
+        );
       });
     });
   }
@@ -527,7 +548,7 @@
   };
 
   // Warning Modals (No alerts for warnings)
-  window.showAdminWarningModal = function (text, title = "Mensagem da Administração") {
+  window.showAdminWarningModal = function (text, title = "Mensagem da Administração", onCloseCallback = null) {
     let modalEl = document.getElementById("adminWarningModal");
     if (!modalEl) {
       modalEl = document.createElement("div");
@@ -561,8 +582,144 @@
     document.getElementById("admin-warning-title").textContent = title;
     document.getElementById("admin-warning-text").textContent = text;
 
+    // Clear previous event listeners to avoid memory leaks/repeated actions
+    const newModalEl = modalEl.cloneNode(true);
+    if (modalEl.parentNode) {
+      modalEl.parentNode.replaceChild(newModalEl, modalEl);
+    }
+    modalEl = newModalEl;
+
     const bModal = new bootstrap.Modal(modalEl);
+
+    if (onCloseCallback) {
+      modalEl.addEventListener("hidden.bs.modal", () => {
+        onCloseCallback();
+      }, { once: true });
+    }
+
     bModal.show();
+  };
+
+  // Confirm Modal (No native confirm)
+  window.showAdminConfirmModal = function (title, text, onConfirm) {
+    let modalEl = document.getElementById("adminConfirmModal");
+    if (!modalEl) {
+      modalEl = document.createElement("div");
+      modalEl.id = "adminConfirmModal";
+      modalEl.className = "modal fade";
+      modalEl.tabIndex = -1;
+      modalEl.setAttribute("aria-hidden", "true");
+      modalEl.style.zIndex = "1110";
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+          <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: var(--surface);">
+            <div class="modal-header border-secondary p-3">
+              <h5 class="modal-title text-white fw-bold d-flex align-items-center gap-2" style="font-size: 1rem;">
+                <i class="bi bi-question-circle-fill text-warning"></i>
+                <span id="admin-confirm-title">Confirmar</span>
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar" style="filter: invert(1);"></button>
+            </div>
+            <div class="modal-body p-3">
+              <p class="text-white-50 mb-0" id="admin-confirm-text" style="font-size: 0.85rem; line-height: 1.4;"></p>
+            </div>
+            <div class="modal-footer border-secondary p-2 d-flex gap-2">
+              <button type="button" class="btn btn-secondary-custom flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size: 0.8rem;">Cancelar</button>
+              <button type="button" class="btn btn-danger flex-grow-1 py-2" id="admin-confirm-submit-btn" style="font-size: 0.8rem;">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalEl);
+    }
+
+    document.getElementById("admin-confirm-title").textContent = title;
+    document.getElementById("admin-confirm-text").textContent = text;
+
+    // Clear previous event listeners
+    const newModalEl = modalEl.cloneNode(true);
+    if (modalEl.parentNode) {
+      modalEl.parentNode.replaceChild(newModalEl, modalEl);
+    }
+    modalEl = newModalEl;
+
+    const bModal = new bootstrap.Modal(modalEl);
+    const submitBtn = modalEl.querySelector("#admin-confirm-submit-btn");
+
+    submitBtn.addEventListener("click", () => {
+      onConfirm();
+      bModal.hide();
+    });
+
+    bModal.show();
+  };
+
+  // Toast System (No alerts)
+  window.showAdminToast = function (message, type = "success") {
+    let container = document.getElementById("admin-toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "admin-toast-container";
+      container.className = "toast-container position-fixed bottom-0 end-0 p-3";
+      container.style.zIndex = "1150";
+      document.body.appendChild(container);
+    }
+
+    const bgClass = type === "success" ? "bg-success" : (type === "error" ? "bg-danger" : "bg-warning text-dark");
+    const iconClass = type === "success" ? "bi-check-circle-fill" : (type === "error" ? "bi-exclamation-octagon-fill" : "bi-exclamation-triangle-fill");
+    
+    const toastEl = document.createElement("div");
+    toastEl.className = `toast align-items-center text-white ${bgClass} border-0 shadow-lg`;
+    toastEl.role = "alert";
+    toastEl.ariaLive = "assertive";
+    toastEl.ariaAtomic = "true";
+    toastEl.style.borderRadius = "var(--radius-sm)";
+    
+    toastEl.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body d-flex align-items-center gap-2">
+          <i class="bi ${iconClass}"></i>
+          <span>${message}</span>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    `;
+    
+    container.appendChild(toastEl);
+    const bsToast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    bsToast.show();
+    
+    toastEl.addEventListener("hidden.bs.toast", () => {
+      toastEl.remove();
+    });
+  };
+
+  // Global Loading overlay (No raw blocks)
+  window.showAdminLoading = function (show = true) {
+    let loader = document.getElementById("admin-global-loader");
+    if (!loader && show) {
+      loader = document.createElement("div");
+      loader.id = "admin-global-loader";
+      loader.className = "position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center animate-fade-in";
+      loader.style.zIndex = "1200";
+      loader.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+      loader.innerHTML = `
+        <div class="d-flex flex-column align-items-center gap-3">
+          <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Processando...</span>
+          </div>
+          <span class="text-white fw-medium small tracking-wide" style="font-family: var(--font-sans);">Processando ação administrativa...</span>
+        </div>
+      `;
+      document.body.appendChild(loader);
+    } else if (loader && !show) {
+      // Fade out effect
+      loader.style.opacity = "0";
+      loader.style.transition = "opacity 0.2s ease";
+      setTimeout(() => {
+        if (loader.parentNode) loader.remove();
+      }, 200);
+    }
   };
 
   // Expose triggers

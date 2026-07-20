@@ -1,24 +1,27 @@
+/**
+ * main.js - Core State, Theme management, Navbar reactions, and Reveal Animations
+ */
 
-
+// Configuração centralizada do servidor do Chat (Express + WebSocket)
 const CHAT_CONFIG = {
-  
+  // Altere esta variável para apontar para o seu servidor backend do Render quando estiver em produção
   productionServerUrl: "https://papos-site.onrender.com",
   
-  
+  // Função para retornar a URL do WebSocket de forma dinâmica
   getWebSocketUrl() {
     const isLocalhost = window.location.hostname === "localhost" || 
                         window.location.hostname === "127.0.0.1" || 
                         window.location.hostname === "0.0.0.0" ||
-                        window.location.hostname.includes("ais-dev-") || 
-                        window.location.hostname.includes("ais-pre-") || 
-                        window.location.hostname.includes(".run.app");   
+                        window.location.hostname.includes("ais-dev-") || // AI Studio dev
+                        window.location.hostname.includes("ais-pre-") || // AI Studio preview
+                        window.location.hostname.includes(".run.app");   // AI Studio run.app
     
     if (isLocalhost) {
-     
+      // Se estiver rodando localmente, conecta ao mesmo host
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       return `${protocol}//${window.location.host}`;
     } else {
-      
+      // Em produção, converte o link do Render (HTTPS) para o protocolo WebSocket correto (WSS)
       let cleanUrl = this.productionServerUrl.trim();
       if (cleanUrl.endsWith("/")) {
         cleanUrl = cleanUrl.slice(0, -1);
@@ -28,28 +31,28 @@ const CHAT_CONFIG = {
   }
 };
 
-
+// Expor globalmente para a aplicação usar em qualquer lugar
 window.CHAT_CONFIG = CHAT_CONFIG;
 
 const ChatEngine = {
-  
+  // Get persistent nickname
   getUser() {
     return localStorage.getItem("papos_nickname") || null;
   },
 
-  
+  // Save persistent nickname
   saveUser(nickname) {
     if (!nickname || nickname.trim() === "") return false;
     localStorage.setItem("papos_nickname", nickname.trim());
     return true;
   },
 
-  
+  // Clear nickname (logout)
   logoutUser() {
     localStorage.removeItem("papos_nickname");
   },
 
- 
+  // Initiate WebSocket connection on correct host/port
   connectSocket() {
     const wsUrl = window.CHAT_CONFIG.getWebSocketUrl();
     console.log("[ChatEngine] Conectando WebSocket em:", wsUrl);
@@ -57,7 +60,7 @@ const ChatEngine = {
     return socket;
   },
 
-  
+  // Theme Management
   initTheme() {
     const savedTheme = localStorage.getItem("papos_theme");
     if (savedTheme) {
@@ -72,14 +75,14 @@ const ChatEngine = {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("papos_theme", theme);
     
-    
+    // Update all toggle image elements on the page
     const toggles = document.querySelectorAll(".theme-toggle-img");
     toggles.forEach(img => {
       img.src = (theme === "dark") ? "/assets/img/toggle-on.svg" : "/assets/img/toggle-off.svg";
       img.alt = (theme === "dark") ? "Tema Escuro Ligado" : "Tema Claro Ligado";
     });
 
-   
+    // Sync any standard checkbox toggles if they exist (backward compatibility)
     const togglerCheckbox = document.getElementById("theme-toggle-checkbox");
     if (togglerCheckbox) {
       togglerCheckbox.checked = (theme === "dark");
@@ -92,7 +95,7 @@ const ChatEngine = {
     this.setTheme(next);
   },
 
-  
+  // Avatar visual color generation based on name
   getAvatarColor(name) {
     if (!name) return "#ffffff";
     const colors = [
@@ -107,13 +110,13 @@ const ChatEngine = {
     return colors[sum % colors.length];
   },
 
-  
+  // HTML Avatar bubble builder
   renderAvatar(name, sizeClass = "") {
     if (!name || name.trim() === "") name = "A";
     const cleanName = name.trim();
     const initial = cleanName.charAt(0).toUpperCase();
     
-    
+    // Suporte para foto de perfil válida do LocalStorage se houver
     let photoUrl = null;
     const currentUser = localStorage.getItem("papos_nickname");
     if (cleanName === currentUser || cleanName === "Você") {
@@ -135,10 +138,73 @@ const ChatEngine = {
   }
 };
 
+// Expor globalmente para a aplicação usar em qualquer lugar
+window.ChatEngine = ChatEngine;
 
+// Apply theme before page renders to avoid white flashes
 ChatEngine.initTheme();
 
+// URL Query Error Handler for Banned/Suspended redirect visual states
+(function handleUrlErrors() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("error")) {
+    const errorType = params.get("error");
+    let message = "";
+    let title = "Acesso Negado";
+    if (errorType === "banned") {
+      message = "Você foi banido permanentemente pela administração deste chat.";
+      title = "Conta Banida";
+    } else if (errorType === "suspended") {
+      const remaining = params.get("remaining") || "algum tempo";
+      message = `Sua conta está suspensa pela administração. Tempo restante: ${remaining} minuto(s).`;
+      title = "Conta Suspensa";
+    }
 
+    if (message) {
+      // Clean query parameters from URL without reloading
+      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+      window.history.replaceState({ path: newUrl }, "", newUrl);
+
+      document.addEventListener("DOMContentLoaded", () => {
+        if (window.showAdminWarningModal) {
+          window.showAdminWarningModal(message, title);
+        } else {
+          // Dynamic fallback modal
+          const modalEl = document.createElement("div");
+          modalEl.className = "modal fade";
+          modalEl.id = "urlErrorModal";
+          modalEl.tabIndex = -1;
+          modalEl.setAttribute("aria-hidden", "true");
+          modalEl.style.zIndex = "1100";
+          modalEl.innerHTML = `
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: var(--surface); color: #fff;">
+                <div class="modal-header border-secondary p-3">
+                  <h5 class="modal-title fw-bold d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                    <span>${title}</span>
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar" style="filter: invert(1);"></button>
+                </div>
+                <div class="modal-body p-4 text-white-50">
+                  <p class="mb-0" style="font-size: 0.95rem; line-height: 1.5;">${message}</p>
+                </div>
+                <div class="modal-footer border-secondary p-2">
+                  <button type="button" class="btn btn-secondary-custom w-100 py-2" data-bs-dismiss="modal">Entendido</button>
+                </div>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(modalEl);
+          const bModal = new bootstrap.Modal(modalEl);
+          bModal.show();
+        }
+      });
+    }
+  }
+})();
+
+// Global reveal scroll animations, progress indicator and navbar resize
 document.addEventListener("DOMContentLoaded", () => {
   // Let style sheets know JavaScript is working
   document.documentElement.classList.add('js-enabled');
@@ -146,7 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   ChatEngine.init();
 
-  
+  // 1. Reading Progress Bar Logic
   const progressBar = document.getElementById("scroll-progress-bar");
   window.addEventListener("scroll", () => {
     const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
@@ -156,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
       progressBar.style.width = scrolled + "%";
     }
 
-    
+    // 2. Navbar Shrink / Floating Behavior
     const header = document.querySelector(".navbar-custom");
     if (header) {
       if (window.scrollY > 20) {
@@ -167,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  
+  // 3. Staggered Entrance Scroll Reveal Animations
   const revealElements = document.querySelectorAll(".scroll-reveal");
   if ("IntersectionObserver" in window) {
     const scrollObserver = new IntersectionObserver((entries) => {
