@@ -325,7 +325,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -348,6 +348,37 @@ async function startServer() {
   // Simple endpoint for health checks
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
+  });
+
+  // Helper/Middleware for checking Ads permission in Firestore
+  async function checkAdsPermission(uid?: string): Promise<boolean> {
+    if (!uid || typeof uid !== "string") {
+      return true; // Default show ads for unknown/anonymous visitors unless disabled
+    }
+    try {
+      const userDocRef = doc(db, "users", uid);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.adsDisabled === true || data.admin === true) {
+          return false;
+        }
+      }
+    } catch (err) {
+      console.error("[AdsPermission] Error checking Firestore:", err);
+    }
+    return true;
+  }
+
+  // Endpoint GET /api/user/ads-status
+  app.get("/api/user/ads-status", async (req, res) => {
+    try {
+      const uid = (req.query.uid as string) || "";
+      const showAds = await checkAdsPermission(uid);
+      res.json({ showAds });
+    } catch (err) {
+      res.json({ showAds: true });
+    }
   });
 
   // Profile validation endpoint
@@ -389,7 +420,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -816,8 +847,8 @@ async function startServer() {
 
               // 1. Log to Audit
               await addDoc(collection(db, "audits"), {
-                adminUid: session.uid,
-                adminEmail: session.email,
+                adminUid: session.uid || "ADMIN",
+                adminEmail: session.email || "admin",
                 action: "global_warning",
                 targetUid: "ALL",
                 targetNickname: "Todos Usuários",
@@ -825,15 +856,25 @@ async function startServer() {
                 timestamp: Date.now()
               });
 
-              // 2. Broadcast warning to everyone in real-time
+              // 2. Persist in adminMessages collection in Firestore
+              await addDoc(collection(db, "adminMessages"), {
+                id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+                type: "global",
+                targetUid: "ALL",
+                message: text,
+                createdBy: session.email || session.uid || "ADMIN",
+                createdAt: Date.now()
+              });
+
+              // 3. Broadcast warning to everyone in real-time (including anonymous and logged in users)
               activeSessions.forEach((s, key) => {
                 if (key.readyState === WebSocket.OPEN) {
                   sendToClient(key, "global_warning", { text });
                 }
               });
 
-              // 3. Notify admin
-              sendToClient(ws, "admin_action_success", { message: `Aviso global enviado com sucesso.` });
+              // 4. Notify admin of success
+              sendToClient(ws, "admin_action_success", { message: `Aviso global enviado com sucesso para todos os clientes conectados.` });
 
             } else if (action === "individual_warning") {
               const searchKey = targetId || targetUid;
@@ -862,8 +903,8 @@ async function startServer() {
 
               // 1. Log to Audit
               await addDoc(collection(db, "audits"), {
-                adminUid: session.uid,
-                adminEmail: session.email,
+                adminUid: session.uid || "ADMIN",
+                adminEmail: session.email || "admin",
                 action: "individual_warning",
                 targetUid: resolvedUid,
                 targetNickname: targetName,
@@ -871,7 +912,17 @@ async function startServer() {
                 timestamp: Date.now()
               });
 
-              // 2. Send warning to target session
+              // 2. Persist in adminMessages collection in Firestore
+              await addDoc(collection(db, "adminMessages"), {
+                id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+                type: "private",
+                targetUid: resolvedUid,
+                message: text,
+                createdBy: session.email || session.uid || "ADMIN",
+                createdAt: Date.now()
+              });
+
+              // 3. Send warning ONLY to target session
               let foundOnline = false;
               activeSessions.forEach((s, key) => {
                 if ((s.uid === resolvedUid || s.permanentId === searchKey) && key.readyState === WebSocket.OPEN) {
@@ -880,10 +931,55 @@ async function startServer() {
                 }
               });
 
-              // 3. Notify admin
+              // 4. Notify admin
               sendToClient(ws, "admin_action_success", { 
-                message: foundOnline ? `Aviso individual entregue para ${targetName}.` : `Aviso gravado na auditoria, mas usuário ${targetName} está offline no momento.` 
+                message: foundOnline ? `Aviso individual entregue para ${targetName}.` : `Aviso registrado no histórico, mas o usuário ${targetName} (${searchKey}) está offline no momento.` 
               });
+
+            } else if (action === "set_ads_status") {
+              const { targetUid, targetId, adsDisabled } = payload;
+              const searchKey = targetUid || targetId;
+              if (typeof searchKey !== "string" || !searchKey) return;
+
+              let resolvedUid = searchKey;
+              let targetName = "Desconhecido";
+
+              try {
+                let targetDocRef = doc(db, "users", searchKey);
+                let docSnap = await getDoc(targetDocRef);
+                if (!docSnap.exists()) {
+                  const q = query(collection(db, "users"), where("permanentId", "==", searchKey));
+                  const qSnap = await getDocs(q);
+                  if (!qSnap.empty) {
+                    docSnap = qSnap.docs[0];
+                    resolvedUid = docSnap.id;
+                    targetDocRef = doc(db, "users", resolvedUid);
+                  }
+                }
+
+                if (docSnap.exists()) {
+                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
+                }
+
+                await updateDoc(targetDocRef, { adsDisabled: !!adsDisabled });
+
+                await addDoc(collection(db, "audits"), {
+                  adminUid: session.uid,
+                  adminEmail: session.email,
+                  action: "set_ads_status",
+                  targetUid: resolvedUid,
+                  targetNickname: targetName,
+                  details: adsDisabled ? "Anúncios Ocultados (adsDisabled = true)" : "Anúncios Exibidos Normalmente (adsDisabled = false)",
+                  timestamp: Date.now()
+                });
+
+                sendToClient(ws, "admin_action_success", {
+                  message: `Status de anúncios para ${targetName} (${resolvedUid}) alterado com sucesso: ${adsDisabled ? "DESATIVADOS (Ocultos)" : "ATIVADOS (Exibir)"}.`
+                });
+              } catch (err) {
+                console.error("[Admin] Error setting ads status:", err);
+                sendToClient(ws, "admin_action_error", { message: "Erro ao atualizar permissão de anúncios no Firestore." });
+              }
             }
 
             break;

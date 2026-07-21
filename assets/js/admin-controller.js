@@ -102,6 +102,12 @@
                     <span class="fw-medium">Auditoria</span>
                   </button>
                 </li>
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start text-white-50 w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-ads" data-tab="ads" type="button" role="tab" style="border-radius: 8px; font-size: 0.9rem; padding: 0.75rem 1rem; transition: all 0.2s; background-color: transparent;">
+                    <i class="bi bi-badge-ad-fill text-danger fs-5"></i>
+                    <span class="fw-medium">Anúncios</span>
+                  </button>
+                </li>
               </ul>
 
               <div class="mt-auto pt-3 border-top border-secondary px-2">
@@ -236,6 +242,59 @@
                       <!-- Filled dynamically -->
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              <!-- TAB 5: ADS MANAGEMENT -->
+              <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-ads">
+                <div class="mb-4">
+                  <h5 class="text-white fw-bold mb-1">Gerenciamento de Anúncios</h5>
+                  <p class="text-secondary small mb-0">Pesquise um usuário por UID do Firebase, ID Interno (ex: USR-000001) ou email para definir a permissão de exibição de anúncios.</p>
+                </div>
+
+                <div class="card border-secondary bg-dark p-4 rounded-3 shadow-sm mb-4" style="background-color: #141824 !important;">
+                  <div class="mb-3">
+                    <label for="admin-ads-search-input" class="form-label text-white fw-semibold mb-1">Pesquisar Usuário</label>
+                    <div class="input-group">
+                      <input type="text" class="form-control bg-dark text-white border-secondary" id="admin-ads-search-input" placeholder="Digite UID, ID Interno (USR-...) ou Email...">
+                      <button class="btn btn-outline-secondary px-4 fw-bold text-white" id="btn-admin-ads-search" type="button">
+                        <i class="bi bi-search me-1"></i> Pesquisar
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- User Result Box (Hidden by default) -->
+                  <div id="admin-ads-user-result" class="d-none border border-secondary rounded-3 p-3 mt-3" style="background-color: #1a1f2e;">
+                    <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom border-secondary">
+                      <div id="admin-ads-user-avatar" class="avatar-circle d-inline-flex align-items-center justify-content-center text-white fw-bold rounded-circle flex-shrink-0" style="width: 48px; height: 48px; font-size: 1.2rem; background-color: #2b3245;">U</div>
+                      <div>
+                        <h6 id="admin-ads-user-name" class="text-white fw-bold mb-0">Nome do Usuário</h6>
+                        <div id="admin-ads-user-uid" class="small text-secondary font-monospace" style="font-size: 0.78rem;">UID: ...</div>
+                        <div id="admin-ads-user-status" class="mt-1"></div>
+                      </div>
+                    </div>
+
+                    <div class="form-check form-switch py-2">
+                      <input class="form-check-input" type="checkbox" role="switch" id="admin-ads-disabled-switch" style="cursor: pointer; width: 2.5em; height: 1.3em;">
+                      <label class="form-check-label text-white fw-medium ms-2" for="admin-ads-disabled-switch" style="cursor: pointer;">
+                        Ocultar anúncios para este usuário (adsDisabled = true)
+                      </label>
+                    </div>
+                    <div class="form-text text-secondary small mt-1">
+                      Quando marcado como ocultar, o servidor responderá <code>showAds: false</code> para este usuário e nenhum script da Monetag será carregado.
+                    </div>
+
+                    <div class="mt-4 pt-2 border-top border-secondary text-end">
+                      <button class="btn btn-success px-4 fw-bold" id="btn-admin-ads-save">
+                        <i class="bi bi-check-circle-fill me-1"></i> Salvar
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Not Found Msg -->
+                  <div id="admin-ads-user-notfound" class="d-none alert alert-dark border-secondary text-secondary mt-3 mb-0" style="background-color: #11141f;">
+                    <i class="bi bi-exclamation-triangle me-1"></i> Nenhum usuário localizado com a chave informada.
+                  </div>
                 </div>
               </div>
 
@@ -392,6 +451,94 @@
     if (btnRefreshAudits) {
       btnRefreshAudits.addEventListener("click", () => {
         requestAuditLogs();
+      });
+    }
+
+    // Ads Management tab handlers
+    let activeAdsSearchUid = "";
+
+    const btnAdsSearch = document.getElementById("btn-admin-ads-search");
+    if (btnAdsSearch) {
+      btnAdsSearch.addEventListener("click", () => {
+        const inputEl = document.getElementById("admin-ads-search-input");
+        const term = inputEl ? inputEl.value.trim().toLowerCase() : "";
+
+        const resultBox = document.getElementById("admin-ads-user-result");
+        const notFoundBox = document.getElementById("admin-ads-user-notfound");
+
+        if (!term) {
+          window.showAdminToast("Digite um UID, ID Interno ou Email para pesquisar.", "error");
+          return;
+        }
+
+        const found = firestoreUsers.find((u) => {
+          const uidMatch = u.uid && u.uid.toLowerCase() === term;
+          const permMatch = u.permanentId && u.permanentId.toLowerCase() === term;
+          const internalMatch = u.internalId && u.internalId.toLowerCase() === term;
+          const emailMatch = u.email && u.email.toLowerCase() === term;
+          const nickMatch = u.nickname && u.nickname.toLowerCase().includes(term);
+          return uidMatch || permMatch || internalMatch || emailMatch || nickMatch;
+        });
+
+        if (found) {
+          activeAdsSearchUid = found.uid;
+          if (notFoundBox) notFoundBox.classList.add("d-none");
+          if (resultBox) resultBox.classList.remove("d-none");
+
+          const avatarEl = document.getElementById("admin-ads-user-avatar");
+          const nameEl = document.getElementById("admin-ads-user-name");
+          const uidEl = document.getElementById("admin-ads-user-uid");
+          const statusEl = document.getElementById("admin-ads-user-status");
+          const switchEl = document.getElementById("admin-ads-disabled-switch");
+
+          if (avatarEl) {
+            avatarEl.textContent = (found.nickname || "U").charAt(0).toUpperCase();
+            avatarEl.style.backgroundColor = window.ChatEngine ? window.ChatEngine.getAvatarColor(found.nickname) : "#2b3245";
+          }
+          if (nameEl) nameEl.textContent = `${found.nickname || "Usuário"} (${found.permanentId || found.internalId || "N/A"})`;
+          if (uidEl) uidEl.textContent = `UID: ${found.uid}`;
+          if (statusEl) {
+            statusEl.innerHTML = found.adsDisabled === true 
+              ? `<span class="badge bg-danger">Anúncios Ocultados (adsDisabled = true)</span>` 
+              : `<span class="badge bg-success">Anúncios Exibidos (adsDisabled = false)</span>`;
+          }
+          if (switchEl) switchEl.checked = (found.adsDisabled === true);
+        } else {
+          activeAdsSearchUid = "";
+          if (resultBox) resultBox.classList.add("d-none");
+          if (notFoundBox) notFoundBox.classList.remove("d-none");
+        }
+      });
+    }
+
+    const btnAdsSave = document.getElementById("btn-admin-ads-save");
+    if (btnAdsSave) {
+      btnAdsSave.addEventListener("click", () => {
+        if (!activeAdsSearchUid) {
+          window.showAdminToast("Nenhum usuário selecionado.", "error");
+          return;
+        }
+        const switchEl = document.getElementById("admin-ads-disabled-switch");
+        const adsDisabled = switchEl ? switchEl.checked : false;
+
+        window.showAdminLoading(true);
+
+        try {
+          if (window.FirebaseService && typeof window.FirebaseService.updateUserField === "function") {
+            window.FirebaseService.updateUserField(activeAdsSearchUid, { adsDisabled: adsDisabled }).catch((err) => {
+              console.error("Erro ao atualizar adsDisabled no Firestore:", err);
+            });
+          }
+          sendAdminAction({
+            type: "admin_action",
+            action: "set_ads_status",
+            targetUid: activeAdsSearchUid,
+            adsDisabled: adsDisabled
+          });
+        } catch (err) {
+          window.showAdminLoading(false);
+          window.showAdminToast("Erro ao executar operação.", "error");
+        }
       });
     }
   }
@@ -551,6 +698,8 @@
       sw.addEventListener("change", (e) => {
         const targetUid = sw.getAttribute("data-uid");
         const newAdminState = sw.checked;
+
+        window.showAdminLoading(true);
 
         // 1. Immediate Firestore update
         if (window.FirebaseService && typeof window.FirebaseService.updateUserField === "function") {
@@ -893,24 +1042,41 @@
   };
 
   // Global Loading overlay
+  let adminLoadingTimer = null;
+
   window.showAdminLoading = function (show = true) {
+    if (adminLoadingTimer) {
+      clearTimeout(adminLoadingTimer);
+      adminLoadingTimer = null;
+    }
+
     let loader = document.getElementById("admin-global-loader");
-    if (!loader && show) {
-      loader = document.createElement("div");
-      loader.id = "admin-global-loader";
-      loader.className = "position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center animate-fade-in";
-      loader.style.zIndex = "1200";
-      loader.style.backgroundColor = "rgba(0, 0, 0, 0.75)";
-      loader.innerHTML = `
-        <div class="d-flex flex-column align-items-center gap-3">
-          <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
-            <span class="visually-hidden">Processando...</span>
+    if (show) {
+      if (!loader) {
+        loader = document.createElement("div");
+        loader.id = "admin-global-loader";
+        loader.className = "position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center animate-fade-in";
+        loader.style.zIndex = "1200";
+        loader.style.backgroundColor = "rgba(0, 0, 0, 0.75)";
+        loader.innerHTML = `
+          <div class="d-flex flex-column align-items-center gap-3">
+            <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+              <span class="visually-hidden">Processando...</span>
+            </div>
+            <span class="text-white fw-medium small tracking-wide">Processando ação administrativa...</span>
           </div>
-          <span class="text-white fw-medium small tracking-wide">Processando ação administrativa...</span>
-        </div>
-      `;
-      document.body.appendChild(loader);
-    } else if (loader && !show) {
+        `;
+        document.body.appendChild(loader);
+      }
+      // Safety guard: auto close after 6 seconds so buttons never freeze
+      adminLoadingTimer = setTimeout(() => {
+        const activeLoader = document.getElementById("admin-global-loader");
+        if (activeLoader) {
+          activeLoader.remove();
+          if (window.showAdminToast) window.showAdminToast("Operação processada.", "success");
+        }
+      }, 6000);
+    } else if (loader) {
       loader.style.opacity = "0";
       loader.style.transition = "opacity 0.2s ease";
       setTimeout(() => {
@@ -937,11 +1103,55 @@
           if (data && data.type === "admin_verified" && data.isAdmin) {
             injectAdminPanelUI();
           }
+          if (data && data.type === "admin_action_success") {
+            if (window.showAdminLoading) window.showAdminLoading(false);
+            if (window.showAdminToast) window.showAdminToast(data.message || "Operação realizada com sucesso.", "success");
+          }
+          if (data && data.type === "admin_action_error") {
+            if (window.showAdminLoading) window.showAdminLoading(false);
+            if (window.showAdminToast) window.showAdminToast(data.message || "Erro ao executar operação.", "error");
+          }
+          if (data && (data.type === "global_warning" || data.type === "individual_warning")) {
+            showIncomingAdminWarningModal(data.text, data.type === "global_warning" ? "Comunicado Global" : "Mensagem da Administração");
+          }
         } catch (e) {}
       });
 
       return ws;
     };
+  }
+
+  function showIncomingAdminWarningModal(text, title = "Aviso Administrativo") {
+    let modalEl = document.getElementById("adminIncomingWarningModal");
+    if (modalEl) modalEl.remove();
+
+    modalEl = document.createElement("div");
+    modalEl.id = "adminIncomingWarningModal";
+    modalEl.className = "modal fade";
+    modalEl.tabIndex = -1;
+    modalEl.style.zIndex = "1100";
+    modalEl.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+        <div class="modal-content bg-dark text-white border-warning shadow-lg" style="background-color: #141824 !important; border-width: 2px;">
+          <div class="modal-header border-bottom border-secondary py-3 px-4" style="background-color: #1a1f2e;">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-exclamation-triangle-fill text-warning fs-4"></i>
+              <h5 class="modal-title text-white fw-bold mb-0">${title}</h5>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body p-4 text-white-50" style="font-size: 0.95rem; line-height: 1.6;">
+            <p class="text-white mb-0" style="white-space: pre-line;">${text}</p>
+          </div>
+          <div class="modal-footer border-top border-secondary p-3">
+            <button type="button" class="btn btn-warning fw-bold px-4 text-dark" data-bs-dismiss="modal">Entendido</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modalEl);
+    const bsModal = new bootstrap.Modal(modalEl);
+    bsModal.show();
   }
 
   window.getChatSocket = function () {
