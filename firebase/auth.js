@@ -114,9 +114,18 @@ const FirebaseService = {
       const profileData = {
         uid: user.uid,
         email: user.email,
+        displayName: user.displayName || user.email.split("@")[0],
         nickname: user.displayName || user.email.split("@")[0],
+        internalId: permanentId,
         permanentId: permanentId,
+        photoURL: user.photoURL || "",
+        photoColor: "#2b3245",
+        bio: "",
+        age: 20,
+        gender: "Masculino",
+        online: true,
         createdAt: Date.now(),
+        lastLogin: Date.now(),
         banned: false,
         suspendedUntil: null,
         admin: user.email === "rafinhasimplicio03@gmail.com" ? true : false
@@ -334,18 +343,26 @@ const FirebaseService = {
       const usersList = [];
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        if (!data || (data.text !== undefined && data.sender !== undefined && !data.email && !data.displayName && !data.nickname)) {
+          return; // Skip non-user documents
+        }
         usersList.push({
           id: docSnap.id,
           uid: data.uid || docSnap.id,
           email: data.email || "",
-          nickname: data.nickname || data.displayName || "Usuário",
-          permanentId: data.permanentId || "USR-000000",
+          nickname: data.displayName || data.nickname || "Usuário",
+          displayName: data.displayName || data.nickname || "Usuário",
+          permanentId: data.internalId || data.permanentId || "USR-000000",
+          internalId: data.internalId || data.permanentId || "USR-000000",
           age: data.age || data.idade || "N/A",
           gender: data.gender || data.sexo || "N/A",
+          bio: data.bio || "",
           admin: data.admin === true,
+          online: data.online !== undefined ? data.online : false,
           banned: data.banned === true,
           suspendedUntil: data.suspendedUntil || null,
-          createdAt: data.createdAt || 0
+          createdAt: data.createdAt || 0,
+          lastLogin: data.lastLogin || 0
         });
       });
       callback(usersList);
