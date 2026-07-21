@@ -290,6 +290,7 @@ interface ClientSession {
   uid?: string;
   email?: string;
   permanentId?: string;
+  internalId?: string;
   joinTime?: number;
   isAuthenticated?: boolean;
   isAdmin?: boolean;
@@ -666,6 +667,7 @@ async function startServer() {
           case "admin_action": {
             if (typeof session.uid !== "string" || typeof session.email !== "string") {
               console.warn("[Admin] Unauthorized attempt to execute administrative action (missing session details)!");
+              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
               return;
             }
 
@@ -673,6 +675,7 @@ async function startServer() {
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
               console.warn(`[Admin] Unauthorized dynamic administrative action attempt by ${session.email} (${session.uid})!`);
+              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
               return;
             }
 
@@ -843,7 +846,10 @@ async function startServer() {
               sendToClient(ws, "admin_action_success", { message: `Banimento do usuário ${targetName} removido com sucesso.` });
 
             } else if (action === "global_warning") {
-              if (typeof text !== "string" || !text) return;
+              if (typeof text !== "string" || !text) {
+                sendToClient(ws, "admin_action_error", { message: "Mensagem do aviso global não pode estar vazia." });
+                return;
+              }
 
               // 1. Log to Audit
               await addDoc(collection(db, "audits"), {
@@ -867,18 +873,26 @@ async function startServer() {
               });
 
               // 3. Broadcast warning to everyone in real-time (including anonymous and logged in users)
+              let recipientCount = 0;
               activeSessions.forEach((s, key) => {
                 if (key.readyState === WebSocket.OPEN) {
-                  sendToClient(key, "global_warning", { text });
+                  sendToClient(key, "global_warning", { text, type: "global_warning" });
+                  recipientCount++;
                 }
               });
 
+              // Console log for server debugging (Requirement 6)
+              console.log(`[ADMIN] Mensagem Global enviada. Destinatários: ${recipientCount} usuários.`);
+
               // 4. Notify admin of success
-              sendToClient(ws, "admin_action_success", { message: `Aviso global enviado com sucesso para todos os clientes conectados.` });
+              sendToClient(ws, "admin_action_success", { message: `Aviso global enviado com sucesso para ${recipientCount} usuários.` });
 
             } else if (action === "individual_warning") {
-              const searchKey = targetId || targetUid;
-              if (typeof searchKey !== "string" || !searchKey || typeof text !== "string" || !text) return;
+              const searchKey = typeof targetId === "string" ? targetId.trim() : (typeof targetUid === "string" ? targetUid.trim() : "");
+              if (!searchKey || typeof text !== "string" || !text) {
+                sendToClient(ws, "admin_action_error", { message: "ID do usuário e mensagem são obrigatórios." });
+                return;
+              }
 
               let resolvedUid = searchKey;
               let targetName = "Desconhecido";
@@ -925,16 +939,27 @@ async function startServer() {
               // 3. Send warning ONLY to target session
               let foundOnline = false;
               activeSessions.forEach((s, key) => {
-                if ((s.uid === resolvedUid || s.permanentId === searchKey) && key.readyState === WebSocket.OPEN) {
-                  sendToClient(key, "individual_warning", { text });
+                const isMatch = s.uid === resolvedUid || s.permanentId === searchKey || s.uid === searchKey || (s.internalId && s.internalId === searchKey);
+                if (isMatch && key.readyState === WebSocket.OPEN) {
+                  sendToClient(key, "individual_warning", { text, type: "individual_warning" });
                   foundOnline = true;
                 }
               });
 
-              // 4. Notify admin
-              sendToClient(ws, "admin_action_success", { 
-                message: foundOnline ? `Aviso individual entregue para ${targetName}.` : `Aviso registrado no histórico, mas o usuário ${targetName} (${searchKey}) está offline no momento.` 
-              });
+              const statusStr = foundOnline ? "Entregue" : "Offline";
+              // Console log for server debugging (Requirement 6)
+              console.log(`[ADMIN] Mensagem enviada para: ${resolvedUid || searchKey}. Status: ${statusStr}`);
+
+              // 4. Notify admin (Requirement 4: if offline return 'Usuário não está conectado.')
+              if (foundOnline) {
+                sendToClient(ws, "admin_action_success", { 
+                  message: `Aviso individual entregue com sucesso para ${targetName}.` 
+                });
+              } else {
+                sendToClient(ws, "admin_action_error", { 
+                  message: `Usuário não está conectado.` 
+                });
+              }
 
             } else if (action === "set_ads_status") {
               const { targetUid, targetId, adsDisabled } = payload;

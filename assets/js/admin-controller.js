@@ -33,7 +33,7 @@
     // 1. Floating Trigger Button (Bottom Left)
     const triggerContainer = document.createElement("div");
     triggerContainer.id = "admin-trigger-container";
-    triggerContainer.className = "position-fixed bottom-0 start-0 m-3";
+    triggerContainer.className = "position-fixed bottom-0 start-0 m-3 d-none";
     triggerContainer.style.zIndex = "1050";
     triggerContainer.innerHTML = `
       <button class="btn btn-dark border-secondary px-3 py-2 shadow d-flex align-items-center gap-2 text-white" id="btn-admin-panel-trigger" style="border-radius: var(--radius-sm); font-size: 0.85rem; background-color: var(--surface-secondary); cursor: pointer; transition: transform 0.2s ease-in-out;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
@@ -1100,8 +1100,15 @@
       ws.addEventListener("message", (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data && data.type === "admin_verified" && data.isAdmin) {
-            injectAdminPanelUI();
+          if (data && data.type === "admin_verified") {
+            if (data.isAdmin) {
+              injectAdminPanelUI();
+              const trg = document.getElementById("admin-trigger-container");
+              if (trg) trg.classList.remove("d-none");
+            } else {
+              const trg = document.getElementById("admin-trigger-container");
+              if (trg) trg.classList.add("d-none");
+            }
           }
           if (data && data.type === "admin_action_success") {
             if (window.showAdminLoading) window.showAdminLoading(false);

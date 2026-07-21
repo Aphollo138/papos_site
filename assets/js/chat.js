@@ -466,6 +466,11 @@ document.addEventListener("DOMContentLoaded", () => {
               if (trigger) {
                 trigger.classList.remove("d-none");
               }
+            } else {
+              const trigger = document.getElementById("admin-trigger-container");
+              if (trigger) {
+                trigger.classList.add("d-none");
+              }
             }
             break;
 
@@ -493,10 +498,22 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             break;
 
+          case "admin_action_error":
+            if (window.showAdminLoading) {
+              window.showAdminLoading(false);
+            }
+            if (window.showAdminToast) {
+              window.showAdminToast(data.message || "Erro na ação administrativa.", "error");
+            }
+            break;
+
           case "global_warning":
           case "individual_warning":
-            if (window.showAdminWarningModal) {
-              window.showAdminWarningModal(data.text);
+            if (typeof window.showAdminWarningModal === "function") {
+              window.showAdminWarningModal(
+                data.text,
+                data.type === "global_warning" ? "Comunicado Global" : "Mensagem da Administração"
+              );
             }
             break;
 

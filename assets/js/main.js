@@ -34,6 +34,56 @@ const CHAT_CONFIG = {
 // Expor globalmente para a aplicação usar em qualquer lugar
 window.CHAT_CONFIG = CHAT_CONFIG;
 
+// Global modal helper for admin warnings (Global & Individual) across all pages
+window.showAdminWarningModal = function (text, title = "Aviso Administrativo", onCloseCallback = null) {
+  let modalEl = document.getElementById("adminIncomingWarningModal");
+  if (modalEl) {
+    try {
+      const existing = bootstrap.Modal.getInstance(modalEl);
+      if (existing) existing.hide();
+    } catch(e) {}
+    modalEl.remove();
+  }
+
+  modalEl = document.createElement("div");
+  modalEl.id = "adminIncomingWarningModal";
+  modalEl.className = "modal fade";
+  modalEl.tabIndex = -1;
+  modalEl.style.zIndex = "1150";
+  modalEl.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+      <div class="modal-content bg-dark text-white border-warning shadow-lg" style="background-color: #141824 !important; border-width: 2px; border-radius: 12px;">
+        <div class="modal-header border-bottom border-secondary py-3 px-4" style="background-color: #1a1f2e; border-top-left-radius: 10px; border-top-right-radius: 10px;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-exclamation-triangle-fill text-warning fs-4"></i>
+            <h5 class="modal-title text-white fw-bold mb-0">${title || "Aviso Administrativo"}</h5>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body p-4 text-white-50" style="font-size: 0.95rem; line-height: 1.6;">
+          <p class="text-white mb-0" style="white-space: pre-line;">${text}</p>
+        </div>
+        <div class="modal-footer border-top border-secondary p-3">
+          <button type="button" class="btn btn-warning fw-bold px-4 text-dark" data-bs-dismiss="modal">Entendido</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modalEl);
+  const bsModal = new bootstrap.Modal(modalEl);
+  if (typeof onCloseCallback === "function") {
+    modalEl.addEventListener("hidden.bs.modal", () => {
+      onCloseCallback();
+      modalEl.remove();
+    }, { once: true });
+  } else {
+    modalEl.addEventListener("hidden.bs.modal", () => {
+      modalEl.remove();
+    }, { once: true });
+  }
+  bsModal.show();
+};
+
 const ChatEngine = {
   // Get persistent nickname
   getUser() {
