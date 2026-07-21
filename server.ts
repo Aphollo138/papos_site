@@ -645,9 +645,38 @@ async function startServer() {
               return;
             }
 
-            const { action, targetUid, durationMs, text } = payload;
+            const { action, targetUid, targetId, adminState, durationMs, text } = payload;
             
-            if (action === "suspend") {
+            if (action === "set_admin") {
+              const target = targetUid || targetId;
+              if (typeof target !== "string" || !target) return;
+
+              const targetDocRef = doc(db, "users", target);
+              await updateDoc(targetDocRef, { admin: !!adminState });
+
+              let targetName = "Desconhecido";
+              try {
+                const docSnap = await getDoc(targetDocRef);
+                if (docSnap.exists()) {
+                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
+                }
+              } catch (e) {}
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "set_admin",
+                targetUid: target,
+                targetNickname: targetName,
+                details: adminState ? "Nomeado Administrador" : "Removido de Administrador",
+                timestamp: Date.now()
+              });
+
+              sendToClient(ws, "admin_action_success", { 
+                message: `Status de administrador de ${targetName} alterado para ${adminState ? "ATIVO" : "INATIVO"}.` 
+              });
+
+            } else if (action === "suspend") {
               if (typeof targetUid !== "string" || !targetUid) return;
               const suspendedUntil = Date.now() + Number(durationMs);
               
@@ -673,7 +702,7 @@ async function startServer() {
                 action: "suspension",
                 targetUid: targetUid,
                 targetNickname: targetName,
-                details: `Suspenso por ${Number(durationMs) / 60000} minutos`,
+                details: `Suspenso por ${Math.round(Number(durationMs) / 60000)} minutos`,
                 timestamp: Date.now()
               });
 
@@ -688,7 +717,33 @@ async function startServer() {
 
               // 4. Notify admin about success
               sendToClient(ws, "admin_action_success", { message: `Usuário ${targetName} suspenso com sucesso.` });
-              
+
+            } else if (action === "unsuspend") {
+              if (typeof targetUid !== "string" || !targetUid) return;
+
+              const targetDocRef = doc(db, "users", targetUid);
+              await updateDoc(targetDocRef, { suspendedUntil: null });
+
+              let targetName = "Desconhecido";
+              try {
+                const docSnap = await getDoc(targetDocRef);
+                if (docSnap.exists()) {
+                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
+                }
+              } catch (e) {}
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "unsuspend",
+                targetUid: targetUid,
+                targetNickname: targetName,
+                details: "Suspensão removida",
+                timestamp: Date.now()
+              });
+
+              sendToClient(ws, "admin_action_success", { message: `Suspensão do usuário ${targetName} removida com sucesso.` });
+
             } else if (action === "ban") {
               if (typeof targetUid !== "string" || !targetUid) return;
 
@@ -730,6 +785,32 @@ async function startServer() {
               // 4. Notify admin about success
               sendToClient(ws, "admin_action_success", { message: `Usuário ${targetName} banido com sucesso.` });
 
+            } else if (action === "unban") {
+              if (typeof targetUid !== "string" || !targetUid) return;
+
+              const targetDocRef = doc(db, "users", targetUid);
+              await updateDoc(targetDocRef, { banned: false });
+
+              let targetName = "Desconhecido";
+              try {
+                const docSnap = await getDoc(targetDocRef);
+                if (docSnap.exists()) {
+                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
+                }
+              } catch (e) {}
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "unban",
+                targetUid: targetUid,
+                targetNickname: targetName,
+                details: "Banimento removido",
+                timestamp: Date.now()
+              });
+
+              sendToClient(ws, "admin_action_success", { message: `Banimento do usuário ${targetName} removido com sucesso.` });
+
             } else if (action === "global_warning") {
               if (typeof text !== "string" || !text) return;
 
@@ -752,26 +833,39 @@ async function startServer() {
               });
 
               // 3. Notify admin
-              sendToClient(ws, "admin_action_success", { message: `Aviso global enviado.` });
+              sendToClient(ws, "admin_action_success", { message: `Aviso global enviado com sucesso.` });
 
             } else if (action === "individual_warning") {
-              if (typeof targetUid !== "string" || !targetUid || typeof text !== "string" || !text) return;
+              const searchKey = targetId || targetUid;
+              if (typeof searchKey !== "string" || !searchKey || typeof text !== "string" || !text) return;
 
-              const targetDocRef = doc(db, "users", targetUid);
+              let resolvedUid = searchKey;
               let targetName = "Desconhecido";
+
               try {
-                const docSnap = await getDoc(targetDocRef);
-                if (docSnap.exists()) {
-                  targetName = docSnap.data().nickname || "Desconhecido";
+                let targetDocRef = doc(db, "users", searchKey);
+                let docSnap = await getDoc(targetDocRef);
+                if (!docSnap.exists()) {
+                  const q = query(collection(db, "users"), where("permanentId", "==", searchKey));
+                  const qSnap = await getDocs(q);
+                  if (!qSnap.empty) {
+                    docSnap = qSnap.docs[0];
+                    resolvedUid = docSnap.id;
+                  }
                 }
-              } catch (e) {}
+                if (docSnap.exists()) {
+                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
+                }
+              } catch (e) {
+                console.error("[Admin] Error resolving target user:", e);
+              }
 
               // 1. Log to Audit
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid,
                 adminEmail: session.email,
                 action: "individual_warning",
-                targetUid: targetUid,
+                targetUid: resolvedUid,
                 targetNickname: targetName,
                 details: text.substring(0, 100),
                 timestamp: Date.now()
@@ -780,7 +874,7 @@ async function startServer() {
               // 2. Send warning to target session
               let foundOnline = false;
               activeSessions.forEach((s, key) => {
-                if (s.uid === targetUid && key.readyState === WebSocket.OPEN) {
+                if ((s.uid === resolvedUid || s.permanentId === searchKey) && key.readyState === WebSocket.OPEN) {
                   sendToClient(key, "individual_warning", { text });
                   foundOnline = true;
                 }
@@ -788,7 +882,7 @@ async function startServer() {
 
               // 3. Notify admin
               sendToClient(ws, "admin_action_success", { 
-                message: foundOnline ? `Aviso individual entregue para ${targetName}.` : `Aviso gravado na auditoria, mas usuário ${targetName} está offline.` 
+                message: foundOnline ? `Aviso individual entregue para ${targetName}.` : `Aviso gravado na auditoria, mas usuário ${targetName} está offline no momento.` 
               });
             }
 

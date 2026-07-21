@@ -630,8 +630,14 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
       isNew = true;
 
-      // Save to Firestore if authenticated
-      if (window.FirebaseService && window.FirebaseService.getCurrentUser()) {
+      // Save to Firestore if authenticated (Strictly DO NOT save Bot_Papos messages)
+      if (
+        partner !== "Bot_Papos" &&
+        sender !== "Bot_Papos" &&
+        recipient !== "Bot_Papos" &&
+        window.FirebaseService &&
+        window.FirebaseService.getCurrentUser()
+      ) {
         window.FirebaseService.savePrivateMessage(partner, {
           id: id,
           sender: sender,

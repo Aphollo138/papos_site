@@ -188,7 +188,17 @@ const FirebaseService = {
   async savePrivateMessage(partnerNickname, messageObj) {
     const user = auth.currentUser;
     if (!user) return;
- 
+
+    // Strict guard: DO NOT save bot messages in Firestore privateChats
+    if (
+      partnerNickname === "Bot_Papos" ||
+      messageObj.sender === "Bot_Papos" ||
+      messageObj.senderId === "Bot_Papos" ||
+      messageObj.recipient === "Bot_Papos"
+    ) {
+      return;
+    }
+
     // Use a unique document path under the user's subcollection
     const docRef = doc(db, "users", user.uid, "privateChats", messageObj.id);
  
@@ -309,6 +319,46 @@ const FirebaseService = {
     }, (error) => {
       console.error("Erro ao sincronizar perfil do usuário do Firestore:", error);
     });
+  },
+
+  // Real-time listener exclusively for 'users' collection (Admin panel)
+  subscribeToAllUsers(callback) {
+    const user = auth.currentUser;
+    if (!user) {
+      callback([]);
+      return () => {};
+    }
+
+    const q = collection(db, "users");
+    return onSnapshot(q, (querySnapshot) => {
+      const usersList = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        usersList.push({
+          id: docSnap.id,
+          uid: data.uid || docSnap.id,
+          email: data.email || "",
+          nickname: data.nickname || data.displayName || "Usuário",
+          permanentId: data.permanentId || "USR-000000",
+          age: data.age || data.idade || "N/A",
+          gender: data.gender || data.sexo || "N/A",
+          admin: data.admin === true,
+          banned: data.banned === true,
+          suspendedUntil: data.suspendedUntil || null,
+          createdAt: data.createdAt || 0
+        });
+      });
+      callback(usersList);
+    }, (error) => {
+      console.error("Erro ao escutar coleção de usuários no Firestore:", error);
+    });
+  },
+
+  // Directly update user document fields in Firestore
+  async updateUserField(targetUid, fieldsPayload) {
+    if (!targetUid) return;
+    const targetDocRef = doc(db, "users", targetUid);
+    await updateDoc(targetDocRef, fieldsPayload);
   }
 };
 
