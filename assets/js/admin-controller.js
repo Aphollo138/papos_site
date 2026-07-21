@@ -866,9 +866,19 @@
     });
   }
 
-  function sendAdminAction(payload) {
+  async function sendAdminAction(payload) {
     const chatSocket = window.getChatSocket ? window.getChatSocket() : null;
     if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+      const currentUser = window.FirebaseService && window.FirebaseService.getCurrentUser ? window.FirebaseService.getCurrentUser() : null;
+      if (currentUser && typeof currentUser.getIdToken === "function") {
+        try {
+          const idToken = await currentUser.getIdToken();
+          payload.idToken = idToken;
+          payload.authorization = `Bearer ${idToken}`;
+        } catch (e) {
+          console.error("[Admin] Erro ao obter ID Token:", e);
+        }
+      }
       chatSocket.send(JSON.stringify(payload));
     } else {
       console.error("[Admin] Socket offline ou indisponível!");

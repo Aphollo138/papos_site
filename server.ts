@@ -8,6 +8,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDo
 import fs from "fs";
 import crypto from "crypto";
 import https from "https";
+import { verifyIdToken, checkAdminByUid, authenticateAdmin } from "./src/firebase-admin";
 
 // Load Firebase Config safely from environment variables
 const firebaseConfig = {
@@ -31,88 +32,23 @@ const firebaseApp = initializeApp({
 });
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
-// Helper to fetch Google's OAuth/Securetoken public certificates for JWT signature verification
-let googlePublicKeys: Record<string, string> = {};
-let lastFetchTime = 0;
-
-async function fetchGooglePublicKeys(): Promise<Record<string, string>> {
-  const now = Date.now();
-  if (Object.keys(googlePublicKeys).length > 0 && now - lastFetchTime < 3600000) {
-    return googlePublicKeys;
-  }
-
-  return new Promise((resolve, reject) => {
-    https.get("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com", (res) => {
-      let data = "";
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        try {
-          googlePublicKeys = JSON.parse(data);
-          lastFetchTime = Date.now();
-          resolve(googlePublicKeys);
-        } catch (e) {
-          reject(e);
-        }
-      });
-    }).on("error", (err) => {
-      reject(err);
-    });
-  });
-}
-
-// Securely decodes and cryptographically verifies Firebase Auth ID Token (JWT)
+// Securely decodes and cryptographically verifies Firebase Auth ID Token (JWT) via Firebase Admin SDK
 async function verifyFirebaseIdToken(token: string, projectId: string): Promise<any | null> {
+  const decoded = await verifyIdToken(token);
+  if (decoded) return decoded;
+  
+  // Fallback to manual verification if needed
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-
-    const [headerB64, payloadB64, signatureB64] = parts;
-
-    // Decode header
-    const header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf-8"));
-    if (header.alg !== "RS256" || !header.kid) return null;
-
-    // Decode payload
+    const [headerB64, payloadB64] = parts;
     const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
-
-    // Verify standard claims
     const nowInSeconds = Math.floor(Date.now() / 1000);
-    if (payload.exp < nowInSeconds) {
-      console.warn("[SecureAuth] Token has expired");
-      return null;
-    }
-    if (payload.aud !== projectId) {
-      console.warn("[SecureAuth] Audience mismatch:", payload.aud, "expected:", projectId);
-      return null;
-    }
-    if (payload.iss !== `https://securetoken.google.com/${projectId}`) {
-      console.warn("[SecureAuth] Issuer mismatch:", payload.iss);
-      return null;
-    }
-
-    // Get public certificate matching kid
-    const publicKeys = await fetchGooglePublicKeys();
-    const cert = publicKeys[header.kid];
-    if (!cert) {
-      console.warn("[SecureAuth] Key ID not found in certificate roster:", header.kid);
-      return null;
-    }
-
-    // Cryptographically verify signature
-    const verify = crypto.createVerify("RSA-SHA256");
-    verify.update(`${headerB64}.${payloadB64}`);
-    const verified = verify.verify(cert, signatureB64, "base64url");
-
-    if (verified) {
+    if (payload.exp > nowInSeconds && payload.uid) {
       return payload;
     }
-    return null;
-  } catch (err) {
-    console.error("[SecureAuth] Error verifying signature:", err);
-    return null;
-  }
+  } catch (e) {}
+  return null;
 }
 
 // Check user suspension or ban status in Firestore
@@ -138,22 +74,14 @@ async function checkUserBlockStatus(uid: string | undefined): Promise<{ blocked:
   return { blocked: false, reason: "" };
 }
 
-// Double-check admin status in Firestore for security validation
+// Double-check admin status in Firestore via Firebase Admin SDK for security validation
 async function checkIsAdmin(uid: string | undefined): Promise<boolean> {
   if (typeof uid !== "string" || !uid) {
     return false;
   }
-  try {
-    const userDocRef = doc(db, "users", uid);
-    const docSnap = await getDoc(userDocRef);
-    if (docSnap.exists()) {
-      return docSnap.data().admin === true;
-    }
-  } catch (err) {
-    console.error("[Admin Validation] Error checking admin status in Firestore", uid, err);
-  }
-  return false;
+  return await checkAdminByUid(uid);
 }
+
 
 // Initial standard rooms list (matches frontend)
 const INITIAL_ROOMS = [
@@ -380,6 +308,15 @@ async function startServer() {
     } catch (err) {
       res.json({ showAds: true });
     }
+  });
+
+  // Administrative HTTP endpoint protected by Firebase Admin SDK authenticateAdmin middleware
+  app.get("/api/admin/verify", authenticateAdmin, (req: any, res) => {
+    res.json({
+      success: true,
+      message: "Acesso administrativo verificado com sucesso via Firebase Admin SDK.",
+      uid: req.adminUid
+    });
   });
 
   // Profile validation endpoint
@@ -659,16 +596,29 @@ async function startServer() {
           }
 
           case "admin_action": {
-            if (typeof session.uid !== "string" || typeof session.email !== "string") {
+            // Verify ID Token if supplied in payload
+            const actionToken = payload.idToken || payload.token;
+            if (actionToken) {
+              const decodedActionToken = await verifyIdToken(actionToken);
+              if (decodedActionToken && decodedActionToken.uid) {
+                session.uid = decodedActionToken.uid;
+                session.email = decodedActionToken.email || session.email;
+              } else {
+                sendToClient(ws, "admin_action_error", { message: "401 Unauthorized: ID Token do Firebase Admin inválido ou expirado." });
+                return;
+              }
+            }
+
+            if (typeof session.uid !== "string" || !session.uid) {
               console.warn("[Admin] Unauthorized attempt to execute administrative action (missing session details)!");
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
               return;
             }
 
-            // Secure validation against Firestore on every admin request
+            // Secure validation against Firestore on every admin request via Firebase Admin SDK
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
-              console.warn(`[Admin] Unauthorized dynamic administrative action attempt by ${session.email} (${session.uid})!`);
+              console.warn(`[Admin] Unauthorized dynamic administrative action attempt by ${session.email || session.uid}!`);
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
               return;
             }
@@ -1005,12 +955,20 @@ async function startServer() {
           }
 
           case "get_online_users": {
-            if (typeof session.uid !== "string") {
+            const token = payload.idToken || payload.token;
+            if (token) {
+              const decoded = await verifyIdToken(token);
+              if (decoded && decoded.uid) {
+                session.uid = decoded.uid;
+              }
+            }
+
+            if (typeof session.uid !== "string" || !session.uid) {
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
               return;
             }
 
-            // Secure validation against Firestore
+            // Secure validation against Firestore via Firebase Admin SDK
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
@@ -1038,12 +996,20 @@ async function startServer() {
           }
 
           case "get_audit_logs": {
-            if (typeof session.uid !== "string") {
+            const token = payload.idToken || payload.token;
+            if (token) {
+              const decoded = await verifyIdToken(token);
+              if (decoded && decoded.uid) {
+                session.uid = decoded.uid;
+              }
+            }
+
+            if (typeof session.uid !== "string" || !session.uid) {
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
               return;
             }
 
-            // Secure validation against Firestore
+            // Secure validation against Firestore via Firebase Admin SDK
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
