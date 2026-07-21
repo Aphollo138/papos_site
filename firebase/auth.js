@@ -57,11 +57,7 @@ const FirebaseService = {
         let needsUpdate = false;
         const updatePayload = {};
 
-        if (user.email === "rafinhasimplicio03@gmail.com" && !data.admin) {
-          data.admin = true;
-          updatePayload.admin = true;
-          needsUpdate = true;
-        } else if (data.admin === undefined) {
+        if (data.admin === undefined) {
           data.admin = false;
           updatePayload.admin = false;
           needsUpdate = true;
@@ -128,7 +124,7 @@ const FirebaseService = {
         lastLogin: Date.now(),
         banned: false,
         suspendedUntil: null,
-        admin: user.email === "rafinhasimplicio03@gmail.com" ? true : false
+        admin: false
       };
 
       await setDoc(userDocRef, profileData);

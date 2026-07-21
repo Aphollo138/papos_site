@@ -628,7 +628,7 @@ async function startServer() {
                   }
                 }
 
-                isAdminUser = email === "rafaelsimplicio169@gmail.com";
+                isAdminUser = false;
 
                 await setDoc(userDocRef, {
                   uid,
@@ -638,14 +638,8 @@ async function startServer() {
                   createdAt: Date.now(),
                   banned: false,
                   suspendedUntil: null,
-                  admin: isAdminUser
+                  admin: false
                 });
-              }
-
-              // Extra guard: if email is the developer's email, make sure they are admin in Firestore
-              if (email === "rafaelsimplicio169@gmail.com" && !isAdminUser) {
-                isAdminUser = true;
-                await updateDoc(userDocRef, { admin: true });
               }
 
               session.permanentId = permanentId;
@@ -655,7 +649,7 @@ async function startServer() {
               // Send verification status to client
               sendToClient(ws, "admin_verified", { isAdmin: isAdminUser });
               if (isAdminUser) {
-                console.log(`[Admin] Administrator ${email} (${uid}) successfully authorized via Firestore!`);
+                console.log(`[Admin] Administrator ${uid} successfully authorized via Firestore!`);
               }
 
             } catch (err) {
@@ -1011,11 +1005,17 @@ async function startServer() {
           }
 
           case "get_online_users": {
-            if (typeof session.uid !== "string") return;
+            if (typeof session.uid !== "string") {
+              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
+              return;
+            }
 
             // Secure validation against Firestore
             const isAuthorized = await checkIsAdmin(session.uid);
-            if (!isAuthorized) return;
+            if (!isAuthorized) {
+              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
+              return;
+            }
 
             // Fetch list of active authenticated user sessions
             const onlineUsers: any[] = [];
@@ -1038,11 +1038,17 @@ async function startServer() {
           }
 
           case "get_audit_logs": {
-            if (typeof session.uid !== "string") return;
+            if (typeof session.uid !== "string") {
+              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
+              return;
+            }
 
             // Secure validation against Firestore
             const isAuthorized = await checkIsAdmin(session.uid);
-            if (!isAuthorized) return;
+            if (!isAuthorized) {
+              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
+              return;
+            }
 
             try {
               const q = query(collection(db, "audits"));
