@@ -643,7 +643,7 @@ async function startServer() {
               }
 
               // Extra guard: if email is the developer's email, make sure they are admin in Firestore
-              if (email === "rafinhasimplicio03@gmail.com" && !isAdminUser) {
+              if (email === "rafaelsimplicio169@gmail.com" && !isAdminUser) {
                 isAdminUser = true;
                 await updateDoc(userDocRef, { admin: true });
               }
