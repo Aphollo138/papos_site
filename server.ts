@@ -628,7 +628,7 @@ async function startServer() {
                   }
                 }
 
-                isAdminUser = email === "rafinhasimplicio03@gmail.com";
+                isAdminUser = email === "rafaelsimplicio169@gmail.com";
 
                 await setDoc(userDocRef, {
                   uid,
