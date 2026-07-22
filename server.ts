@@ -583,10 +583,10 @@ async function startServer() {
               sendToClient(ws, "admin_verified", { isAdmin: isAdminUser });
               sendToClient(ws, "ads-status", { disabled: isAdsDisabled });
 
-              console.log(`[PERMISSIONS] UID autenticado: ${uid}`);
-              console.log(`[PERMISSIONS] Documento encontrado: ${docSnap.exists()}`);
-              console.log(`[PERMISSIONS] admin: ${isAdminUser}`);
-              console.log(`[PERMISSIONS] adsDisabled: ${isAdsDisabled}`);
+              console.log(`UID autenticado`);
+              console.log(`Documento Firestore localizado`);
+              console.log(`admin=${isAdminUser}`);
+              console.log(`adsDisabled=${isAdsDisabled}`);
 
               sendToClient(ws, "user-permissions", {
                 type: "user-permissions",
@@ -594,7 +594,7 @@ async function startServer() {
                 adsDisabled: isAdsDisabled
               });
 
-              console.log(`[PERMISSIONS] Mensagem enviada ao cliente.`);
+              console.log(`Permissões enviadas`);
 
               console.log(`[ADMIN] Admin autenticado: UID: ${uid} | Admin=${isAdminUser}`);
 

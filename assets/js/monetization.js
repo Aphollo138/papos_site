@@ -33,7 +33,7 @@ window.MONETAG_CONFIG = {
    */
   async function checkServerAdsPermission() {
     if (window.MONETAG_DISABLED === true) {
-      console.log("[Monetag Manager] Anúncios desativados via WebSocket para este usuário.");
+      console.log("Ads bloqueados.");
       return false;
     }
     try {
@@ -55,11 +55,13 @@ window.MONETAG_CONFIG = {
       const data = await response.json();
       if (data && data.showAds === false) {
         window.MONETAG_DISABLED = true;
+        console.log("Ads bloqueados.");
         return false;
       }
       return data && data.showAds === true;
     } catch (e) {
       console.warn("[Monetag Manager] Erro ao consultar servidor, aplicando padrão:", e);
+      if (window.MONETAG_DISABLED) console.log("Ads bloqueados.");
       return !window.MONETAG_DISABLED;
     }
   }
@@ -69,7 +71,7 @@ window.MONETAG_CONFIG = {
    */
   function loadInPagePush() {
     if (window.MONETAG_DISABLED === true) {
-      console.log("[Monetag Manager] Anúncios desativados. In-Page Push ignorado.");
+      console.log("Ads bloqueados.");
       return;
     }
     if (!window.MONETAG_CONFIG || !window.MONETAG_CONFIG.enableInPagePush) {
@@ -84,7 +86,7 @@ window.MONETAG_CONFIG = {
       const s = document.createElement('script');
       s.dataset.zone = '11276687';
       s.src = 'https://nap5k.com/tag.min.js';
-      s.async = true; // Carregamento assíncrono para nunca bloquear a renderização
+      s.async = true;
 
       const parent = [document.documentElement, document.body].filter(Boolean).pop();
       if (parent) {
@@ -101,7 +103,7 @@ window.MONETAG_CONFIG = {
    */
   function loadVignette() {
     if (window.MONETAG_DISABLED === true) {
-      console.log("[Monetag Manager] Anúncios desativados. Vignette Banner ignorado.");
+      console.log("Ads bloqueados.");
       return;
     }
     if (!window.MONETAG_CONFIG || !window.MONETAG_CONFIG.enableVignette) {
@@ -274,7 +276,8 @@ window.MONETAG_CONFIG = {
   window.desabilitarMonetag = function desabilitarMonetag() {
     try {
       window.MONETAG_DISABLED = true;
-      console.log("[PERMISSIONS] Monetag desativado.");
+      console.log("Ads bloqueados.");
+      console.log("Monetag desativado.");
 
       const scripts = document.querySelectorAll('script');
       scripts.forEach(s => {
@@ -284,17 +287,19 @@ window.MONETAG_CONFIG = {
           src.includes('n6wxm.com') ||
           src.includes('tag.min.js') ||
           src.includes('vignette.min.js') ||
-          src.includes('monetag');
+          src.includes('monetag') ||
+          src.includes('popunder') ||
+          src.includes('inpage');
         if (isMonetag) {
           s.remove();
           console.log("[Monetag Manager] Script Monetag removido do DOM:", src || (s.dataset && s.dataset.zone));
         }
       });
 
-      const adContainers = document.querySelectorAll('[id*="monetag"], [class*="monetag"], [data-zone]');
+      const adContainers = document.querySelectorAll('[id*="monetag"], [class*="monetag"], [data-zone], [id*="inpage"], [id*="vignette"], [id*="popunder"]');
       adContainers.forEach(el => el.remove());
     } catch (err) {
-      console.error("[PERMISSIONS] Erro ao desabilitar Monetag:", err);
+      console.error("Erro ao desabilitar Monetag:", err);
     }
   };
 

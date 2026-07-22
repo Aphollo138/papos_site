@@ -1111,9 +1111,9 @@
         try {
           const data = JSON.parse(event.data);
           if (data && data.type === "user-permissions") {
-            console.log("[PERMISSIONS] Permissões recebidas.");
-            console.log(`[PERMISSIONS] admin=${data.admin}`);
-            console.log(`[PERMISSIONS] adsDisabled=${data.adsDisabled}`);
+            console.log("Permissões recebidas.");
+            console.log(`admin=${data.admin}`);
+            console.log(`adsDisabled=${data.adsDisabled}`);
 
             if (data.admin) {
               if (typeof window.mostrarPainelAdmin === "function") {

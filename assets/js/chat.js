@@ -178,6 +178,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window.FirebaseService) {
       window.FirebaseService.subscribeToAuth((user) => {
         if (user) {
+          console.log("Firebase autenticado");
+          console.log("UID:", user.uid);
+          console.log(`Buscando documento users/${user.uid}`);
+
           console.log("[Firebase] Sincronizando mensagens privadas do Firestore...");
           window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
             privateChats = syncedChats;
@@ -195,6 +199,12 @@ document.addEventListener("DOMContentLoaded", () => {
               if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
                 profileUnsubscribe = window.FirebaseService.subscribeToUserProfile((profile) => {
                   if (profile) {
+                    console.log("Documento encontrado");
+                    const isAdmin = profile.admin === true;
+                    const isAdsDisabled = profile.adsDisabled === true;
+                    console.log(`admin=${isAdmin}`);
+                    console.log(`adsDisabled=${isAdsDisabled}`);
+
                     // Check bans or suspensions in real-time
                     if (profile.banned) {
                       window.FirebaseService.logout().then(() => {
@@ -212,47 +222,37 @@ document.addEventListener("DOMContentLoaded", () => {
                       return;
                     }
 
-                    // Dynamically load the admin controller if they are validated as admin
-                    if (profile.admin) {
-                      if (!window.injectAdminPanelUI) {
-                        console.log("[Admin] Usuário validado como administrador pelo Firestore. Carregando script de moderação...");
-                        const script = document.createElement("script");
-                        script.src = "/assets/js/admin-controller.js";
-                        script.onload = () => {
-                          if (window.injectAdminPanelUI) {
-                            window.injectAdminPanelUI();
-                          }
-                        };
-                        document.body.appendChild(script);
-                      } else {
-                        window.injectAdminPanelUI();
-                        const trigger = document.getElementById("admin-trigger-container");
-                        if (trigger) {
-                          trigger.classList.remove("d-none");
-                        }
+                    // Dynamically load the admin panel if admin=true
+                    if (isAdmin) {
+                      if (typeof window.mostrarPainelAdmin === "function") {
+                        window.mostrarPainelAdmin();
                       }
                     } else {
-                      // If admin status is revoked
-                      const trigger = document.getElementById("admin-trigger-container");
-                      if (trigger) {
-                        trigger.classList.add("d-none");
-                      }
-                      const modalEl = document.getElementById("adminPanelModal");
-                      if (modalEl) {
-                        try {
-                          const bootstrapModal = bootstrap.Modal.getInstance(modalEl);
-                          if (bootstrapModal) {
-                            bootstrapModal.hide();
-                          }
-                        } catch (e) {}
+                      if (typeof window.esconderPainelAdmin === "function") {
+                        window.esconderPainelAdmin();
                       }
                     }
+
+                    if (isAdsDisabled) {
+                      console.log("Ads bloqueados");
+                      if (typeof window.desabilitarMonetag === "function") {
+                        window.desabilitarMonetag();
+                      } else {
+                        window.MONETAG_DISABLED = true;
+                      }
+                    } else {
+                      if (typeof window.habilitarMonetag === "function") {
+                        window.habilitarMonetag();
+                      }
+                    }
+
+                    console.log("Permissões aplicadas");
 
                     // Force token refresh and sync with WebSocket server
                     user.getIdToken(true).then((token) => {
                       const sendAuth = () => {
                         if (socket && socket.readyState === WebSocket.OPEN) {
-                          console.log("[PERMISSIONS] WebSocket conectado.");
+                          console.log("WebSocket conectado.");
                           socket.send(JSON.stringify({
                             type: "sync_auth",
                             token: token
@@ -459,9 +459,9 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "user-permissions": {
-            console.log("[PERMISSIONS] Permissões recebidas.");
-            console.log(`[PERMISSIONS] admin=${data.admin}`);
-            console.log(`[PERMISSIONS] adsDisabled=${data.adsDisabled}`);
+            console.log("Permissões recebidas.");
+            console.log(`admin=${data.admin}`);
+            console.log(`adsDisabled=${data.adsDisabled}`);
 
             if (data.admin) {
               if (typeof window.mostrarPainelAdmin === "function") {

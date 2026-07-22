@@ -191,30 +191,69 @@ const ChatEngine = {
 // Global Admin Panel Controls
 window.mostrarPainelAdmin = function () {
   try {
+    console.log("Admin confirmado");
+    let btn = document.querySelector("#admin-button");
+    if (!btn) {
+      console.log("Criando botão admin");
+      console.log("Criando botão");
+      btn = document.createElement("button");
+      btn.id = "admin-button";
+      btn.type = "button";
+      btn.className = "btn btn-dark shadow-lg d-flex align-items-center justify-content-center gap-2 text-white border-0";
+      btn.style.cssText = "position: fixed; bottom: 20px; left: 20px; z-index: 99999; border-radius: 50px; padding: 10px 18px; font-weight: 600; font-size: 0.88rem; background: linear-gradient(135deg, #1f2937, #111827); box-shadow: 0 10px 25px rgba(0,0,0,0.5); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;";
+      btn.innerHTML = `<i class="bi bi-shield-lock-fill text-success fs-6"></i><span>Painel Admin</span>`;
+      btn.onmouseover = () => { btn.style.transform = 'scale(1.06)'; };
+      btn.onmouseout = () => { btn.style.transform = 'scale(1)'; };
+      btn.onclick = () => {
+        if (window.injectAdminPanelUI) {
+          window.injectAdminPanelUI();
+        }
+        const modalEl = document.getElementById("adminPanelModal") || document.getElementById("adminModal");
+        if (modalEl && window.bootstrap && window.bootstrap.Modal) {
+          const bsModal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+          bsModal.show();
+        }
+      };
+      document.body.appendChild(btn);
+      console.log("Botão criado");
+      console.log("Botão inserido");
+    } else {
+      btn.style.display = "flex";
+      btn.classList.remove("d-none");
+    }
+
     if (!window.injectAdminPanelUI) {
       if (!document.querySelector('script[src*="admin-controller.js"]')) {
         const s = document.createElement("script");
         s.src = "/assets/js/admin-controller.js";
         s.onload = () => {
           if (window.injectAdminPanelUI) window.injectAdminPanelUI();
+          console.log("Painel pronto");
         };
         document.head.appendChild(s);
       }
     } else {
       window.injectAdminPanelUI();
+      console.log("Painel pronto");
     }
+
     const trigger = document.getElementById("admin-trigger-container");
     if (trigger) {
       trigger.classList.remove("d-none");
     }
-    console.log("[PERMISSIONS] Painel exibido.");
+    console.log("Painel exibido.");
   } catch (err) {
-    console.error("[PERMISSIONS] Erro ao exibir painel admin:", err);
+    console.error("Erro ao exibir painel admin:", err);
   }
 };
 
 window.esconderPainelAdmin = function () {
   try {
+    const btn = document.querySelector("#admin-button");
+    if (btn) {
+      btn.style.display = "none";
+      btn.classList.add("d-none");
+    }
     const trigger = document.getElementById("admin-trigger-container");
     if (trigger) {
       trigger.classList.add("d-none");
@@ -225,7 +264,7 @@ window.esconderPainelAdmin = function () {
       if (inst) inst.hide();
     }
   } catch (err) {
-    console.error("[PERMISSIONS] Erro ao esconder painel admin:", err);
+    console.error("Erro ao esconder painel admin:", err);
   }
 };
 
