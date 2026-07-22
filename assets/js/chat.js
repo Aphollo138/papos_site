@@ -252,6 +252,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     user.getIdToken(true).then((token) => {
                       const sendAuth = () => {
                         if (socket && socket.readyState === WebSocket.OPEN) {
+                          console.log("[PERMISSIONS] WebSocket conectado.");
                           socket.send(JSON.stringify({
                             type: "sync_auth",
                             token: token
@@ -456,6 +457,41 @@ document.addEventListener("DOMContentLoaded", () => {
               window.handleProfileDataResponse(data);
             }
             break;
+
+          case "user-permissions": {
+            console.log("[PERMISSIONS] Permissões recebidas.");
+            console.log(`[PERMISSIONS] admin=${data.admin}`);
+            console.log(`[PERMISSIONS] adsDisabled=${data.adsDisabled}`);
+
+            if (data.admin) {
+              if (typeof window.mostrarPainelAdmin === "function") {
+                window.mostrarPainelAdmin();
+              } else if (typeof mostrarPainelAdmin === "function") {
+                mostrarPainelAdmin();
+              }
+            } else {
+              if (typeof window.esconderPainelAdmin === "function") {
+                window.esconderPainelAdmin();
+              } else if (typeof esconderPainelAdmin === "function") {
+                esconderPainelAdmin();
+              }
+            }
+
+            if (data.adsDisabled) {
+              if (typeof window.desabilitarMonetag === "function") {
+                window.desabilitarMonetag();
+              } else if (typeof desabilitarMonetag === "function") {
+                desabilitarMonetag();
+              }
+            } else {
+              if (typeof window.habilitarMonetag === "function") {
+                window.habilitarMonetag();
+              } else if (typeof habilitarMonetag === "function") {
+                habilitarMonetag();
+              }
+            }
+            break;
+          }
 
           case "admin-status":
           case "admin_verified": {

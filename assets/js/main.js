@@ -188,6 +188,47 @@ const ChatEngine = {
   }
 };
 
+// Global Admin Panel Controls
+window.mostrarPainelAdmin = function () {
+  try {
+    if (!window.injectAdminPanelUI) {
+      if (!document.querySelector('script[src*="admin-controller.js"]')) {
+        const s = document.createElement("script");
+        s.src = "/assets/js/admin-controller.js";
+        s.onload = () => {
+          if (window.injectAdminPanelUI) window.injectAdminPanelUI();
+        };
+        document.head.appendChild(s);
+      }
+    } else {
+      window.injectAdminPanelUI();
+    }
+    const trigger = document.getElementById("admin-trigger-container");
+    if (trigger) {
+      trigger.classList.remove("d-none");
+    }
+    console.log("[PERMISSIONS] Painel exibido.");
+  } catch (err) {
+    console.error("[PERMISSIONS] Erro ao exibir painel admin:", err);
+  }
+};
+
+window.esconderPainelAdmin = function () {
+  try {
+    const trigger = document.getElementById("admin-trigger-container");
+    if (trigger) {
+      trigger.classList.add("d-none");
+    }
+    const modalEl = document.getElementById("adminModal") || document.getElementById("adminPanelModal");
+    if (modalEl && window.bootstrap && window.bootstrap.Modal) {
+      const inst = window.bootstrap.Modal.getInstance(modalEl);
+      if (inst) inst.hide();
+    }
+  } catch (err) {
+    console.error("[PERMISSIONS] Erro ao esconder painel admin:", err);
+  }
+};
+
 // Expor globalmente para a aplicação usar em qualquer lugar
 window.ChatEngine = ChatEngine;
 

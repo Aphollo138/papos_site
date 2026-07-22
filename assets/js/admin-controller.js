@@ -1110,6 +1110,38 @@
       ws.addEventListener("message", (event) => {
         try {
           const data = JSON.parse(event.data);
+          if (data && data.type === "user-permissions") {
+            console.log("[PERMISSIONS] Permissões recebidas.");
+            console.log(`[PERMISSIONS] admin=${data.admin}`);
+            console.log(`[PERMISSIONS] adsDisabled=${data.adsDisabled}`);
+
+            if (data.admin) {
+              if (typeof window.mostrarPainelAdmin === "function") {
+                window.mostrarPainelAdmin();
+              } else {
+                injectAdminPanelUI();
+                const trg = document.getElementById("admin-trigger-container");
+                if (trg) trg.classList.remove("d-none");
+              }
+            } else {
+              if (typeof window.esconderPainelAdmin === "function") {
+                window.esconderPainelAdmin();
+              } else {
+                const trg = document.getElementById("admin-trigger-container");
+                if (trg) trg.classList.add("d-none");
+              }
+            }
+
+            if (data.adsDisabled) {
+              if (typeof window.desabilitarMonetag === "function") {
+                window.desabilitarMonetag();
+              }
+            } else {
+              if (typeof window.habilitarMonetag === "function") {
+                window.habilitarMonetag();
+              }
+            }
+          }
           if (data && (data.type === "admin_verified" || data.type === "admin-status")) {
             const isAdmin = data.admin === true || data.isAdmin === true;
             if (isAdmin) {
