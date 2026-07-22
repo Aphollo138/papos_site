@@ -268,6 +268,59 @@ window.esconderPainelAdmin = function () {
   }
 };
 
+window.showIncomingAdminWarningModal = window.showAdminWarningModal = function (text, title = "Mensagem da Administração", onCloseCallback = null) {
+  console.log("Mensagem administrativa recebida.");
+  console.log("Exibindo popup.");
+
+  let modalEl = document.getElementById("adminIncomingWarningModal");
+  if (modalEl) {
+    try {
+      const bsInst = window.bootstrap && window.bootstrap.Modal ? window.bootstrap.Modal.getInstance(modalEl) : null;
+      if (bsInst) bsInst.hide();
+    } catch (e) {}
+    modalEl.remove();
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(b => b.remove());
+  }
+
+  modalEl = document.createElement("div");
+  modalEl.id = "adminIncomingWarningModal";
+  modalEl.className = "modal fade";
+  modalEl.tabIndex = -1;
+  modalEl.setAttribute("aria-hidden", "true");
+  modalEl.style.zIndex = "11000";
+  modalEl.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+      <div class="modal-content text-white border-0 shadow-lg rounded-4 overflow-hidden" style="background-color: #141824 !important; border: 1px solid #2d3748 !important;">
+        <div class="modal-header border-bottom border-secondary py-3 px-4" style="background-color: #1a1f2e;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-shield-exclamation text-warning fs-4"></i>
+            <h5 class="modal-title text-white fw-bold mb-0">${title}</h5>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body p-4 text-white" style="font-size: 0.98rem; line-height: 1.6;">
+          <p class="text-white mb-0" style="white-space: pre-wrap; word-break: break-word;">${text}</p>
+        </div>
+        <div class="modal-footer border-top border-secondary p-3 justify-content-end" style="background-color: #1a1f2e;">
+          <button type="button" class="btn btn-secondary fw-bold px-4 text-white" data-bs-dismiss="modal">Fechar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modalEl);
+
+  if (window.bootstrap && window.bootstrap.Modal) {
+    const bsModal = new window.bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+    if (onCloseCallback) {
+      modalEl.addEventListener("hidden.bs.modal", () => {
+        onCloseCallback();
+      }, { once: true });
+    }
+    bsModal.show();
+  }
+};
+
 // Expor globalmente para a aplicação usar em qualquer lugar
 window.ChatEngine = ChatEngine;
 

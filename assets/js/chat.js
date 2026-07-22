@@ -556,14 +556,23 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             break;
 
+          case "admin:broadcast":
+          case "admin:private":
           case "admin-global-message":
           case "admin-private-message":
           case "global_warning":
           case "individual_warning":
-            if (typeof window.showAdminWarningModal === "function") {
+            console.log("Mensagem administrativa recebida.");
+            console.log("Exibindo popup.");
+            if (typeof window.showIncomingAdminWarningModal === "function") {
+              window.showIncomingAdminWarningModal(
+                data.message || data.text,
+                data.title || "Mensagem da Administração"
+              );
+            } else if (typeof window.showAdminWarningModal === "function") {
               window.showAdminWarningModal(
                 data.message || data.text,
-                data.title || (data.type === "global_warning" || data.type === "admin-global-message" ? "Comunicado Global" : "Mensagem da Administração")
+                data.title || "Mensagem da Administração"
               );
             } else {
               alert((data.title || "Mensagem da Administração") + "\n\n" + (data.message || data.text));

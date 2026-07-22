@@ -72,12 +72,23 @@ document.addEventListener("DOMContentLoaded", () => {
           window.location.href = `/chat?room=${data.room.id}`;
           break;
 
+        case "admin:broadcast":
+        case "admin:private":
+        case "admin-global-message":
+        case "admin-private-message":
         case "global_warning":
         case "individual_warning":
-          if (typeof window.showAdminWarningModal === "function") {
+          console.log("Mensagem administrativa recebida.");
+          console.log("Exibindo popup.");
+          if (typeof window.showIncomingAdminWarningModal === "function") {
+            window.showIncomingAdminWarningModal(
+              data.message || data.text,
+              data.title || "Mensagem da Administração"
+            );
+          } else if (typeof window.showAdminWarningModal === "function") {
             window.showAdminWarningModal(
-              data.text,
-              data.type === "global_warning" ? "Comunicado Global" : "Mensagem da Administração"
+              data.message || data.text,
+              data.title || "Mensagem da Administração"
             );
           }
           break;

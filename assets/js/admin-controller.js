@@ -1161,11 +1161,20 @@
             if (window.showAdminLoading) window.showAdminLoading(false);
             if (window.showAdminToast) window.showAdminToast(data.message || "Erro ao executar operação.", "error");
           }
-          if (data && (data.type === "global_warning" || data.type === "individual_warning" || data.type === "admin-global-message" || data.type === "admin-private-message")) {
-            showIncomingAdminWarningModal(
-              data.message || data.text,
-              data.title || (data.type === "global_warning" || data.type === "admin-global-message" ? "Comunicado Global" : "Mensagem da Administração")
-            );
+          if (data && (data.type === "admin:broadcast" || data.type === "admin:private" || data.type === "global_warning" || data.type === "individual_warning" || data.type === "admin-global-message" || data.type === "admin-private-message")) {
+            console.log("Mensagem administrativa recebida.");
+            console.log("Exibindo popup.");
+            if (typeof window.showIncomingAdminWarningModal === "function") {
+              window.showIncomingAdminWarningModal(
+                data.message || data.text,
+                data.title || "Mensagem da Administração"
+              );
+            } else if (typeof window.showAdminWarningModal === "function") {
+              window.showAdminWarningModal(
+                data.message || data.text,
+                data.title || "Mensagem da Administração"
+              );
+            }
           }
         } catch (e) {}
       });
@@ -1174,37 +1183,10 @@
     };
   }
 
-  function showIncomingAdminWarningModal(text, title = "Aviso Administrativo") {
-    let modalEl = document.getElementById("adminIncomingWarningModal");
-    if (modalEl) modalEl.remove();
-
-    modalEl = document.createElement("div");
-    modalEl.id = "adminIncomingWarningModal";
-    modalEl.className = "modal fade";
-    modalEl.tabIndex = -1;
-    modalEl.style.zIndex = "1100";
-    modalEl.innerHTML = `
-      <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
-        <div class="modal-content bg-dark text-white border-warning shadow-lg" style="background-color: #141824 !important; border-width: 2px;">
-          <div class="modal-header border-bottom border-secondary py-3 px-4" style="background-color: #1a1f2e;">
-            <div class="d-flex align-items-center gap-2">
-              <i class="bi bi-exclamation-triangle-fill text-warning fs-4"></i>
-              <h5 class="modal-title text-white fw-bold mb-0">${title}</h5>
-            </div>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
-          </div>
-          <div class="modal-body p-4 text-white-50" style="font-size: 0.95rem; line-height: 1.6;">
-            <p class="text-white mb-0" style="white-space: pre-line;">${text}</p>
-          </div>
-          <div class="modal-footer border-top border-secondary p-3">
-            <button type="button" class="btn btn-warning fw-bold px-4 text-dark" data-bs-dismiss="modal">Entendido</button>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modalEl);
-    const bsModal = new bootstrap.Modal(modalEl);
-    bsModal.show();
+  function showIncomingAdminWarningModal(text, title = "Mensagem da Administração") {
+    if (typeof window.showAdminWarningModal === "function") {
+      window.showAdminWarningModal(text, title);
+    }
   }
 
   window.getChatSocket = function () {

@@ -639,8 +639,10 @@ async function startServer() {
           case "set_ads_status":
           case "admin-global-message":
           case "global_warning":
+          case "admin:broadcast":
           case "admin-private-message":
           case "individual_warning":
+          case "admin:private":
           case "suspend":
           case "unsuspend":
           case "ban":
@@ -849,13 +851,18 @@ async function startServer() {
               sendToClient(ws, "success", { message: succMsg });
               sendToClient(ws, "admin_action_success", { message: succMsg });
 
-            } else if (action === "global_warning" || action === "admin-global-message") {
+            } else if (action === "global_warning" || action === "admin-global-message" || action === "admin:broadcast") {
               if (typeof text !== "string" || !text) {
                 sendToClient(ws, "admin_action_error", { message: "Mensagem do aviso global não pode estar vazia." });
                 return;
               }
 
-              await addDoc(collection(db, "audits"), {
+              console.log("[ADMIN]");
+              console.log("Broadcast iniciado");
+              const connectedClientsCount = activeSessions.size;
+              console.log(`Clientes conectados: ${connectedClientsCount}`);
+
+              addDoc(collection(db, "audits"), {
                 adminUid: session.uid || "ADMIN",
                 adminEmail: session.email || "admin",
                 action: "global_warning",
@@ -863,41 +870,54 @@ async function startServer() {
                 targetNickname: "Todos Usuários",
                 details: text.substring(0, 100),
                 timestamp: Date.now()
-              });
+              }).catch(() => {});
 
-              await addDoc(collection(db, "adminMessages"), {
+              addDoc(collection(db, "adminMessages"), {
                 id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
                 type: "global",
                 targetUid: "ALL",
                 message: text,
                 createdBy: session.email || session.uid || "ADMIN",
                 createdAt: Date.now()
-              });
+              }).catch(() => {});
 
               let recipientCount = 0;
               activeSessions.forEach((s, key) => {
                 if (key.readyState === WebSocket.OPEN) {
+                  const bcastPayload = {
+                    type: "admin:broadcast",
+                    title: "Mensagem da Administração",
+                    message: text,
+                    text: text,
+                    timestamp: Date.now()
+                  };
+                  try {
+                    key.send(JSON.stringify(bcastPayload));
+                  } catch (e) {}
+
                   sendToClient(key, "admin-global-message", {
                     title: "Mensagem da Administração",
                     message: text,
-                    text: text
+                    text: text,
+                    timestamp: Date.now()
                   });
                   sendToClient(key, "global_warning", {
                     title: "Mensagem da Administração",
                     message: text,
-                    text: text
+                    text: text,
+                    timestamp: Date.now()
                   });
                   recipientCount++;
                 }
               });
 
-              console.log(`[ADMIN] Mensagem Global enviada. Total destinatários: ${recipientCount}`);
+              console.log(`Mensagens enviadas: ${recipientCount}`);
 
               const succMsg = `Mensagem global enviada para ${recipientCount} usuários.`;
               sendToClient(ws, "success", { message: succMsg });
               sendToClient(ws, "admin_action_success", { message: succMsg });
 
-            } else if (action === "individual_warning" || action === "admin-private-message") {
+            } else if (action === "individual_warning" || action === "admin-private-message" || action === "admin:private") {
               const searchKey = typeof targetId === "string" ? targetId.trim() : (typeof targetUid === "string" ? targetUid.trim() : "");
               if (!searchKey || typeof text !== "string" || !text) {
                 sendToClient(ws, "admin_action_error", { message: "ID do usuário e mensagem são obrigatórios." });
@@ -925,7 +945,7 @@ async function startServer() {
                 console.error("[Admin] Error resolving target user:", e);
               }
 
-              await addDoc(collection(db, "audits"), {
+              addDoc(collection(db, "audits"), {
                 adminUid: session.uid || "ADMIN",
                 adminEmail: session.email || "admin",
                 action: "individual_warning",
@@ -933,52 +953,61 @@ async function startServer() {
                 targetNickname: targetName,
                 details: text.substring(0, 100),
                 timestamp: Date.now()
-              });
+              }).catch(() => {});
 
-              await addDoc(collection(db, "adminMessages"), {
+              addDoc(collection(db, "adminMessages"), {
                 id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
                 type: "private",
                 targetUid: resolvedUid,
                 message: text,
                 createdBy: session.email || session.uid || "ADMIN",
                 createdAt: Date.now()
-              });
+              }).catch(() => {});
 
               let foundOnline = false;
               activeSessions.forEach((s, key) => {
                 const isMatch = s.uid === resolvedUid || s.permanentId === searchKey || s.uid === searchKey || (s.internalId && s.internalId === searchKey);
                 if (isMatch && key.readyState === WebSocket.OPEN) {
+                  const privPayload = {
+                    type: "admin:private",
+                    title: "Mensagem da Administração",
+                    message: text,
+                    text: text,
+                    timestamp: Date.now()
+                  };
+                  try {
+                    key.send(JSON.stringify(privPayload));
+                  } catch (e) {}
+
                   sendToClient(key, "admin-private-message", {
                     title: "Mensagem da Administração",
                     message: text,
-                    text: text
+                    text: text,
+                    timestamp: Date.now()
                   });
                   sendToClient(key, "individual_warning", {
                     title: "Mensagem da Administração",
                     message: text,
-                    text: text
+                    text: text,
+                    timestamp: Date.now()
                   });
                   foundOnline = true;
                 }
               });
 
               if (foundOnline) {
-                console.log(`[ADMIN] Mensagem Individual enviada para UID: ${resolvedUid}. Status: Entregue`);
+                console.log("[ADMIN]");
+                console.log("UID encontrado");
+                console.log("Mensagem enviada");
+
                 const succMsg = `Mensagem enviada com sucesso para o usuário.`;
                 sendToClient(ws, "success", { message: succMsg });
                 sendToClient(ws, "admin_action_success", { message: succMsg });
               } else {
-                // Save to notifications for offline delivery when user connects
-                await addDoc(collection(db, "notifications"), {
-                  uid: resolvedUid,
-                  title: "Mensagem da Administração",
-                  message: text,
-                  createdAt: Date.now()
-                });
-                console.log(`[ADMIN] Mensagem Individual enviada para UID: ${resolvedUid}. Status: Offline (Salvo para entrega)`);
-                const succMsg = `Usuário offline. Mensagem agendada e salva para entrega automática ao conectar.`;
-                sendToClient(ws, "success", { message: succMsg });
-                sendToClient(ws, "admin_action_success", { message: succMsg });
+                console.log("[ADMIN]");
+                console.log("Usuário não conectado.");
+
+                sendToClient(ws, "admin_action_error", { message: "Usuário offline." });
               }
 
             } else if (action === "set_ads_status" || action === "set-ads-status") {
