@@ -1110,8 +1110,9 @@
       ws.addEventListener("message", (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data && data.type === "admin_verified") {
-            if (data.isAdmin) {
+          if (data && (data.type === "admin_verified" || data.type === "admin-status")) {
+            const isAdmin = data.admin === true || data.isAdmin === true;
+            if (isAdmin) {
               injectAdminPanelUI();
               const trg = document.getElementById("admin-trigger-container");
               if (trg) trg.classList.remove("d-none");
@@ -1120,7 +1121,7 @@
               if (trg) trg.classList.add("d-none");
             }
           }
-          if (data && data.type === "admin_action_success") {
+          if (data && (data.type === "admin_action_success" || data.type === "success")) {
             if (window.showAdminLoading) window.showAdminLoading(false);
             if (window.showAdminToast) window.showAdminToast(data.message || "Operação realizada com sucesso.", "success");
           }
@@ -1128,8 +1129,11 @@
             if (window.showAdminLoading) window.showAdminLoading(false);
             if (window.showAdminToast) window.showAdminToast(data.message || "Erro ao executar operação.", "error");
           }
-          if (data && (data.type === "global_warning" || data.type === "individual_warning")) {
-            showIncomingAdminWarningModal(data.text, data.type === "global_warning" ? "Comunicado Global" : "Mensagem da Administração");
+          if (data && (data.type === "global_warning" || data.type === "individual_warning" || data.type === "admin-global-message" || data.type === "admin-private-message")) {
+            showIncomingAdminWarningModal(
+              data.message || data.text,
+              data.title || (data.type === "global_warning" || data.type === "admin-global-message" ? "Comunicado Global" : "Mensagem da Administração")
+            );
           }
         } catch (e) {}
       });

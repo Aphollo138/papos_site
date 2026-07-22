@@ -4,7 +4,7 @@ import http from "http";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where } from "firebase/firestore";
 import fs from "fs";
 import crypto from "crypto";
 import https from "https";
@@ -299,7 +299,7 @@ async function startServer() {
     return true;
   }
 
-  // Endpoint GET /api/user/ads-status
+  
   app.get("/api/user/ads-status", async (req, res) => {
     try {
       const uid = (req.query.uid as string) || "";
@@ -310,16 +310,7 @@ async function startServer() {
     }
   });
 
-  // Administrative HTTP endpoint protected by Firebase Admin SDK authenticateAdmin middleware
-  app.get("/api/admin/verify", authenticateAdmin, (req: any, res) => {
-    res.json({
-      success: true,
-      message: "Acesso administrativo verificado com sucesso via Firebase Admin SDK.",
-      uid: req.adminUid
-    });
-  });
-
-  // Profile validation endpoint
+  
   app.post("/api/profile/validate", (req, res) => {
     const { bio, age, gender } = req.body;
     
@@ -472,9 +463,10 @@ async function startServer() {
         }
 
         switch (payload.type) {
+          case "authenticate":
           case "sync_auth":
           case "admin_auth": {
-            const token = payload.token;
+            const token = payload.token || payload.idToken;
             if (!token) return;
 
             try {
@@ -517,12 +509,14 @@ async function startServer() {
               let permanentId = "";
               let nickname = decoded.name || email.split("@")[0];
               let isAdminUser = false;
+              let isAdsDisabled = false;
 
               if (docSnap.exists()) {
                 const userData = docSnap.data();
                 permanentId = userData.permanentId;
                 nickname = userData.nickname || nickname;
                 isAdminUser = userData.admin === true;
+                isAdsDisabled = userData.adsDisabled === true;
 
                 // If admin is undefined, explicitly update to false
                 if (userData.admin === undefined) {
@@ -575,7 +569,8 @@ async function startServer() {
                   createdAt: Date.now(),
                   banned: false,
                   suspendedUntil: null,
-                  admin: false
+                  admin: false,
+                  adsDisabled: false
                 });
               }
 
@@ -583,10 +578,40 @@ async function startServer() {
               session.nickname = nickname;
               session.isAdmin = isAdminUser;
 
-              // Send verification status to client
+              // Send verification status and ads status to client
+              sendToClient(ws, "admin-status", { admin: isAdminUser });
               sendToClient(ws, "admin_verified", { isAdmin: isAdminUser });
-              if (isAdminUser) {
-                console.log(`[Admin] Administrator ${uid} successfully authorized via Firestore!`);
+              sendToClient(ws, "ads-status", { disabled: isAdsDisabled });
+
+              console.log(`[ADMIN] Admin autenticado: UID: ${uid} | Admin=${isAdminUser}`);
+
+              // Deliver pending offline notifications for this user if any exist
+              try {
+                const notifQuery = query(collection(db, "notifications"), where("uid", "==", uid));
+                const notifSnap = await getDocs(notifQuery);
+                if (!notifSnap.empty) {
+                  for (const notifDoc of notifSnap.docs) {
+                    const notifData = notifDoc.data();
+                    const msgText = notifData.message || notifData.text || "";
+                    const msgTitle = notifData.title || "Mensagem da Administração";
+                    if (msgText) {
+                      sendToClient(ws, "admin-private-message", {
+                        title: msgTitle,
+                        message: msgText,
+                        text: msgText
+                      });
+                      sendToClient(ws, "individual_warning", {
+                        title: msgTitle,
+                        message: msgText,
+                        text: msgText
+                      });
+                      console.log(`[ADMIN] Mensagem Individual enviada para UID: ${uid}. Status: Entregue (offline)`);
+                    }
+                    await deleteDoc(notifDoc.ref);
+                  }
+                }
+              } catch (notifErr) {
+                console.error("[ADMIN] Erro ao entregar notificações pendentes:", notifErr);
               }
 
             } catch (err) {
@@ -595,6 +620,18 @@ async function startServer() {
             break;
           }
 
+          case "set-admin":
+          case "set_admin":
+          case "set-ads-status":
+          case "set_ads_status":
+          case "admin-global-message":
+          case "global_warning":
+          case "admin-private-message":
+          case "individual_warning":
+          case "suspend":
+          case "unsuspend":
+          case "ban":
+          case "unban":
           case "admin_action": {
             // Verify ID Token if supplied in payload
             const actionToken = payload.idToken || payload.token;
@@ -623,14 +660,20 @@ async function startServer() {
               return;
             }
 
-            const { action, targetUid, targetId, adminState, durationMs, text } = payload;
+            const action = payload.action || payload.type;
+            const targetUid = payload.targetUid || payload.uid || payload.targetId;
+            const targetId = payload.targetId || payload.targetUid || payload.uid;
+            const adminState = payload.adminState !== undefined ? payload.adminState : payload.admin;
+            const durationMs = payload.durationMs;
+            const text = payload.text || payload.message;
             
-            if (action === "set_admin") {
+            if (action === "set_admin" || action === "set-admin") {
               const target = targetUid || targetId;
               if (typeof target !== "string" || !target) return;
+              const adminBool = !!adminState;
 
               const targetDocRef = doc(db, "users", target);
-              await updateDoc(targetDocRef, { admin: !!adminState });
+              await updateDoc(targetDocRef, { admin: adminBool });
 
               let targetName = "Desconhecido";
               try {
@@ -646,25 +689,25 @@ async function startServer() {
                 action: "set_admin",
                 targetUid: target,
                 targetNickname: targetName,
-                details: adminState ? "Nomeado Administrador" : "Removido de Administrador",
+                details: adminBool ? "Nomeado Administrador" : "Removido de Administrador",
                 timestamp: Date.now()
               });
 
-              sendToClient(ws, "admin_action_success", { 
-                message: `Status de administrador de ${targetName} alterado para ${adminState ? "ATIVO" : "INATIVO"}.` 
-              });
+              console.log(`[ADMIN] Admin alterado para ${target}: ${adminBool}`);
+
+              const succMsg = `Status de administrador alterado com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
 
             } else if (action === "suspend") {
               if (typeof targetUid !== "string" || !targetUid) return;
               const suspendedUntil = Date.now() + Number(durationMs);
               
-              // 1. Update Firestore
               const targetDocRef = doc(db, "users", targetUid);
               await updateDoc(targetDocRef, {
                 suspendedUntil: suspendedUntil
               });
 
-              // Fetch target details for audit
               let targetName = "Desconhecido";
               try {
                 const docSnap = await getDoc(targetDocRef);
@@ -673,7 +716,6 @@ async function startServer() {
                 }
               } catch (e) {}
 
-              // 2. Add Audit Log
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid,
                 adminEmail: session.email,
@@ -684,7 +726,6 @@ async function startServer() {
                 timestamp: Date.now()
               });
 
-              // 3. Find and forcefully disconnect the user in real-time
               activeSessions.forEach((s, key) => {
                 if (s.uid === targetUid) {
                   sendToClient(key, "suspended", { until: suspendedUntil });
@@ -693,8 +734,11 @@ async function startServer() {
                 }
               });
 
-              // 4. Notify admin about success
-              sendToClient(ws, "admin_action_success", { message: `Usuário ${targetName} suspenso com sucesso.` });
+              console.log(`[ADMIN] Usuário suspenso: ${targetUid}`);
+
+              const succMsg = `Usuário ${targetName} suspenso com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
 
             } else if (action === "unsuspend") {
               if (typeof targetUid !== "string" || !targetUid) return;
@@ -720,18 +764,18 @@ async function startServer() {
                 timestamp: Date.now()
               });
 
-              sendToClient(ws, "admin_action_success", { message: `Suspensão do usuário ${targetName} removida com sucesso.` });
+              const succMsg = `Suspensão do usuário ${targetName} removida com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
 
             } else if (action === "ban") {
               if (typeof targetUid !== "string" || !targetUid) return;
 
-              // 1. Update Firestore
               const targetDocRef = doc(db, "users", targetUid);
               await updateDoc(targetDocRef, {
                 banned: true
               });
 
-              // Fetch target details for audit
               let targetName = "Desconhecido";
               try {
                 const docSnap = await getDoc(targetDocRef);
@@ -740,7 +784,6 @@ async function startServer() {
                 }
               } catch (e) {}
 
-              // 2. Add Audit Log
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid,
                 adminEmail: session.email,
@@ -751,7 +794,6 @@ async function startServer() {
                 timestamp: Date.now()
               });
 
-              // 3. Find and forcefully disconnect the user in real-time
               activeSessions.forEach((s, key) => {
                 if (s.uid === targetUid) {
                   sendToClient(key, "banned", {});
@@ -760,8 +802,11 @@ async function startServer() {
                 }
               });
 
-              // 4. Notify admin about success
-              sendToClient(ws, "admin_action_success", { message: `Usuário ${targetName} banido com sucesso.` });
+              console.log(`[ADMIN] Usuário banido: ${targetUid}`);
+
+              const succMsg = `Usuário ${targetName} banido com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
 
             } else if (action === "unban") {
               if (typeof targetUid !== "string" || !targetUid) return;
@@ -787,15 +832,16 @@ async function startServer() {
                 timestamp: Date.now()
               });
 
-              sendToClient(ws, "admin_action_success", { message: `Banimento do usuário ${targetName} removido com sucesso.` });
+              const succMsg = `Banimento do usuário ${targetName} removido com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
 
-            } else if (action === "global_warning") {
+            } else if (action === "global_warning" || action === "admin-global-message") {
               if (typeof text !== "string" || !text) {
                 sendToClient(ws, "admin_action_error", { message: "Mensagem do aviso global não pode estar vazia." });
                 return;
               }
 
-              // 1. Log to Audit
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid || "ADMIN",
                 adminEmail: session.email || "admin",
@@ -806,7 +852,6 @@ async function startServer() {
                 timestamp: Date.now()
               });
 
-              // 2. Persist in adminMessages collection in Firestore
               await addDoc(collection(db, "adminMessages"), {
                 id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
                 type: "global",
@@ -816,22 +861,30 @@ async function startServer() {
                 createdAt: Date.now()
               });
 
-              // 3. Broadcast warning to everyone in real-time (including anonymous and logged in users)
               let recipientCount = 0;
               activeSessions.forEach((s, key) => {
                 if (key.readyState === WebSocket.OPEN) {
-                  sendToClient(key, "global_warning", { text, type: "global_warning" });
+                  sendToClient(key, "admin-global-message", {
+                    title: "Mensagem da Administração",
+                    message: text,
+                    text: text
+                  });
+                  sendToClient(key, "global_warning", {
+                    title: "Mensagem da Administração",
+                    message: text,
+                    text: text
+                  });
                   recipientCount++;
                 }
               });
 
-              // Console log for server debugging (Requirement 6)
-              console.log(`[ADMIN] Mensagem Global enviada. Destinatários: ${recipientCount} usuários.`);
+              console.log(`[ADMIN] Mensagem Global enviada. Total destinatários: ${recipientCount}`);
 
-              // 4. Notify admin of success
-              sendToClient(ws, "admin_action_success", { message: `Aviso global enviado com sucesso para ${recipientCount} usuários.` });
+              const succMsg = `Mensagem global enviada para ${recipientCount} usuários.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
 
-            } else if (action === "individual_warning") {
+            } else if (action === "individual_warning" || action === "admin-private-message") {
               const searchKey = typeof targetId === "string" ? targetId.trim() : (typeof targetUid === "string" ? targetUid.trim() : "");
               if (!searchKey || typeof text !== "string" || !text) {
                 sendToClient(ws, "admin_action_error", { message: "ID do usuário e mensagem são obrigatórios." });
@@ -859,7 +912,6 @@ async function startServer() {
                 console.error("[Admin] Error resolving target user:", e);
               }
 
-              // 1. Log to Audit
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid || "ADMIN",
                 adminEmail: session.email || "admin",
@@ -870,7 +922,6 @@ async function startServer() {
                 timestamp: Date.now()
               });
 
-              // 2. Persist in adminMessages collection in Firestore
               await addDoc(collection(db, "adminMessages"), {
                 id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
                 type: "private",
@@ -880,35 +931,47 @@ async function startServer() {
                 createdAt: Date.now()
               });
 
-              // 3. Send warning ONLY to target session
               let foundOnline = false;
               activeSessions.forEach((s, key) => {
                 const isMatch = s.uid === resolvedUid || s.permanentId === searchKey || s.uid === searchKey || (s.internalId && s.internalId === searchKey);
                 if (isMatch && key.readyState === WebSocket.OPEN) {
-                  sendToClient(key, "individual_warning", { text, type: "individual_warning" });
+                  sendToClient(key, "admin-private-message", {
+                    title: "Mensagem da Administração",
+                    message: text,
+                    text: text
+                  });
+                  sendToClient(key, "individual_warning", {
+                    title: "Mensagem da Administração",
+                    message: text,
+                    text: text
+                  });
                   foundOnline = true;
                 }
               });
 
-              const statusStr = foundOnline ? "Entregue" : "Offline";
-              // Console log for server debugging (Requirement 6)
-              console.log(`[ADMIN] Mensagem enviada para: ${resolvedUid || searchKey}. Status: ${statusStr}`);
-
-              // 4. Notify admin (Requirement 4: if offline return 'Usuário não está conectado.')
               if (foundOnline) {
-                sendToClient(ws, "admin_action_success", { 
-                  message: `Aviso individual entregue com sucesso para ${targetName}.` 
-                });
+                console.log(`[ADMIN] Mensagem Individual enviada para UID: ${resolvedUid}. Status: Entregue`);
+                const succMsg = `Mensagem enviada com sucesso para o usuário.`;
+                sendToClient(ws, "success", { message: succMsg });
+                sendToClient(ws, "admin_action_success", { message: succMsg });
               } else {
-                sendToClient(ws, "admin_action_error", { 
-                  message: `Usuário não está conectado.` 
+                // Save to notifications for offline delivery when user connects
+                await addDoc(collection(db, "notifications"), {
+                  uid: resolvedUid,
+                  title: "Mensagem da Administração",
+                  message: text,
+                  createdAt: Date.now()
                 });
+                console.log(`[ADMIN] Mensagem Individual enviada para UID: ${resolvedUid}. Status: Offline (Salvo para entrega)`);
+                const succMsg = `Usuário offline. Mensagem agendada e salva para entrega automática ao conectar.`;
+                sendToClient(ws, "success", { message: succMsg });
+                sendToClient(ws, "admin_action_success", { message: succMsg });
               }
 
-            } else if (action === "set_ads_status") {
-              const { targetUid, targetId, adsDisabled } = payload;
+            } else if (action === "set_ads_status" || action === "set-ads-status") {
               const searchKey = targetUid || targetId;
               if (typeof searchKey !== "string" || !searchKey) return;
+              const adsDisabled = payload.adsDisabled !== undefined ? !!payload.adsDisabled : !!payload.disabled;
 
               let resolvedUid = searchKey;
               let targetName = "Desconhecido";
@@ -930,7 +993,14 @@ async function startServer() {
                   targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
                 }
 
-                await updateDoc(targetDocRef, { adsDisabled: !!adsDisabled });
+                await updateDoc(targetDocRef, { adsDisabled: adsDisabled });
+
+                // Notify user's active session in real-time
+                activeSessions.forEach((s, key) => {
+                  if (s.uid === resolvedUid || s.permanentId === searchKey) {
+                    sendToClient(key, "ads-status", { disabled: adsDisabled });
+                  }
+                });
 
                 await addDoc(collection(db, "audits"), {
                   adminUid: session.uid,
@@ -942,9 +1012,11 @@ async function startServer() {
                   timestamp: Date.now()
                 });
 
-                sendToClient(ws, "admin_action_success", {
-                  message: `Status de anúncios para ${targetName} (${resolvedUid}) alterado com sucesso: ${adsDisabled ? "DESATIVADOS (Ocultos)" : "ATIVADOS (Exibir)"}.`
-                });
+                console.log(`[ADMIN] adsDisabled atualizado para ${resolvedUid}: ${adsDisabled}`);
+
+                const succMsg = `Status de anúncios atualizado com sucesso.`;
+                sendToClient(ws, "success", { message: succMsg });
+                sendToClient(ws, "admin_action_success", { message: succMsg });
               } catch (err) {
                 console.error("[Admin] Error setting ads status:", err);
                 sendToClient(ws, "admin_action_error", { message: "Erro ao atualizar permissão de anúncios no Firestore." });

@@ -32,6 +32,10 @@ window.MONETAG_CONFIG = {
    * Consulta o backend para saber se este usuário tem anúncios ativados ou desativados
    */
   async function checkServerAdsPermission() {
+    if (window.MONETAG_DISABLED === true) {
+      console.log("[Monetag Manager] Anúncios desativados via WebSocket para este usuário.");
+      return false;
+    }
     try {
       let uid = "";
       const storedAuth = localStorage.getItem("papos_auth_user") || localStorage.getItem("firebase_user");
@@ -49,10 +53,14 @@ window.MONETAG_CONFIG = {
       const url = uid ? `/api/user/ads-status?uid=${encodeURIComponent(uid)}` : `/api/user/ads-status`;
       const response = await fetch(url);
       const data = await response.json();
+      if (data && data.showAds === false) {
+        window.MONETAG_DISABLED = true;
+        return false;
+      }
       return data && data.showAds === true;
     } catch (e) {
       console.warn("[Monetag Manager] Erro ao consultar servidor, aplicando padrão:", e);
-      return true;
+      return !window.MONETAG_DISABLED;
     }
   }
 
@@ -60,6 +68,10 @@ window.MONETAG_CONFIG = {
    * Inicializa o In-Page Push de forma assíncrona
    */
   function loadInPagePush() {
+    if (window.MONETAG_DISABLED === true) {
+      console.log("[Monetag Manager] Anúncios desativados. In-Page Push ignorado.");
+      return;
+    }
     if (!window.MONETAG_CONFIG || !window.MONETAG_CONFIG.enableInPagePush) {
       console.log("[Monetag Manager] In-Page Push está desativado nas configurações.");
       return;
@@ -88,6 +100,10 @@ window.MONETAG_CONFIG = {
    * Inicializa o Vignette Banner de forma controlada e assíncrona
    */
   function loadVignette() {
+    if (window.MONETAG_DISABLED === true) {
+      console.log("[Monetag Manager] Anúncios desativados. Vignette Banner ignorado.");
+      return;
+    }
     if (!window.MONETAG_CONFIG || !window.MONETAG_CONFIG.enableVignette) {
       console.log("[Monetag Manager] Vignette Banner está desativado nas configurações.");
       return;

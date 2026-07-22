@@ -457,21 +457,33 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             break;
 
-          case "admin_verified":
-            if (data.isAdmin) {
-              if (window.injectAdminPanelUI) {
+          case "admin-status":
+          case "admin_verified": {
+            const isAdmin = data.admin === true || data.isAdmin === true;
+            const trigger = document.getElementById("admin-trigger-container");
+            if (isAdmin) {
+              if (!window.injectAdminPanelUI) {
+                const s = document.createElement("script");
+                s.src = "/assets/js/admin-controller.js";
+                document.head.appendChild(s);
+              } else {
                 window.injectAdminPanelUI();
               }
-              const trigger = document.getElementById("admin-trigger-container");
-              if (trigger) {
-                trigger.classList.remove("d-none");
-              }
+              if (trigger) trigger.classList.remove("d-none");
             } else {
-              const trigger = document.getElementById("admin-trigger-container");
-              if (trigger) {
-                trigger.classList.add("d-none");
+              if (trigger) trigger.classList.add("d-none");
+              const modalEl = document.getElementById("adminModal");
+              if (modalEl && window.bootstrap && window.bootstrap.Modal) {
+                const inst = window.bootstrap.Modal.getInstance(modalEl);
+                if (inst) inst.hide();
               }
             }
+            break;
+          }
+
+          case "ads-status":
+            window.MONETAG_DISABLED = data.disabled === true || data.adsDisabled === true;
+            console.log("[AdsStatus] Status de anúncios atualizado via WS:", window.MONETAG_DISABLED);
             break;
 
           case "admin_online_users":
@@ -486,6 +498,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             break;
 
+          case "success":
           case "admin_action_success":
             if (window.showAdminLoading) {
               window.showAdminLoading(false);
@@ -507,13 +520,17 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             break;
 
+          case "admin-global-message":
+          case "admin-private-message":
           case "global_warning":
           case "individual_warning":
             if (typeof window.showAdminWarningModal === "function") {
               window.showAdminWarningModal(
-                data.text,
-                data.type === "global_warning" ? "Comunicado Global" : "Mensagem da Administração"
+                data.message || data.text,
+                data.title || (data.type === "global_warning" || data.type === "admin-global-message" ? "Comunicado Global" : "Mensagem da Administração")
               );
+            } else {
+              alert((data.title || "Mensagem da Administração") + "\n\n" + (data.message || data.text));
             }
             break;
 
