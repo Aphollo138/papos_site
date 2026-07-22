@@ -824,10 +824,12 @@
 
     select.innerHTML = '<option value="">Selecione um usuário cadastrado...</option>';
     firestoreUsers.forEach((u) => {
-      const option = document.createElement("option");
-      option.value = u.permanentId || u.uid;
-      option.textContent = `${u.nickname} - ${u.permanentId} (${u.email})`;
-      select.appendChild(option);
+      if (u.uid) {
+        const option = document.createElement("option");
+        option.value = u.uid;
+        option.textContent = `${u.nickname || "Usuário"} - ${u.permanentId || u.uid} (${u.email || ""})`;
+        select.appendChild(option);
+      }
     });
   }
 

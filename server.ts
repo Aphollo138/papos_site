@@ -918,94 +918,90 @@ async function startServer() {
               sendToClient(ws, "admin_action_success", { message: succMsg });
 
             } else if (action === "individual_warning" || action === "admin-private-message" || action === "admin:private") {
-              const searchKey = typeof targetId === "string" ? targetId.trim() : (typeof targetUid === "string" ? targetUid.trim() : "");
+              const searchKey = typeof targetUid === "string" ? targetUid.trim() : (typeof targetId === "string" ? targetId.trim() : "");
+
+              console.log("[ADMIN]");
+              console.log("Mensagem individual");
+              console.log(`UID recebido: ${searchKey}`);
+
               if (!searchKey || typeof text !== "string" || !text) {
                 sendToClient(ws, "admin_action_error", { message: "ID do usuário e mensagem são obrigatórios." });
                 return;
               }
 
+              let targetSocket: WebSocket | null = null;
+              let targetSession: any = null;
               let resolvedUid = searchKey;
-              let targetName = "Desconhecido";
 
-              try {
-                let targetDocRef = doc(db, "users", searchKey);
-                let docSnap = await getDoc(targetDocRef);
-                if (!docSnap.exists()) {
-                  const q = query(collection(db, "users"), where("permanentId", "==", searchKey));
-                  const qSnap = await getDocs(q);
-                  if (!qSnap.empty) {
-                    docSnap = qSnap.docs[0];
-                    resolvedUid = docSnap.id;
-                  }
-                }
-                if (docSnap.exists()) {
-                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
-                }
-              } catch (e) {
-                console.error("[Admin] Error resolving target user:", e);
-              }
-
-              addDoc(collection(db, "audits"), {
-                adminUid: session.uid || "ADMIN",
-                adminEmail: session.email || "admin",
-                action: "individual_warning",
-                targetUid: resolvedUid,
-                targetNickname: targetName,
-                details: text.substring(0, 100),
-                timestamp: Date.now()
-              }).catch(() => {});
-
-              addDoc(collection(db, "adminMessages"), {
-                id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
-                type: "private",
-                targetUid: resolvedUid,
-                message: text,
-                createdBy: session.email || session.uid || "ADMIN",
-                createdAt: Date.now()
-              }).catch(() => {});
-
-              let foundOnline = false;
               activeSessions.forEach((s, key) => {
-                const isMatch = s.uid === resolvedUid || s.permanentId === searchKey || s.uid === searchKey || (s.internalId && s.internalId === searchKey);
-                if (isMatch && key.readyState === WebSocket.OPEN) {
-                  const privPayload = {
-                    type: "admin:private",
-                    title: "Mensagem da Administração",
-                    message: text,
-                    text: text,
-                    timestamp: Date.now()
-                  };
-                  try {
-                    key.send(JSON.stringify(privPayload));
-                  } catch (e) {}
-
-                  sendToClient(key, "admin-private-message", {
-                    title: "Mensagem da Administração",
-                    message: text,
-                    text: text,
-                    timestamp: Date.now()
-                  });
-                  sendToClient(key, "individual_warning", {
-                    title: "Mensagem da Administração",
-                    message: text,
-                    text: text,
-                    timestamp: Date.now()
-                  });
-                  foundOnline = true;
+                if (key.readyState === WebSocket.OPEN) {
+                  const isMatch = (s.uid && s.uid === searchKey) ||
+                                  (s.permanentId && s.permanentId === searchKey) ||
+                                  (s.uid && s.uid.toLowerCase() === searchKey.toLowerCase());
+                  if (isMatch) {
+                    targetSocket = key;
+                    targetSession = s;
+                    if (s.uid) resolvedUid = s.uid;
+                  }
                 }
               });
 
-              if (foundOnline) {
-                console.log("[ADMIN]");
-                console.log("UID encontrado");
-                console.log("Mensagem enviada");
+              if (targetSocket) {
+                console.log(`UID encontrado: ${resolvedUid}`);
+                console.log("Socket encontrado: Sim");
+
+                const privPayload = {
+                  type: "admin:private",
+                  title: "Mensagem da Administração",
+                  message: text,
+                  text: text,
+                  timestamp: Date.now()
+                };
+
+                try {
+                  (targetSocket as WebSocket).send(JSON.stringify(privPayload));
+                } catch (e) {}
+
+                sendToClient(targetSocket, "admin-private-message", {
+                  title: "Mensagem da Administração",
+                  message: text,
+                  text: text,
+                  timestamp: Date.now()
+                });
+                sendToClient(targetSocket, "individual_warning", {
+                  title: "Mensagem da Administração",
+                  message: text,
+                  text: text,
+                  timestamp: Date.now()
+                });
+
+                console.log("Mensagem enviada.");
+
+                addDoc(collection(db, "audits"), {
+                  adminUid: session.uid || "ADMIN",
+                  adminEmail: session.email || "admin",
+                  action: "individual_warning",
+                  targetUid: resolvedUid,
+                  targetNickname: targetSession?.nickname || "Desconhecido",
+                  details: text.substring(0, 100),
+                  timestamp: Date.now()
+                }).catch(() => {});
+
+                addDoc(collection(db, "adminMessages"), {
+                  id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+                  type: "private",
+                  targetUid: resolvedUid,
+                  message: text,
+                  createdBy: session.email || session.uid || "ADMIN",
+                  createdAt: Date.now()
+                }).catch(() => {});
 
                 const succMsg = `Mensagem enviada com sucesso para o usuário.`;
                 sendToClient(ws, "success", { message: succMsg });
                 sendToClient(ws, "admin_action_success", { message: succMsg });
               } else {
-                console.log("[ADMIN]");
-                console.log("Usuário não conectado.");
+                console.log("Socket inexistente.");
+                console.log("Usuário desconectado.");
 
                 sendToClient(ws, "admin_action_error", { message: "Usuário offline." });
               }
@@ -1016,7 +1012,10 @@ async function startServer() {
               const adsDisabled = payload.adsDisabled !== undefined ? !!payload.adsDisabled : !!payload.disabled;
 
               let resolvedUid = searchKey;
-              let targetName = "Desconhecido";
+
+              console.log("Atualizando adsDisabled...");
+              console.log(`UID: ${searchKey}`);
+              console.log(`Novo valor: ${adsDisabled}`);
 
               try {
                 let targetDocRef = doc(db, "users", searchKey);
@@ -1031,11 +1030,8 @@ async function startServer() {
                   }
                 }
 
-                if (docSnap.exists()) {
-                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
-                }
-
                 await updateDoc(targetDocRef, { adsDisabled: adsDisabled });
+                console.log("Firestore atualizado.");
 
                 // Notify user's active session in real-time
                 activeSessions.forEach((s, key) => {
@@ -1044,24 +1040,24 @@ async function startServer() {
                   }
                 });
 
-                await addDoc(collection(db, "audits"), {
-                  adminUid: session.uid,
-                  adminEmail: session.email,
+                addDoc(collection(db, "audits"), {
+                  adminUid: session.uid || "ADMIN",
+                  adminEmail: session.email || "admin",
                   action: "set_ads_status",
                   targetUid: resolvedUid,
-                  targetNickname: targetName,
+                  targetNickname: docSnap.exists() ? (docSnap.data().nickname || "Desconhecido") : "Desconhecido",
                   details: adsDisabled ? "Anúncios Ocultados (adsDisabled = true)" : "Anúncios Exibidos Normalmente (adsDisabled = false)",
                   timestamp: Date.now()
-                });
+                }).catch(() => {});
 
-                console.log(`[ADMIN] adsDisabled atualizado para ${resolvedUid}: ${adsDisabled}`);
+                console.log("Resposta enviada.");
 
-                const succMsg = `Status de anúncios atualizado com sucesso.`;
+                const succMsg = "Permissão de anúncios atualizada com sucesso.";
                 sendToClient(ws, "success", { message: succMsg });
                 sendToClient(ws, "admin_action_success", { message: succMsg });
-              } catch (err) {
+              } catch (err: any) {
                 console.error("[Admin] Error setting ads status:", err);
-                sendToClient(ws, "admin_action_error", { message: "Erro ao atualizar permissão de anúncios no Firestore." });
+                sendToClient(ws, "admin_action_error", { message: err?.message || "Erro ao atualizar permissão de anúncios no Firestore." });
               }
             }
 
