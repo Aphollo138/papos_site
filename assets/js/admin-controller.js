@@ -30,14 +30,225 @@
   function injectAdminPanelUI() {
     if (document.getElementById("admin-trigger-container")) return;
 
+    // Inject custom CSS for modern dark theme
+    if (!document.getElementById("admin-panel-custom-css")) {
+      const styleEl = document.createElement("style");
+      styleEl.id = "admin-panel-custom-css";
+      styleEl.textContent = `
+        /* Dark Minimalist Admin Theme */
+        #adminPanelModal .modal-content {
+          background-color: #0b0b0b !important;
+          color: #d7d7d7 !important;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #adminPanelModal .modal-header {
+          background-color: #111111 !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+          height: 64px;
+        }
+
+        #admin-sidebar {
+          width: 260px;
+          background-color: #111111 !important;
+          border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+          transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
+        }
+
+        #admin-sidebar.collapsed {
+          width: 80px !important;
+          padding-left: 0.6rem !important;
+          padding-right: 0.6rem !important;
+        }
+
+        #admin-sidebar .sidebar-text {
+          transition: opacity 0.2s ease;
+          white-space: nowrap;
+        }
+
+        #admin-sidebar.collapsed .sidebar-text,
+        #admin-sidebar.collapsed .sidebar-header-label,
+        #admin-sidebar.collapsed .sidebar-footer {
+          display: none !important;
+          opacity: 0;
+          width: 0;
+          overflow: hidden;
+        }
+
+        #admin-sidebar.collapsed .btn-admin-tab {
+          justify-content: center !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+
+        .btn-admin-tab {
+          border-radius: 12px !important;
+          font-size: 0.88rem;
+          padding: 0.75rem 1rem;
+          transition: all 0.2s ease-in-out;
+          color: #9f9f9f !important;
+          background-color: transparent !important;
+          border: 1px solid transparent !important;
+        }
+
+        .btn-admin-tab:hover {
+          background-color: #242424 !important;
+          color: #ffffff !important;
+        }
+
+        .btn-admin-tab.active {
+          background-color: #171717 !important;
+          color: #ffffff !important;
+          border: 1px solid rgba(255, 255, 255, 0.12) !important;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .admin-card {
+          background-color: #171717 !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          border-radius: 18px !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .admin-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        #adminPanelModal input.form-control,
+        #adminPanelModal select.form-select,
+        #adminPanelModal textarea.form-control {
+          background-color: #141414 !important;
+          color: #ffffff !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          border-radius: 12px !important;
+          padding: 0.7rem 1rem;
+          font-size: 0.9rem;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        #adminPanelModal input.form-control::placeholder,
+        #adminPanelModal textarea.form-control::placeholder {
+          color: #666666 !important;
+        }
+
+        #adminPanelModal input.form-control:focus,
+        #adminPanelModal select.form-select:focus,
+        #adminPanelModal textarea.form-control:focus {
+          border-color: rgba(255, 255, 255, 0.3) !important;
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08) !important;
+          outline: none !important;
+        }
+
+        #adminPanelModal .table-responsive {
+          background-color: #171717 !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          border-radius: 18px !important;
+          overflow: hidden;
+        }
+
+        #adminPanelModal table {
+          color: #d7d7d7 !important;
+          border-color: rgba(255, 255, 255, 0.05) !important;
+        }
+
+        #adminPanelModal thead th {
+          background-color: #111111 !important;
+          color: #9f9f9f !important;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+          position: sticky;
+          top: 0;
+          z-index: 2;
+        }
+
+        #adminPanelModal tbody tr {
+          background-color: #171717 !important;
+          transition: background-color 0.15s ease;
+        }
+
+        #adminPanelModal tbody tr:nth-of-type(even) {
+          background-color: #141414 !important;
+        }
+
+        #adminPanelModal tbody tr:hover {
+          background-color: #242424 !important;
+        }
+
+        /* Custom Buttons */
+        .btn-admin-primary {
+          background-color: #ffffff !important;
+          color: #0b0b0b !important;
+          font-weight: 600 !important;
+          border: none !important;
+          border-radius: 12px !important;
+          padding: 0.65rem 1.25rem;
+          transition: all 0.2s ease !important;
+        }
+        .btn-admin-primary:hover {
+          background-color: #e2e2e2 !important;
+          transform: translateY(-1px);
+        }
+
+        .btn-admin-dark {
+          background-color: #171717 !important;
+          color: #ffffff !important;
+          border: 1px solid rgba(255, 255, 255, 0.12) !important;
+          border-radius: 12px !important;
+          padding: 0.65rem 1.25rem;
+          transition: all 0.2s ease !important;
+        }
+        .btn-admin-dark:hover {
+          background-color: #242424 !important;
+          border-color: rgba(255, 255, 255, 0.25) !important;
+        }
+
+        /* Custom Scrollbar */
+        #adminPanelModal *::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        #adminPanelModal *::-webkit-scrollbar-track {
+          background: #0b0b0b;
+        }
+        #adminPanelModal *::-webkit-scrollbar-thumb {
+          background: #333333;
+          border-radius: 4px;
+        }
+        #adminPanelModal *::-webkit-scrollbar-thumb:hover {
+          background: #555555;
+        }
+
+        @media (max-width: 768px) {
+          #admin-sidebar {
+            position: absolute;
+            top: 64px;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            width: 240px;
+            transform: translateX(0);
+          }
+          #admin-sidebar.collapsed {
+            transform: translateX(-100%);
+            width: 240px !important;
+          }
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+
     // 1. Floating Trigger Button (Bottom Left)
     const triggerContainer = document.createElement("div");
     triggerContainer.id = "admin-trigger-container";
     triggerContainer.className = "position-fixed bottom-0 start-0 m-3 d-none";
     triggerContainer.style.zIndex = "1050";
     triggerContainer.innerHTML = `
-      <button class="btn btn-dark border-secondary px-3 py-2 shadow d-flex align-items-center gap-2 text-white" id="btn-admin-panel-trigger" style="border-radius: var(--radius-sm); font-size: 0.85rem; background-color: var(--surface-secondary); cursor: pointer; transition: transform 0.2s ease-in-out;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-        <i class="bi bi-shield-lock-fill text-success fs-6"></i>
+      <button class="btn btn-dark border border-secondary px-3 py-2 shadow-lg d-flex align-items-center gap-2 text-white" id="btn-admin-panel-trigger" style="border-radius: 12px; font-size: 0.85rem; background-color: #111111; border-color: rgba(255,255,255,0.1) !important; cursor: pointer; transition: transform 0.2s ease-in-out;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+        <i class="bi bi-shield-lock-fill text-white fs-6"></i>
         <span class="fw-bold">Painel Admin</span>
       </button>
     `;
@@ -52,93 +263,87 @@
     adminModal.style.zIndex = "1060";
     adminModal.innerHTML = `
       <div class="modal-dialog modal-fullscreen m-0 p-0" style="max-width: 100vw; height: 100vh;">
-        <div class="modal-content border-0 rounded-0 h-100 w-100 bg-dark text-white d-flex flex-column" style="background-color: #0e1017 !important;">
+        <div class="modal-content border-0 rounded-0 h-100 w-100 text-white d-flex flex-column" style="background-color: #0b0b0b !important;">
           
           <!-- Top Bar Header -->
-          <div class="modal-header border-bottom border-secondary px-4 py-3 flex-shrink-0" style="background-color: #141824; height: 60px;">
+          <div class="modal-header border-bottom px-4 py-3 flex-shrink-0 d-flex align-items-center justify-content-between" style="background-color: #111111; border-color: rgba(255,255,255,0.08) !important; height: 64px;">
             <div class="d-flex align-items-center gap-3">
-              <div class="rounded-2 p-2 bg-success bg-opacity-10 text-success d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
-                <i class="bi bi-shield-lock-fill fs-5"></i>
-              </div>
-              <div>
-                <h5 class="modal-title text-white fw-bold mb-0" style="font-family: var(--font-display); font-size: 1.1rem;">
-                  Painel de Moderação & Administração
+              <button class="btn btn-dark border-0 p-2 text-white d-flex align-items-center justify-content-center" id="btn-toggle-sidebar" title="Alternar Menu" style="background-color: #1a1a1a; border-radius: 8px; width: 36px; height: 36px; cursor: pointer;">
+                <i class="bi bi-list fs-5"></i>
+              </button>
+              <div class="d-flex align-items-center gap-2">
+                <img src="/favicon.svg" alt="Papos" style="width: 28px; height: 28px; object-fit: contain;" class="me-1" />
+                <h5 class="modal-title text-white fw-bold mb-0" style="font-size: 1.1rem; letter-spacing: -0.01em;">
+                  Painel de Administração
                 </h5>
-                <span class="text-secondary small" style="font-size: 0.75rem;">Gerenciamento completo em tempo real</span>
               </div>
             </div>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
 
-          <!-- Main Layout Body (Fixed Sidebar + Scrollable Content) -->
-          <div class="modal-body p-0 d-flex flex-grow-1 overflow-hidden" style="height: calc(100vh - 60px);">
+          <!-- Main Layout Body (Collapsible Sidebar + Scrollable Content) -->
+          <div class="modal-body p-0 d-flex flex-grow-1 overflow-hidden" style="height: calc(100vh - 64px); position: relative;">
             
-            <!-- Fixed Left Sidebar -->
-            <div class="d-flex flex-column border-end border-secondary p-3 flex-shrink-0" style="width: 260px; background-color: #11141f;">
-              <div class="px-2 mb-3 text-secondary uppercase tracking-wider small fw-bold" style="font-size: 0.7rem; letter-spacing: 0.08em;">MENU PRINCIPAL</div>
+            <!-- Collapsible Left Sidebar -->
+            <div class="d-flex flex-column p-3 flex-shrink-0" id="admin-sidebar" style="background-color: #111111;">
+              <div class="px-2 mb-3 sidebar-header-label" style="font-size: 0.68rem; letter-spacing: 0.1em; color: #9f9f9f; font-weight: 700;">MENU PRINCIPAL</div>
               
               <ul class="nav nav-pills flex-column gap-2 border-0 w-100" id="adminTab" role="tablist">
                 <li class="nav-item w-100" role="presentation">
-                  <button class="nav-link btn-admin-tab active text-start text-white w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-users" data-tab="users" type="button" role="tab" style="border-radius: 8px; font-size: 0.9rem; padding: 0.75rem 1rem; transition: all 0.2s; background-color: #1f2433;">
-                    <i class="bi bi-people-fill text-success fs-5"></i>
-                    <span class="fw-medium">Usuários</span>
+                  <button class="nav-link btn-admin-tab active text-start text-white w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-users" data-tab="users" type="button" role="tab">
+                    <i class="bi bi-people fs-5 flex-shrink-0"></i>
+                    <span class="fw-medium sidebar-text">Usuários</span>
                   </button>
                 </li>
                 <li class="nav-item w-100" role="presentation">
-                  <button class="nav-link btn-admin-tab text-start text-white-50 w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-global" data-tab="global" type="button" role="tab" style="border-radius: 8px; font-size: 0.9rem; padding: 0.75rem 1rem; transition: all 0.2s; background-color: transparent;">
-                    <i class="bi bi-megaphone-fill text-info fs-5"></i>
-                    <span class="fw-medium">Mensagem Global</span>
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-global" data-tab="global" type="button" role="tab">
+                    <i class="bi bi-megaphone fs-5 flex-shrink-0"></i>
+                    <span class="fw-medium sidebar-text">Mensagem Global</span>
                   </button>
                 </li>
                 <li class="nav-item w-100" role="presentation">
-                  <button class="nav-link btn-admin-tab text-start text-white-50 w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-individual" data-tab="individual" type="button" role="tab" style="border-radius: 8px; font-size: 0.9rem; padding: 0.75rem 1rem; transition: all 0.2s; background-color: transparent;">
-                    <i class="bi bi-chat-text-fill text-warning fs-5"></i>
-                    <span class="fw-medium">Mensagem Individual</span>
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-individual" data-tab="individual" type="button" role="tab">
+                    <i class="bi bi-chat-left-text fs-5 flex-shrink-0"></i>
+                    <span class="fw-medium sidebar-text">Mensagem Individual</span>
                   </button>
                 </li>
                 <li class="nav-item w-100" role="presentation">
-                  <button class="nav-link btn-admin-tab text-start text-white-50 w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-audits" data-tab="audits" type="button" role="tab" style="border-radius: 8px; font-size: 0.9rem; padding: 0.75rem 1rem; transition: all 0.2s; background-color: transparent;">
-                    <i class="bi bi-journal-text text-secondary fs-5"></i>
-                    <span class="fw-medium">Auditoria</span>
-                  </button>
-                </li>
-                <li class="nav-item w-100" role="presentation">
-                  <button class="nav-link btn-admin-tab text-start text-white-50 w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-ads" data-tab="ads" type="button" role="tab" style="border-radius: 8px; font-size: 0.9rem; padding: 0.75rem 1rem; transition: all 0.2s; background-color: transparent;">
-                    <i class="bi bi-badge-ad-fill text-danger fs-5"></i>
-                    <span class="fw-medium">Anúncios</span>
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-ads" data-tab="ads" type="button" role="tab">
+                    <i class="bi bi-badge-ad fs-5 flex-shrink-0"></i>
+                    <span class="fw-medium sidebar-text">Anúncios</span>
                   </button>
                 </li>
               </ul>
 
-              <div class="mt-auto pt-3 border-top border-secondary px-2">
-                <div class="small text-secondary" style="font-size: 0.75rem;">Status do Servidor</div>
+              <div class="mt-auto pt-3 border-top px-2 sidebar-footer" style="border-color: rgba(255,255,255,0.08) !important;">
+                <div class="small" style="font-size: 0.75rem; color: #9f9f9f;">Status do Servidor</div>
                 <div class="d-flex align-items-center gap-2 mt-1">
                   <span class="spinner-grow spinner-grow-sm text-success" style="width: 8px; height: 8px;"></span>
-                  <span class="text-success small fw-medium" style="font-size: 0.8rem;">Conectado em tempo real</span>
+                  <span class="text-white small fw-medium" style="font-size: 0.8rem;">Conectado em tempo real</span>
                 </div>
               </div>
             </div>
 
             <!-- Main Content Area (Right Side, Scrollable) -->
-            <div class="flex-grow-1 p-4 overflow-y-auto h-100" style="background-color: #0e1017;">
+            <div class="flex-grow-1 p-4 overflow-y-auto h-100" style="background-color: #0b0b0b;">
               
-              <!-- TAB 1: USERS (EXCLUSIVELY FROM FIRESTORE 'users' COLLECTION) -->
+              <!-- TAB 1: USERS -->
               <div class="admin-tab-content d-flex flex-column h-100" id="admin-content-users">
                 <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between mb-4">
                   <div>
-                    <h5 class="text-white fw-bold mb-1">Usuários Cadastrados</h5>
-                    <p class="text-secondary small mb-0">Consultando exclusivamente a coleção <code class="text-info fw-bold">users</code> no Firestore em tempo real.</p>
+                    <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Usuários Cadastrados</h5>
+                    <p class="small mb-0" style="color: #9f9f9f;">Consultando a coleção <code class="text-white fw-bold" style="background-color: #171717; padding: 2px 6px; border-radius: 4px;">users</code> do Firestore em tempo real.</p>
                   </div>
                   <div class="input-group" style="max-width: 380px;">
-                    <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control bg-dark text-white border-secondary border-start-0" id="admin-users-search" placeholder="Buscar por nome, email, ID interno ou UID...">
+                    <span class="input-group-text border-0 text-white" style="background-color: #141414; border-top-left-radius: 12px; border-bottom-left-radius: 12px;"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="admin-users-search" placeholder="Buscar por nome, email, ID ou UID..." style="border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important;">
                   </div>
                 </div>
 
-                <div class="table-responsive flex-grow-1 border border-secondary rounded-3" style="background-color: #141824;">
-                  <table class="table table-dark table-hover border-secondary align-middle mb-0" style="font-size: 0.85rem;">
-                    <thead class="table-dark text-secondary" style="background-color: #1a1f2e;">
-                      <tr class="border-secondary">
+                <div class="table-responsive flex-grow-1">
+                  <table class="table align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead>
+                      <tr>
                         <th class="ps-3 py-3">Avatar & Nome</th>
                         <th class="py-3">ID Interno</th>
                         <th class="py-3">UID</th>
@@ -150,17 +355,17 @@
                       </tr>
                     </thead>
                     <tbody id="admin-users-table-body">
-                      <!-- Filled dynamically from 'users' collection -->
+                      <!-- Filled dynamically -->
                     </tbody>
                   </table>
                 </div>
 
                 <!-- Pagination Footer -->
                 <div class="d-flex justify-content-between align-items-center mt-3 pt-2">
-                  <span class="text-secondary small" id="admin-users-pagination-info">Mostrando 0-0 de 0 usuários</span>
+                  <span class="small" id="admin-users-pagination-info" style="color: #9f9f9f;">Mostrando 0-0 de 0 usuários</span>
                   <div class="d-flex gap-2">
-                    <button class="btn btn-outline-secondary btn-sm px-3" id="admin-users-btn-prev">Anterior</button>
-                    <button class="btn btn-outline-secondary btn-sm px-3" id="admin-users-btn-next">Próximo</button>
+                    <button class="btn btn-admin-dark btn-sm px-3" id="admin-users-btn-prev">Anterior</button>
+                    <button class="btn btn-admin-dark btn-sm px-3" id="admin-users-btn-next">Próximo</button>
                   </div>
                 </div>
               </div>
@@ -168,16 +373,16 @@
               <!-- TAB 2: GLOBAL ANNOUNCEMENT -->
               <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-global">
                 <div class="mb-4">
-                  <h5 class="text-white fw-bold mb-1">Aviso Global</h5>
-                  <p class="text-secondary small mb-0">Enviar uma notificação modal em tempo real para todos os usuários online na plataforma.</p>
+                  <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Aviso Global</h5>
+                  <p class="small mb-0" style="color: #9f9f9f;">Enviar uma notificação modal em tempo real para todos os usuários online na plataforma.</p>
                 </div>
 
-                <div class="card border-secondary bg-dark p-4 rounded-3 shadow-sm mb-4" style="background-color: #141824 !important;">
+                <div class="admin-card p-4 mb-4">
                   <label for="admin-global-message" class="form-label text-white fw-semibold mb-2">Conteúdo da Mensagem</label>
-                  <textarea class="form-control bg-dark text-white border-secondary p-3" id="admin-global-message" rows="6" placeholder="Escreva o comunicado oficial para todos os usuários..." style="resize: none; font-size: 0.95rem;"></textarea>
+                  <textarea class="form-control" id="admin-global-message" rows="6" placeholder="Escreva o comunicado oficial para todos os usuários..." style="resize: none;"></textarea>
                 </div>
 
-                <button class="btn btn-success py-2.5 px-4 fw-bold align-self-start d-flex align-items-center gap-2" id="btn-admin-send-global" style="border-radius: var(--radius-sm);">
+                <button class="btn btn-admin-primary py-2.5 px-4 fw-bold align-self-start d-flex align-items-center gap-2" id="btn-admin-send-global">
                   <i class="bi bi-send-fill"></i>
                   <span>Enviar Aviso Global</span>
                 </button>
@@ -186,90 +391,60 @@
               <!-- TAB 3: INDIVIDUAL MESSAGE -->
               <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-individual">
                 <div class="mb-4">
-                  <h5 class="text-white fw-bold mb-1">Mensagem Individual</h5>
-                  <p class="text-secondary small mb-0">Enviar aviso privado para um usuário específico buscando pelo ID Interno (ex: USR-000031) ou selecionando da lista.</p>
+                  <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Mensagem Individual</h5>
+                  <p class="small mb-0" style="color: #9f9f9f;">Enviar aviso privado para um usuário específico selecionando da lista ou pelo UID.</p>
                 </div>
 
-                <div class="card border-secondary bg-dark p-4 rounded-3 shadow-sm mb-4" style="background-color: #141824 !important;">
+                <div class="admin-card p-4 mb-4">
                   <div class="mb-3">
                     <label for="admin-individual-user-select" class="form-label text-white fw-semibold mb-1">Selecione o Usuário</label>
-                    <select class="form-select bg-dark text-white border-secondary mb-2" id="admin-individual-user-select">
+                    <select class="form-select" id="admin-individual-user-select">
                       <option value="">Selecione um usuário cadastrado...</option>
                     </select>
                   </div>
 
                   <div class="mb-3">
                     <label for="admin-individual-target-id" class="form-label text-white fw-semibold mb-1">Ou digite o ID Interno / UID do Usuário</label>
-                    <input type="text" class="form-control bg-dark text-white border-secondary" id="admin-individual-target-id" placeholder="Ex: USR-000031">
+                    <input type="text" class="form-control" id="admin-individual-target-id" placeholder="Ex: USR-000031 ou Firebase UID">
                   </div>
 
                   <div class="mb-0">
                     <label for="admin-individual-message" class="form-label text-white fw-semibold mb-1">Conteúdo da Mensagem Privada</label>
-                    <textarea class="form-control bg-dark text-white border-secondary p-3" id="admin-individual-message" rows="5" placeholder="Escreva a notificação direta..." style="resize: none; font-size: 0.95rem;"></textarea>
+                    <textarea class="form-control" id="admin-individual-message" rows="5" placeholder="Escreva a notificação direta..." style="resize: none;"></textarea>
                   </div>
                 </div>
 
-                <button class="btn btn-success py-2.5 px-4 fw-bold align-self-start d-flex align-items-center gap-2" id="btn-admin-send-individual" style="border-radius: var(--radius-sm);">
+                <button class="btn btn-admin-primary py-2.5 px-4 fw-bold align-self-start d-flex align-items-center gap-2" id="btn-admin-send-individual">
                   <i class="bi bi-send-fill"></i>
                   <span>Enviar Mensagem Individual</span>
                 </button>
               </div>
 
-              <!-- TAB 4: AUDIT LOGS -->
-              <div class="admin-tab-content d-none flex-column h-100" id="admin-content-audits">
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                  <div>
-                    <h5 class="text-white fw-bold mb-1">Logs de Auditoria</h5>
-                    <p class="text-secondary small mb-0">Histórico completo de ações administrativas registradas na coleção <code class="text-info fw-bold">audits</code>.</p>
-                  </div>
-                  <button class="btn btn-outline-secondary btn-sm px-3" id="btn-refresh-audit-logs">
-                    <i class="bi bi-arrow-clockwise me-1"></i> Atualizar Logs
-                  </button>
-                </div>
-
-                <div class="table-responsive flex-grow-1 border border-secondary rounded-3" style="background-color: #141824;">
-                  <table class="table table-dark table-striped table-hover border-secondary align-middle mb-0" style="font-size: 0.8rem;">
-                    <thead class="table-dark text-secondary" style="background-color: #1a1f2e;">
-                      <tr class="border-secondary">
-                        <th class="ps-3 py-3">Data/Hora</th>
-                        <th class="py-3">Administrador</th>
-                        <th class="py-3">Ação</th>
-                        <th class="py-3">Alvo</th>
-                        <th class="pe-3 py-3">Detalhes</th>
-                      </tr>
-                    </thead>
-                    <tbody id="admin-audits-table-body">
-                      <!-- Filled dynamically -->
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <!-- TAB 5: ADS MANAGEMENT -->
+              <!-- TAB 4: ADS MANAGEMENT -->
               <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-ads">
                 <div class="mb-4">
-                  <h5 class="text-white fw-bold mb-1">Gerenciamento de Anúncios</h5>
-                  <p class="text-secondary small mb-0">Pesquise um usuário por UID do Firebase, ID Interno (ex: USR-000001) ou email para definir a permissão de exibição de anúncios.</p>
+                  <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Gerenciamento de Anúncios</h5>
+                  <p class="small mb-0" style="color: #9f9f9f;">Pesquise um usuário por Firebase UID, ID Interno (ex: USR-000001) ou email para definir a permissão de exibição de anúncios.</p>
                 </div>
 
-                <div class="card border-secondary bg-dark p-4 rounded-3 shadow-sm mb-4" style="background-color: #141824 !important;">
+                <div class="admin-card p-4 mb-4">
                   <div class="mb-3">
                     <label for="admin-ads-search-input" class="form-label text-white fw-semibold mb-1">Pesquisar Usuário</label>
                     <div class="input-group">
-                      <input type="text" class="form-control bg-dark text-white border-secondary" id="admin-ads-search-input" placeholder="Digite UID, ID Interno (USR-...) ou Email...">
-                      <button class="btn btn-outline-secondary px-4 fw-bold text-white" id="btn-admin-ads-search" type="button">
+                      <input type="text" class="form-control" id="admin-ads-search-input" placeholder="Digite UID, ID Interno (USR-...) ou Email..." style="border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important;">
+                      <button class="btn btn-admin-dark px-4 fw-bold" id="btn-admin-ads-search" type="button" style="border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important;">
                         <i class="bi bi-search me-1"></i> Pesquisar
                       </button>
                     </div>
                   </div>
 
                   <!-- User Result Box (Hidden by default) -->
-                  <div id="admin-ads-user-result" class="d-none border border-secondary rounded-3 p-3 mt-3" style="background-color: #1a1f2e;">
-                    <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom border-secondary">
-                      <div id="admin-ads-user-avatar" class="avatar-circle d-inline-flex align-items-center justify-content-center text-white fw-bold rounded-circle flex-shrink-0" style="width: 48px; height: 48px; font-size: 1.2rem; background-color: #2b3245;">U</div>
+                  <div id="admin-ads-user-result" class="d-none border rounded-3 p-3 mt-3" style="background-color: #141414; border-color: rgba(255,255,255,0.08) !important;">
+                    <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom" style="border-color: rgba(255,255,255,0.08) !important;">
+                      <div id="admin-ads-user-avatar" class="avatar-circle d-inline-flex align-items-center justify-content-center text-white fw-bold rounded-circle flex-shrink-0" style="width: 48px; height: 48px; font-size: 1.2rem; background-color: #242424;">U</div>
                       <div>
                         <h6 id="admin-ads-user-name" class="text-white fw-bold mb-0">Nome do Usuário</h6>
-                        <div id="admin-ads-user-uid" class="small text-secondary font-monospace" style="font-size: 0.78rem;">UID: ...</div>
+                        <div id="admin-ads-user-uid" class="small font-monospace" style="font-size: 0.78rem; color: #9f9f9f;">UID: ...</div>
                         <div id="admin-ads-user-status" class="mt-1"></div>
                       </div>
                     </div>
@@ -280,20 +455,20 @@
                         Ocultar anúncios para este usuário (adsDisabled = true)
                       </label>
                     </div>
-                    <div class="form-text text-secondary small mt-1">
+                    <div class="form-text small mt-1" style="color: #9f9f9f;">
                       Quando marcado como ocultar, o servidor responderá <code>showAds: false</code> para este usuário e nenhum script da Monetag será carregado.
                     </div>
 
-                    <div class="mt-4 pt-2 border-top border-secondary text-end">
-                      <button class="btn btn-success px-4 fw-bold" id="btn-admin-ads-save">
-                        <i class="bi bi-check-circle-fill me-1"></i> Salvar
+                    <div class="mt-4 pt-2 border-top text-end" style="border-color: rgba(255,255,255,0.08) !important;">
+                      <button class="btn btn-admin-primary px-4 fw-bold" id="btn-admin-ads-save">
+                        <i class="bi bi-check-circle-fill me-1"></i> Salvar Permissão
                       </button>
                     </div>
                   </div>
 
                   <!-- Not Found Msg -->
-                  <div id="admin-ads-user-notfound" class="d-none alert alert-dark border-secondary text-secondary mt-3 mb-0" style="background-color: #11141f;">
-                    <i class="bi bi-exclamation-triangle me-1"></i> Nenhum usuário localizado com a chave informada.
+                  <div id="admin-ads-user-notfound" class="d-none alert border text-white mt-3 mb-0" style="background-color: #141414; border-color: rgba(255,255,255,0.08) !important; color: #d7d7d7 !important;">
+                    <i class="bi bi-exclamation-triangle me-1 text-warning"></i> Nenhum usuário localizado com a chave informada.
                   </div>
                 </div>
               </div>
@@ -323,18 +498,23 @@
       refreshAdminData();
     });
 
+    // Sidebar collapse toggle
+    const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
+    const adminSidebar = document.getElementById("admin-sidebar");
+    if (btnToggleSidebar && adminSidebar) {
+      btnToggleSidebar.addEventListener("click", () => {
+        adminSidebar.classList.toggle("collapsed");
+      });
+    }
+
     // Tab buttons switching
     const tabBtns = document.querySelectorAll(".btn-admin-tab");
     tabBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
         tabBtns.forEach(b => {
           b.classList.remove("active");
-          b.classList.replace("text-white", "text-white-50");
-          b.style.backgroundColor = "transparent";
         });
         btn.classList.add("active");
-        btn.classList.replace("text-white-50", "text-white");
-        btn.style.backgroundColor = "#1f2433";
 
         activeTab = btn.getAttribute("data-tab");
         showActiveTabContent();
@@ -601,12 +781,12 @@
 
     paginated.forEach((u) => {
       const initial = u.nickname ? u.nickname.trim().charAt(0).toUpperCase() : "U";
-      const avatarHTML = `<div class="avatar-circle d-inline-flex align-items-center justify-content-center text-white fw-bold rounded-circle flex-shrink-0" style="width: 32px; height: 32px; font-size: 0.75rem; background-color: #2b3245;">${initial}</div>`;
+      const avatarHTML = `<div class="avatar-circle d-inline-flex align-items-center justify-content-center text-white fw-bold rounded-circle flex-shrink-0" style="width: 32px; height: 32px; font-size: 0.75rem; background-color: #242424;">${initial}</div>`;
 
       const isOnline = onlineUsersWS.some((w) => w.uid === u.uid || w.permanentId === u.permanentId);
       const statusBadge = isOnline
-        ? `<span class="badge bg-success bg-opacity-20 text-success border border-success border-opacity-20 px-2 py-1"><i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i>Online</span>`
-        : `<span class="badge bg-secondary bg-opacity-20 text-secondary border border-secondary border-opacity-20 px-2 py-1">Offline</span>`;
+        ? `<span class="badge px-2 py-1" style="background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2);"><i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i>Online</span>`
+        : `<span class="badge px-2 py-1" style="background-color: rgba(255, 255, 255, 0.05); color: #9f9f9f; border: 1px solid rgba(255, 255, 255, 0.08);">Offline</span>`;
 
       // Admin Switch Bootstrap
       const adminSwitch = `
@@ -620,24 +800,24 @@
       let suspendHTML = "";
       if (isSuspended) {
         suspendHTML = `
-          <button class="btn btn-outline-warning btn-sm py-1 px-2 btn-admin-unsuspend" data-uid="${u.uid}" style="font-size: 0.72rem;">
+          <button class="btn btn-outline-warning btn-sm py-1 px-2 btn-admin-unsuspend" data-uid="${u.uid}" style="font-size: 0.72rem; border-radius: 8px;">
             <i class="bi bi-play-circle me-1"></i>Remover Suspensão
           </button>
         `;
       } else {
         suspendHTML = `
           <div class="btn-group">
-            <button type="button" class="btn btn-warning btn-sm py-1 px-2 text-dark fw-bold dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.72rem;">
+            <button type="button" class="btn btn-warning btn-sm py-1 px-2 text-dark fw-bold dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.72rem; border-radius: 8px;">
               Suspender
             </button>
-            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark bg-dark border-secondary shadow" style="font-size: 0.75rem;">
-              <li><a class="dropdown-item py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="300000">5 Minutos</a></li>
-              <li><a class="dropdown-item py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="600000">10 Minutos</a></li>
-              <li><a class="dropdown-item py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="1800000">30 Minutos</a></li>
-              <li><a class="dropdown-item py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="3600000">1 Hora</a></li>
-              <li><a class="dropdown-item py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="86400000">24 Horas</a></li>
-              <li><hr class="dropdown-divider border-secondary"></li>
-              <li><a class="dropdown-item py-1.5 text-danger btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="3153600000000">Permanente</a></li>
+            <ul class="dropdown-menu dropdown-menu-end shadow" style="font-size: 0.75rem; background-color: #171717; border: 1px solid rgba(255,255,255,0.1);">
+              <li><a class="dropdown-item text-white py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="300000">5 Minutos</a></li>
+              <li><a class="dropdown-item text-white py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="600000">10 Minutos</a></li>
+              <li><a class="dropdown-item text-white py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="1800000">30 Minutos</a></li>
+              <li><a class="dropdown-item text-white py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="3600000">1 Hora</a></li>
+              <li><a class="dropdown-item text-white py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="86400000">24 Horas</a></li>
+              <li><hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.1);"></li>
+              <li><a class="dropdown-item text-danger py-1.5 btn-admin-suspend" href="#" data-uid="${u.uid}" data-ms="3153600000000">Permanente</a></li>
             </ul>
           </div>
         `;
@@ -648,34 +828,34 @@
       let banHTML = "";
       if (isBanned) {
         banHTML = `
-          <button class="btn btn-outline-success btn-sm py-1 px-2 btn-admin-unban" data-uid="${u.uid}" style="font-size: 0.72rem;">
+          <button class="btn btn-outline-success btn-sm py-1 px-2 btn-admin-unban" data-uid="${u.uid}" style="font-size: 0.72rem; border-radius: 8px;">
             <i class="bi bi-check-circle me-1"></i>Remover Banimento
           </button>
         `;
       } else {
         banHTML = `
-          <button class="btn btn-danger btn-sm py-1 px-2 btn-admin-ban" data-uid="${u.uid}" style="font-size: 0.72rem;">
+          <button class="btn btn-danger btn-sm py-1 px-2 btn-admin-ban" data-uid="${u.uid}" style="font-size: 0.72rem; border-radius: 8px;">
             Banir
           </button>
         `;
       }
 
       const tr = document.createElement("tr");
-      tr.className = "border-secondary";
+      tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
       tr.innerHTML = `
         <td class="ps-3">
           <div class="d-flex align-items-center gap-2">
             ${avatarHTML}
             <div>
               <div class="fw-bold text-white">${u.nickname}</div>
-              <div class="small text-secondary" style="font-size: 0.75rem;">${u.email}</div>
+              <div class="small" style="font-size: 0.75rem; color: #9f9f9f;">${u.email}</div>
             </div>
           </div>
         </td>
-        <td><span class="badge bg-secondary bg-opacity-20 text-white font-monospace border border-secondary border-opacity-20 px-2 py-1">${u.permanentId}</span></td>
-        <td><span class="font-monospace text-secondary small" title="${u.uid}">${u.uid.substring(0, 10)}...</span></td>
-        <td><span class="text-white-50">${u.age}</span></td>
-        <td><span class="text-white-50">${u.gender}</span></td>
+        <td><span class="badge font-monospace px-2 py-1" style="background-color: #242424; color: #ffffff; border: 1px solid rgba(255,255,255,0.08);">${u.permanentId}</span></td>
+        <td><span class="font-monospace small" style="color: #9f9f9f;" title="${u.uid}">${u.uid.substring(0, 10)}...</span></td>
+        <td><span style="color: #d7d7d7;">${u.age}</span></td>
+        <td><span style="color: #d7d7d7;">${u.gender}</span></td>
         <td>${statusBadge}</td>
         <td class="text-center">${adminSwitch}</td>
         <td class="pe-3 text-end">
@@ -976,8 +1156,8 @@
       modalEl.style.zIndex = "1110";
       modalEl.innerHTML = `
         <div class="modal-dialog modal-dialog-centered modal-sm">
-          <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: #141824;">
-            <div class="modal-header border-secondary p-3">
+          <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="background-color: #171717; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
+            <div class="modal-header border-bottom p-3" style="border-color: rgba(255, 255, 255, 0.08) !important; background-color: #111111;">
               <h5 class="modal-title text-white fw-bold d-flex align-items-center gap-2" style="font-size: 1rem;">
                 <i class="bi bi-question-circle-fill text-warning"></i>
                 <span id="admin-confirm-title">Confirmar</span>
@@ -985,11 +1165,11 @@
               <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body p-3">
-              <p class="text-white-50 mb-0" id="admin-confirm-text" style="font-size: 0.85rem; line-height: 1.4;"></p>
+              <p class="text-white-50 mb-0" id="admin-confirm-text" style="font-size: 0.85rem; line-height: 1.4; color: #d7d7d7 !important;"></p>
             </div>
-            <div class="modal-footer border-secondary p-2 d-flex gap-2">
-              <button type="button" class="btn btn-secondary flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size: 0.8rem;">Cancelar</button>
-              <button type="button" class="btn btn-danger flex-grow-1 py-2" id="admin-confirm-submit-btn" style="font-size: 0.8rem;">Confirmar</button>
+            <div class="modal-footer border-top p-2 d-flex gap-2" style="border-color: rgba(255, 255, 255, 0.08) !important;">
+              <button type="button" class="btn btn-admin-dark flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size: 0.8rem;">Cancelar</button>
+              <button type="button" class="btn btn-admin-primary flex-grow-1 py-2" id="admin-confirm-submit-btn" style="font-size: 0.8rem;">Confirmar</button>
             </div>
           </div>
         </div>
