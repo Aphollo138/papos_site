@@ -1596,5 +1596,69 @@ body.chat-page i.bi {
   }
 }
 
+/* Verified Admin Badge animation & layout styling */
+.verified-admin-badge {
+  display: inline-block !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  object-fit: contain !important;
+  animation: verifiedBadgeFade 200ms ease forwards;
+}
+
+@keyframes verifiedBadgeFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Global Icon Sizing Reduction (~15% to 20%) */
+i.bi, .bi, i[class^="bi-"], i[class*=" bi-"] {
+  font-size: 0.82em;
+  vertical-align: -0.08em;
+}
+
+.chat-wrapper i.bi, 
+.navbar-custom i.bi,
+.chat-header i.bi,
+.chat-sidebar i.bi,
+.offcanvas i.bi,
+.modal i.bi,
+.dropdown-menu i.bi,
+.btn i.bi,
+.member-item i.bi,
+#members-list-container i.bi {
+  font-size: 0.82em !important;
+}
+
+.chat-wrapper .fs-4 i.bi,
+.chat-wrapper i.bi.fs-4,
+i.bi.fs-4 {
+  font-size: 1.05rem !important;
+}
+
+.chat-wrapper .fs-5 i.bi,
+.chat-wrapper i.bi.fs-5,
+i.bi.fs-5 {
+  font-size: 0.92rem !important;
+}
+
+.chat-wrapper .fs-1 i.bi,
+.chat-wrapper i.bi.fs-1,
+i.bi.fs-1 {
+  font-size: 1.5rem !important;
+}
+
+body.chat-page i.bi {
+  font-size: 0.82rem !important;
+}
+
+
 
 

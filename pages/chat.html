@@ -239,41 +239,6 @@
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-3 d-none align-items-center gap-1.5 text-danger" id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-box-arrow-right text-danger"></i> <span>Sair</span>
               </button>
-
-              <!-- Dropdown Perfil Logado (Desktop) -->
-              <div class="dropdown d-none" id="user-profile-dropdown-desktop">
-                <button class="btn btn-secondary-custom btn-sm py-1 px-2 d-flex align-items-center gap-2 border-0" type="button" id="dropdownUserDesktop" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm); background: transparent;">
-                  <div id="desktop-user-avatar-container" style="width: 28px; height: 28px;"></div>
-                  <span class="text-white d-none d-lg-inline small fw-bold" id="desktop-user-name">...</span>
-                  <i class="bi bi-chevron-down text-secondary" style="font-size: 0.75rem;"></i>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end border-secondary" aria-labelledby="dropdownUserDesktop" style="background-color: var(--surface);">
-                  <li>
-                    <div class="dropdown-header text-secondary small py-1 px-3 d-flex flex-column">
-                      <span class="text-white fw-bold" id="desktop-dropdown-user-name">...</span>
-                      <span class="text-secondary" style="font-size: 0.7rem;" id="desktop-dropdown-user-email">...</span>
-                    </div>
-                  </li>
-                  <li><hr class="dropdown-divider border-secondary"></li>
-                  <li>
-                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/perfil">
-                      <i class="bi bi-person-fill text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Meu Perfil</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/perfil">
-                      <i class="bi bi-gear-fill text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Configurações</span>
-                    </a>
-                  </li>
-                  <li><hr class="dropdown-divider border-secondary"></li>
-                  <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" id="btn-logout-trigger" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
-                      <i class="bi bi-box-arrow-right"></i> <span style="font-size: 0.85rem;">Sair</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
             </div>
 
             <!-- Botões de Ação do Cabeçalho - MOBILE (Compacto, essenciais expostos, secundários em dropdown) -->
@@ -297,22 +262,7 @@
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 d-none text-danger" id="btn-logout-action-mobile" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" style="border-radius: var(--radius-sm);">
                 <i class="bi bi-box-arrow-right text-danger"></i>
               </button>
-
-              <!-- Dropdown Perfil Logado (Mobile) -->
-              <div class="dropdown d-none" id="user-profile-dropdown-mobile">
-                <button class="btn btn-secondary-custom btn-sm p-0 d-flex align-items-center border-0" type="button" id="dropdownUserMobile" data-bs-toggle="dropdown" aria-expanded="false" style="background: transparent;">
-                  <div id="mobile-user-avatar-container" style="width: 28px; height: 28px;"></div>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end border-secondary" aria-labelledby="dropdownUserMobile" style="background-color: var(--surface);">
-                  <li>
-                    <div class="dropdown-header text-secondary small py-1 px-3 d-flex flex-column">
-                      <span class="text-white fw-bold" id="mobile-dropdown-user-name">...</span>
-                      <span class="text-secondary" style="font-size: 0.7rem;" id="mobile-dropdown-user-email">...</span>
-                    </div>
-                  </li>
-                  <li><hr class="dropdown-divider border-secondary"></li>
-                  <li>
-                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/perfil">
+            </div>
                       <i class="bi bi-person-fill text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Meu Perfil</span>
                     </a>
                   </li>

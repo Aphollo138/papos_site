@@ -326,6 +326,27 @@ const FirebaseService = {
     });
   },
 
+  // Real-time listener for users with admin == true
+  subscribeToAdmins(callback) {
+    try {
+      const q = query(collection(db, "users"), where("admin", "==", true));
+      return onSnapshot(q, (querySnapshot) => {
+        const adminNicknames = [];
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const nick = data.displayName || data.nickname;
+          if (nick) adminNicknames.push(nick);
+        });
+        callback(adminNicknames);
+      }, (error) => {
+        console.error("Erro ao escutar administradores:", error);
+      });
+    } catch (e) {
+      console.error("Erro em subscribeToAdmins:", e);
+      return () => {};
+    }
+  },
+
   // Real-time listener exclusively for 'users' collection (Admin panel)
   subscribeToAllUsers(callback) {
     const user = auth.currentUser;

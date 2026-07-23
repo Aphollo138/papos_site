@@ -38,6 +38,16 @@ function formatMessageTime(msg) {
 // Global action handles
 let replyTargetMsg = null;
 let blockedUsers = JSON.parse(localStorage.getItem("papos_blocked_users") || "[]");
+
+// Global Admin User helper & Real-time admin state tracking
+window.adminUsersSet = window.adminUsersSet || new Set();
+window.isAdminUser = function(nickname) {
+  if (!nickname) return false;
+  const lower = String(nickname).toLowerCase();
+  if (window.adminUsersSet && window.adminUsersSet.has(lower)) return true;
+  if (lower.includes("admin") || lower.includes("mod") || lower === "sistema") return true;
+  return false;
+};
 let activePrivateRecipient = null; // Username of active direct message partner
 let chatMode = "public"; // "public" or "private"
 let activeMessageColor = "";
@@ -194,6 +204,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // Subscribe to real-time updates for checking ban, suspension, and admin status
           let profileUnsubscribe = null;
+          if (window.FirebaseService && typeof window.FirebaseService.subscribeToAdmins === "function") {
+            window.FirebaseService.subscribeToAdmins((admins) => {
+              window.adminUsersSet = new Set(admins.map(a => String(a).toLowerCase()));
+              if (typeof renderMembers === "function") {
+                renderMembers();
+              }
+            });
+          }
           window.FirebaseService.syncUserProfile().then((initialProfile) => {
             if (initialProfile) {
               if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
@@ -1234,17 +1252,34 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       filteredUsers.forEach(u => {
         const isMe = u === (window.confirmedNickname || currentUser);
-        const isMod = u.toLowerCase().includes("mod") || u.toLowerCase().includes("admin") || u === "Sistema";
+        const isAdmin = window.isAdminUser ? window.isAdminUser(u) : (u.toLowerCase().includes("admin") || u.toLowerCase().includes("mod") || u === "Sistema");
+        const isMod = !isAdmin && (u.toLowerCase().includes("mod") || u === "Sistema");
         
         const avatarHtml = window.ChatEngine ? window.ChatEngine.renderAvatar(u, "avatar-member") : `<div class="avatar-member bg-secondary">P</div>`;
-        const statusHtml = `<span class="status-indicator status-online ms-1.5" style="width: 8px; height: 8px; flex-shrink: 0; position: static; display: inline-block; ${isMod ? 'background-color: #ff4a4a !important;' : ''}"></span>`;
+        const statusHtml = `<span class="status-indicator status-online ms-1.5" style="width: 8px; height: 8px; flex-shrink: 0; position: static; display: inline-block; ${(isAdmin || isMod) ? 'background-color: #f5c542 !important;' : ''}"></span>`;
         
+        const nameColorStyle = isAdmin ? 'color: #f5c542 !important; font-weight: 700 !important;' : (isMe ? 'color: #ffffff !important; font-weight: 700 !important;' : 'color: #d4d4d4 !important;');
+        const adminBadgeHtml = isAdmin ? `
+          <img
+            src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADXklEQVR4nO2Zy0tVURTGf4mTO4zUBvkg7SEhETXJqNQ7apQRDa7/gL0cWQP9DwqkIBokmWhaUEQ1Kwt6gGavYUXmxIpeDmoSSlDd2PBt2Ni95557POeeY/nBAblnr7XX59mP9a0Fy/g/0AoMAtPAvJ5p/dbCEkAtcAfIFnjGgBoSis3AZyfYe0An0KanU7/Z95+AJhKGSuC9AvyipZUPrRpjxr4FKogBK4BtwHHgNNAHdAE3FNg3oN6Hn3qNNTbX5cP4Mj6PaQ4zVyTYB7wssPY7ivCXKeDrBdAeJoFut4B454A3w3Xw4/1vC3c0xJpE24lzZ4R2xSXVpMIn5A344d5o3OsbzXpMKnN4p9c4qHqIChE1yVRUfCR4031d2R5qS3M/o4C783/i+XwY1O34d0wE3vI/X/T7o2K/m5T6s8M351O25tC3uS9yE1C2S9S3/y6vA85x/02S1/7c2s0/R1m/c60c8eNfXjX4/oG3fA=="
+            alt="Administrador Verificado"
+            aria-label="Administrador Verificado"
+            class="verified-admin-badge"
+            loading="lazy"
+            decoding="async"
+            width="16"
+            height="16"
+            style="width: 16px; height: 16px; vertical-align: middle; flex-shrink: 0; display: inline-block; margin-left: 3px;"
+          >
+        ` : '';
+
         html += `
           <div class="member-item d-flex align-items-center justify-content-between py-1.5 px-3">
             <button class="btn p-0 border-0 d-flex align-items-center gap-2 text-truncate text-start" onclick="window.openUserProfile('${u}')" style="cursor: pointer; background: transparent; color: inherit; min-width: 0; flex: 1;" tabindex="0" aria-label="Ver perfil de ${u}">
               ${avatarHtml}
-              <span class="${isMe ? 'fw-bold text-white' : 'text-secondary'} small text-truncate d-inline-flex align-items-center gap-1.5" title="${u}" style="min-width: 0; pointer-events: none;">
-                <span class="text-truncate">${u} ${isMe ? '(Você)' : ''}</span>
+              <span class="small text-truncate d-inline-flex align-items-center gap-1.5" title="${u}" style="min-width: 0; pointer-events: none; white-space: nowrap;">
+                <span class="text-truncate" style="${nameColorStyle}">${u} ${isMe ? '(Você)' : ''}</span>
+                ${adminBadgeHtml}
                 ${isMod ? '<span class="badge bg-danger-subtle text-danger flex-shrink-0" style="font-size:0.55rem; padding: 2px 4px;">MOD</span>' : ''}
                 ${statusHtml}
               </span>
@@ -2039,6 +2074,30 @@ document.addEventListener("DOMContentLoaded", () => {
     // 3. Nome
     if (nicknameEl) {
       nicknameEl.textContent = profile.nickname;
+
+      const isProfileAdmin = profile.admin === true || (window.isAdminUser && window.isAdminUser(profile.nickname));
+      let badgeEl = document.getElementById("modal-profile-admin-badge");
+      if (isProfileAdmin) {
+        nicknameEl.style.color = "#f5c542";
+        if (!badgeEl) {
+          badgeEl = document.createElement("div");
+          badgeEl.id = "modal-profile-admin-badge";
+          badgeEl.className = "mt-1 mb-2 text-center";
+          badgeEl.innerHTML = `
+            <span style="background:#FFD700; color:#000; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600; display:inline-inline-block;">
+              Administrador
+            </span>
+          `;
+          if (nicknameEl.parentNode) {
+            nicknameEl.parentNode.insertBefore(badgeEl, nicknameEl.nextSibling);
+          }
+        } else {
+          badgeEl.style.display = "block";
+        }
+      } else {
+        nicknameEl.style.color = "";
+        if (badgeEl) badgeEl.style.display = "none";
+      }
     }
 
     // 3.5 Identificador Único
