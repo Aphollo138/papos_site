@@ -47,12 +47,73 @@
         }
       },
       "required": ["userEmail", "partner", "id", "sender", "recipient", "text", "timestamp", "time", "unread"]
+    },
+    "supportTicket": {
+      "title": "Support Ticket",
+      "description": "Represents a user support ticket",
+      "type": "object",
+      "properties": {
+        "ticketId": {
+          "type": "string",
+          "description": "Friendly ticket identifier (e.g. SUP-000001)"
+        },
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of creator"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name/nickname of creator"
+        },
+        "email": {
+          "type": "string",
+          "description": "Contact email for support"
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Ticket subject"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["BUG", "Remover anúncio", "Denúncia de usuário", "Sugestão de melhoria"]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 3000,
+          "description": "Detailed description of problem"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["aberto", "em_andamento", "encerrado"]
+        },
+        "createdAt": {
+          "type": "integer"
+        },
+        "updatedAt": {
+          "type": "integer"
+        },
+        "closedAt": {
+          "type": "integer"
+        },
+        "closedBy": {
+          "type": "string"
+        },
+        "adminReply": {
+          "type": "string"
+        }
+      },
+      "required": ["ticketId", "uid", "email", "subject", "category", "message", "status", "createdAt"]
     }
   },
   "firestore": {
     "/privateChats/{messageId}": {
       "schema": "privateMessage",
       "description": "Collection storing per-user private message history"
+    },
+    "/supportTickets/{ticketId}": {
+      "schema": "supportTicket",
+      "description": "Collection storing user support tickets"
     }
   }
 }

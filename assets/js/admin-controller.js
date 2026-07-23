@@ -10,8 +10,14 @@
   let currentPage = 1;
   const itemsPerPage = 10;
   let searchQuery = "";
-  let activeTab = "users"; // "users", "global", "individual", "audits"
+  let activeTab = "users"; // "users", "global", "individual", "audits", "tickets"
   let isFirestoreSubscribed = false;
+
+  // Support Tickets Admin State
+  let allAdminTickets = [];
+  let ticketFilter = "todos";
+  let selectedAdminTicketId = null;
+  let adminTicketsUnsubscribe = null;
 
   // Initialize Firestore user real-time listener
   function initFirestoreUsersListener() {
@@ -330,6 +336,12 @@
                     <span class="fw-medium sidebar-text">Anúncios</span>
                   </button>
                 </li>
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-tickets" data-tab="tickets" type="button" role="tab">
+                    <i class="bi bi-headset fs-5 flex-shrink-0"></i>
+                    <span class="fw-medium sidebar-text">Chamados</span>
+                  </button>
+                </li>
               </ul>
 
               <div class="mt-auto pt-3 border-top px-2 sidebar-footer" style="border-color: rgba(255,255,255,0.08) !important;">
@@ -487,6 +499,47 @@
                   <div id="admin-ads-user-notfound" class="d-none alert border text-white mt-3 mb-0" style="background-color: #141414; border-color: rgba(255,255,255,0.08) !important; color: #d7d7d7 !important;">
                     <i class="bi bi-exclamation-triangle me-1 text-warning"></i> Nenhum usuário localizado com a chave informada.
                   </div>
+                </div>
+              </div>
+
+              <!-- TAB 5: CHAMADOS -->
+              <div class="admin-tab-content d-none flex-column h-100" id="admin-content-tickets">
+                <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between mb-4">
+                  <div>
+                    <h5 class="text-white fw-bold mb-1">Chamados de Suporte</h5>
+                    <p class="small mb-0" style="color: #9f9f9f;">Gerencie e responda às solicitações de suporte dos usuários.</p>
+                  </div>
+                  <div class="btn-group" role="group" aria-label="Filtro de chamados">
+                    <button type="button" class="btn btn-sm btn-outline-secondary active admin-ticket-filter-btn" data-filter="todos">Todos</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary admin-ticket-filter-btn" data-filter="aberto">Abertos</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary admin-ticket-filter-btn" data-filter="em_andamento">Em andamento</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary admin-ticket-filter-btn" data-filter="encerrado">Encerrados</button>
+                  </div>
+                </div>
+
+                <div class="table-responsive rounded-3 border flex-grow-1 mb-3" style="border-color: rgba(255, 255, 255, 0.08) !important; background-color: #121212;">
+                  <table class="table table-dark table-hover align-middle mb-0" style="font-size: 0.88rem;">
+                    <thead style="background-color: #1a1a1a;">
+                      <tr>
+                        <th scope="col" class="py-3 px-3 text-secondary text-uppercase fw-bold" style="font-size: 0.75rem;">ID</th>
+                        <th scope="col" class="py-3 px-3 text-secondary text-uppercase fw-bold" style="font-size: 0.75rem;">Usuário</th>
+                        <th scope="col" class="py-3 px-3 text-secondary text-uppercase fw-bold" style="font-size: 0.75rem;">Email</th>
+                        <th scope="col" class="py-3 px-3 text-secondary text-uppercase fw-bold" style="font-size: 0.75rem;">Categoria</th>
+                        <th scope="col" class="py-3 px-3 text-secondary text-uppercase fw-bold" style="font-size: 0.75rem;">Assunto</th>
+                        <th scope="col" class="py-3 px-3 text-secondary text-uppercase fw-bold" style="font-size: 0.75rem;">Status</th>
+                        <th scope="col" class="py-3 px-3 text-secondary text-uppercase fw-bold" style="font-size: 0.75rem;">Data</th>
+                        <th scope="col" class="py-3 px-3 text-secondary text-uppercase fw-bold text-end" style="font-size: 0.75rem;">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="admin-tickets-tbody">
+                      <tr>
+                        <td colspan="8" class="text-center py-5 text-secondary">
+                          <i class="bi bi-headset fs-2 d-block mb-2 text-secondary opacity-50"></i>
+                          Nenhum chamado recebido até o momento.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -735,6 +788,256 @@
         } catch (err) {
           window.showAdminLoading(false);
           window.showAdminToast("Erro ao executar operação.", "error");
+        }
+      });
+    }
+
+    // Support Ticket Filter Listeners
+    const filterBtns = document.querySelectorAll(".admin-ticket-filter-btn");
+    filterBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        filterBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        ticketFilter = btn.getAttribute("data-filter") || "todos";
+        renderAdminTicketsTable();
+      });
+    });
+
+    initFirestoreTicketsListener();
+  }
+
+  // Initialize Support Tickets Firestore Listener (Admin)
+  function initFirestoreTicketsListener() {
+    if (!window.FirebaseService || typeof window.FirebaseService.subscribeToAllTickets !== "function") return;
+    if (adminTicketsUnsubscribe) return; // already listening
+
+    adminTicketsUnsubscribe = window.FirebaseService.subscribeToAllTickets((tickets) => {
+      allAdminTickets = tickets || [];
+      renderAdminTicketsTable();
+    });
+  }
+
+  // Render Support Tickets Table for Admin
+  function renderAdminTicketsTable() {
+    const tbody = document.getElementById("admin-tickets-tbody");
+    if (!tbody) return;
+
+    let filtered = allAdminTickets;
+    if (ticketFilter !== "todos") {
+      filtered = allAdminTickets.filter((t) => t.status === ticketFilter);
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="text-center py-5 text-secondary">
+            <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary opacity-50"></i>
+            Nenhum chamado encontrado com o filtro atual.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    let html = "";
+    filtered.forEach((ticket) => {
+      let statusBadge = "";
+      if (ticket.status === "aberto") {
+        statusBadge = `<span class="badge bg-warning text-dark fw-bold">Aberto</span>`;
+      } else if (ticket.status === "em_andamento") {
+        statusBadge = `<span class="badge bg-info text-dark fw-bold">Em andamento</span>`;
+      } else if (ticket.status === "encerrado") {
+        statusBadge = `<span class="badge bg-secondary text-white fw-bold">Encerrado</span>`;
+      } else {
+        statusBadge = `<span class="badge bg-secondary text-white">${ticket.status}</span>`;
+      }
+
+      html += `
+        <tr>
+          <td class="px-3 py-2.5 font-monospace fw-bold text-primary">${ticket.ticketId || "SUP-000000"}</td>
+          <td class="px-3 py-2.5 text-white fw-medium">${ticket.displayName || "Usuário"}</td>
+          <td class="px-3 py-2.5 text-white-50 small font-monospace">${ticket.email || "N/A"}</td>
+          <td class="px-3 py-2.5"><span class="badge bg-dark border border-secondary text-white-50">${ticket.category || "BUG"}</span></td>
+          <td class="px-3 py-2.5 text-white text-truncate" style="max-width: 200px;" title="${ticket.subject || ""}">${ticket.subject || "Sem assunto"}</td>
+          <td class="px-3 py-2.5">${statusBadge}</td>
+          <td class="px-3 py-2.5 text-secondary small">${ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString("pt-BR") : "N/A"}</td>
+          <td class="px-3 py-2.5 text-end">
+            <button class="btn btn-sm btn-admin-primary px-2.5 py-1 btn-view-admin-ticket" data-id="${ticket.id}">
+              <i class="bi bi-eye-fill me-1"></i> Ver / Responder
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+
+    tbody.querySelectorAll(".btn-view-admin-ticket").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        openAdminTicketModal(id);
+      });
+    });
+  }
+
+  // Open Admin Ticket Detail & Reply Modal
+  function openAdminTicketModal(ticketDocId) {
+    injectAdminTicketDetailModal();
+    const ticket = allAdminTickets.find((t) => t.id === ticketDocId);
+    if (!ticket) return;
+
+    selectedAdminTicketId = ticket.id;
+
+    document.getElementById("admin-modal-ticket-id").textContent = ticket.ticketId || "SUP-000000";
+
+    let statusBadge = "";
+    if (ticket.status === "aberto") {
+      statusBadge = `<span class="badge bg-warning text-dark fw-bold">Aberto</span>`;
+    } else if (ticket.status === "em_andamento") {
+      statusBadge = `<span class="badge bg-info text-dark fw-bold">Em andamento</span>`;
+    } else if (ticket.status === "encerrado") {
+      statusBadge = `<span class="badge bg-secondary text-white fw-bold">Encerrado</span>`;
+    }
+    document.getElementById("admin-modal-ticket-status").innerHTML = statusBadge;
+
+    document.getElementById("admin-modal-ticket-user").textContent = ticket.displayName || "Usuário";
+    document.getElementById("admin-modal-ticket-uid").textContent = `UID: ${ticket.uid || "N/A"}`;
+    document.getElementById("admin-modal-ticket-email").textContent = ticket.email || "Não informado";
+    document.getElementById("admin-modal-ticket-date").textContent = `Criado em: ${new Date(ticket.createdAt).toLocaleDateString("pt-BR")} às ${new Date(ticket.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+    document.getElementById("admin-modal-ticket-category").textContent = ticket.category || "BUG";
+    document.getElementById("admin-modal-ticket-subject").textContent = ticket.subject || "Sem assunto";
+    document.getElementById("admin-modal-ticket-message").textContent = ticket.message || "";
+
+    const replyArea = document.getElementById("admin-ticket-reply-textarea");
+    if (replyArea) {
+      replyArea.value = ticket.adminReply || "";
+    }
+
+    const modalEl = document.getElementById("adminTicketDetailModal");
+    if (modalEl) {
+      const modalInstance = new bootstrap.Modal(modalEl);
+      modalInstance.show();
+    }
+  }
+
+  // Inject Admin Ticket Detail Modal
+  function injectAdminTicketDetailModal() {
+    if (document.getElementById("adminTicketDetailModal")) return;
+
+    const modal = document.createElement("div");
+    modal.className = "modal fade";
+    modal.id = "adminTicketDetailModal";
+    modal.tabIndex = -1;
+    modal.setAttribute("aria-hidden", "true");
+    modal.innerHTML = `
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" style="max-width: 780px;">
+        <div class="modal-content text-white border border-secondary border-opacity-25 shadow-2xl" style="border-radius: 18px; background-color: #0d0d0d !important;">
+          <div class="modal-header border-bottom border-secondary border-opacity-25 px-4 py-3">
+            <div class="d-flex align-items-center gap-2">
+              <span class="font-monospace fw-bold fs-5 text-primary" id="admin-modal-ticket-id">SUP-000000</span>
+              <span id="admin-modal-ticket-status"></span>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+
+          <div class="modal-body p-4" style="background-color: #0b0b0b;">
+            <div class="row g-3 mb-3 p-3 rounded-3" style="background-color: #141414; border: 1px solid rgba(255,255,255,0.06);">
+              <div class="col-md-6">
+                <span class="text-secondary small fw-bold text-uppercase d-block mb-1">Usuário / Apelido</span>
+                <div class="text-white fw-semibold" id="admin-modal-ticket-user">...</div>
+                <div class="text-secondary small font-monospace mt-0.5" id="admin-modal-ticket-uid">UID: ...</div>
+              </div>
+              <div class="col-md-6">
+                <span class="text-secondary small fw-bold text-uppercase d-block mb-1">E-mail de Contato</span>
+                <div class="text-white font-monospace" id="admin-modal-ticket-email">...</div>
+                <div class="text-secondary small mt-0.5" id="admin-modal-ticket-date">Data: ...</div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <span class="badge bg-secondary text-white mb-2" id="admin-modal-ticket-category">Categoria</span>
+              <h6 class="fw-bold text-white mb-1" id="admin-modal-ticket-subject">Assunto</h6>
+              <div class="p-3 rounded-3 text-white-50 mt-2" style="background-color: #141414; border: 1px solid rgba(255,255,255,0.08); font-size: 0.92rem; white-space: pre-wrap; word-break: break-word;" id="admin-modal-ticket-message">...</div>
+            </div>
+
+            <!-- Response Box -->
+            <div class="p-3 rounded-3 mt-4" style="background-color: #0f1c2e; border: 1px solid rgba(13,110,253,0.3);">
+              <label for="admin-ticket-reply-textarea" class="form-label fw-bold text-white d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-reply-fill text-primary fs-5"></i>
+                <span>Responder ao Usuário</span>
+              </label>
+              <textarea class="form-control bg-dark text-white border-secondary border-opacity-50" id="admin-ticket-reply-textarea" rows="4" placeholder="Digite aqui sua resposta oficial para o usuário..." style="resize: none; font-size: 0.9rem;"></textarea>
+              
+              <div class="d-flex justify-content-between align-items-center mt-3">
+                <button type="button" class="btn btn-outline-danger btn-sm px-3 d-flex align-items-center gap-1.5" id="btn-admin-close-ticket">
+                  <i class="bi bi-x-circle-fill"></i>
+                  <span>Encerrar Chamado</span>
+                </button>
+                <button type="button" class="btn btn-primary px-4 fw-bold d-flex align-items-center gap-2" id="btn-admin-send-reply">
+                  <i class="bi bi-send-fill"></i>
+                  <span>Enviar Resposta</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Event listeners inside modal
+    const btnSendReply = modal.querySelector("#btn-admin-send-reply");
+    const btnCloseTicket = modal.querySelector("#btn-admin-close-ticket");
+
+    if (btnSendReply) {
+      btnSendReply.addEventListener("click", async () => {
+        if (!selectedAdminTicketId) return;
+        const replyText = modal.querySelector("#admin-ticket-reply-textarea")?.value.trim();
+        if (!replyText) {
+          if (window.showAdminToast) window.showAdminToast("Digite uma resposta antes de enviar.", "error");
+          return;
+        }
+
+        try {
+          if (window.showAdminLoading) window.showAdminLoading(true);
+          await window.FirebaseService.replyToSupportTicket(selectedAdminTicketId, replyText);
+          if (window.showAdminLoading) window.showAdminLoading(false);
+          if (window.showAdminToast) window.showAdminToast("Resposta enviada com sucesso!", "success");
+
+          const bsModal = bootstrap.Modal.getInstance(modal);
+          if (bsModal) bsModal.hide();
+        } catch (err) {
+          if (window.showAdminLoading) window.showAdminLoading(false);
+          if (window.showAdminToast) window.showAdminToast("Erro ao enviar resposta.", "error");
+        }
+      });
+    }
+
+    if (btnCloseTicket) {
+      btnCloseTicket.addEventListener("click", () => {
+        if (!selectedAdminTicketId) return;
+        if (typeof window.showAdminConfirmModal === "function") {
+          window.showAdminConfirmModal(
+            "Encerrar Chamado",
+            "Tem certeza que deseja encerrar este chamado?",
+            async () => {
+              try {
+                if (window.showAdminLoading) window.showAdminLoading(true);
+                const currentUser = window.FirebaseService ? window.FirebaseService.getCurrentUser() : null;
+                const closedBy = currentUser ? (currentUser.displayName || currentUser.email) : "Administrador";
+                await window.FirebaseService.closeSupportTicket(selectedAdminTicketId, closedBy);
+                if (window.showAdminLoading) window.showAdminLoading(false);
+                if (window.showAdminToast) window.showAdminToast("Chamado encerrado com sucesso!", "success");
+
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) bsModal.hide();
+              } catch (err) {
+                if (window.showAdminLoading) window.showAdminLoading(false);
+                if (window.showAdminToast) window.showAdminToast("Erro ao encerrar chamado.", "error");
+              }
+            }
+          );
         }
       });
     }

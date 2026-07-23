@@ -16,6 +16,7 @@ import {
   setDoc, 
   getDoc,
   getDocs, 
+  addDoc,
   query, 
   where, 
   onSnapshot, 
@@ -413,6 +414,107 @@ const FirebaseService = {
     if (!targetUid) return;
     const targetDocRef = doc(db, "users", targetUid);
     await updateDoc(targetDocRef, fieldsPayload);
+  },
+
+  // --- SUPPORT TICKETS (CHAMADOS) ---
+
+  // Create a new support ticket in collection 'supportTickets'
+  async createSupportTicket(ticketData) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("É necessário estar logado para abrir um chamado de suporte.");
+
+    // Generate unique sequential ticket ID (e.g., SUP-000001)
+    const ticketsSnap = await getDocs(collection(db, "supportTickets"));
+    let nextNum = ticketsSnap.size + 1;
+    let ticketId = `SUP-${String(nextNum).padStart(6, "0")}`;
+    let unique = false;
+    while (!unique) {
+      const q = query(collection(db, "supportTickets"), where("ticketId", "==", ticketId));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        unique = true;
+      } else {
+        nextNum++;
+        ticketId = `SUP-${String(nextNum).padStart(6, "0")}`;
+      }
+    }
+
+    const payload = {
+      ticketId,
+      uid: user.uid,
+      displayName: user.displayName || (user.email ? user.email.split("@")[0] : "Usuário"),
+      email: (ticketData.email || user.email || "").trim(),
+      subject: (ticketData.subject || "").trim().slice(0, 100),
+      category: ticketData.category || "BUG",
+      message: (ticketData.message || "").trim().slice(0, 3000),
+      status: "aberto",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      closedAt: null,
+      closedBy: null,
+      adminReply: null
+    };
+
+    const docRef = await addDoc(collection(db, "supportTickets"), payload);
+    return { id: docRef.id, ...payload };
+  },
+
+  // Real-time listener for user's own support tickets
+  subscribeToUserTickets(uid, callback) {
+    if (!uid) return () => {};
+    const q = query(collection(db, "supportTickets"), where("uid", "==", uid));
+    return onSnapshot(q, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      callback(list);
+    }, (error) => {
+      console.error("Erro ao escutar chamados do usuário no Firestore:", error);
+    });
+  },
+
+  // Real-time listener for all support tickets (admin use)
+  subscribeToAllTickets(callback) {
+    const q = collection(db, "supportTickets");
+    return onSnapshot(q, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      callback(list);
+    }, (error) => {
+      console.error("Erro ao escutar todos os chamados no Firestore:", error);
+    });
+  },
+
+  // Admin reply to support ticket
+  async replyToSupportTicket(ticketDocId, adminReply) {
+    if (!ticketDocId) return;
+    const ticketRef = doc(db, "supportTickets", ticketDocId);
+    const snap = await getDoc(ticketRef);
+    const currentStatus = snap.exists() ? snap.data().status : "aberto";
+    const newStatus = currentStatus === "aberto" ? "em_andamento" : currentStatus;
+    
+    await updateDoc(ticketRef, {
+      adminReply: adminReply.trim(),
+      status: newStatus,
+      updatedAt: Date.now()
+    });
+  },
+
+  // Admin close support ticket
+  async closeSupportTicket(ticketDocId, closedBy) {
+    if (!ticketDocId) return;
+    const ticketRef = doc(db, "supportTickets", ticketDocId);
+    await updateDoc(ticketRef, {
+      status: "encerrado",
+      closedAt: Date.now(),
+      closedBy: closedBy || "Administrador",
+      updatedAt: Date.now()
+    });
   }
 };
 
