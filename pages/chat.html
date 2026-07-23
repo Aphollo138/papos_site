@@ -298,11 +298,6 @@
                       <span class="text-white" style="font-size: 0.85rem;">Alternar Tema</span>
                     </button>
                   </li>
-                  <li>
-                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/perfil">
-                      <i class="bi bi-gear-fill text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Meu Perfil</span>
-                    </a>
-                  </li>
                 </ul>
               </div>
             </div>
@@ -724,6 +719,33 @@
               <button type="button" class="btn btn-secondary-custom px-4 py-2" data-bs-dismiss="modal" style="font-size: 0.85rem; border-radius: var(--radius-sm);">Cancelar</button>
               <button type="button" class="btn btn-danger px-4 py-2" id="btn-confirm-logout-action" style="font-size: 0.85rem; border-radius: var(--radius-sm); background-color: #dc3545; border-color: #dc3545;">Sair</button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE CONVERSA PRIVADA -->
+    <div class="modal fade" id="deletePrivateChatModal" tabindex="-1" aria-labelledby="deletePrivateChatModalLabel" aria-hidden="true" style="z-index: 1070;">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: var(--surface);">
+          <div class="modal-header border-secondary p-3">
+            <h5 class="modal-title text-white fw-bold d-flex align-items-center gap-2 h6 mb-0" id="deletePrivateChatModalLabel">
+              <i class="bi bi-trash-fill text-danger"></i>
+              <span>Excluir conversa?</span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar" style="filter: invert(1);"></button>
+          </div>
+          <div class="modal-body p-4 text-center">
+            <p class="text-white mb-0" style="font-size: 0.95rem; line-height: 1.5;">
+              Toda a conversa privada será apagada permanentemente.<br>Esta ação não poderá ser desfeita.
+            </p>
+          </div>
+          <div class="modal-footer border-secondary p-3 d-flex gap-2">
+            <button type="button" class="btn btn-secondary-custom flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size: 0.85rem; border-radius: var(--radius-sm);">Cancelar</button>
+            <button type="button" class="btn btn-danger flex-grow-1 py-2 d-flex align-items-center justify-content-center gap-2" id="btn-confirm-delete-private-chat" style="font-size: 0.85rem; border-radius: var(--radius-sm);">
+              <span id="delete-private-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+              <span id="delete-private-btn-text">Excluir conversa</span>
+            </button>
           </div>
         </div>
       </div>

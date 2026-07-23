@@ -254,7 +254,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -349,7 +349,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -1694,6 +1694,28 @@ async function startServer() {
             // Notify the recipient if online
             if (targetWs) {
               sendToClient(targetWs, "private_message_deleted", { messageId, partner: session.nickname });
+            }
+            break;
+          }
+
+          case "delete_private_conversation": {
+            if (!session.nickname) return;
+            const { partner } = payload;
+            if (!partner) return;
+
+            let targetWs: WebSocket | null = null;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname.toLowerCase() === partner.toLowerCase()) {
+                targetWs = key;
+              }
+            });
+
+            // Notify sender
+            sendToClient(ws, "private_conversation_deleted", { partner });
+
+            // Notify recipient if online
+            if (targetWs) {
+              sendToClient(targetWs, "private_conversation_deleted", { partner: session.nickname });
             }
             break;
           }

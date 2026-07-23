@@ -422,6 +422,24 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
           }
 
+          case "private_conversation_deleted": {
+            const pPartner = data.partner;
+            if (pPartner && privateChats[pPartner]) {
+              delete privateChats[pPartner];
+              localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+            }
+            if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === (pPartner || "").toLowerCase()) {
+              chatMode = "public";
+              activePrivateRecipient = null;
+              if (typeof updateActiveHeader === "function") {
+                updateActiveHeader(activeRoomName || "Papos", "Buscando informações...");
+              }
+              renderMessages();
+            }
+            renderPrivateConversationsSidebar();
+            break;
+          }
+
           case "private_message":
             if (!isValidPrivateMessage(data)) {
               console.warn("[WebSocket] Received incomplete or invalid private message payload:", data);
@@ -867,19 +885,31 @@ document.addEventListener("DOMContentLoaded", () => {
       const isActive = (chatMode === "private" && activePrivateRecipient === partner);
 
       const threadDiv = document.createElement("div");
-      threadDiv.className = `private-chat-item ${isActive ? 'active' : ''}`;
+      threadDiv.className = `private-chat-item ${isActive ? 'active' : ''} d-flex align-items-center justify-content-between p-2`;
       threadDiv.onclick = () => window.startPrivateChat(partner);
 
       threadDiv.innerHTML = `
-        ${window.ChatEngine.renderAvatar(partner, "avatar-sm")}
-        <div class="flex-grow-1 text-start text-truncate">
-          <div class="d-flex align-items-center justify-content-between">
-            <span class="fw-bold text-white small text-truncate">${partner}</span>
-            <span class="text-secondary font-mono" style="font-size: 0.65rem;">${formatMessageTime(lastMsg)}</span>
+        <div class="d-flex align-items-center gap-2 text-truncate flex-grow-1" style="min-width: 0;">
+          ${window.ChatEngine.renderAvatar(partner, "avatar-sm")}
+          <div class="text-start text-truncate flex-grow-1" style="min-width: 0;">
+            <div class="d-flex align-items-center justify-content-between">
+              <span class="fw-bold text-white small text-truncate me-1">${partner}</span>
+              <span class="text-secondary font-mono" style="font-size: 0.65rem;">${formatMessageTime(lastMsg)}</span>
+            </div>
+            <p class="mb-0 text-secondary text-truncate small" style="font-size: 0.78rem;">${lastMsg.text}</p>
           </div>
-          <p class="mb-0 text-secondary text-truncate small">${lastMsg.text}</p>
         </div>
-        ${unreadCount > 0 ? `<span class="badge rounded-pill bg-danger">${unreadCount}</span>` : ''}
+        <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
+          ${unreadCount > 0 ? `<span class="badge rounded-pill bg-danger me-1">${unreadCount}</span>` : ''}
+          <button type="button" 
+            class="btn btn-sm btn-link p-0 text-danger btn-delete-private-chat" 
+            onclick="event.stopPropagation(); window.confirmDeletePrivateChat('${partner}')" 
+            title="Excluir conversa com ${partner}" 
+            aria-label="Excluir conversa com ${partner}"
+            style="width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; border: none; background: transparent; cursor: pointer;">
+            <i class="bi bi-trash-fill" style="font-size: 0.85rem;"></i>
+          </button>
+        </div>
       `;
 
       privateConversationsList.appendChild(threadDiv);
@@ -893,6 +923,137 @@ document.addEventListener("DOMContentLoaded", () => {
         totalPrivateUnreadBadge.classList.add("d-none");
       }
     }
+  }
+
+  // Toast Helper
+  if (!window.showToast) {
+    window.showToast = function (message, type = "success") {
+      if (typeof window.showAdminToast === "function") {
+        window.showAdminToast(message, type);
+        return;
+      }
+      let container = document.getElementById("global-toast-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "global-toast-container";
+        container.className = "toast-container position-fixed bottom-0 end-0 p-3";
+        container.style.zIndex = "1150";
+        document.body.appendChild(container);
+      }
+
+      const bgClass = type === "success" ? "bg-success" : (type === "error" ? "bg-danger" : "bg-warning text-dark");
+      const iconClass = type === "success" ? "bi-check-circle-fill" : (type === "error" ? "bi-exclamation-octagon-fill" : "bi-exclamation-triangle-fill");
+
+      const toastEl = document.createElement("div");
+      toastEl.className = `toast align-items-center text-white ${bgClass} border-0 shadow-lg`;
+      toastEl.role = "alert";
+      toastEl.ariaLive = "assertive";
+      toastEl.ariaAtomic = "true";
+      toastEl.style.borderRadius = "var(--radius-sm)";
+
+      toastEl.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body d-flex align-items-center gap-2">
+            <i class="bi ${iconClass}"></i>
+            <span>${message}</span>
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      `;
+
+      container.appendChild(toastEl);
+      if (window.bootstrap && window.bootstrap.Toast) {
+        const bsToast = new bootstrap.Toast(toastEl, { delay: 4000 });
+        bsToast.show();
+      }
+      toastEl.addEventListener("hidden.bs.toast", () => {
+        toastEl.remove();
+      });
+    };
+  }
+
+  // Excluir conversa privada handler
+  window.partnerToDeletePrivateChat = null;
+  window.confirmDeletePrivateChat = (partnerName) => {
+    window.partnerToDeletePrivateChat = partnerName;
+    const modalEl = document.getElementById("deletePrivateChatModal");
+    if (modalEl) {
+      const bModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+      bModal.show();
+    }
+  };
+
+  const btnConfirmDeletePrivate = document.getElementById("btn-confirm-delete-private-chat");
+  if (btnConfirmDeletePrivate) {
+    btnConfirmDeletePrivate.addEventListener("click", async () => {
+      const partner = window.partnerToDeletePrivateChat;
+      if (!partner) return;
+
+      const spinner = document.getElementById("delete-private-spinner");
+      const btnText = document.getElementById("delete-private-btn-text");
+
+      if (spinner) spinner.classList.remove("d-none");
+      if (btnText) btnText.textContent = "Excluindo...";
+      btnConfirmDeletePrivate.disabled = true;
+
+      try {
+        // 1. Apagar do Firestore no perfil do usuário logado
+        if (window.FirebaseService && typeof window.FirebaseService.deletePrivateConversation === "function") {
+          await window.FirebaseService.deletePrivateConversation(partner);
+        }
+
+        // 2. Apagar da memória local e localStorage
+        if (privateChats[partner]) {
+          delete privateChats[partner];
+        }
+        if (currentUser) {
+          localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+        }
+
+        // 3. Notificar via WebSocket se conectado
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: "delete_private_conversation",
+            partner: partner
+          }));
+        }
+
+        // 4. Se a conversa excluída estiver aberta no momento, fecha e volta para o chat público
+        if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === partner.toLowerCase()) {
+          chatMode = "public";
+          activePrivateRecipient = null;
+          if (typeof updateActiveHeader === "function") {
+            updateActiveHeader(activeRoomName || "Papos", "Buscando informações...");
+          }
+          renderMessages();
+        }
+
+        renderPrivateConversationsSidebar();
+
+        // Fechar modal
+        const modalEl = document.getElementById("deletePrivateChatModal");
+        if (modalEl) {
+          const bModal = bootstrap.Modal.getInstance(modalEl);
+          if (bModal) bModal.hide();
+        }
+
+        const toastFn = window.showToast || window.showAdminToast;
+        if (typeof toastFn === "function") {
+          toastFn("Conversa excluída com sucesso.", "success");
+        }
+      } catch (err) {
+        console.error("Erro ao excluir conversa privada:", err);
+        const toastFn = window.showToast || window.showAdminToast;
+        if (typeof toastFn === "function") {
+          toastFn("Não foi possível excluir a conversa.", "error");
+        }
+      } finally {
+        if (spinner) spinner.classList.add("d-none");
+        if (btnText) btnText.textContent = "Excluir conversa";
+        btnConfirmDeletePrivate.disabled = false;
+        window.partnerToDeletePrivateChat = null;
+      }
+    });
   }
 
   // Copy to clipboard helper

@@ -256,6 +256,26 @@ const FirebaseService = {
     await deleteDoc(docRef);
   },
  
+  // Delete an entire private conversation thread with partnerNickname
+  async deletePrivateConversation(partnerNickname) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const q = query(
+      collection(db, "users", user.uid, "privateChats"),
+      where("partner", "==", partnerNickname)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+
+    querySnapshot.forEach((document) => {
+      batch.delete(document.ref);
+    });
+
+    await batch.commit();
+  },
+
   // Real-time listener for user's private messages
   subscribeToPrivateMessages(callback) {
     const user = auth.currentUser;

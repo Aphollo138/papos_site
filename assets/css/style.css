@@ -1659,6 +1659,24 @@ body.chat-page i.bi {
   font-size: 0.82rem !important;
 }
 
+/* Private Chat Delete Button Hover & Smooth Transition */
+.btn-delete-private-chat {
+  opacity: 0.6;
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  border-radius: var(--radius-sm);
+}
+
+.btn-delete-private-chat:hover,
+.btn-delete-private-chat:focus-visible {
+  opacity: 1;
+  transform: scale(1.12);
+  color: #ff4a4a !important;
+}
+
+.btn-delete-private-chat:active {
+  transform: scale(0.95);
+}
+
 
 
 
