@@ -35,53 +35,141 @@ const CHAT_CONFIG = {
 window.CHAT_CONFIG = CHAT_CONFIG;
 
 // Global modal helper for admin warnings (Global & Individual) across all pages
-window.showAdminWarningModal = function (text, title = "Aviso Administrativo", onCloseCallback = null) {
-  let modalEl = document.getElementById("adminIncomingWarningModal");
-  if (modalEl) {
-    try {
-      const existing = bootstrap.Modal.getInstance(modalEl);
-      if (existing) existing.hide();
-    } catch(e) {}
-    modalEl.remove();
+window.showIncomingAdminWarningModal = window.showAdminWarningModal = function (text, title = "Mensagem da Administração", onCloseCallback = null) {
+  // Inject custom styles if not present
+  if (!document.getElementById("admin-warning-modal-css")) {
+    const styleEl = document.createElement("style");
+    styleEl.id = "admin-warning-modal-css";
+    styleEl.textContent = `
+      .admin-incoming-modal-container .modal-dialog {
+        max-width: 480px;
+        width: 90% !important;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      @media (min-width: 576px) {
+        .admin-incoming-modal-container .modal-dialog {
+          width: 480px !important;
+        }
+      }
+      .admin-incoming-modal-container .modal-content {
+        background-color: #121212 !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+        color: #ffffff !important;
+        overflow: hidden;
+        position: relative;
+      }
+      .admin-incoming-modal-container.fade .modal-dialog {
+        transform: translateY(-20px) scale(0.97);
+        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+        opacity: 0;
+      }
+      .admin-incoming-modal-container.show .modal-dialog {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+      .admin-incoming-progress-track {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background-color: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        z-index: 10;
+      }
+      .admin-incoming-progress-bar {
+        height: 100%;
+        background-color: #22c55e;
+        width: 100%;
+      }
+      @keyframes adminModalProgressBar {
+        0% {
+          width: 100%;
+        }
+        100% {
+          width: 0%;
+        }
+      }
+      .admin-incoming-progress-bar.active {
+        animation: adminModalProgressBar 20s linear forwards;
+      }
+    `;
+    document.head.appendChild(styleEl);
   }
 
-  modalEl = document.createElement("div");
+  // Remove existing warning modals
+  const existingModal = document.getElementById("adminIncomingWarningModal") || document.getElementById("adminWarningModal");
+  if (existingModal) {
+    if (existingModal._autoCloseTimer) clearTimeout(existingModal._autoCloseTimer);
+    try {
+      const bsInst = window.bootstrap && window.bootstrap.Modal ? window.bootstrap.Modal.getInstance(existingModal) : null;
+      if (bsInst) bsInst.hide();
+    } catch (e) {}
+    existingModal.remove();
+    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+  }
+
+  const modalEl = document.createElement("div");
   modalEl.id = "adminIncomingWarningModal";
-  modalEl.className = "modal fade";
+  modalEl.className = "modal fade admin-incoming-modal-container";
   modalEl.tabIndex = -1;
-  modalEl.style.zIndex = "1150";
+  modalEl.setAttribute("aria-hidden", "true");
+  modalEl.style.zIndex = "11000";
+
   modalEl.innerHTML = `
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
-      <div class="modal-content bg-dark text-white border-warning shadow-lg" style="background-color: #141824 !important; border-width: 2px; border-radius: 12px;">
-        <div class="modal-header border-bottom border-secondary py-3 px-4" style="background-color: #1a1f2e; border-top-left-radius: 10px; border-top-right-radius: 10px;">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-bottom py-3 px-4 d-flex align-items-center justify-content-between" style="background-color: #181818; border-color: rgba(255, 255, 255, 0.08) !important;">
           <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-exclamation-triangle-fill text-warning fs-4"></i>
-            <h5 class="modal-title text-white fw-bold mb-0">${title || "Aviso Administrativo"}</h5>
+            <i class="bi bi-shield-exclamation text-warning fs-5"></i>
+            <h5 class="modal-title text-white fw-bold mb-0 fs-6">${title || "Mensagem da Administração"}</h5>
           </div>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
         </div>
-        <div class="modal-body p-4 text-white-50" style="font-size: 0.95rem; line-height: 1.6;">
-          <p class="text-white mb-0" style="white-space: pre-line;">${text}</p>
+        <div class="modal-body p-4 text-white" style="font-size: 0.95rem; line-height: 1.6; background-color: #121212;">
+          <p class="mb-0 text-white" style="white-space: pre-wrap; word-break: break-word;">${text}</p>
         </div>
-        <div class="modal-footer border-top border-secondary p-3">
-          <button type="button" class="btn btn-warning fw-bold px-4 text-dark" data-bs-dismiss="modal">Entendido</button>
+        <div class="modal-footer border-top py-2.5 px-4 d-flex justify-content-end" style="background-color: #181818; border-color: rgba(255, 255, 255, 0.08) !important;">
+          <button type="button" class="btn btn-sm px-4 fw-bold text-white rounded-3" data-bs-dismiss="modal" style="background-color: #242424; border: 1px solid rgba(255, 255, 255, 0.12); font-size: 0.85rem;">Fechar</button>
+        </div>
+        <div class="admin-incoming-progress-track">
+          <div class="admin-incoming-progress-bar" id="adminWarningProgressBar"></div>
         </div>
       </div>
     </div>
   `;
+
   document.body.appendChild(modalEl);
-  const bsModal = new bootstrap.Modal(modalEl);
-  if (typeof onCloseCallback === "function") {
+
+  if (window.bootstrap && window.bootstrap.Modal) {
+    const bsModal = new window.bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+    
+    // Auto close timer (20 seconds)
+    const autoCloseTimer = setTimeout(() => {
+      try {
+        bsModal.hide();
+      } catch (e) {}
+    }, 20000);
+    modalEl._autoCloseTimer = autoCloseTimer;
+
+    modalEl.addEventListener("shown.bs.modal", () => {
+      const pBar = document.getElementById("adminWarningProgressBar");
+      if (pBar) pBar.classList.add("active");
+    });
+
     modalEl.addEventListener("hidden.bs.modal", () => {
-      onCloseCallback();
+      if (modalEl._autoCloseTimer) clearTimeout(modalEl._autoCloseTimer);
+      if (typeof onCloseCallback === "function") {
+        onCloseCallback();
+      }
       modalEl.remove();
     }, { once: true });
-  } else {
-    modalEl.addEventListener("hidden.bs.modal", () => {
-      modalEl.remove();
-    }, { once: true });
+
+    bsModal.show();
   }
-  bsModal.show();
 };
 
 const ChatEngine = {
@@ -265,59 +353,6 @@ window.esconderPainelAdmin = function () {
     }
   } catch (err) {
     console.error("Erro ao esconder painel admin:", err);
-  }
-};
-
-window.showIncomingAdminWarningModal = window.showAdminWarningModal = function (text, title = "Mensagem da Administração", onCloseCallback = null) {
-  console.log("Mensagem administrativa recebida.");
-  console.log("Exibindo popup.");
-
-  let modalEl = document.getElementById("adminIncomingWarningModal");
-  if (modalEl) {
-    try {
-      const bsInst = window.bootstrap && window.bootstrap.Modal ? window.bootstrap.Modal.getInstance(modalEl) : null;
-      if (bsInst) bsInst.hide();
-    } catch (e) {}
-    modalEl.remove();
-    const backdrops = document.querySelectorAll('.modal-backdrop');
-    backdrops.forEach(b => b.remove());
-  }
-
-  modalEl = document.createElement("div");
-  modalEl.id = "adminIncomingWarningModal";
-  modalEl.className = "modal fade";
-  modalEl.tabIndex = -1;
-  modalEl.setAttribute("aria-hidden", "true");
-  modalEl.style.zIndex = "11000";
-  modalEl.innerHTML = `
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
-      <div class="modal-content text-white border-0 shadow-lg rounded-4 overflow-hidden" style="background-color: #141824 !important; border: 1px solid #2d3748 !important;">
-        <div class="modal-header border-bottom border-secondary py-3 px-4" style="background-color: #1a1f2e;">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-shield-exclamation text-warning fs-4"></i>
-            <h5 class="modal-title text-white fw-bold mb-0">${title}</h5>
-          </div>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
-        </div>
-        <div class="modal-body p-4 text-white" style="font-size: 0.98rem; line-height: 1.6;">
-          <p class="text-white mb-0" style="white-space: pre-wrap; word-break: break-word;">${text}</p>
-        </div>
-        <div class="modal-footer border-top border-secondary p-3 justify-content-end" style="background-color: #1a1f2e;">
-          <button type="button" class="btn btn-secondary fw-bold px-4 text-white" data-bs-dismiss="modal">Fechar</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modalEl);
-
-  if (window.bootstrap && window.bootstrap.Modal) {
-    const bsModal = new window.bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
-    if (onCloseCallback) {
-      modalEl.addEventListener("hidden.bs.modal", () => {
-        onCloseCallback();
-      }, { once: true });
-    }
-    bsModal.show();
   }
 };
 

@@ -148,14 +148,20 @@
           overflow: hidden;
         }
 
-        #adminPanelModal table {
-          color: #d7d7d7 !important;
-          border-color: rgba(255, 255, 255, 0.05) !important;
+        #adminPanelModal table,
+        #adminPanelModal table.table {
+          --bs-table-bg: #171717 !important;
+          --bs-table-color: #ffffff !important;
+          --bs-table-hover-bg: #262626 !important;
+          --bs-table-accent-bg: transparent !important;
+          background-color: #171717 !important;
+          color: #ffffff !important;
+          border-color: rgba(255, 255, 255, 0.08) !important;
         }
 
         #adminPanelModal thead th {
           background-color: #111111 !important;
-          color: #9f9f9f !important;
+          color: #cfcfcf !important;
           font-size: 0.75rem;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -165,17 +171,28 @@
           z-index: 2;
         }
 
+        #adminPanelModal tbody,
         #adminPanelModal tbody tr {
           background-color: #171717 !important;
+          color: #ffffff !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
           transition: background-color 0.15s ease;
         }
 
         #adminPanelModal tbody tr:nth-of-type(even) {
-          background-color: #141414 !important;
+          background-color: #1d1d1d !important;
         }
 
-        #adminPanelModal tbody tr:hover {
-          background-color: #242424 !important;
+        #adminPanelModal tbody tr:hover,
+        #adminPanelModal tbody tr:hover td {
+          background-color: #262626 !important;
+          color: #ffffff !important;
+        }
+
+        #adminPanelModal tbody td {
+          background-color: transparent !important;
+          color: #ffffff !important;
+          border-color: rgba(255, 255, 255, 0.08) !important;
         }
 
         /* Custom Buttons */
@@ -841,21 +858,21 @@
       }
 
       const tr = document.createElement("tr");
-      tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
+      tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.08)";
       tr.innerHTML = `
         <td class="ps-3">
           <div class="d-flex align-items-center gap-2">
             ${avatarHTML}
             <div>
               <div class="fw-bold text-white">${u.nickname}</div>
-              <div class="small" style="font-size: 0.75rem; color: #9f9f9f;">${u.email}</div>
+              <div class="small" style="font-size: 0.75rem; color: #cfcfcf;">${u.email}</div>
             </div>
           </div>
         </td>
         <td><span class="badge font-monospace px-2 py-1" style="background-color: #242424; color: #ffffff; border: 1px solid rgba(255,255,255,0.08);">${u.permanentId}</span></td>
-        <td><span class="font-monospace small" style="color: #9f9f9f;" title="${u.uid}">${u.uid.substring(0, 10)}...</span></td>
-        <td><span style="color: #d7d7d7;">${u.age}</span></td>
-        <td><span style="color: #d7d7d7;">${u.gender}</span></td>
+        <td><span class="font-monospace small" style="color: #cfcfcf;" title="${u.uid}">${u.uid.substring(0, 10)}...</span></td>
+        <td><span style="color: #ffffff;">${u.age}</span></td>
+        <td><span style="color: #ffffff;">${u.gender}</span></td>
         <td>${statusBadge}</td>
         <td class="text-center">${adminSwitch}</td>
         <td class="pe-3 text-end">
@@ -1101,47 +1118,10 @@
   };
 
   // Admin Warning Modal (Non-blocking)
-  window.showAdminWarningModal = function (text, title = "Aviso da Administração", onCloseCallback = null) {
-    let modalEl = document.getElementById("adminWarningModal");
-    if (!modalEl) {
-      modalEl = document.createElement("div");
-      modalEl.id = "adminWarningModal";
-      modalEl.className = "modal fade";
-      modalEl.tabIndex = -1;
-      modalEl.setAttribute("aria-hidden", "true");
-      modalEl.style.zIndex = "1100";
-      modalEl.innerHTML = `
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: #141824;">
-            <div class="modal-header border-secondary p-3">
-              <h5 class="modal-title text-white fw-bold d-flex align-items-center gap-2">
-                <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
-                <span id="admin-warning-title">${title}</span>
-              </h5>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body p-4">
-              <p class="text-white mb-0" id="admin-warning-text" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.5;"></p>
-            </div>
-            <div class="modal-footer border-secondary p-2">
-              <button type="button" class="btn btn-secondary w-100 py-2" data-bs-dismiss="modal">Entendido</button>
-            </div>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modalEl);
+  window.showAdminWarningModal = function (text, title = "Mensagem da Administração", onCloseCallback = null) {
+    if (typeof window.showIncomingAdminWarningModal === "function") {
+      window.showIncomingAdminWarningModal(text, title, onCloseCallback);
     }
-
-    document.getElementById("admin-warning-title").textContent = title;
-    document.getElementById("admin-warning-text").textContent = text;
-
-    const bModal = new bootstrap.Modal(modalEl);
-    if (onCloseCallback) {
-      modalEl.addEventListener("hidden.bs.modal", () => {
-        onCloseCallback();
-      }, { once: true });
-    }
-    bModal.show();
   };
 
   // Confirm Action Modal
