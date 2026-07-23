@@ -278,9 +278,11 @@ document.addEventListener("DOMContentLoaded", () => {
           btnLogoutActionMobile.classList.add("d-flex");
         }
 
-        // Show Profile Dropdowns
+        // Show Profile Dropdowns & Three Dots
         if (userProfileDesktop) userProfileDesktop.classList.remove("d-none");
         if (userProfileMobile) userProfileMobile.classList.remove("d-none");
+        const headerThreeDots = document.getElementById("header-three-dots-container");
+        if (headerThreeDots) headerThreeDots.classList.remove("d-none");
 
         // Set name/email info
         if (desktopUserName) desktopUserName.textContent = nickname;
@@ -319,9 +321,11 @@ document.addEventListener("DOMContentLoaded", () => {
           btnLogoutActionMobile.classList.remove("d-flex");
         }
 
-        // Hide Profile Dropdowns
+        // Hide Profile Dropdowns & Three Dots
         if (userProfileDesktop) userProfileDesktop.classList.add("d-none");
         if (userProfileMobile) userProfileMobile.classList.add("d-none");
+        const headerThreeDotsOut = document.getElementById("header-three-dots-container");
+        if (headerThreeDotsOut) headerThreeDotsOut.classList.add("d-none");
       }
     });
   }

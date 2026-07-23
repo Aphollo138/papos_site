@@ -206,100 +206,49 @@
               </div>
             </div>
 
-            <!-- Botões de Ação do Cabeçalho - DESKTOP (Salas, Pesquisar, Membros, Opções, Tema, Autenticação) -->
-            <div class="d-none d-md-flex align-items-center gap-1.5">
+            <!-- Botões de Ação do Cabeçalho (Simplificado e Limpo) -->
+            <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
               
-              <!-- Botão "Salas" -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center gap-1.5" id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-grid-fill"></i> <span class="d-none d-lg-inline">Salas</span>
+              <!-- 1. Botão "Salas" -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-grid-fill"></i> <span class="d-none d-sm-inline">Salas</span>
+              </button>
+
+              <!-- 2. Botão "Membros" -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-people-fill"></i> <span class="d-none d-sm-inline">Membros</span>
               </button>
               
-              <!-- Botão "Pesquisar" -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5" id="btn-toggle-search" title="Pesquisar nesta sala" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+              <!-- 3. Ícone Pesquisar (lupa) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" id="btn-toggle-search" title="Pesquisar nesta sala" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-search"></i>
               </button>
 
-              <!-- Botão "Membros" -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center gap-1.5" id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-people-fill"></i> <span class="d-none d-lg-inline">Membros</span>
-              </button>
-
-              <!-- Botão Alternar Tema -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5" onclick="window.ChatEngine.toggleTheme()" title="Alternar tema" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+              <!-- 4. Botão Tema (Sol/Lua) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" onclick="window.ChatEngine.toggleTheme()" title="Alternar tema" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-sun-fill theme-sun-icon-btn text-warning"></i>
                 <i class="bi bi-moon-fill theme-moon-icon-btn text-primary"></i>
               </button>
 
-              <!-- Botão Entrar (Apenas deslogado) -->
-              <button class="btn btn-premium btn-sm py-1.5 px-3 d-flex align-items-center gap-1.5" id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-box-arrow-in-right"></i> <span>Entrar</span>
+              <!-- 5. Botão Entrar (Exibido apenas quando deslogado) -->
+              <button class="btn btn-premium btn-sm py-1.5 px-2.5 px-sm-3 d-flex align-items-center gap-1.5" id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-box-arrow-in-right"></i> <span class="d-none d-sm-inline">Entrar</span>
               </button>
 
-              <!-- Botão Sair (Apenas logado) -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-3 d-none align-items-center gap-1.5 text-danger" id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-box-arrow-right text-danger"></i> <span>Sair</span>
-              </button>
-            </div>
-
-            <!-- Botões de Ação do Cabeçalho - MOBILE (Compacto, essenciais expostos, secundários em dropdown) -->
-            <div class="d-flex d-md-none align-items-center gap-1.5">
-              <!-- Salas (Essencial) -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" style="border-radius: var(--radius-sm);">
-                <i class="bi bi-grid-fill"></i>
-              </button>
-              
-              <!-- Membros (Essencial) -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Membros" style="border-radius: var(--radius-sm);">
-                <i class="bi bi-people-fill"></i>
+              <!-- 5. Botão Sair (Exibido apenas quando logado - substitui o Entrar na mesma posição) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 px-sm-3 d-none align-items-center gap-1.5 text-danger" id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-box-arrow-right text-danger"></i> <span class="d-none d-sm-inline">Sair</span>
               </button>
 
-              <!-- Botão Entrar Mobile -->
-              <button class="btn btn-premium btn-sm py-1.5 px-2" id="btn-auth-trigger-mobile" data-bs-toggle="modal" data-bs-target="#authModal" style="border-radius: var(--radius-sm);">
-                <i class="bi bi-box-arrow-in-right"></i>
-              </button>
-
-              <!-- Botão Sair Mobile (Apenas logado) -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 d-none text-danger" id="btn-logout-action-mobile" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" style="border-radius: var(--radius-sm);">
-                <i class="bi bi-box-arrow-right text-danger"></i>
-              </button>
-            </div>
-                      <i class="bi bi-person-fill text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Meu Perfil</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/perfil">
-                      <i class="bi bi-gear-fill text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Configurações</span>
-                    </a>
-                  </li>
-                  <li><hr class="dropdown-divider border-secondary"></li>
-                  <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" id="btn-logout-trigger-mobile" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
-                      <i class="bi bi-box-arrow-right"></i> <span style="font-size: 0.85rem;">Sair</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              <!-- Mais Opções (Dropdown) -->
-              <div class="dropdown">
-                <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 dropdown-toggle-no-caret" type="button" id="dropdownMenuMobile" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm);" title="Mais Opções">
+              <!-- 6. Botão ⋮ Três Pontos Verticais (Exibido apenas quando logado) -->
+              <div class="dropdown d-none" id="header-three-dots-container">
+                <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 dropdown-toggle-no-caret d-flex align-items-center justify-content-center" type="button" id="dropdownMenuThreeDots" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm); font-size: 0.8rem;" title="Mais Opções">
                   <i class="bi bi-three-dots-vertical"></i>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end border-secondary" aria-labelledby="dropdownMenuMobile" style="background-color: var(--surface);">
-                  <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2 py-2" id="btn-toggle-search-mobile">
-                      <i class="bi bi-search text-secondary"></i> <span class="text-white" style="font-size: 0.85rem;">Pesquisar Mensagens</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2 py-2" onclick="window.ChatEngine.toggleTheme()">
-                      <i class="bi bi-sun text-warning theme-sun-icon-btn"></i>
-                      <i class="bi bi-moon text-primary theme-moon-icon-btn"></i>
-                      <span class="text-white" style="font-size: 0.85rem;">Alternar Tema</span>
-                    </button>
-                  </li>
+                <ul class="dropdown-menu dropdown-menu-end border-secondary" aria-labelledby="dropdownMenuThreeDots" style="background-color: var(--surface); min-width: 140px;">
                 </ul>
               </div>
+
             </div>
           </header>
 
