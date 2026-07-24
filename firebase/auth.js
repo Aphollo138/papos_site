@@ -423,21 +423,18 @@ const FirebaseService = {
     const user = auth.currentUser;
     if (!user) throw new Error("É necessário estar logado para abrir um chamado de suporte.");
 
-    // Generate unique sequential ticket ID (e.g., SUP-000001)
-    const ticketsSnap = await getDocs(collection(db, "supportTickets"));
-    let nextNum = ticketsSnap.size + 1;
-    let ticketId = `SUP-${String(nextNum).padStart(6, "0")}`;
-    let unique = false;
-    while (!unique) {
-      const q = query(collection(db, "supportTickets"), where("ticketId", "==", ticketId));
-      const snap = await getDocs(q);
-      if (snap.empty) {
-        unique = true;
-      } else {
-        nextNum++;
-        ticketId = `SUP-${String(nextNum).padStart(6, "0")}`;
-      }
+    // Count user's existing tickets + timestamp/random string for unique friendly ticket ID (e.g. SUP-100001)
+    let userTicketCount = 1;
+    try {
+      const userTicketsQuery = query(collection(db, "supportTickets"), where("uid", "==", user.uid));
+      const userTicketsSnap = await getDocs(userTicketsQuery);
+      userTicketCount = userTicketsSnap.size + 1;
+    } catch (e) {
+      console.warn("Could not fetch user ticket count:", e);
     }
+
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const ticketId = `SUP-${String(userTicketCount).padStart(3, "0")}${randomSuffix}`;
 
     const payload = {
       ticketId,
