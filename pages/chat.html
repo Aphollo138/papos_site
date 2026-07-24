@@ -30,6 +30,7 @@
     
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="/assets/css/style.css" />
+    <link rel="stylesheet" href="/assets/css/remove-ads.css" />
     <style>
       /* Force all message containers and contents to align strictly to the left */
       #chat-messages-container,
@@ -218,14 +219,15 @@
                 <i class="bi bi-grid-fill"></i> <span class="d-none d-sm-inline">Salas</span>
               </button>
 
-              <!-- 2. Botão "Suporte" -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-support" title="Suporte e Chamados" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-headset"></i> <span class="d-none d-sm-inline">Suporte</span>
-              </button>
-
-              <!-- 3. Botão "Membros" -->
+              <!-- 2. Botão "Membros" -->
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-people-fill"></i> <span class="d-none d-sm-inline">Membros</span>
+              </button>
+
+              <!-- 3. Botão "Remover Anúncios" (Ao lado de Membros) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-remove-ads" title="Remover Anúncios" aria-label="Remover Anúncios" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <img src="/assets/icons/ad-blocker.svg" alt="Remover Anúncios" width="16" height="16" style="filter: brightness(0) invert(1);" />
+                <span class="d-none d-sm-inline">Sem Anúncios</span>
               </button>
               
               <!-- 3. Ícone Pesquisar (lupa) -->
@@ -719,8 +721,8 @@
     <script type="module" src="/firebase/auth.js"></script>
     <script type="module" src="/assets/js/auth-controller.js"></script>
 
-    <!-- Support Tickets Controller JS -->
-    <script src="/assets/js/support-controller.js"></script>
+    <!-- Remove Ads Controller JS -->
+    <script src="/assets/js/remove-ads.js"></script>
 
     <!-- Core ChatEngine State JS -->
     <script src="/assets/js/main.js"></script>
