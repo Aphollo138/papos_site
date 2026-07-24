@@ -211,15 +211,16 @@
               </div>
             </div>
 
-            <!-- Botões de Ação do Cabeçalho (Simplificado e Limpo) -->
-            <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+            <!-- Botões de Ação do Cabeçalho (Desktop + Mobile Organizados) -->
+            <!-- DESKTOP ACTIONS CONTAINER (Exibido apenas em telas md ou superiores) -->
+            <div class="d-none d-md-flex align-items-center gap-1.5 flex-shrink-0" id="desktop-header-actions">
               
               <!-- 1. Botão "Salas" -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-grid-fill"></i> <span class="d-none d-sm-inline">Salas</span>
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" aria-label="Trocar de sala" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-grid-fill" aria-hidden="true"></i> <span class="d-none d-sm-inline">Salas</span>
               </button>
 
-              <!-- 2. Botão Suporte WhatsApp (Ao lado do botão de Salas) -->
+              <!-- 2. Botão Suporte WhatsApp -->
               <a href="https://wa.me/5511913303930?text=Ol%C3%A1!%20Gostaria%20de%20falar%20com%20o%20suporte%20do%20Papo.net.br." 
                  target="_blank" 
                  rel="noopener noreferrer" 
@@ -227,53 +228,59 @@
                  id="btn-whatsapp-support" 
                  title="Suporte via WhatsApp" 
                  aria-label="Suporte via WhatsApp"
+                 role="button"
                  style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <img src="/assets/icons/whatsapp.svg" alt="WhatsApp Papo.net.br" title="Suporte via WhatsApp" style="filter: brightness(0) invert(1);" />
+                <img src="/assets/icons/whatsapp.svg" alt="WhatsApp Papo.net.br" title="Suporte via WhatsApp" style="filter: brightness(0) invert(1);" aria-hidden="true" />
                 <span class="d-none d-sm-inline">Suporte</span>
               </a>
 
               <!-- 3. Botão "Membros" -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-people-fill"></i> <span class="d-none d-sm-inline">Membros</span>
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados" aria-label="Ver membros conectados" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-people-fill" aria-hidden="true"></i> <span class="d-none d-sm-inline">Membros</span>
               </button>
 
-              <!-- 4. Botão "Remover Anúncios" (Ao lado de Membros) -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-remove-ads" title="Remover anúncios" aria-label="Remover anúncios" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <img src="/assets/icons/ad-blocker.svg" alt="Remover anúncios" title="Remover anúncios" style="filter: brightness(0) invert(1);" />
+              <!-- 4. Botão "Remover Anúncios" -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-remove-ads" title="Remover anúncios" aria-label="Remover anúncios" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <img src="/assets/icons/ad-blocker.svg" alt="Remover anúncios" title="Remover anúncios" style="filter: brightness(0) invert(1);" aria-hidden="true" />
                 <span class="d-none d-sm-inline">Sem Anúncios</span>
               </button>
               
-              <!-- 3. Ícone Pesquisar (lupa) -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" id="btn-toggle-search" title="Pesquisar nesta sala" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-search"></i>
+              <!-- 5. Ícone Pesquisar (lupa) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" id="btn-toggle-search" title="Pesquisar nesta sala" aria-label="Pesquisar nesta sala" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-search" aria-hidden="true"></i>
               </button>
 
-              <!-- 4. Botão Tema (Sol/Lua) -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" onclick="window.ChatEngine.toggleTheme()" title="Alternar tema" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-sun-fill theme-sun-icon-btn text-warning"></i>
-                <i class="bi bi-moon-fill theme-moon-icon-btn text-primary"></i>
+              <!-- 6. Botão Tema (Sol/Lua) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" id="btn-theme-toggle" onclick="window.ChatEngine.toggleTheme()" title="Alternar tema" aria-label="Alternar tema" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-sun-fill theme-sun-icon-btn text-warning" aria-hidden="true"></i>
+                <i class="bi bi-moon-fill theme-moon-icon-btn text-primary" aria-hidden="true"></i>
               </button>
 
-              <!-- 5. Botão Entrar (Exibido apenas quando deslogado) -->
-              <button class="btn btn-premium btn-sm py-1.5 px-2.5 px-sm-3 d-flex align-items-center gap-1.5" id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-box-arrow-in-right"></i> <span class="d-none d-sm-inline">Entrar</span>
+              <!-- 7. Botão Entrar (Exibido apenas quando deslogado) -->
+              <button class="btn btn-premium btn-sm py-1.5 px-2.5 px-sm-3 d-flex align-items-center gap-1.5" id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" title="Entrar" aria-label="Entrar" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> <span class="d-none d-sm-inline">Entrar</span>
               </button>
 
-              <!-- 5. Botão Sair (Exibido apenas quando logado - substitui o Entrar na mesma posição) -->
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 px-sm-3 d-none align-items-center gap-1.5 text-danger" id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-box-arrow-right text-danger"></i> <span class="d-none d-sm-inline">Sair</span>
+              <!-- 8. Botão Sair (Exibido apenas quando logado) -->
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 px-sm-3 d-none align-items-center gap-1.5 text-danger" id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" title="Sair" aria-label="Sair" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
+                <i class="bi bi-box-arrow-right text-danger" aria-hidden="true"></i> <span class="d-none d-sm-inline">Sair</span>
               </button>
 
-              <!-- 6. Botão ⋮ Três Pontos Verticais (Exibido apenas quando logado) -->
+              <!-- 9. Botão ⋮ Três Pontos Verticais (Exibido apenas quando logado) -->
               <div class="dropdown d-none" id="header-three-dots-container">
-                <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 dropdown-toggle-no-caret d-flex align-items-center justify-content-center" type="button" id="dropdownMenuThreeDots" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm); font-size: 0.8rem;" title="Mais Opções">
-                  <i class="bi bi-three-dots-vertical"></i>
+                <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 dropdown-toggle-no-caret d-flex align-items-center justify-content-center" type="button" id="dropdownMenuThreeDots" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm); font-size: 0.8rem;" title="Mais Opções" aria-label="Mais Opções" role="button">
+                  <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end border-secondary" aria-labelledby="dropdownMenuThreeDots" style="background-color: var(--surface); min-width: 140px;">
                 </ul>
               </div>
 
             </div>
+
+            <!-- MENU HAMBURGER MOBILE (Exibido apenas em telas menores que md) -->
+            <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center justify-content-center d-md-none flex-shrink-0" id="btn-mobile-menu-toggle" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMobileMenu" aria-controls="offcanvasMobileMenu" title="Menu principal" aria-label="Abrir menu principal" role="button" style="border-radius: var(--radius-sm); font-size: 0.9rem;">
+              <i class="bi bi-list fs-5" aria-hidden="true"></i>
+            </button>
           </header>
 
           <!-- Barra de Pesquisa/Filtro interna de mensagens (Oculta por padrão) -->
@@ -501,6 +508,86 @@
             <button type="button" class="btn btn-secondary-custom py-2 px-4" data-bs-dismiss="modal">Fechar</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- OFFCANVAS MENU MOBILE (Painel lateral moderno com Glassmorphic Design) -->
+    <div class="offcanvas offcanvas-end border-0" tabindex="-1" id="offcanvasMobileMenu" aria-labelledby="offcanvasMobileMenuLabel" style="background: rgba(18, 18, 18, 0.88); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: var(--text-primary); z-index: 1060; width: 285px;">
+      <div class="offcanvas-header border-bottom border-secondary p-3 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <img src="/favicon-32x32.png" alt="Papos Logo" title="Papos logo" width="22" height="22" style="object-fit: contain;">
+          <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMobileMenuLabel" style="font-size: 0.98rem;">Menu</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white text-reset" data-bs-dismiss="offcanvas" aria-label="Fechar menu" title="Fechar menu"></button>
+      </div>
+      <div class="offcanvas-body p-3 d-flex flex-column gap-2 overflow-y-auto">
+        
+        <!-- 1. Salas -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-rooms" data-bs-toggle="modal" data-bs-target="#roomsModal" data-bs-dismiss="offcanvas" aria-label="Salas de Bate-Papo" title="Salas de Bate-Papo" role="button" style="border-radius: var(--radius-sm);">
+          <i class="bi bi-grid-fill text-primary" aria-hidden="true"></i>
+          <span>Salas</span>
+        </button>
+
+        <!-- 2. Membros Online -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-members" aria-label="Ver membros conectados" title="Ver membros conectados" role="button" style="border-radius: var(--radius-sm);">
+          <i class="bi bi-people-fill text-info" aria-hidden="true"></i>
+          <span>Membros Online</span>
+        </button>
+
+        <!-- 3. Buscar -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-search" aria-label="Pesquisar nesta sala" title="Pesquisar nesta sala" role="button" style="border-radius: var(--radius-sm);">
+          <i class="bi bi-search text-warning" aria-hidden="true"></i>
+          <span>Buscar</span>
+        </button>
+
+        <!-- 4. Tema -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-theme" onclick="window.ChatEngine.toggleTheme()" aria-label="Alternar tema" title="Alternar tema" role="button" style="border-radius: var(--radius-sm);">
+          <i class="bi bi-sun-fill theme-sun-icon-btn text-warning" aria-hidden="true"></i>
+          <i class="bi bi-moon-fill theme-moon-icon-btn text-primary" aria-hidden="true"></i>
+          <span class="ms-1">Tema</span>
+        </button>
+
+        <!-- 5. Remover anúncios -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-remove-ads" aria-label="Remover anúncios" title="Remover anúncios" role="button" style="border-radius: var(--radius-sm);">
+          <img src="/assets/icons/ad-blocker.svg" alt="Remover anúncios" title="Remover anúncios" width="18" height="18" style="filter: brightness(0) invert(1);" aria-hidden="true" />
+          <span>Remover anúncios</span>
+        </button>
+
+        <!-- 6. WhatsApp Suporte -->
+        <a href="https://wa.me/5511913303930?text=Ol%C3%A1!%20Gostaria%20de%20falar%20com%20o%20suporte%20do%20Papo.net.br." target="_blank" rel="noopener noreferrer" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-whatsapp" aria-label="Suporte via WhatsApp" title="Suporte via WhatsApp" role="button" style="border-radius: var(--radius-sm);">
+          <img src="/assets/icons/whatsapp.svg" alt="WhatsApp" title="WhatsApp" width="18" height="18" style="filter: brightness(0) invert(1);" aria-hidden="true" />
+          <span>WhatsApp Suporte</span>
+        </a>
+
+        <!-- 7. Painel Admin (Exibido apenas para Administradores) -->
+        <button type="button" class="btn btn-secondary-custom text-start d-none align-items-center gap-2.5 py-2 px-3 border border-warning text-warning" id="mobile-menu-admin" aria-label="Painel de Administração" title="Painel de Administração" role="button" style="border-radius: var(--radius-sm);">
+          <i class="bi bi-shield-lock-fill text-warning" aria-hidden="true"></i>
+          <span>Painel Admin</span>
+        </button>
+
+        <hr class="border-secondary my-2">
+
+        <!-- Autenticação / Perfil -->
+        <div id="mobile-menu-auth-container" class="mt-auto pt-2">
+          <!-- Quando deslogado -->
+          <button type="button" class="btn btn-premium w-100 py-2 px-3 d-flex align-items-center justify-content-center gap-2 fw-semibold" id="mobile-menu-btn-auth" data-bs-toggle="modal" data-bs-target="#authModal" data-bs-dismiss="offcanvas" aria-label="Entrar ou criar conta" title="Entrar ou criar conta" role="button">
+            <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>
+            <span>Entrar / Criar Conta</span>
+          </button>
+
+          <!-- Quando logado -->
+          <div id="mobile-menu-user-box" class="d-none">
+            <div class="mb-2 p-2.5 rounded bg-dark border border-secondary text-truncate" id="mobile-menu-user-greeting">
+              <small class="text-secondary d-block" style="font-size: 0.72rem;">Conectado como:</small>
+              <span class="fw-bold text-white small" id="mobile-menu-user-nick">Olá, Usuário</span>
+            </div>
+            <button type="button" class="btn btn-outline-danger w-100 py-2 px-3 d-flex align-items-center justify-content-center gap-2 fw-semibold" id="mobile-menu-btn-logout" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" data-bs-dismiss="offcanvas" aria-label="Sair da conta" title="Sair da conta" role="button">
+              <i class="bi bi-box-arrow-right text-danger" aria-hidden="true"></i>
+              <span>Sair</span>
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
 

@@ -1677,6 +1677,36 @@ body.chat-page i.bi {
   transform: scale(0.95);
 }
 
+/* Mobile Offcanvas Menu Glassmorphism & Theme Styles */
+#offcanvasMobileMenu {
+  background: rgba(18, 18, 18, 0.88) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme="light"] #offcanvasMobileMenu {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-left: 1px solid rgba(0, 0, 0, 0.1) !important;
+  color: #0f172a !important;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] #offcanvasMobileMenu .btn-close {
+  filter: none !important;
+}
+
+[data-theme="light"] #offcanvasMobileMenu #mobile-menu-user-greeting {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] #offcanvasMobileMenu #mobile-menu-user-nick {
+  color: #0f172a !important;
+}
+
 
 
 

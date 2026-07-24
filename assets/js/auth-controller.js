@@ -268,6 +268,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (btnAuthTrigger) btnAuthTrigger.classList.add("d-none");
         if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.add("d-none");
 
+        // Mobile Menu Auth Sync
+        const mobileMenuUserBox = document.getElementById("mobile-menu-user-box");
+        const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
+        const mobileMenuBtnAuth = document.getElementById("mobile-menu-btn-auth");
+        if (mobileMenuUserBox) mobileMenuUserBox.classList.remove("d-none");
+        if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${nickname}`;
+        if (mobileMenuBtnAuth) mobileMenuBtnAuth.classList.add("d-none");
+
         // Show "Sair" buttons
         if (btnLogoutAction) {
           btnLogoutAction.classList.remove("d-none");
@@ -310,6 +318,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // Show "Entrar" buttons
         if (btnAuthTrigger) btnAuthTrigger.classList.remove("d-none");
         if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.remove("d-none");
+
+        // Mobile Menu Auth Sync (Logged out)
+        const mobileMenuUserBoxOut = document.getElementById("mobile-menu-user-box");
+        const mobileMenuBtnAuthOut = document.getElementById("mobile-menu-btn-auth");
+        if (mobileMenuUserBoxOut) mobileMenuUserBoxOut.classList.add("d-none");
+        if (mobileMenuBtnAuthOut) mobileMenuBtnAuthOut.classList.remove("d-none");
 
         // Hide "Sair" buttons
         if (btnLogoutAction) {

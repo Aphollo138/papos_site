@@ -671,6 +671,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const headerDesc = document.getElementById("active-room-description");
     const headerAvatarContainer = document.getElementById("active-chat-avatar-container");
     const headerStatus = document.getElementById("active-chat-status");
+    const desktopActions = document.getElementById("desktop-header-actions");
+    const mobileMenuToggle = document.getElementById("btn-mobile-menu-toggle");
 
     if (chatMode === "public") {
       if (headerName) {
@@ -688,6 +690,16 @@ document.addEventListener("DOMContentLoaded", () => {
         headerAvatarContainer.innerHTML = "";
       }
       if (headerStatus) headerStatus.classList.remove("d-none");
+
+      // Show header action controls for public chat
+      if (desktopActions) {
+        desktopActions.classList.remove("d-none");
+        desktopActions.classList.add("d-none", "d-md-flex");
+      }
+      if (mobileMenuToggle) {
+        mobileMenuToggle.classList.remove("d-none");
+        mobileMenuToggle.classList.add("d-flex", "d-md-none");
+      }
     } else {
       if (headerName) {
         headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
@@ -705,8 +717,113 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       }
       if (headerStatus) headerStatus.classList.add("d-none");
+
+      // Hide ALL action icons and mobile hamburger menu toggle during private chat
+      if (desktopActions) {
+        desktopActions.classList.add("d-none");
+        desktopActions.classList.remove("d-md-flex");
+      }
+      if (mobileMenuToggle) {
+        mobileMenuToggle.classList.add("d-none");
+        mobileMenuToggle.classList.remove("d-flex");
+      }
+
+      // Close offcanvas mobile menu if open
+      const mobileMenuEl = document.getElementById("offcanvasMobileMenu");
+      if (mobileMenuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+        const bsMenu = bootstrap.Offcanvas.getInstance(mobileMenuEl);
+        if (bsMenu) bsMenu.hide();
+      }
     }
   }
+
+  // Mobile Offcanvas Menu Interactions Setup
+  function initMobileMenuInteractions() {
+    // 1. Membros Online
+    const btnMembers = document.getElementById("mobile-menu-members");
+    if (btnMembers) {
+      btnMembers.addEventListener("click", () => {
+        const menuEl = document.getElementById("offcanvasMobileMenu");
+        if (menuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMenu = bootstrap.Offcanvas.getInstance(menuEl);
+          if (bsMenu) bsMenu.hide();
+        }
+        const membersEl = document.getElementById("offcanvasMembers");
+        if (membersEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMembers = bootstrap.Offcanvas.getOrCreateInstance(membersEl);
+          bsMembers.show();
+        }
+      });
+    }
+
+    // 2. Buscar
+    const btnSearch = document.getElementById("mobile-menu-search");
+    if (btnSearch) {
+      btnSearch.addEventListener("click", () => {
+        const menuEl = document.getElementById("offcanvasMobileMenu");
+        if (menuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMenu = bootstrap.Offcanvas.getInstance(menuEl);
+          if (bsMenu) bsMenu.hide();
+        }
+        const searchWrapper = document.getElementById("chat-search-bar-wrapper");
+        if (searchWrapper) {
+          searchWrapper.classList.remove("d-none");
+          const searchInput = document.getElementById("chat-search-messages-input");
+          if (searchInput) searchInput.focus();
+        }
+      });
+    }
+
+    // 3. Remover Anúncios
+    const btnRemoveAds = document.getElementById("mobile-menu-remove-ads");
+    if (btnRemoveAds) {
+      btnRemoveAds.addEventListener("click", () => {
+        const menuEl = document.getElementById("offcanvasMobileMenu");
+        if (menuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMenu = bootstrap.Offcanvas.getInstance(menuEl);
+          if (bsMenu) bsMenu.hide();
+        }
+        const targetBtn = document.getElementById("btn-remove-ads");
+        if (targetBtn) {
+          targetBtn.click();
+        } else {
+          const removeModal = document.getElementById("removeAdsModal");
+          if (removeModal && typeof bootstrap !== "undefined" && bootstrap.Modal) {
+            const bsRemove = bootstrap.Modal.getOrCreateInstance(removeModal);
+            bsRemove.show();
+          }
+        }
+      });
+    }
+
+    // 4. Painel Admin
+    const btnAdmin = document.getElementById("mobile-menu-admin");
+    if (btnAdmin) {
+      btnAdmin.addEventListener("click", (e) => {
+        e.preventDefault();
+        const menuEl = document.getElementById("offcanvasMobileMenu");
+        if (menuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMenu = bootstrap.Offcanvas.getInstance(menuEl);
+          if (bsMenu) bsMenu.hide();
+        }
+        const adminTrigger = document.getElementById("btn-admin-panel-trigger");
+        if (adminTrigger) {
+          adminTrigger.click();
+        } else {
+          const adminModal = document.getElementById("adminPanelModal") || document.getElementById("adminModal");
+          if (adminModal && typeof bootstrap !== "undefined" && bootstrap.Modal) {
+            const bsAdmin = bootstrap.Modal.getOrCreateInstance(adminModal);
+            bsAdmin.show();
+          } else {
+            window.location.href = "/admin";
+          }
+        }
+      });
+    }
+  }
+
+  // Initialize mobile menu interactions
+  initMobileMenuInteractions();
 
   // Direct Message Handler
   function handleIncomingPrivateMessage(pm) {

@@ -13,6 +13,10 @@
   let btnRemoveAdsParent = null;
   let btnRemoveAdsNextSibling = null;
 
+  let btnMobileRemoveAdsElement = null;
+  let btnMobileRemoveAdsParent = null;
+  let btnMobileRemoveAdsNextSibling = null;
+
   // Get logged in user from Firebase Auth
   function getAuthUser() {
     if (window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function") {
@@ -25,12 +29,18 @@
   function checkAdsStatus(userData) {
     currentUserData = userData;
     const btnRemoveAds = document.getElementById("btn-remove-ads");
+    const mobileBtnRemoveAds = document.getElementById("mobile-menu-remove-ads");
 
-    // Store references to the button and its parent before removing
+    // Store references to the buttons and their parents before removing
     if (btnRemoveAds && !btnRemoveAdsElement) {
       btnRemoveAdsElement = btnRemoveAds;
       btnRemoveAdsParent = btnRemoveAds.parentNode;
       btnRemoveAdsNextSibling = btnRemoveAds.nextSibling;
+    }
+    if (mobileBtnRemoveAds && !btnMobileRemoveAdsElement) {
+      btnMobileRemoveAdsElement = mobileBtnRemoveAds;
+      btnMobileRemoveAdsParent = mobileBtnRemoveAds.parentNode;
+      btnMobileRemoveAdsNextSibling = mobileBtnRemoveAds.nextSibling;
     }
 
     if (userData && userData.adsDisabled === true) {
@@ -41,7 +51,7 @@
         if (bsModal) bsModal.hide();
       }
 
-      // 2. Remove button completely from DOM (no rendering, no DOM node, no space occupied)
+      // 2. Remove desktop button completely from DOM
       const targetBtn = document.getElementById("btn-remove-ads");
       if (targetBtn) {
         if (!btnRemoveAdsParent) btnRemoveAdsParent = targetBtn.parentNode;
@@ -49,8 +59,17 @@
         if (!btnRemoveAdsElement) btnRemoveAdsElement = targetBtn;
         targetBtn.remove();
       }
+
+      // 3. Remove mobile menu button completely from DOM
+      const targetMobileBtn = document.getElementById("mobile-menu-remove-ads");
+      if (targetMobileBtn) {
+        if (!btnMobileRemoveAdsParent) btnMobileRemoveAdsParent = targetMobileBtn.parentNode;
+        if (!btnMobileRemoveAdsNextSibling) btnMobileRemoveAdsNextSibling = targetMobileBtn.nextSibling;
+        if (!btnMobileRemoveAdsElement) btnMobileRemoveAdsElement = targetMobileBtn;
+        targetMobileBtn.remove();
+      }
     } else {
-      // User does not have ads disabled (or is logged out) - ensure button exists in DOM
+      // User does not have ads disabled - ensure buttons exist in DOM
       if (!document.getElementById("btn-remove-ads") && btnRemoveAdsElement && btnRemoveAdsParent) {
         if (btnRemoveAdsNextSibling && btnRemoveAdsParent.contains(btnRemoveAdsNextSibling)) {
           btnRemoveAdsParent.insertBefore(btnRemoveAdsElement, btnRemoveAdsNextSibling);
@@ -59,10 +78,24 @@
         }
       }
 
+      if (!document.getElementById("mobile-menu-remove-ads") && btnMobileRemoveAdsElement && btnMobileRemoveAdsParent) {
+        if (btnMobileRemoveAdsNextSibling && btnMobileRemoveAdsParent.contains(btnMobileRemoveAdsNextSibling)) {
+          btnMobileRemoveAdsParent.insertBefore(btnMobileRemoveAdsElement, btnMobileRemoveAdsNextSibling);
+        } else {
+          btnMobileRemoveAdsParent.appendChild(btnMobileRemoveAdsElement);
+        }
+      }
+
       const currentBtn = document.getElementById("btn-remove-ads");
       if (currentBtn) {
         currentBtn.style.display = "";
         currentBtn.classList.remove("d-none");
+      }
+
+      const currentMobileBtn = document.getElementById("mobile-menu-remove-ads");
+      if (currentMobileBtn) {
+        currentMobileBtn.style.display = "";
+        currentMobileBtn.classList.remove("d-none");
       }
     }
   }
