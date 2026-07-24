@@ -143,6 +143,13 @@ const FirebaseService = {
 
   // Listen to User Profile Document in Firestore
   subscribeToUserProfile(uid, callback) {
+    if (typeof uid === "function") {
+      callback = uid;
+      uid = auth.currentUser ? auth.currentUser.uid : null;
+    }
+    if (!uid && auth.currentUser) {
+      uid = auth.currentUser.uid;
+    }
     if (!uid) {
       if (typeof callback === "function") callback(null);
       return () => {};

@@ -8,6 +8,11 @@
   let userProfileUnsubscribe = null;
   let currentUserData = null;
 
+  // Saved DOM references for removing and re-inserting #btn-remove-ads
+  let btnRemoveAdsElement = null;
+  let btnRemoveAdsParent = null;
+  let btnRemoveAdsNextSibling = null;
+
   // Get logged in user from Firebase Auth
   function getAuthUser() {
     if (window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function") {
@@ -20,24 +25,44 @@
   function checkAdsStatus(userData) {
     currentUserData = userData;
     const btnRemoveAds = document.getElementById("btn-remove-ads");
-    
+
+    // Store references to the button and its parent before removing
+    if (btnRemoveAds && !btnRemoveAdsElement) {
+      btnRemoveAdsElement = btnRemoveAds;
+      btnRemoveAdsParent = btnRemoveAds.parentNode;
+      btnRemoveAdsNextSibling = btnRemoveAds.nextSibling;
+    }
+
     if (userData && userData.adsDisabled === true) {
-      // User has ads disabled - hide button completely from header
-      if (btnRemoveAds) {
-        btnRemoveAds.classList.add("d-none");
-        btnRemoveAds.classList.remove("d-flex");
-      }
-      // If modal is open, close it
+      // 1. If modal is open, close it immediately
       const modalEl = document.getElementById("removeAdsModal");
       if (modalEl) {
         const bsModal = bootstrap.Modal.getInstance(modalEl);
         if (bsModal) bsModal.hide();
       }
+
+      // 2. Remove button completely from DOM (no rendering, no DOM node, no space occupied)
+      const targetBtn = document.getElementById("btn-remove-ads");
+      if (targetBtn) {
+        if (!btnRemoveAdsParent) btnRemoveAdsParent = targetBtn.parentNode;
+        if (!btnRemoveAdsNextSibling) btnRemoveAdsNextSibling = targetBtn.nextSibling;
+        if (!btnRemoveAdsElement) btnRemoveAdsElement = targetBtn;
+        targetBtn.remove();
+      }
     } else {
-      // User does not have ads disabled - show button in header
-      if (btnRemoveAds) {
-        btnRemoveAds.classList.remove("d-none");
-        btnRemoveAds.classList.add("d-flex");
+      // User does not have ads disabled (or is logged out) - ensure button exists in DOM
+      if (!document.getElementById("btn-remove-ads") && btnRemoveAdsElement && btnRemoveAdsParent) {
+        if (btnRemoveAdsNextSibling && btnRemoveAdsParent.contains(btnRemoveAdsNextSibling)) {
+          btnRemoveAdsParent.insertBefore(btnRemoveAdsElement, btnRemoveAdsNextSibling);
+        } else {
+          btnRemoveAdsParent.appendChild(btnRemoveAdsElement);
+        }
+      }
+
+      const currentBtn = document.getElementById("btn-remove-ads");
+      if (currentBtn) {
+        currentBtn.style.display = "";
+        currentBtn.classList.remove("d-none");
       }
     }
   }
@@ -61,6 +86,8 @@
             userProfileUnsubscribe = window.FirebaseService.subscribeToUserProfile(authUser.uid, (profile) => {
               checkAdsStatus(profile);
             });
+          } else {
+            checkAdsStatus(null);
           }
         } else {
           checkAdsStatus(null);
@@ -69,17 +96,43 @@
     }
   }
 
-  // Format internal ID nicely
+  // Format internal ID nicely (always USR-XXXXXX)
   function getFormattedInternalId() {
-    if (currentUserData && (currentUserData.internalId || currentUserData.permanentId)) {
-      const raw = currentUserData.internalId || currentUserData.permanentId;
-      return raw.startsWith("#") || raw.startsWith("USR-") ? raw : `#${raw}`;
+    // 1. Try Firestore user profile
+    if (currentUserData) {
+      if (currentUserData.permanentId && currentUserData.permanentId.startsWith("USR-")) {
+        return currentUserData.permanentId;
+      }
+      if (currentUserData.internalId && currentUserData.internalId.startsWith("USR-")) {
+        return currentUserData.internalId;
+      }
+      if (currentUserData.permanentId || currentUserData.internalId) {
+        const val = String(currentUserData.permanentId || currentUserData.internalId).replace(/[^0-9A-Z]/gi, "");
+        return `USR-${val.padStart(6, "0").toUpperCase()}`;
+      }
     }
+
+    // 2. Try localStorage
+    const stored = localStorage.getItem("papos_permanent_id");
+    if (stored) {
+      if (stored.startsWith("USR-")) return stored;
+      const clean = stored.replace(/[^0-9A-Z]/gi, "");
+      return `USR-${clean.padStart(6, "0").toUpperCase()}`;
+    }
+
+    // 3. Fallback: generate a clean 6-digit USR- ID from auth UID hash
     const user = getAuthUser();
     if (user && user.uid) {
-      return `#${user.uid.slice(0, 6).toUpperCase()}`;
+      let hash = 0;
+      for (let i = 0; i < user.uid.length; i++) {
+        hash = (hash << 5) - hash + user.uid.charCodeAt(i);
+        hash |= 0;
+      }
+      const positiveNum = Math.abs(hash) % 900000 + 100000;
+      return `USR-${positiveNum}`;
     }
-    return "#000000";
+
+    return "USR-000001";
   }
 
   // Format User Nickname
@@ -121,7 +174,7 @@
           <!-- Modal Header -->
           <div class="modal-header d-flex align-items-center justify-content-between">
             <div class="d-flex align-items-center gap-2">
-              <img src="/assets/icons/ad-blocker.svg" alt="Remover Anúncios" title="Remover Anúncios" width="22" height="22" style="filter: brightness(0) invert(1);" />
+              <img src="/assets/icons/ad-blocker.svg" alt="Remover anúncios" title="Remover anúncios" width="22" height="22" style="filter: brightness(0) invert(1);" />
               <h5 class="modal-title fw-bold mb-0" id="removeAdsModalTitle" style="font-size: 1.1rem;">
                 Remover anúncios
               </h5>
@@ -138,7 +191,7 @@
               <div class="remove-ads-steps-dots" aria-label="Progresso do pedido">
                 <div class="remove-ads-step-dot active" id="dot-step-1" title="Etapa 1: Apresentação"></div>
                 <div class="remove-ads-step-dot" id="dot-step-2" title="Etapa 2: Benefícios"></div>
-                <div class="remove-ads-step-dot" id="dot-step-3" title="Etapa 3: Pagamento PIX"></div>
+                <div class="remove-ads-step-dot" id="dot-step-3" title="Etapa 3: Pagamento"></div>
                 <div class="remove-ads-step-dot" id="dot-step-4" title="Etapa 4: Confirmação"></div>
               </div>
             </div>
@@ -244,41 +297,30 @@
 
             </div>
 
-            <!-- ETAPA 3 -->
+            <!-- ETAPA 3 (PAGAMENTO EXCLUSIVO PIXGG - SEM CAMPO PIX COPIA E COLA) -->
             <div class="remove-ads-step" id="remove-ads-step-3">
-              <h6 class="fw-bold text-white mb-2 text-center">Pagamento via PIX</h6>
+              <h6 class="fw-bold text-white mb-3 text-center" style="font-size: 1.05rem;">Pagamento via PixGG</h6>
               
-              <div class="pix-details-card mb-3">
-                <div class="pix-field-group">
-                  <div class="pix-field-label">PIX Copia e Cola / Chave:</div>
-                  <input type="text" class="pix-field-input" id="pix-key-field" value="5511913303930" readonly title="Chave PIX" aria-label="Chave PIX" />
+              <div class="pix-details-card mb-4">
+                <div class="d-flex align-items-center justify-content-between p-2 mb-2 rounded-2" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+                  <span class="text-secondary small fw-semibold">Valor:</span>
+                  <span class="text-success fw-bold fs-6">R$ 5,00</span>
                 </div>
-                
-                <div class="row g-2">
-                  <div class="col-6 pix-field-group mb-0">
-                    <div class="pix-field-label">Valor:</div>
-                    <input type="text" class="pix-field-input" value="R$ 5,00" readonly title="Valor" aria-label="Valor" />
-                  </div>
-                  <div class="col-6 pix-field-group mb-0">
-                    <div class="pix-field-label">ID Interno:</div>
-                    <input type="text" class="pix-field-input" id="pix-id-field" value="..." readonly title="ID Interno" aria-label="ID Interno" />
-                  </div>
-                  <div class="col-12 pix-field-group mt-2 mb-0">
-                    <div class="pix-field-label">E-mail vinculado:</div>
-                    <input type="text" class="pix-field-input" id="pix-email-field" value="..." readonly title="E-mail" aria-label="E-mail" />
-                  </div>
+
+                <div class="d-flex align-items-center justify-content-between p-2 mb-2 rounded-2" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+                  <span class="text-secondary small fw-semibold">Email:</span>
+                  <span class="text-white small font-monospace" id="pix-email-field">...</span>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between p-2 rounded-2" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+                  <span class="text-secondary small fw-semibold">ID:</span>
+                  <span class="text-info small font-monospace fw-bold" id="pix-id-field">...</span>
                 </div>
               </div>
 
-              <!-- Copiar PIX Button -->
-              <button type="button" class="btn btn-outline-info w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2 mb-3" id="btn-copy-pix" title="Copiar PIX" aria-label="Copiar PIX" style="border-radius: var(--radius-sm);">
-                <i class="bi bi-copy" id="icon-copy-pix"></i>
-                <span id="text-copy-pix">Copiar PIX</span>
-              </button>
-
-              <!-- Botão Pagar Agora (PixGG) -->
-              <a href="https://pixgg.com/papo_net" target="_blank" rel="noopener noreferrer" class="btn btn-warning w-100 py-2.5 fw-bold text-dark d-flex align-items-center justify-content-center gap-2 mb-4" title="Pagar agora" aria-label="Pagar agora" style="border-radius: var(--radius-sm); font-size: 1rem;">
-                <i class="bi bi-qr-code-scan fs-5"></i>
+              <!-- Botão grande Pagar Agora (PixGG) -->
+              <a href="https://pixgg.com/papo_net" target="_blank" rel="noopener noreferrer" class="btn btn-warning w-100 py-3 fw-extrabold text-dark d-flex align-items-center justify-content-center gap-2 mb-4 shadow-sm" title="Pagar agora" aria-label="Pagar agora" style="border-radius: var(--radius-sm); font-size: 1.05rem;">
+                <i class="bi bi-box-arrow-up-right fs-5"></i>
                 <span>Pagar agora</span>
               </a>
 
@@ -340,6 +382,14 @@
     `;
 
     document.body.appendChild(modal);
+
+    // Prevent modal from showing if ads are disabled
+    modal.addEventListener("show.bs.modal", (e) => {
+      if (currentUserData && currentUserData.adsDisabled === true) {
+        e.preventDefault();
+      }
+    });
+
     attachRemoveAdsEvents(modal);
   }
 
@@ -403,8 +453,8 @@
       const pixIdEl = document.getElementById("pix-id-field");
       const pixEmailEl = document.getElementById("pix-email-field");
 
-      if (pixIdEl) pixIdEl.value = getFormattedInternalId();
-      if (pixEmailEl) pixEmailEl.value = getUserEmail();
+      if (pixIdEl) pixIdEl.textContent = getFormattedInternalId();
+      if (pixEmailEl) pixEmailEl.textContent = getUserEmail();
     }
 
     if (step === 4) {
@@ -463,29 +513,9 @@
     if (btnStep2Back) btnStep2Back.addEventListener("click", () => updateStepUI(1));
     if (btnStep2Next) btnStep2Next.addEventListener("click", () => updateStepUI(3));
 
-    // Step 3 buttons & copy PIX
-    const btnCopyPix = modalEl.querySelector("#btn-copy-pix");
+    // Step 3 buttons
     const btnStep3Back = modalEl.querySelector("#btn-step-3-back");
     const btnStep3Next = modalEl.querySelector("#btn-step-3-next");
-
-    if (btnCopyPix) {
-      btnCopyPix.addEventListener("click", () => {
-        const pixVal = modalEl.querySelector("#pix-key-field")?.value || "5511913303930";
-        navigator.clipboard.writeText(pixVal).then(() => {
-          const icon = modalEl.querySelector("#icon-copy-pix");
-          const text = modalEl.querySelector("#text-copy-pix");
-          if (icon) icon.className = "bi bi-check-lg text-success";
-          if (text) text.textContent = "PIX copiado com sucesso!";
-
-          setTimeout(() => {
-            if (icon) icon.className = "bi bi-copy";
-            if (text) text.textContent = "Copiar PIX";
-          }, 3000);
-        }).catch((err) => {
-          console.error("Erro ao copiar PIX:", err);
-        });
-      });
-    }
 
     if (btnStep3Back) btnStep3Back.addEventListener("click", () => updateStepUI(2));
     if (btnStep3Next) btnStep3Next.addEventListener("click", () => updateStepUI(4));
@@ -499,9 +529,10 @@
   function initRemoveAds() {
     injectRemoveAdsModal();
 
-    const btnHeader = document.getElementById("btn-remove-ads");
-    if (btnHeader) {
-      btnHeader.addEventListener("click", () => {
+    // Delegate click on header button (supports dynamic DOM reinsertion)
+    document.addEventListener("click", (e) => {
+      const btnHeader = e.target.closest("#btn-remove-ads");
+      if (btnHeader) {
         // Prevent opening if user already has ads disabled
         if (currentUserData && currentUserData.adsDisabled === true) return;
 
@@ -511,8 +542,8 @@
           const bModal = new bootstrap.Modal(modalEl);
           bModal.show();
         }
-      });
-    }
+      }
+    });
 
     initRealtimeAdsListener();
   }
