@@ -141,6 +141,25 @@ const FirebaseService = {
     return onAuthStateChanged(auth, callback);
   },
 
+  // Listen to User Profile Document in Firestore
+  subscribeToUserProfile(uid, callback) {
+    if (!uid) {
+      if (typeof callback === "function") callback(null);
+      return () => {};
+    }
+    const userRef = doc(db, "users", uid);
+    return onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data());
+      } else {
+        callback(null);
+      }
+    }, (error) => {
+      console.error("Erro ao escutar perfil do usuário:", error);
+      callback(null);
+    });
+  },
+
   // Register user
   async register(email, password, nickname) {
     // 1. Create the account
