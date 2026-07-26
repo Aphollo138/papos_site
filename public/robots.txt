@@ -1,8 +1,12 @@
 User-agent: *
 Allow: /
-Allow: /pagina-inicial
 Allow: /salas
 Allow: /chat
-Allow: /perfil
+Allow: /blog/
+Allow: /sobre
+Allow: /contato
+Allow: /termos
+Allow: /privacidade
+Allow: /regras
 
 Sitemap: https://papo.net.br/sitemap.xml

@@ -4,46 +4,60 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
-    
-    <title>Blog do Papos - Dicas de Conversa, Amizade e Segurança Online</title>
-    <meta name="description" content="Aprenda a perder a timidez, manter conversas interessantes nas salas de bate-papo brasileiras e fazer amigos online com total segurança digital em 2026." />
-    <meta name="keywords" content="blog papos, salas de bate-papo, conversar online, como fazer amigos, vencer a timidez, papos online" />
-    <meta name="author" content="Papos Team" />
+    <!-- SEO Primário -->
+    <title>Blog do Papo.net.br - Dicas de Comunicação e Bate-Papo</title>
+    <meta name="description" content="Aprenda a perder a timidez, manter conversas interessantes nas salas de bate-papo brasileiras e fazer amigos online com total segurança digital no Blog do Papo.net.br." />
+    <meta name="keywords" content="blog papo.net.br, salas de bate-papo, conversar online, como fazer amigos, vencer a timidez, papo online" />
+    <meta name="author" content="Papo.net.br" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://papo.net.br/blog/" />
 
-   
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Blog do Papos - Dicas de Conversas e Conexões Humanas" />
-    <meta property="og:description" content="Melhore suas conversas online, descubra os melhores assuntos de chat e aprenda a criar novas amizades online com privacidade de forma gratuita." />
+    <meta property="og:title" content="Blog do Papo.net.br - Dicas de Conversas e Conexões Humanas" />
+    <meta property="og:description" content="Melhore suas conversas online, descubra os melhores assuntos de chat e aprenda a criar novas amizades online com privacidade." />
     <meta property="og:url" content="https://papo.net.br/blog/" />
-    <meta property="og:site_name" content="Papos" />
-    <meta property="og:image" content="https://papo.net.br/assets/img/og-image.jpg" />
+    <meta property="og:site_name" content="Papo.net.br" />
+    <meta property="og:image" content="https://papo.net.br/assets/img/og-image.png" />
     <meta property="og:locale" content="pt_BR" />
 
-    
+    <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Blog do Papos - Bate-papo de Nova Geração" />
+    <meta name="twitter:title" content="Blog do Papo.net.br" />
     <meta name="twitter:description" content="Saiba como conversar de forma fluida nas salas brasileiras, desabafar com privacidade e encontrar novas conexões online." />
-    <meta name="twitter:image" content="https://papos.net.br/assets/img/og-image.jpg" />
+    <meta name="twitter:image" content="https://papo.net.br/assets/img/og-image.png" />
 
-    
+    <!-- Structured Data (JSON-LD) para o Blog -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "Blog",
-      "name": "Blog do Papos",
+      "name": "Blog do Papo.net.br",
       "url": "https://papo.net.br/blog/",
       "description": "Artigos originais sobre amizade, relacionamentos, habilidades sociais e segurança nas salas de bate-papo brasileiras.",
       "publisher": {
         "@type": "Organization",
-        "name": "Papos",
+        "name": "Papo.net.br",
         "url": "https://papo.net.br/"
       }
     }
     </script>
 
-    
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="msapplication-TileColor" content="#000000">
+
+    <!-- Manifest & Favicons (Cache Invalidation v=2) -->
+    <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+    <link rel="mask-icon" href="/favicon.svg?v=2" color="#000000">
+    <link rel="shortcut icon" href="/favicon.ico?v=2">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     
     <!-- Bootstrap Icons -->
@@ -64,8 +78,21 @@
         
         <!-- Brand Branding -->
         <a class="navbar-brand d-flex align-items-center gap-2 m-0" href="/">
-          <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: 900; width: 34px; height: 34px;">
-            P
+          <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+              <g>
+                <mask id="logo-mask-blog">
+                  <rect x="0" y="0" width="100" height="100" fill="white" />
+                  <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+                </mask>
+                <g mask="url(#logo-mask-blog)">
+                  <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
+                  <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
+                </g>
+                <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" style="stroke: var(--text-primary) !important; fill: none;" />
+                <circle cx="78" cy="26" r="6" style="fill: var(--text-primary) !important;" />
+              </g>
+            </svg>
           </div>
           <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
         </a>
@@ -160,10 +187,23 @@
               
               <!-- Card CTA Conversar -->
               <div class="card p-4 text-center border-success bg-dark mb-4">
-                <div class="avatar-circle mx-auto mb-3" style="background: var(--accent-color); color: var(--black); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800;">
-                  P
+                <div class="mx-auto mb-3" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+                    <g>
+                      <mask id="logo-mask-cta">
+                        <rect x="0" y="0" width="100" height="100" fill="white" />
+                        <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+                      </mask>
+                      <g mask="url(#logo-mask-cta)">
+                        <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--accent-color) !important;" />
+                        <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--accent-color) !important;" />
+                      </g>
+                      <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" style="stroke: var(--accent-color) !important; fill: none;" />
+                      <circle cx="78" cy="26" r="6" style="fill: var(--accent-color) !important;" />
+                    </g>
+                  </svg>
                 </div>
-                <h3 class="h5 fw-bold text-white mb-2 font-display">Troque ideias em Tempo Real</h3>
+                <h3 class="h5 fw-bold text-white mb-2 font-display">Troque ideias in Tempo Real</h3>
                 <p class="text-secondary small mb-4">Conecte-se instantaneamente com pessoas reais de todo o Brasil nas salas mais movimentadas.</p>
                 <a href="/#login-anchor" class="btn btn-premium w-100 py-2 px-3 rounded-pill">
                   Entrar no Chat <i class="bi bi-arrow-right-short ms-1 fs-5"></i>
@@ -230,8 +270,21 @@
         <div class="row justify-content-between gy-4">
           <div class="col-md-5">
             <a class="d-flex align-items-center gap-2 mb-3 text-decoration-none text-white animate-brand" href="/">
-              <div class="avatar-circle" style="background: var(--white); color: var(--black); font-weight: 900; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
-                P
+              <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+                  <g>
+                    <mask id="logo-mask-footer">
+                      <rect x="0" y="0" width="100" height="100" fill="white" />
+                      <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+                    </mask>
+                    <g mask="url(#logo-mask-footer)">
+                      <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
+                      <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
+                    </g>
+                    <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" style="stroke: var(--text-primary) !important; fill: none;" />
+                    <circle cx="78" cy="26" r="6" style="fill: var(--text-primary) !important;" />
+                  </g>
+                </svg>
               </div>
               <span class="font-display fw-extrabold fs-4 tracking-tight">Papos</span>
             </a>

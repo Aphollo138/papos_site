@@ -26,6 +26,7 @@
     
     <meta name="theme-color" content="#000000" />
     <meta name="color-scheme" content="dark light" />
+    <meta name="msapplication-TileColor" content="#000000">
     
     <meta name="description" content="Papo.net.br é um chat online gratuito para conversar com pessoas reais, fazer amizades, participar de salas de bate-papo e trocar mensagens privadas com segurança." />
     <meta name="keywords" content="chat online, bate papo, salas de bate papo, conversar online, amizades, chat Brasil, chat gratuito, papo online" />
@@ -34,44 +35,44 @@
     <link rel="canonical" href="https://papo.net.br/" />
 
     <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
     <meta property="og:title" content="Papo.net.br" />
-    <meta property="og:description" content="Converse gratuitamente com pessoas reais em salas de bate-papo e mensagens privadas." />
+    <meta property="og:description" content="Chat online gratuito para conversar com pessoas reais em salas públicas e privadas." />
     <meta property="og:url" content="https://papo.net.br" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://papo.net.br/assets/img/og-image.png" />
     <meta property="og:site_name" content="Papo.net.br" />
-    <meta property="og:image" content="https://papo.net.br/og-image.png" />
     <meta property="og:locale" content="pt_BR" />
 
     <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Papo.net.br" />
-    <meta name="twitter:description" content="Chat online gratuito para conversar com pessoas reais." />
-    <meta name="twitter:image" content="https://papo.net.br/og-image.png" />
+    <meta name="twitter:description" content="Converse em salas públicas e privadas com pessoas reais." />
+    <meta name="twitter:image" content="https://papo.net.br/assets/img/og-image.png" />
 
     <!-- Structured Data (JSON-LD) for SEO -->
     <script type="application/ld+json">
     {
-     "@context":"https://schema.org",
-     "@type":"WebSite",
-     "name":"Papo.net.br",
-     "url":"https://papo.net.br",
-     "description":"Chat online gratuito para conversar com pessoas reais.",
-     "publisher":{
-       "@type":"Organization",
-       "name":"Papo.net.br",
-       "logo":{
-          "@type":"ImageObject",
-          "url":"https://papo.net.br/logo-512.png"
-       }
-     }
+      "@context":"https://schema.org",
+      "@type":"WebSite",
+      "name":"Papo.net.br",
+      "url":"https://papo.net.br",
+      "description":"Chat online gratuito para conversar com pessoas reais em salas públicas e privadas.",
+      "potentialAction":{
+        "@type":"SearchAction",
+        "target":"https://papo.net.br/search?q={search_term_string}",
+        "query-input":"required name=search_term_string"
+      }
     }
     </script>
 
-    <!-- Manifest & Favicons -->
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Manifest & Favicons (Cache Invalidation v=2) -->
+    <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+    <link rel="mask-icon" href="/favicon.svg?v=2" color="#000000">
+    <link rel="shortcut icon" href="/favicon.ico?v=2">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2" />
     <link rel="manifest" href="/site.webmanifest" />
 
     <!-- Bootstrap 5 CSS -->
@@ -533,11 +534,13 @@
             </p>
           </div>
           <div class="col-md-3">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Políticas</h3>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Navegação</h3>
             <ul class="list-unstyled footer-nav-container">
               <li><a href="/" class="footer-link">Início</a></li>
               <li><a href="/salas" class="footer-link">Salas Ativas</a></li>
-              <li><a href="/#safety" class="footer-link">Segurança</a></li>
+              <li><a href="/sobre" class="footer-link">Sobre</a></li>
+              <li><a href="/regras" class="footer-link">Regras</a></li>
+              <li><a href="/contato" class="footer-link">Contato</a></li>
               <li><a href="/privacidade" class="footer-link">Privacidade</a></li>
               <li><a href="/termos" class="footer-link">Termos de Uso</a></li>
             </ul>
