@@ -438,34 +438,78 @@ async function startServer() {
     return reservedRoots.some(root => norm.includes(root));
   }
 
-  // Helper to check if user is authorized to use a reserved nickname (Admin or supportNames collection with enabled == true)
+  // Helper to check if user is authorized to use a reserved nickname
   async function isAuthorizedForReservedNickname(uid: string | null | undefined, nickname: string): Promise<boolean> {
-    if (!uid || typeof uid !== "string") return false;
+    // PASSO 1: Verificar se o nick é reservado
+    if (!isReservedNickname(nickname)) {
+      return true;
+    }
+
+    if (!uid || typeof uid !== "string" || uid.trim() === "") {
+      console.log("[Reserved Nick] UID:", uid);
+      console.log("[Reserved Nick] Admin:", false);
+      console.log("[Reserved Nick] Support:", false);
+      console.log("[Reserved Nick] Permitido:", false);
+      return false;
+    }
+
+    const cleanUid = uid.trim();
+    let isUserAdmin = false;
+    let isSupportEnabled = false;
+
     try {
-      // 1. Check users/{uid} for admin flag
-      const userDocSnap = await getDoc(doc(db, "users", uid));
-      if (userDocSnap.exists() && userDocSnap.data().admin === true) {
-        return true;
+      // PASSO 2: Consultar users/{uid}
+      const userDocSnap = await getDoc(doc(db, "users", cleanUid));
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        if (userData.admin === true) {
+          isUserAdmin = true;
+        }
       }
 
-      // 2. Check supportNames/{uid} for enabled == true
-      const supportDocSnap = await getDoc(doc(db, "supportNames", uid));
-      if (supportDocSnap.exists() && supportDocSnap.data().enabled === true) {
-        return true;
+      // PASSO 3: Se admin != true, consultar supportNames/{uid}
+      if (!isUserAdmin) {
+        const supportDocSnap = await getDoc(doc(db, "supportNames", cleanUid));
+        if (supportDocSnap.exists()) {
+          const supportData = supportDocSnap.data();
+          if (supportData.enabled === true) {
+            isSupportEnabled = true;
+          }
+        }
       }
     } catch (err) {
-      console.error("Erro ao verificar autorização de nome reservado no Firestore:", err);
+      console.error("[Reserved Nick] Erro ao consultar Firestore:", err);
     }
-    return false;
+
+    const permitido = isUserAdmin || isSupportEnabled;
+
+    // LOGS
+    console.log("[Reserved Nick] UID:", cleanUid);
+    console.log("[Reserved Nick] Admin:", isUserAdmin);
+    console.log("[Reserved Nick] Support:", isSupportEnabled);
+    console.log("[Reserved Nick] Permitido:", permitido);
+
+    return permitido;
   }
 
   // Profile validation endpoint
   app.post("/api/profile/validate", async (req, res) => {
     const { bio, age, gender, nickname, uid } = req.body;
+    let authUid = uid;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      const token = req.headers.authorization.split("Bearer ")[1];
+      try {
+        const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+        if (decoded && decoded.uid) {
+          authUid = decoded.uid;
+        }
+      } catch (e) {}
+    }
     
     if (nickname && typeof nickname === "string") {
       if (isReservedNickname(nickname)) {
-        const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
+        const isAuth = await isAuthorizedForReservedNickname(authUid, nickname);
         if (isAuth) {
           console.log("UID autorizado para utilizar nome reservado.");
         } else {

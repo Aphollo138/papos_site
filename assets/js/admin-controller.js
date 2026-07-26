@@ -56,20 +56,11 @@
         }
       }
 
-      let actionBtn = "";
-      if (isEnabled) {
-        actionBtn = `
-          <button class="btn btn-outline-danger btn-sm py-1 px-3 btn-admin-revoke-support" data-uid="${item.uid}" style="font-size: 0.78rem; border-radius: 8px;">
-            Remover autorização
-          </button>
-        `;
-      } else {
-        actionBtn = `
-          <button class="btn btn-outline-success btn-sm py-1 px-3 btn-admin-enable-support" data-uid="${item.uid}" style="font-size: 0.78rem; border-radius: 8px;">
-            Reativar autorização
-          </button>
-        `;
-      }
+      let actionBtn = `
+        <button class="btn btn-outline-danger btn-sm py-1 px-3 btn-admin-revoke-support" data-uid="${item.uid}" style="font-size: 0.78rem; border-radius: 8px;" title="Remover autorização e excluir do banco">
+          <i class="bi bi-trash-fill me-1"></i>Remover autorização e excluir
+        </button>
+      `;
 
       const tr = document.createElement("tr");
       tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.08)";
@@ -90,30 +81,16 @@
         const uid = btn.getAttribute("data-uid");
         if (!uid) return;
         try {
-          if (window.FirebaseService && typeof window.FirebaseService.revokeSupportName === "function") {
+          if (window.FirebaseService && typeof window.FirebaseService.deleteSupportName === "function") {
+            await window.FirebaseService.deleteSupportName(uid);
+            window.showAdminToast("Autorização removida e registro excluído com sucesso.", "success");
+          } else if (window.FirebaseService && typeof window.FirebaseService.revokeSupportName === "function") {
             await window.FirebaseService.revokeSupportName(uid);
             window.showAdminToast("Autorização removida com sucesso.", "success");
           }
         } catch (err) {
           console.error("Erro ao remover autorização:", err);
           window.showAdminToast("Erro ao remover autorização.", "error");
-        }
-      });
-    });
-
-    const enableBtns = tbody.querySelectorAll(".btn-admin-enable-support");
-    enableBtns.forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const uid = btn.getAttribute("data-uid");
-        if (!uid) return;
-        try {
-          if (window.FirebaseService && typeof window.FirebaseService.authorizeSupportName === "function") {
-            await window.FirebaseService.authorizeSupportName(uid);
-            window.showAdminToast("UID autorizado com sucesso.", "success");
-          }
-        } catch (err) {
-          console.error("Erro ao reativar autorização:", err);
-          window.showAdminToast("Erro ao reativar autorização.", "error");
         }
       });
     });

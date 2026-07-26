@@ -507,14 +507,20 @@ const FirebaseService = {
     }, { merge: true });
   },
 
-  // Revoke UID authorization for reserved nickname
+  // Delete UID authorization and remove document from supportNames in Firestore
+  async deleteSupportName(targetUid) {
+    if (!targetUid) return;
+    const cleanUid = targetUid.trim();
+    const docRef = doc(db, "supportNames", cleanUid);
+    await deleteDoc(docRef);
+  },
+
+  // Revoke UID authorization for reserved nickname (deletes from Firestore)
   async revokeSupportName(targetUid) {
     if (!targetUid) return;
     const cleanUid = targetUid.trim();
     const docRef = doc(db, "supportNames", cleanUid);
-    await updateDoc(docRef, {
-      enabled: false
-    });
+    await deleteDoc(docRef);
   }
 };
 
