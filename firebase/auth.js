@@ -89,6 +89,17 @@ const FirebaseService = {
           await updateDoc(userDocRef, updatePayload);
         }
 
+        try {
+          const supportSnap = await getDoc(doc(db, "supportNames", user.uid));
+          if (supportSnap.exists() && supportSnap.data().enabled === true) {
+            localStorage.setItem("papos_is_support_authorized", "true");
+          } else {
+            localStorage.setItem("papos_is_support_authorized", "false");
+          }
+        } catch (e) {
+          localStorage.setItem("papos_is_support_authorized", "false");
+        }
+
         return data;
       }
 
@@ -454,6 +465,56 @@ const FirebaseService = {
     if (!targetUid) return;
     const targetDocRef = doc(db, "users", targetUid);
     await updateDoc(targetDocRef, fieldsPayload);
+  },
+
+  // Real-time listener for supportNames collection (Admin panel)
+  subscribeToSupportNames(callback) {
+    const user = auth.currentUser;
+    if (!user) {
+      callback([]);
+      return () => {};
+    }
+
+    const q = collection(db, "supportNames");
+    return onSnapshot(q, (querySnapshot) => {
+      const supportList = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        supportList.push({
+          id: docSnap.id,
+          uid: data.uid || docSnap.id,
+          enabled: data.enabled === true,
+          createdAt: data.createdAt || "",
+          createdBy: data.createdBy || ""
+        });
+      });
+      callback(supportList);
+    }, (error) => {
+      console.error("Erro ao escutar coleção supportNames no Firestore:", error);
+    });
+  },
+
+  // Authorize UID to use reserved nickname
+  async authorizeSupportName(targetUid, createdByUid) {
+    if (!targetUid) return;
+    const cleanUid = targetUid.trim();
+    const docRef = doc(db, "supportNames", cleanUid);
+    await setDoc(docRef, {
+      uid: cleanUid,
+      enabled: true,
+      createdAt: new Date().toISOString(),
+      createdBy: createdByUid || (auth.currentUser ? auth.currentUser.uid : "admin")
+    }, { merge: true });
+  },
+
+  // Revoke UID authorization for reserved nickname
+  async revokeSupportName(targetUid) {
+    if (!targetUid) return;
+    const cleanUid = targetUid.trim();
+    const docRef = doc(db, "supportNames", cleanUid);
+    await updateDoc(docRef, {
+      enabled: false
+    });
   }
 };
 

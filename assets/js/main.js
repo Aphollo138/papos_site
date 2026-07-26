@@ -269,8 +269,11 @@ const ChatEngine = {
   saveUser(nickname) {
     if (!nickname || nickname.trim() === "") return false;
     const nick = nickname.trim();
-    const isCurrentUserAdmin = Boolean(localStorage.getItem("papos_is_admin") === "true");
-    if (!isCurrentUserAdmin && window.isReservedNickname && window.isReservedNickname(nick)) {
+    const isCurrentUserAuthorized = Boolean(
+      localStorage.getItem("papos_is_admin") === "true" ||
+      localStorage.getItem("papos_is_support_authorized") === "true"
+    );
+    if (!isCurrentUserAuthorized && window.isReservedNickname && window.isReservedNickname(nick)) {
       if (typeof window.showToast === "function") {
         window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
       }

@@ -438,25 +438,41 @@ async function startServer() {
     return reservedRoots.some(root => norm.includes(root));
   }
 
+  // Helper to check if user is authorized to use a reserved nickname (Admin or supportNames collection with enabled == true)
+  async function isAuthorizedForReservedNickname(uid: string | null | undefined, nickname: string): Promise<boolean> {
+    if (!uid || typeof uid !== "string") return false;
+    try {
+      // 1. Check users/{uid} for admin flag
+      const userDocSnap = await getDoc(doc(db, "users", uid));
+      if (userDocSnap.exists() && userDocSnap.data().admin === true) {
+        return true;
+      }
+
+      // 2. Check supportNames/{uid} for enabled == true
+      const supportDocSnap = await getDoc(doc(db, "supportNames", uid));
+      if (supportDocSnap.exists() && supportDocSnap.data().enabled === true) {
+        return true;
+      }
+    } catch (err) {
+      console.error("Erro ao verificar autorização de nome reservado no Firestore:", err);
+    }
+    return false;
+  }
+
   // Profile validation endpoint
   app.post("/api/profile/validate", async (req, res) => {
     const { bio, age, gender, nickname, uid } = req.body;
     
     if (nickname && typeof nickname === "string") {
-      let isAdminUser = false;
-      if (uid) {
-        try {
-          const userDocSnap = await getDoc(doc(db, "users", uid));
-          if (userDocSnap.exists() && userDocSnap.data().admin === true) {
-            isAdminUser = true;
-          }
-        } catch (e) {}
-      }
-
-      if (isReservedNickname(nickname) && !isAdminUser) {
-        console.log("Tentativa de uso de nome reservado bloqueada.");
-        res.status(400).json({ error: "Este nome é reservado pela equipe do Papo.net.br." });
-        return;
+      if (isReservedNickname(nickname)) {
+        const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
+        if (isAuth) {
+          console.log("UID autorizado para utilizar nome reservado.");
+        } else {
+          console.log("Tentativa bloqueada de utilização de nome reservado.");
+          res.status(400).json({ error: "Este nome é reservado pela equipe do Papo.net.br." });
+          return;
+        }
       }
     }
 
@@ -664,11 +680,16 @@ async function startServer() {
                 isAdminUser = userData.admin === true;
                 isAdsDisabled = userData.adsDisabled === true;
 
-                // Check if nickname is reserved for non-admin
-                if (!isAdminUser && isReservedNickname(nickname)) {
-                  console.log("Tentativa de uso de nome reservado bloqueada.");
-                  nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
-                  await updateDoc(userDocRef, { nickname });
+                // Check if nickname is reserved
+                if (isReservedNickname(nickname)) {
+                  const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
+                  if (isAuth) {
+                    console.log("UID autorizado para utilizar nome reservado.");
+                  } else {
+                    console.log("Tentativa bloqueada de utilização de nome reservado.");
+                    nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
+                    await updateDoc(userDocRef, { nickname });
+                  }
                 }
 
                 // If admin is undefined, explicitly update to false
@@ -715,8 +736,13 @@ async function startServer() {
                 isAdminUser = false;
 
                 if (isReservedNickname(nickname)) {
-                  console.log("Tentativa de uso de nome reservado bloqueada.");
-                  nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
+                  const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
+                  if (isAuth) {
+                    console.log("UID autorizado para utilizar nome reservado.");
+                  } else {
+                    console.log("Tentativa bloqueada de utilização de nome reservado.");
+                    nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
+                  }
                 }
 
                 await setDoc(userDocRef, {
@@ -1313,10 +1339,15 @@ async function startServer() {
               return;
             }
 
-            if (isReservedNickname(nickname) && !session.isAdmin) {
-              console.log("Tentativa de uso de nome reservado bloqueada.");
-              sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
-              return;
+            if (isReservedNickname(nickname)) {
+              const isAuth = await isAuthorizedForReservedNickname(session.uid, nickname);
+              if (isAuth) {
+                console.log("UID autorizado para utilizar nome reservado.");
+              } else {
+                console.log("Tentativa bloqueada de utilização de nome reservado.");
+                sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
+                return;
+              }
             }
 
             // Terminate duplicate connections with the same nickname to prevent duplicates on reconnection

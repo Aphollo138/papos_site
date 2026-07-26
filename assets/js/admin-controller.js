@@ -10,8 +10,114 @@
   let currentPage = 1;
   const itemsPerPage = 10;
   let searchQuery = "";
-  let activeTab = "users"; // "users", "global", "individual", "audits", "ads"
+  let activeTab = "users"; // "users", "global", "individual", "audits", "ads", "support-names"
   let isFirestoreSubscribed = false;
+  let supportNamesList = [];
+  let isSupportNamesSubscribed = false;
+
+  function initSupportNamesListener() {
+    if (isSupportNamesSubscribed) return;
+    if (window.FirebaseService && typeof window.FirebaseService.subscribeToSupportNames === "function") {
+      isSupportNamesSubscribed = true;
+      window.FirebaseService.subscribeToSupportNames((list) => {
+        supportNamesList = list || [];
+        renderSupportNamesTable();
+      });
+    }
+  }
+
+  function renderSupportNamesTable() {
+    const tbody = document.getElementById("admin-support-names-table-body");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    if (supportNamesList.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="text-center text-secondary py-4">Nenhum UID autorizado encontrado.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    supportNamesList.forEach((item) => {
+      const isEnabled = item.enabled === true;
+      const statusBadge = isEnabled
+        ? `<span class="badge bg-success px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Ativo</span>`
+        : `<span class="badge bg-secondary px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Inativo</span>`;
+
+      let createdDate = "N/A";
+      if (item.createdAt) {
+        try {
+          createdDate = new Date(item.createdAt).toLocaleString("pt-BR");
+        } catch (e) {
+          createdDate = String(item.createdAt);
+        }
+      }
+
+      let actionBtn = "";
+      if (isEnabled) {
+        actionBtn = `
+          <button class="btn btn-outline-danger btn-sm py-1 px-3 btn-admin-revoke-support" data-uid="${item.uid}" style="font-size: 0.78rem; border-radius: 8px;">
+            Remover autorização
+          </button>
+        `;
+      } else {
+        actionBtn = `
+          <button class="btn btn-outline-success btn-sm py-1 px-3 btn-admin-enable-support" data-uid="${item.uid}" style="font-size: 0.78rem; border-radius: 8px;">
+            Reativar autorização
+          </button>
+        `;
+      }
+
+      const tr = document.createElement("tr");
+      tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.08)";
+      tr.innerHTML = `
+        <td class="ps-3">
+          <span class="font-monospace text-white fw-bold" style="font-size: 0.85rem;">${item.uid}</span>
+        </td>
+        <td>${statusBadge}</td>
+        <td><span style="color: #9f9f9f; font-size: 0.8rem;">${createdDate}</span></td>
+        <td class="pe-3 text-end">${actionBtn}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const revokeBtns = tbody.querySelectorAll(".btn-admin-revoke-support");
+    revokeBtns.forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const uid = btn.getAttribute("data-uid");
+        if (!uid) return;
+        try {
+          if (window.FirebaseService && typeof window.FirebaseService.revokeSupportName === "function") {
+            await window.FirebaseService.revokeSupportName(uid);
+            window.showAdminToast("Autorização removida com sucesso.", "success");
+          }
+        } catch (err) {
+          console.error("Erro ao remover autorização:", err);
+          window.showAdminToast("Erro ao remover autorização.", "error");
+        }
+      });
+    });
+
+    const enableBtns = tbody.querySelectorAll(".btn-admin-enable-support");
+    enableBtns.forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const uid = btn.getAttribute("data-uid");
+        if (!uid) return;
+        try {
+          if (window.FirebaseService && typeof window.FirebaseService.authorizeSupportName === "function") {
+            await window.FirebaseService.authorizeSupportName(uid);
+            window.showAdminToast("UID autorizado com sucesso.", "success");
+          }
+        } catch (err) {
+          console.error("Erro ao reativar autorização:", err);
+          window.showAdminToast("Erro ao reativar autorização.", "error");
+        }
+      });
+    });
+  }
 
   // Initialize Firestore user real-time listener
   function initFirestoreUsersListener() {
@@ -330,6 +436,12 @@
                     <span class="fw-medium sidebar-text">Anúncios</span>
                   </button>
                 </li>
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-support-names" data-tab="support-names" type="button" role="tab">
+                    <i class="bi bi-shield-check fs-5 flex-shrink-0"></i>
+                    <span class="fw-medium sidebar-text">Nomes de Suporte</span>
+                  </button>
+                </li>
 
               </ul>
 
@@ -491,6 +603,46 @@
                 </div>
               </div>
 
+              <!-- TAB 5: SUPPORT NAMES -->
+              <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-support-names">
+                <div class="mb-4">
+                  <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Nomes de Suporte</h5>
+                  <p class="small mb-0" style="color: #9f9f9f;">Gerenciar autorizações especiais para que membros da equipe possam utilizar nicknames contendo termos reservados (Admin, ADM, Moderador, etc.).</p>
+                </div>
+
+                <div class="admin-card p-4 mb-4">
+                  <h6 class="text-white fw-bold mb-3" style="font-size: 1rem;">Autorizar nome reservado</h6>
+                  <div class="mb-3">
+                    <label for="admin-support-uid-input" class="form-label text-white fw-semibold mb-1">UID do Firebase</label>
+                    <input type="text" class="form-control" id="admin-support-uid-input" placeholder="Cole o UID do Firebase do usuário...">
+                    <div class="form-text small mt-1" style="color: #9f9f9f;">Insira o UID do Firebase do usuário que terá permissão para usar termos como Admin, ADM, Moderador, etc.</div>
+                  </div>
+                  <button class="btn btn-admin-primary py-2 px-4 fw-bold d-flex align-items-center gap-2" id="btn-admin-add-support-uid">
+                    <i class="bi bi-plus-circle-fill"></i>
+                    <span>Adicionar</span>
+                  </button>
+                </div>
+
+                <div class="admin-card p-4">
+                  <h6 class="text-white fw-bold mb-3" style="font-size: 1rem;">UIDs Autorizados</h6>
+                  <div class="table-responsive">
+                    <table class="table align-middle mb-0" style="font-size: 0.85rem;">
+                      <thead>
+                        <tr>
+                          <th class="ps-3 py-3">UID</th>
+                          <th class="py-3">Status</th>
+                          <th class="py-3">Criado em</th>
+                          <th class="pe-3 py-3 text-end">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody id="admin-support-names-table-body">
+                        <!-- Filled dynamically -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
 
 
             </div>
@@ -515,6 +667,7 @@
     triggerBtn.addEventListener("click", () => {
       bootstrapModal.show();
       initFirestoreUsersListener();
+      initSupportNamesListener();
       refreshAdminData();
     });
 
@@ -741,6 +894,33 @@
         }
       });
     }
+
+    // Support Names tab handler
+    const btnAddSupportUid = document.getElementById("btn-admin-add-support-uid");
+    if (btnAddSupportUid) {
+      btnAddSupportUid.addEventListener("click", async () => {
+        const inputEl = document.getElementById("admin-support-uid-input");
+        const uidVal = inputEl ? inputEl.value.trim() : "";
+
+        if (!uidVal) {
+          window.showAdminToast("Por favor, digite o UID do Firebase.", "error");
+          return;
+        }
+
+        try {
+          if (window.FirebaseService && typeof window.FirebaseService.authorizeSupportName === "function") {
+            await window.FirebaseService.authorizeSupportName(uidVal);
+            window.showAdminToast("UID autorizado com sucesso.", "success");
+            if (inputEl) inputEl.value = "";
+          } else {
+            window.showAdminToast("Serviço do Firebase indisponível.", "error");
+          }
+        } catch (err) {
+          console.error("Erro ao autorizar UID:", err);
+          window.showAdminToast("Erro ao autorizar UID.", "error");
+        }
+      });
+    }
   }
 
 
@@ -760,6 +940,10 @@
 
     if (activeTab === "audits") {
       requestAuditLogs();
+    }
+    if (activeTab === "support-names") {
+      initSupportNamesListener();
+      renderSupportNamesTable();
     }
   }
 

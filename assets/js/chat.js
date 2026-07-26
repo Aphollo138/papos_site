@@ -416,8 +416,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function sendJoinRoom(roomId) {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    const isCurrentUserAdmin = Boolean(localStorage.getItem("papos_is_admin") === "true" || (window.isAdminUser && window.isAdminUser(currentUser)));
-    if (!isCurrentUserAdmin && window.isReservedNickname && window.isReservedNickname(currentUser)) {
+    const isCurrentUserAuthorized = Boolean(
+      localStorage.getItem("papos_is_admin") === "true" ||
+      localStorage.getItem("papos_is_support_authorized") === "true" ||
+      (window.isAdminUser && window.isAdminUser(currentUser))
+    );
+    if (!isCurrentUserAuthorized && window.isReservedNickname && window.isReservedNickname(currentUser)) {
       if (typeof window.showToast === "function") {
         window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
       }
