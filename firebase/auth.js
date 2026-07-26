@@ -169,6 +169,12 @@ const FirebaseService = {
 
   // Register user
   async register(email, password, nickname) {
+    if (typeof window !== "undefined" && typeof window.isReservedNickname === "function") {
+      if (window.isReservedNickname(nickname)) {
+        throw { code: "auth/reserved-nickname", message: "Este nome é reservado pela equipe do Papo.net.br." };
+      }
+    }
+
     // 1. Create the account
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;

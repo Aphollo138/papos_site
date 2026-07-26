@@ -61,6 +61,8 @@ document.addEventListener("DOMContentLoaded", () => {
     switch (code) {
       case "auth/invalid-email":
         return "O formato do e-mail inserido é inválido.";
+      case "auth/reserved-nickname":
+        return "Este nome é reservado pela equipe do Papo.net.br.";
       case "auth/user-disabled":
         return "Esta conta de usuário foi desativada.";
       case "auth/user-not-found":
@@ -169,6 +171,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (window.isReservedNickname && window.isReservedNickname(nickname)) {
+      if (typeof window.showToast === "function") {
+        window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
+      }
+      registerAlert.textContent = "Este nome é reservado pela equipe do Papo.net.br.";
+      registerAlert.classList.remove("d-none");
+      return;
+    }
+
     // Show loading state
     registerSpinner.classList.remove("d-none");
     registerBtnText.textContent = "Criando conta...";
@@ -251,14 +262,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Fetch and save the real permanentId to localStorage for the profile page to consume
         fService.syncUserProfile().then((profileData) => {
-          if (profileData && profileData.permanentId) {
-            localStorage.setItem("papos_permanent_id", profileData.permanentId);
-            
-            // Also update any displayed user-local-id elements if they exist on current page
-            const localIdEl = document.getElementById("user-local-id");
-            if (localIdEl) {
-              localIdEl.textContent = profileData.permanentId;
+          if (profileData) {
+            if (profileData.permanentId) {
+              localStorage.setItem("papos_permanent_id", profileData.permanentId);
+              const localIdEl = document.getElementById("user-local-id");
+              if (localIdEl) {
+                localIdEl.textContent = profileData.permanentId;
+              }
             }
+            localStorage.setItem("papos_is_admin", profileData.admin === true ? "true" : "false");
           }
         }).catch((err) => {
           console.error("Error syncing profile on auth:", err);

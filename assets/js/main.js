@@ -34,6 +34,93 @@ const CHAT_CONFIG = {
 // Expor globalmente para a aplicação usar em qualquer lugar
 window.CHAT_CONFIG = CHAT_CONFIG;
 
+// Validar nicknames reservados da equipe
+function isReservedNickname(nickname) {
+  if (!nickname || typeof nickname !== "string") return false;
+
+  let norm = nickname;
+  try {
+    norm = norm.normalize("NFKC").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  } catch (e) {}
+
+  norm = norm
+    .replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+  if (!norm) return false;
+
+  const reservedRoots = [
+    "admin",
+    "administrador",
+    "moderador",
+    "mod",
+    "staff",
+    "equipe",
+    "suporte",
+    "owner",
+    "fundador",
+    "desenvolvedor",
+    "dev",
+    "oficial",
+    "system",
+    "sistema",
+    "root",
+    "master",
+    "ceo",
+    "adm"
+  ];
+
+  return reservedRoots.some(root => norm.includes(root));
+}
+window.isReservedNickname = isReservedNickname;
+window.containsReservedNickname = isReservedNickname;
+
+// Toast Helper Global
+if (!window.showToast) {
+  window.showToast = function (message, type = "success") {
+    let container = document.getElementById("global-toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "global-toast-container";
+      container.className = "toast-container position-fixed bottom-0 end-0 p-3";
+      container.style.zIndex = "9999";
+      document.body.appendChild(container);
+    }
+
+    const bgClass = type === "success" ? "bg-success text-white" : (type === "error" ? "bg-danger text-white" : "bg-warning text-dark");
+    const iconClass = type === "success" ? "bi-check-circle-fill" : (type === "error" ? "bi-exclamation-octagon-fill" : "bi-exclamation-triangle-fill");
+
+    const toastEl = document.createElement("div");
+    toastEl.className = `toast align-items-center ${bgClass} border-0 shadow-lg`;
+    toastEl.role = "alert";
+    toastEl.ariaLive = "assertive";
+    toastEl.ariaAtomic = "true";
+
+    toastEl.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body d-flex align-items-center gap-2 fw-semibold">
+          <i class="bi ${iconClass} fs-5"></i>
+          <span>${message}</span>
+        </div>
+        <button type="button" class="btn-close ${type === 'warning' ? '' : 'btn-close-white'} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    `;
+
+    container.appendChild(toastEl);
+
+    if (window.bootstrap && window.bootstrap.Toast) {
+      const toast = new window.bootstrap.Toast(toastEl, { delay: 4000 });
+      toast.show();
+      toastEl.addEventListener("hidden.bs.toast", () => {
+        toastEl.remove();
+      });
+    } else {
+      setTimeout(() => toastEl.remove(), 4000);
+    }
+  };
+}
+
 // Global modal helper for admin warnings (Global & Individual) across all pages
 window.showIncomingAdminWarningModal = window.showAdminWarningModal = function (text, title = "Mensagem da Administração", onCloseCallback = null) {
   // Inject custom styles if not present
@@ -181,7 +268,15 @@ const ChatEngine = {
   // Save persistent nickname
   saveUser(nickname) {
     if (!nickname || nickname.trim() === "") return false;
-    localStorage.setItem("papos_nickname", nickname.trim());
+    const nick = nickname.trim();
+    const isCurrentUserAdmin = Boolean(localStorage.getItem("papos_is_admin") === "true");
+    if (!isCurrentUserAdmin && window.isReservedNickname && window.isReservedNickname(nick)) {
+      if (typeof window.showToast === "function") {
+        window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
+      }
+      return false;
+    }
+    localStorage.setItem("papos_nickname", nick);
     return true;
   },
 

@@ -359,6 +359,17 @@
           const validGenders = ["Masculino", "Feminino", "Outro", "Prefiro não informar"];
 
           // Validação no cliente
+          const isCurrentUserAdmin = Boolean(localStorage.getItem("papos_is_admin") === "true" || (window.isAdminUser && window.isAdminUser(currentUser)));
+          if (!isCurrentUserAdmin && window.isReservedNickname && window.isReservedNickname(newNick)) {
+            if (typeof window.showToast === "function") {
+              window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
+            } else {
+              alert("Este nome é reservado pela equipe do Papo.net.br.");
+            }
+            if (btnSave) btnSave.disabled = false;
+            return;
+          }
+
           if (bioVal.length > 400) {
             alert("A biografia não pode ter mais de 400 caracteres.");
             return;
@@ -385,12 +396,13 @@
           if (btnSave) btnSave.disabled = true;
 
           // Validação no servidor
+          const currentAuthUser = window.FirebaseService && window.FirebaseService.auth ? window.FirebaseService.auth.currentUser : null;
           fetch("/api/profile/validate", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
             },
-            body: JSON.stringify({ bio: bioVal, age: ageVal, gender: genderVal })
+            body: JSON.stringify({ bio: bioVal, age: ageVal, gender: genderVal, nickname: newNick, uid: currentAuthUser ? currentAuthUser.uid : null })
           })
           .then(res => {
             if (!res.ok) {

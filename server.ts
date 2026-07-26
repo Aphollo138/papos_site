@@ -398,10 +398,68 @@ async function startServer() {
     }
   });
 
+  // Helper to validate reserved team nicknames
+  function isReservedNickname(nickname: string): boolean {
+    if (!nickname || typeof nickname !== "string") return false;
+
+    let norm = nickname;
+    try {
+      norm = norm.normalize("NFKC").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    } catch (e) {}
+
+    norm = norm
+      .replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+    if (!norm) return false;
+
+    const reservedRoots = [
+      "admin",
+      "administrador",
+      "moderador",
+      "mod",
+      "staff",
+      "equipe",
+      "suporte",
+      "owner",
+      "fundador",
+      "desenvolvedor",
+      "dev",
+      "oficial",
+      "system",
+      "sistema",
+      "root",
+      "master",
+      "ceo",
+      "adm"
+    ];
+
+    return reservedRoots.some(root => norm.includes(root));
+  }
+
   // Profile validation endpoint
-  app.post("/api/profile/validate", (req, res) => {
-    const { bio, age, gender } = req.body;
+  app.post("/api/profile/validate", async (req, res) => {
+    const { bio, age, gender, nickname, uid } = req.body;
     
+    if (nickname && typeof nickname === "string") {
+      let isAdminUser = false;
+      if (uid) {
+        try {
+          const userDocSnap = await getDoc(doc(db, "users", uid));
+          if (userDocSnap.exists() && userDocSnap.data().admin === true) {
+            isAdminUser = true;
+          }
+        } catch (e) {}
+      }
+
+      if (isReservedNickname(nickname) && !isAdminUser) {
+        console.log("Tentativa de uso de nome reservado bloqueada.");
+        res.status(400).json({ error: "Este nome é reservado pela equipe do Papo.net.br." });
+        return;
+      }
+    }
+
     if (bio !== undefined && bio !== null && typeof bio === "string" && bio.length > 400) {
       res.status(400).json({ error: "A biografia não pode ter mais de 400 caracteres." });
       return;
@@ -606,6 +664,13 @@ async function startServer() {
                 isAdminUser = userData.admin === true;
                 isAdsDisabled = userData.adsDisabled === true;
 
+                // Check if nickname is reserved for non-admin
+                if (!isAdminUser && isReservedNickname(nickname)) {
+                  console.log("Tentativa de uso de nome reservado bloqueada.");
+                  nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
+                  await updateDoc(userDocRef, { nickname });
+                }
+
                 // If admin is undefined, explicitly update to false
                 if (userData.admin === undefined) {
                   await updateDoc(userDocRef, { admin: false });
@@ -648,6 +713,11 @@ async function startServer() {
                 }
 
                 isAdminUser = false;
+
+                if (isReservedNickname(nickname)) {
+                  console.log("Tentativa de uso de nome reservado bloqueada.");
+                  nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
+                }
 
                 await setDoc(userDocRef, {
                   uid,
@@ -1240,6 +1310,12 @@ async function startServer() {
 
             if (!nickname || nickname.length < 2) {
               sendToClient(ws, "error", { message: "Apelido inválido ou muito curto." });
+              return;
+            }
+
+            if (isReservedNickname(nickname) && !session.isAdmin) {
+              console.log("Tentativa de uso de nome reservado bloqueada.");
+              sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
               return;
             }
 
