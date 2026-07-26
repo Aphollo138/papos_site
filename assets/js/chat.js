@@ -2,6 +2,95 @@
  * chat.js - Real-time WebSocket Client, Private Chats, Modal rooms, and Search engines
  */
 
+// Robust link detection algorithm to block URLs, domains, IPs, and obfuscation
+function containsLink(str) {
+  if (!str || typeof str !== "string") return false;
+
+  let text = str;
+
+  // 1. URL Decoding if percent encoded
+  try {
+    if (text.includes("%")) {
+      text = decodeURIComponent(text);
+    }
+  } catch (e) {
+    text = text
+      .replace(/%3a/gi, ":")
+      .replace(/%2f/gi, "/")
+      .replace(/%2e/gi, ".")
+      .replace(/%20/gi, " ");
+  }
+
+  // 2. Unicode Normalization (NFKC desarms homoglyphs and unicode tricks)
+  try {
+    text = text.normalize("NFKC");
+  } catch (e) {}
+
+  // 3. Remove invisible / zero-width / control / directionality characters
+  text = text.replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "");
+
+  const lower = text.toLowerCase();
+
+  // 4. Fast check for explicit schemes & www
+  if (/(?:https?|ftp|file|wss?):\/\/|www\./i.test(lower)) {
+    return true;
+  }
+
+  // 5. Check IPv4 & IPv6
+  if (/\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/.test(lower)) {
+    return true;
+  }
+  if (/(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{1,4}|::1|fe80::/i.test(lower)) {
+    return true;
+  }
+
+  // 6. Normalization for Obfuscation
+  // Replace obfuscated dot patterns like (dot), [dot], {dot}, <dot>, (ponto), [ponto], " dot "
+  let normalized = lower
+    .replace(/\s*(?:\[|\(|\{|<)\s*(?:dot|ponto|\.)\s*(?:\]|\)|\}|>)\s*/gi, ".")
+    .replace(/\s+(?:dot|ponto)\s+/gi, ".")
+    .replace(/\s*(?:\[|\(|\{|<)\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk|pt|ar|mx)\s*(?:\]|\)|\}|>)\s*/gi, ".$1");
+
+  // Handle commas or slashes between letters used as dots: site,com -> site.com, site/com -> site.com
+  normalized = normalized
+    .replace(/([a-z0-9])\s*,\s*([a-z]{2,10})\b/gi, "$1.$2")
+    .replace(/([a-z0-9])\s*\/\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk)\b/gi, "$1.$2");
+
+  // Collapse spaces around dots: "google . com", "google. com", "google .com"
+  const collapsedSpaces = normalized
+    .replace(/([a-z0-9])\s+\.\s+([a-z0-9])/gi, "$1.$2")
+    .replace(/([a-z0-9])\.\s+([a-z0-9])/gi, "$1.$2")
+    .replace(/([a-z0-9])\s+\.([a-z0-9])/gi, "$1.$2");
+
+  // TLD list
+  const tldList = [
+    "com", "net", "org", "gov", "edu", "mil", "br", "io", "gg", "co", "app", "dev",
+    "xyz", "me", "info", "online", "site", "store", "top", "tk", "ml", "ga", "cf",
+    "gq", "link", "live", "tech", "space", "club", "fun", "icu", "vip", "shop", "pro",
+    "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
+    "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
+    "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
+    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
+  ];
+  const tldPattern = tldList.join("|");
+
+  // Regex to detect domain names with TLDs
+  const domainRegex = new RegExp(`\\b[a-z0-9\\-]+\\.(?:${tldPattern})(?:\\.[a-z]{2,4})?(?:\\/[^\\s]*)?\\b`, "i");
+
+  if (domainRegex.test(collapsedSpaces)) {
+    return true;
+  }
+
+  // 7. Check spaced-out words (e.g., "g o o g l e . c o m")
+  const noSpaces = lower.replace(/\s+/g, "");
+  if (noSpaces.includes(".") && domainRegex.test(noSpaces)) {
+    return true;
+  }
+
+  return false;
+}
+window.containsLink = containsLink;
+
 // Format message time securely in user's local timezone
 function formatMessageTime(msg) {
   if (!msg) return "";
@@ -485,7 +574,15 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "error":
-            appendSystemMessage(`Erro do servidor: ${data.message}`);
+            if (data.message && data.message.includes("Links não são permitidos")) {
+              if (typeof window.showToast === "function") {
+                window.showToast("Links não são permitidos nas conversas.", "warning");
+              } else {
+                appendSystemMessage("Links não são permitidos nas conversas.");
+              }
+            } else {
+              appendSystemMessage(`Erro do servidor: ${data.message}`);
+            }
             break;
 
           case "profile_data":
@@ -1045,10 +1142,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Toast Helper
   if (!window.showToast) {
     window.showToast = function (message, type = "success") {
-      if (typeof window.showAdminToast === "function") {
-        window.showAdminToast(message, type);
-        return;
-      }
       let container = document.getElementById("global-toast-container");
       if (!container) {
         container = document.createElement("div");
@@ -1058,11 +1151,11 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.appendChild(container);
       }
 
-      const bgClass = type === "success" ? "bg-success" : (type === "error" ? "bg-danger" : "bg-warning text-dark");
+      const bgClass = type === "success" ? "bg-success text-white" : (type === "error" ? "bg-danger text-white" : "bg-warning text-dark");
       const iconClass = type === "success" ? "bi-check-circle-fill" : (type === "error" ? "bi-exclamation-octagon-fill" : "bi-exclamation-triangle-fill");
 
       const toastEl = document.createElement("div");
-      toastEl.className = `toast align-items-center text-white ${bgClass} border-0 shadow-lg`;
+      toastEl.className = `toast align-items-center ${bgClass} border-0 shadow-lg`;
       toastEl.role = "alert";
       toastEl.ariaLive = "assertive";
       toastEl.ariaAtomic = "true";
@@ -1070,11 +1163,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       toastEl.innerHTML = `
         <div class="d-flex">
-          <div class="toast-body d-flex align-items-center gap-2">
-            <i class="bi ${iconClass}"></i>
+          <div class="toast-body d-flex align-items-center gap-2 fw-semibold">
+            <i class="bi ${iconClass} fs-5"></i>
             <span>${message}</span>
           </div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          <button type="button" class="btn-close ${type === 'warning' ? '' : 'btn-close-white'} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
       `;
 
@@ -1642,6 +1735,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!messageInput || !socket) return;
     const text = messageInput.value.trim();
     if (text === "") return;
+
+    // Strict client-side link validation
+    if (containsLink(text) || (replyTargetMsg && containsLink(replyTargetMsg.text))) {
+      if (typeof window.showToast === "function") {
+        window.showToast("Links não são permitidos nas conversas.", "warning");
+      } else {
+        alert("Links não são permitidos nas conversas.");
+      }
+      return;
+    }
 
     if (socket.readyState !== WebSocket.OPEN) {
       alert("Sua conexão foi fechada. Aguarde restabelecer.");

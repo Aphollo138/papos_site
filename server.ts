@@ -242,6 +242,94 @@ function sanitizeHTML(text: string): string {
     .replace(/'/g, "&#039;");
 }
 
+// Robust link detection algorithm to block URLs, domains, IPs, and obfuscation
+function containsLink(str: string): boolean {
+  if (!str || typeof str !== "string") return false;
+
+  let text = str;
+
+  // 1. URL Decoding if percent encoded
+  try {
+    if (text.includes("%")) {
+      text = decodeURIComponent(text);
+    }
+  } catch (e) {
+    text = text
+      .replace(/%3a/gi, ":")
+      .replace(/%2f/gi, "/")
+      .replace(/%2e/gi, ".")
+      .replace(/%20/gi, " ");
+  }
+
+  // 2. Unicode Normalization (NFKC desarm homoglyphs and unicode tricks)
+  try {
+    text = text.normalize("NFKC");
+  } catch (e) {}
+
+  // 3. Remove invisible / zero-width / control / directionality characters
+  text = text.replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "");
+
+  const lower = text.toLowerCase();
+
+  // 4. Fast check for explicit schemes & www
+  if (/(?:https?|ftp|file|wss?):\/\/|www\./i.test(lower)) {
+    return true;
+  }
+
+  // 5. Check IPv4 & IPv6
+  if (/\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/.test(lower)) {
+    return true;
+  }
+  if (/(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{1,4}|::1|fe80::/i.test(lower)) {
+    return true;
+  }
+
+  // 6. Normalization for Obfuscation
+  // Replace obfuscated dot patterns like (dot), [dot], {dot}, <dot>, (ponto), [ponto], " dot "
+  let normalized = lower
+    .replace(/\s*(?:\[|\(|\{|<)\s*(?:dot|ponto|\.)\s*(?:\]|\)|\}|>)\s*/gi, ".")
+    .replace(/\s+(?:dot|ponto)\s+/gi, ".")
+    .replace(/\s*(?:\[|\(|\{|<)\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk|pt|ar|mx)\s*(?:\]|\)|\}|>)\s*/gi, ".$1");
+
+  // Handle commas or slashes between letters used as dots: site,com -> site.com, site/com -> site.com
+  normalized = normalized
+    .replace(/([a-z0-9])\s*,\s*([a-z]{2,10})\b/gi, "$1.$2")
+    .replace(/([a-z0-9])\s*\/\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk)\b/gi, "$1.$2");
+
+  // Collapse spaces around dots: "google . com", "google. com", "google .com"
+  const collapsedSpaces = normalized
+    .replace(/([a-z0-9])\s+\.\s+([a-z0-9])/gi, "$1.$2")
+    .replace(/([a-z0-9])\.\s+([a-z0-9])/gi, "$1.$2")
+    .replace(/([a-z0-9])\s+\.([a-z0-9])/gi, "$1.$2");
+
+  // TLD list
+  const tldList = [
+    "com", "net", "org", "gov", "edu", "mil", "br", "io", "gg", "co", "app", "dev",
+    "xyz", "me", "info", "online", "site", "store", "top", "tk", "ml", "ga", "cf",
+    "gq", "link", "live", "tech", "space", "club", "fun", "icu", "vip", "shop", "pro",
+    "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
+    "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
+    "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
+    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
+  ];
+  const tldPattern = tldList.join("|");
+
+  // Regex to detect domain names with TLDs
+  const domainRegex = new RegExp(`\\b[a-z0-9\\-]+\\.(?:${tldPattern})(?:\\.[a-z]{2,4})?(?:\\/[^\\s]*)?\\b`, "i");
+
+  if (domainRegex.test(collapsedSpaces)) {
+    return true;
+  }
+
+  // 7. Check spaced-out words (e.g., "g o o g l e . c o m")
+  const noSpaces = lower.replace(/\s+/g, "");
+  if (noSpaces.includes(".") && domainRegex.test(noSpaces)) {
+    return true;
+  }
+
+  return false;
+}
+
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
@@ -254,7 +342,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -349,7 +437,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -1406,7 +1494,14 @@ async function startServer() {
             }
             session.lastMessageTime.push(now);
 
-            const text = sanitizeHTML(payload.text || "").trim().substring(0, 250);
+            // Server-side strict link validation
+            const rawText = payload.text || "";
+            if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
+              sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
+              return;
+            }
+
+            const text = sanitizeHTML(rawText).trim().substring(0, 250);
             if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
@@ -1444,9 +1539,18 @@ async function startServer() {
           case "private_message": {
             if (!session.nickname) return;
             const toNick = payload.to?.trim();
-            const text = sanitizeHTML(payload.text || "").trim().substring(0, 250);
+            const rawText = payload.text || "";
 
-            if (!toNick || !text) return;
+            if (!toNick || !rawText) return;
+
+            // Server-side strict link validation
+            if (containsLink(rawText)) {
+              sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
+              return;
+            }
+
+            const text = sanitizeHTML(rawText).trim().substring(0, 250);
+            if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 

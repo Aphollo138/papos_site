@@ -231,6 +231,14 @@ const FirebaseService = {
       return;
     }
 
+    // Strict guard: DO NOT save messages containing links in Firestore
+    if (typeof window !== "undefined" && typeof window.containsLink === "function") {
+      if (window.containsLink(messageObj.text || "")) {
+        console.warn("[Firestore] Blocked attempt to save private message containing a link.");
+        return;
+      }
+    }
+
     // Use a unique document path under the user's subcollection
     const docRef = doc(db, "users", user.uid, "privateChats", messageObj.id);
  
