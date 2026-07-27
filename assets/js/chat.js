@@ -273,13 +273,45 @@ document.addEventListener("DOMContentLoaded", () => {
   let privateChats = JSON.parse(localStorage.getItem(`papos_pms_${currentUser}`) || "{}");
 
   // Subscribe to Firebase Auth and sync private messages if authenticated
+  let profileUnsubscribe = null;
+
+  function updateDOMUserInfo(nick, profile) {
+    const desktopUserName = document.getElementById("desktop-user-name");
+    const desktopDropdownName = document.getElementById("desktop-dropdown-user-name");
+    const mobileDropdownName = document.getElementById("mobile-dropdown-user-name");
+    const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
+    const desktopAvatarContainer = document.getElementById("desktop-user-avatar-container");
+    const mobileAvatarContainer = document.getElementById("mobile-user-avatar-container");
+
+    if (desktopUserName) desktopUserName.textContent = nick;
+    if (desktopDropdownName) desktopDropdownName.textContent = nick;
+    if (mobileDropdownName) mobileDropdownName.textContent = nick;
+    if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${nick}`;
+
+    if (desktopAvatarContainer && window.ChatEngine) {
+      desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-xs");
+    }
+    if (mobileAvatarContainer && window.ChatEngine) {
+      mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-xs");
+    }
+
+    if (sidebarUsername) sidebarUsername.textContent = nick;
+    if (sidebarAvatarPlaceholder && window.ChatEngine) {
+      sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-lg mx-auto mb-2");
+    }
+  }
+
   const initializeFirebaseSync = () => {
     if (window.FirebaseService) {
       window.FirebaseService.subscribeToAuth((user) => {
+        if (profileUnsubscribe) {
+          profileUnsubscribe();
+          profileUnsubscribe = null;
+        }
+
         if (user) {
-          console.log("Firebase autenticado");
-          console.log("UID:", user.uid);
-          console.log(`Buscando documento users/${user.uid}`);
+          const uid = user.uid;
+          console.log("[Auth] UID:", uid);
 
           console.log("[Firebase] Sincronizando mensagens privadas do Firestore...");
           window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
@@ -291,9 +323,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           });
 
-          // Real-time single listener for authenticated user profile (Firestore as single source of truth)
-          let profileUnsubscribe = null;
-          if (window.FirebaseService && typeof window.FirebaseService.subscribeToAdmins === "function") {
+          if (typeof window.FirebaseService.subscribeToAdmins === "function") {
             window.FirebaseService.subscribeToAdmins((admins) => {
               window.adminUsersSet = new Set(admins.map(a => String(a).toLowerCase()));
               if (typeof renderMembers === "function") {
@@ -302,28 +332,69 @@ document.addEventListener("DOMContentLoaded", () => {
             });
           }
 
+          // 1. Carregar documento users/{uid}
           window.FirebaseService.syncUserProfile().then((initialProfile) => {
+            console.log("[Firestore] Documento carregado");
+            if (initialProfile) {
+              const isAdmin = Boolean(initialProfile.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2");
+              const isAdsDisabled = Boolean(initialProfile.adsDisabled === true || isAdmin);
+
+              console.log("[Admin]", isAdmin);
+              console.log("[AdsDisabled]", isAdsDisabled);
+              console.log("[Perfil]", {
+                nickname: initialProfile.displayName || initialProfile.nickname || initialProfile.name || user.email.split("@")[0],
+                name: initialProfile.displayName || initialProfile.nickname || initialProfile.name || user.email.split("@")[0],
+                bio: initialProfile.bio || "",
+                age: initialProfile.age !== undefined && initialProfile.age !== null ? initialProfile.age : ""
+              });
+
+              // Painel Admin
+              if (isAdmin) {
+                if (typeof window.mostrarPainelAdmin === "function") window.mostrarPainelAdmin();
+                localStorage.setItem("papos_is_admin", "true");
+              } else {
+                if (typeof window.esconderPainelAdmin === "function") window.esconderPainelAdmin();
+                localStorage.setItem("papos_is_admin", "false");
+              }
+
+              // Ads
+              if (isAdsDisabled) {
+                if (typeof window.desabilitarMonetag === "function") window.desabilitarMonetag();
+                if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: true, admin: isAdmin });
+              } else {
+                if (typeof window.habilitarMonetag === "function") window.habilitarMonetag();
+                if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: false, admin: false });
+              }
+
+              const nick = initialProfile.displayName || initialProfile.nickname || initialProfile.name || user.email.split("@")[0];
+              currentUser = nick;
+              localStorage.setItem("papos_nickname", nick);
+              localStorage.setItem("papos_bio", initialProfile.bio || "");
+              localStorage.setItem("papos_age", String(initialProfile.age !== undefined && initialProfile.age !== null ? initialProfile.age : ""));
+              localStorage.setItem("papos_gender", initialProfile.gender || "");
+              localStorage.setItem("papos_permanent_id", initialProfile.permanentId || initialProfile.internalId || "");
+
+              updateDOMUserInfo(nick, initialProfile);
+            }
+
+            // 2. Ouvinte em tempo real no mesmo documento (onSnapshot)
             if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
-              profileUnsubscribe = window.FirebaseService.subscribeToUserProfile(user.uid, (profile) => {
+              profileUnsubscribe = window.FirebaseService.subscribeToUserProfile(uid, (profile) => {
                 if (profile) {
-                  const newNick = profile.displayName || profile.nickname || profile.name || user.email.split("@")[0];
-                  const newBio = profile.bio || "";
-                  const newAge = profile.age !== undefined && profile.age !== null ? profile.age : "";
-                  const newGender = profile.gender || "";
-                  const permanentId = profile.permanentId || profile.internalId || "";
-                  const isAdmin = profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2";
-                  const isAdsDisabled = profile.adsDisabled === true;
+                  console.log("[Firestore] Documento carregado");
+                  const isAdmin = Boolean(profile.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2");
+                  const isAdsDisabled = Boolean(profile.adsDisabled === true || isAdmin);
 
-                  // Atualizar estado global e LocalStorage cache
-                  currentUser = newNick;
-                  localStorage.setItem("papos_nickname", newNick);
-                  localStorage.setItem("papos_bio", newBio);
-                  localStorage.setItem("papos_age", String(newAge));
-                  localStorage.setItem("papos_gender", newGender);
-                  localStorage.setItem("papos_permanent_id", permanentId);
-                  localStorage.setItem("papos_is_admin", isAdmin ? "true" : "false");
+                  console.log("[Admin]", isAdmin);
+                  console.log("[AdsDisabled]", isAdsDisabled);
+                  console.log("[Perfil]", {
+                    nickname: profile.displayName || profile.nickname || profile.name || user.email.split("@")[0],
+                    name: profile.displayName || profile.nickname || profile.name || user.email.split("@")[0],
+                    bio: profile.bio || "",
+                    age: profile.age !== undefined && profile.age !== null ? profile.age : ""
+                  });
 
-                  // Verificar banimentos ou suspensões em tempo real
+                  // Verification of bans and suspensions
                   if (profile.banned) {
                     window.FirebaseService.logout().then(() => {
                       localStorage.clear();
@@ -342,52 +413,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
                   // Painel Admin
                   if (isAdmin) {
-                    if (typeof window.mostrarPainelAdmin === "function") {
-                      window.mostrarPainelAdmin();
-                    }
+                    if (typeof window.mostrarPainelAdmin === "function") window.mostrarPainelAdmin();
+                    localStorage.setItem("papos_is_admin", "true");
                   } else {
-                    if (typeof window.esconderPainelAdmin === "function") {
-                      window.esconderPainelAdmin();
-                    }
+                    if (typeof window.esconderPainelAdmin === "function") window.esconderPainelAdmin();
+                    localStorage.setItem("papos_is_admin", "false");
                   }
 
                   // Ads
                   if (isAdsDisabled) {
-                    if (typeof window.desabilitarMonetag === "function") {
-                      window.desabilitarMonetag();
-                    } else {
-                      window.MONETAG_DISABLED = true;
-                    }
+                    if (typeof window.desabilitarMonetag === "function") window.desabilitarMonetag();
+                    if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: true, admin: isAdmin });
                   } else {
-                    if (typeof window.habilitarMonetag === "function") {
-                      window.habilitarMonetag();
-                    }
+                    if (typeof window.habilitarMonetag === "function") window.habilitarMonetag();
+                    if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: false, admin: false });
                   }
 
-                  // Atualizar Interface DOM (Header, Dropdown, Sidebar)
-                  const desktopUserName = document.getElementById("desktop-user-name");
-                  const desktopDropdownName = document.getElementById("desktop-dropdown-user-name");
-                  const mobileDropdownName = document.getElementById("mobile-dropdown-user-name");
-                  const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
-                  const desktopAvatarContainer = document.getElementById("desktop-user-avatar-container");
-                  const mobileAvatarContainer = document.getElementById("mobile-user-avatar-container");
+                  const newNick = profile.displayName || profile.nickname || profile.name || user.email.split("@")[0];
+                  const newBio = profile.bio || "";
+                  const newAge = profile.age !== undefined && profile.age !== null ? profile.age : "";
+                  const newGender = profile.gender || "";
+                  const permanentId = profile.permanentId || profile.internalId || "";
 
-                  if (desktopUserName) desktopUserName.textContent = newNick;
-                  if (desktopDropdownName) desktopDropdownName.textContent = newNick;
-                  if (mobileDropdownName) mobileDropdownName.textContent = newNick;
-                  if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${newNick}`;
+                  currentUser = newNick;
+                  localStorage.setItem("papos_nickname", newNick);
+                  localStorage.setItem("papos_bio", newBio);
+                  localStorage.setItem("papos_age", String(newAge));
+                  localStorage.setItem("papos_gender", newGender);
+                  localStorage.setItem("papos_permanent_id", permanentId);
 
-                  if (desktopAvatarContainer && window.ChatEngine) {
-                    desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(newNick, "avatar-xs");
-                  }
-                  if (mobileAvatarContainer && window.ChatEngine) {
-                    mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(newNick, "avatar-xs");
-                  }
+                  updateDOMUserInfo(newNick, profile);
 
-                  if (sidebarUsername) sidebarUsername.textContent = newNick;
-                  if (sidebarAvatarPlaceholder && window.ChatEngine) {
-                    sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(newNick, "avatar-lg mx-auto mb-2");
-                  }
+                  // Atualizar formulário se estiver na página de perfil
+                  const inputNickname = document.getElementById("input-nickname");
+                  const nameDisplay = document.getElementById("profile-display-name");
+                  const inputBio = document.getElementById("input-bio");
+                  const inputAge = document.getElementById("input-age");
+                  const inputGender = document.getElementById("input-gender");
+                  if (inputNickname) inputNickname.value = newNick;
+                  if (nameDisplay) nameDisplay.textContent = newNick;
+                  if (inputBio) inputBio.value = newBio;
+                  if (inputAge) inputAge.value = newAge;
+                  if (inputGender) inputGender.value = newGender;
 
                   // Sincronizar com WebSocket
                   if (socket && socket.readyState === WebSocket.OPEN) {
@@ -397,6 +464,7 @@ document.addEventListener("DOMContentLoaded", () => {
                       bio: newBio,
                       age: newAge,
                       gender: newGender,
+                      uid: uid,
                       roomId: currentRoomId
                     }));
                   } else {
@@ -419,6 +487,15 @@ document.addEventListener("DOMContentLoaded", () => {
           }).catch(err => {
             console.error("Error during profile sync:", err);
           });
+        } else {
+          if (profileUnsubscribe) {
+            profileUnsubscribe();
+            profileUnsubscribe = null;
+          }
+          if (typeof window.esconderPainelAdmin === "function") {
+            window.esconderPainelAdmin();
+          }
+          localStorage.setItem("papos_is_admin", "false");
         }
       });
     } else {

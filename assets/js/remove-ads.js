@@ -43,11 +43,17 @@
       btnMobileRemoveAdsNextSibling = mobileBtnRemoveAds.nextSibling;
     }
 
-    if (userData && userData.adsDisabled === true) {
+    const isAdsDisabled = Boolean(userData && (userData.adsDisabled === true || userData.admin === true));
+
+    if (isAdsDisabled) {
+      if (typeof window.desabilitarMonetag === "function") {
+        window.desabilitarMonetag();
+      }
+
       // 1. If modal is open, close it immediately
       const modalEl = document.getElementById("removeAdsModal");
-      if (modalEl) {
-        const bsModal = bootstrap.Modal.getInstance(modalEl);
+      if (modalEl && window.bootstrap && window.bootstrap.Modal) {
+        const bsModal = window.bootstrap.Modal.getInstance(modalEl);
         if (bsModal) bsModal.hide();
       }
 
@@ -99,6 +105,8 @@
       }
     }
   }
+
+  window.checkAdsStatus = checkAdsStatus;
 
   // Subscribe to real-time Auth & Firestore User Profile
   function initRealtimeAdsListener() {

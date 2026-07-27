@@ -748,8 +748,8 @@ async function startServer() {
                 const userData = docSnap.data();
                 permanentId = userData.permanentId;
                 nickname = userData.nickname || nickname;
-                isAdminUser = userData.admin === true;
-                isAdsDisabled = userData.adsDisabled === true;
+                isAdminUser = userData.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2";
+                isAdsDisabled = userData.adsDisabled === true || isAdminUser;
 
                 // Check if nickname is reserved
                 if (isReservedNickname(nickname)) {
@@ -2076,8 +2076,10 @@ async function startServer() {
             if (newNickname && typeof newNickname === "string") {
               newNickname = sanitizeHTML(newNickname.trim());
               if (newNickname !== oldNickname) {
+                if (payload.uid && !session.uid) session.uid = payload.uid;
+                const uidCandidate = payload.uid || session.uid;
                 if (isReservedNickname(newNickname)) {
-                  const isAuth = await isAuthorizedForReservedNickname(session.uid, newNickname);
+                  const isAuth = await isAuthorizedForReservedNickname(uidCandidate, newNickname);
                   if (!isAuth) {
                     sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
                     break;
