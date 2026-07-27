@@ -390,11 +390,67 @@
           bioCharCounter.textContent = `${val.length}/400`;
         });
 
+        // Escutar perfil em tempo real se o usuário estiver autenticado no Firebase
+        let activeProfileUnsub = null;
+        if (window.FirebaseService) {
+          window.FirebaseService.subscribeToAuth((user) => {
+            if (activeProfileUnsub) {
+              activeProfileUnsub();
+              activeProfileUnsub = null;
+            }
+
+            if (user) {
+              if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
+                activeProfileUnsub = window.FirebaseService.subscribeToUserProfile(user.uid, (profile) => {
+                  if (profile) {
+                    const nick = profile.displayName || profile.nickname || profile.name || user.email.split("@")[0];
+                    const bio = profile.bio || "";
+                    const age = profile.age !== undefined && profile.age !== null ? profile.age : "";
+                    const gender = profile.gender || "";
+                    const permId = profile.permanentId || profile.internalId || "USR-000000";
+
+                    inputNickname.value = nick;
+                    nameDisplay.textContent = nick;
+                    inputBio.value = bio;
+                    bioCharCounter.textContent = `${bio.length}/400`;
+                    inputAge.value = age;
+                    inputGender.value = gender;
+                    
+                    if (localIdEl) {
+                      localIdEl.textContent = permId;
+                      const labelEl = localIdEl.closest("p");
+                      if (labelEl) {
+                        labelEl.innerHTML = `Identificador Único: <span class="font-mono text-xs text-white-50" id="user-local-id">${permId}</span>`;
+                      }
+                    }
+
+                    updateAvatarPreview(nick);
+
+                    // Sincronizar Cache no LocalStorage
+                    localStorage.setItem("papos_nickname", nick);
+                    localStorage.setItem("papos_bio", bio);
+                    localStorage.setItem("papos_age", String(age));
+                    localStorage.setItem("papos_gender", gender);
+                    localStorage.setItem("papos_permanent_id", permId);
+                    localStorage.setItem("papos_is_admin", (profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") ? "true" : "false");
+                  }
+                });
+              }
+            }
+          });
+        }
+
         // Salvar Modificações
-        profileForm.addEventListener("submit", (e) => {
+        profileForm.addEventListener("submit", async (e) => {
           e.preventDefault();
+          const btnSave = document.getElementById("btn-save-profile");
+          if (btnSave) btnSave.disabled = true;
+
           const newNick = inputNickname.value.trim();
-          if (newNick === "") return;
+          if (newNick === "") {
+            if (btnSave) btnSave.disabled = false;
+            return;
+          }
 
           const bioVal = inputBio.value.trim();
           const ageValStr = inputAge.value.trim();
@@ -404,11 +460,16 @@
           const validGenders = ["Masculino", "Feminino", "Outro", "Prefiro não informar"];
 
           // Validação no cliente
+          const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+          const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
+
           const isCurrentUserAuthorized = Boolean(
+            currentUid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2" ||
             localStorage.getItem("papos_is_admin") === "true" ||
             localStorage.getItem("papos_is_support_authorized") === "true" ||
             (window.isAdminUser && window.isAdminUser(currentUser))
           );
+
           if (!isCurrentUserAuthorized && window.isReservedNickname && window.isReservedNickname(newNick)) {
             if (typeof window.showToast === "function") {
               window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
@@ -421,6 +482,7 @@
 
           if (bioVal.length > 400) {
             alert("A biografia não pode ter mais de 400 caracteres.");
+            if (btnSave) btnSave.disabled = false;
             return;
           }
 
@@ -428,6 +490,7 @@
             if (isNaN(ageVal) || ageVal < 17 || ageVal > 80 || !Number.isInteger(ageVal)) {
               ageErrorFeedback.classList.remove("d-none");
               inputAge.focus();
+              if (btnSave) btnSave.disabled = false;
               return;
             }
           }
@@ -436,33 +499,43 @@
           if (genderVal !== "" && !validGenders.includes(genderVal)) {
             genderErrorFeedback.classList.remove("d-none");
             inputGender.focus();
+            if (btnSave) btnSave.disabled = false;
             return;
           }
           genderErrorFeedback.classList.add("d-none");
 
-          // Mostrar loader ou desabilitar botão temporariamente
-          const btnSave = document.getElementById("btn-save-profile");
-          if (btnSave) btnSave.disabled = true;
+          try {
+            // Validação no servidor
+            const validateRes = await fetch("/api/profile/validate", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                bio: bioVal,
+                age: ageVal,
+                gender: genderVal,
+                nickname: newNick,
+                uid: currentUid
+              })
+            });
 
-          // Validação no servidor
-          const currentAuthUser = window.FirebaseService && window.FirebaseService.auth ? window.FirebaseService.auth.currentUser : null;
-          fetch("/api/profile/validate", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ bio: bioVal, age: ageVal, gender: genderVal, nickname: newNick, uid: currentAuthUser ? currentAuthUser.uid : null })
-          })
-          .then(res => {
-            if (!res.ok) {
-              return res.json().then(data => {
-                throw new Error(data.error || "Erro de validação no servidor.");
+            if (!validateRes.ok) {
+              const errData = await validateRes.json();
+              throw new Error(errData.error || "Erro de validação no servidor.");
+            }
+
+            // Se autenticado, salvar diretamente no Firestore
+            if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
+              await window.FirebaseService.saveUserProfile({
+                nickname: newNick,
+                bio: bioVal,
+                age: ageVal,
+                gender: genderVal
               });
             }
-            return res.json();
-          })
-          .then(data => {
-            // Salvar localmente após validação com sucesso do servidor
+
+            // Atualizar cache local
             localStorage.setItem("papos_bio", bioVal);
             if (ageVal !== null) {
               localStorage.setItem("papos_age", String(ageVal));
@@ -475,26 +548,28 @@
               localStorage.removeItem("papos_gender");
             }
 
-            if (window.ChatEngine && window.ChatEngine.saveUser(newNick)) {
-              // Exibir mensagem de sucesso
+            if (window.ChatEngine) {
+              window.ChatEngine.saveUser(newNick);
+            }
+
+            // Exibir mensagem de sucesso sem atualizar a página (Sem F5 / reload)
+            if (successToast) {
               successToast.classList.remove("d-none");
-              
               setTimeout(() => {
                 successToast.classList.add("d-none");
-              }, 3000);
-              
-              // Recarregar para sincronizar
-              setTimeout(() => {
-                window.location.reload();
-              }, 1000);
-            } else {
-              if (btnSave) btnSave.disabled = false;
+              }, 3500);
+            } else if (typeof window.showToast === "function") {
+              window.showToast("Perfil atualizado com sucesso.", "success");
             }
-          })
-          .catch(err => {
-            alert(err.message || "Não foi possível validar seus dados no servidor.");
+          } catch (err) {
+            if (typeof window.showToast === "function") {
+              window.showToast(err.message || "Não foi possível validar seus dados no servidor.", "error");
+            } else {
+              alert(err.message || "Não foi possível validar seus dados no servidor.");
+            }
+          } finally {
             if (btnSave) btnSave.disabled = false;
-          });
+          }
         });
 
         // Deletar Tudo do LocalStorage

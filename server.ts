@@ -454,6 +454,13 @@ async function startServer() {
     }
 
     const cleanUid = uid.trim();
+
+    // ID do Administrador Principal (Sempre Autorizado)
+    if (cleanUid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+      console.log("[Reserved Nick] Master Admin ID identificado:", cleanUid);
+      return true;
+    }
+
     let isUserAdmin = false;
     let isSupportEnabled = false;
 
@@ -462,8 +469,18 @@ async function startServer() {
       const userDocSnap = await getDoc(doc(db, "users", cleanUid));
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
-        if (userData.admin === true) {
+        if (userData.admin === true || userData.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
           isUserAdmin = true;
+        }
+      } else {
+        // Tentar buscar por permanentId
+        const permQuery = query(collection(db, "users"), where("permanentId", "==", cleanUid));
+        const permSnap = await getDocs(permQuery);
+        if (!permSnap.empty) {
+          const permData = permSnap.docs[0].data();
+          if (permData.admin === true || permSnap.docs[0].id === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+            isUserAdmin = true;
+          }
         }
       }
 
@@ -474,6 +491,16 @@ async function startServer() {
           const supportData = supportDocSnap.data();
           if (supportData.enabled === true) {
             isSupportEnabled = true;
+          }
+        } else {
+          // Consultar a coleção supportNames com where(uid == cleanUid)
+          const supQuery = query(collection(db, "supportNames"), where("uid", "==", cleanUid));
+          const supSnap = await getDocs(supQuery);
+          if (!supSnap.empty) {
+            const supData = supSnap.docs[0].data();
+            if (supData.enabled === true) {
+              isSupportEnabled = true;
+            }
           }
         }
       }
@@ -2043,10 +2070,55 @@ async function startServer() {
           }
 
           case "update_profile": {
+            const oldNickname = session.nickname;
+            let newNickname = payload.nickname || payload.displayName || payload.name;
+            
+            if (newNickname && typeof newNickname === "string") {
+              newNickname = sanitizeHTML(newNickname.trim());
+              if (newNickname !== oldNickname) {
+                if (isReservedNickname(newNickname)) {
+                  const isAuth = await isAuthorizedForReservedNickname(session.uid, newNickname);
+                  if (!isAuth) {
+                    sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
+                    break;
+                  }
+                }
+                session.nickname = newNickname;
+              }
+            }
+
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
             session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
+
+            // Save/merge to Firestore if user has a valid UID
+            if (session.uid) {
+              try {
+                const userRef = doc(db, "users", session.uid);
+                await setDoc(userRef, {
+                  nickname: session.nickname,
+                  displayName: session.nickname,
+                  name: session.nickname,
+                  bio: session.bio,
+                  age: session.age,
+                  gender: session.gender,
+                  updatedAt: Date.now()
+                }, { merge: true });
+              } catch (e) {
+                console.error("[update_profile] Erro ao atualizar Firestore:", e);
+              }
+            }
+
+            // Notify active room about updated user profile/nickname
+            if (session.roomId) {
+              broadcastToRoom(session.roomId, "user_joined", {
+                user: {
+                  nickname: session.nickname,
+                  joinedAt: session.joinTime || Date.now()
+                }
+              });
+            }
             break;
           }
 

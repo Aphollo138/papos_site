@@ -58,7 +58,11 @@ const FirebaseService = {
         let needsUpdate = false;
         const updatePayload = {};
 
-        if (data.admin === undefined) {
+        if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+          data.admin = true;
+          updatePayload.admin = true;
+          needsUpdate = true;
+        } else if (data.admin === undefined) {
           data.admin = false;
           updatePayload.admin = false;
           needsUpdate = true;
@@ -498,6 +502,8 @@ const FirebaseService = {
   async authorizeSupportName(targetUid, createdByUid) {
     if (!targetUid) return;
     const cleanUid = targetUid.trim();
+    
+    // Save document with cleanUid as key
     const docRef = doc(db, "supportNames", cleanUid);
     await setDoc(docRef, {
       uid: cleanUid,
@@ -505,6 +511,61 @@ const FirebaseService = {
       createdAt: new Date().toISOString(),
       createdBy: createdByUid || (auth.currentUser ? auth.currentUser.uid : "admin")
     }, { merge: true });
+
+    // If cleanUid is a permanent ID (e.g. USR-000001), resolve the real Auth UID and authorize that too
+    if (cleanUid.startsWith("USR-")) {
+      try {
+        const q = query(collection(db, "users"), where("permanentId", "==", cleanUid));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const authUid = snap.docs[0].id;
+          const authDocRef = doc(db, "supportNames", authUid);
+          await setDoc(authDocRef, {
+            uid: authUid,
+            permanentId: cleanUid,
+            enabled: true,
+            createdAt: new Date().toISOString(),
+            createdBy: createdByUid || (auth.currentUser ? auth.currentUser.uid : "admin")
+          }, { merge: true });
+        }
+      } catch (e) {
+        console.error("Erro ao resolver permanentId em authorizeSupportName:", e);
+      }
+    }
+  },
+
+  // Save or update user profile fields in Firestore
+  async saveUserProfile(profileData) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const nickname = (profileData.nickname || profileData.displayName || profileData.name || "").trim();
+    const bio = profileData.bio !== undefined ? String(profileData.bio).trim() : "";
+    const age = profileData.age !== undefined && profileData.age !== null && profileData.age !== "" ? Number(profileData.age) : null;
+    const gender = profileData.gender !== undefined ? String(profileData.gender).trim() : "";
+
+    const userDocRef = doc(db, "users", user.uid);
+    const updatePayload = {
+      nickname: nickname,
+      displayName: nickname,
+      name: nickname,
+      bio: bio,
+      age: age,
+      gender: gender,
+      updatedAt: Date.now()
+    };
+
+    if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+      updatePayload.admin = true;
+    }
+
+    await setDoc(userDocRef, updatePayload, { merge: true });
+
+    if (nickname && nickname !== user.displayName) {
+      await updateProfile(user, { displayName: nickname });
+    }
+
+    return updatePayload;
   },
 
   // Delete UID authorization and remove document from supportNames in Firestore

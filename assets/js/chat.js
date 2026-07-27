@@ -291,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           });
 
-          // Subscribe to real-time updates for checking ban, suspension, and admin status
+          // Real-time single listener for authenticated user profile (Firestore as single source of truth)
           let profileUnsubscribe = null;
           if (window.FirebaseService && typeof window.FirebaseService.subscribeToAdmins === "function") {
             window.FirebaseService.subscribeToAdmins((admins) => {
@@ -301,78 +301,120 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             });
           }
+
           window.FirebaseService.syncUserProfile().then((initialProfile) => {
-            if (initialProfile) {
-              if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
-                profileUnsubscribe = window.FirebaseService.subscribeToUserProfile((profile) => {
-                  if (profile) {
-                    console.log("Documento encontrado");
-                    const isAdmin = profile.admin === true;
-                    const isAdsDisabled = profile.adsDisabled === true;
-                    console.log(`admin=${isAdmin}`);
-                    console.log(`adsDisabled=${isAdsDisabled}`);
+            if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
+              profileUnsubscribe = window.FirebaseService.subscribeToUserProfile(user.uid, (profile) => {
+                if (profile) {
+                  const newNick = profile.displayName || profile.nickname || profile.name || user.email.split("@")[0];
+                  const newBio = profile.bio || "";
+                  const newAge = profile.age !== undefined && profile.age !== null ? profile.age : "";
+                  const newGender = profile.gender || "";
+                  const permanentId = profile.permanentId || profile.internalId || "";
+                  const isAdmin = profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2";
+                  const isAdsDisabled = profile.adsDisabled === true;
 
-                    // Check bans or suspensions in real-time
-                    if (profile.banned) {
-                      window.FirebaseService.logout().then(() => {
-                        localStorage.removeItem("papos_nickname");
-                        window.location.href = "/?error=banned";
-                      });
-                      return;
-                    }
-                    if (profile.suspendedUntil && profile.suspendedUntil > Date.now()) {
-                      const remaining = Math.ceil((profile.suspendedUntil - Date.now()) / 60000);
-                      window.FirebaseService.logout().then(() => {
-                        localStorage.removeItem("papos_nickname");
-                        window.location.href = `/?error=suspended&remaining=${remaining}`;
-                      });
-                      return;
-                    }
+                  // Atualizar estado global e LocalStorage cache
+                  currentUser = newNick;
+                  localStorage.setItem("papos_nickname", newNick);
+                  localStorage.setItem("papos_bio", newBio);
+                  localStorage.setItem("papos_age", String(newAge));
+                  localStorage.setItem("papos_gender", newGender);
+                  localStorage.setItem("papos_permanent_id", permanentId);
+                  localStorage.setItem("papos_is_admin", isAdmin ? "true" : "false");
 
-                    // Dynamically load the admin panel if admin=true
-                    if (isAdmin) {
-                      if (typeof window.mostrarPainelAdmin === "function") {
-                        window.mostrarPainelAdmin();
-                      }
-                    } else {
-                      if (typeof window.esconderPainelAdmin === "function") {
-                        window.esconderPainelAdmin();
-                      }
-                    }
-
-                    if (isAdsDisabled) {
-                      console.log("Ads bloqueados");
-                      if (typeof window.desabilitarMonetag === "function") {
-                        window.desabilitarMonetag();
-                      } else {
-                        window.MONETAG_DISABLED = true;
-                      }
-                    } else {
-                      if (typeof window.habilitarMonetag === "function") {
-                        window.habilitarMonetag();
-                      }
-                    }
-
-                    console.log("Permissões aplicadas");
-
-                    // Force token refresh and sync with WebSocket server
-                    user.getIdToken(true).then((token) => {
-                      const sendAuth = () => {
-                        if (socket && socket.readyState === WebSocket.OPEN) {
-                          console.log("WebSocket conectado.");
-                          socket.send(JSON.stringify({
-                            type: "sync_auth",
-                            token: token
-                          }));
-                        } else {
-                          setTimeout(sendAuth, 100);
-                        }
-                      };
-                      sendAuth();
+                  // Verificar banimentos ou suspensões em tempo real
+                  if (profile.banned) {
+                    window.FirebaseService.logout().then(() => {
+                      localStorage.clear();
+                      window.location.href = "/?error=banned";
                     });
+                    return;
                   }
-                });
-              }
+                  if (profile.suspendedUntil && profile.suspendedUntil > Date.now()) {
+                    const remaining = Math.ceil((profile.suspendedUntil - Date.now()) / 60000);
+                    window.FirebaseService.logout().then(() => {
+                      localStorage.clear();
+                      window.location.href = `/?error=suspended&remaining=${remaining}`;
+                    });
+                    return;
+                  }
+
+                  // Painel Admin
+                  if (isAdmin) {
+                    if (typeof window.mostrarPainelAdmin === "function") {
+                      window.mostrarPainelAdmin();
+                    }
+                  } else {
+                    if (typeof window.esconderPainelAdmin === "function") {
+                      window.esconderPainelAdmin();
+                    }
+                  }
+
+                  // Ads
+                  if (isAdsDisabled) {
+                    if (typeof window.desabilitarMonetag === "function") {
+                      window.desabilitarMonetag();
+                    } else {
+                      window.MONETAG_DISABLED = true;
+                    }
+                  } else {
+                    if (typeof window.habilitarMonetag === "function") {
+                      window.habilitarMonetag();
+                    }
+                  }
+
+                  // Atualizar Interface DOM (Header, Dropdown, Sidebar)
+                  const desktopUserName = document.getElementById("desktop-user-name");
+                  const desktopDropdownName = document.getElementById("desktop-dropdown-user-name");
+                  const mobileDropdownName = document.getElementById("mobile-dropdown-user-name");
+                  const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
+                  const desktopAvatarContainer = document.getElementById("desktop-user-avatar-container");
+                  const mobileAvatarContainer = document.getElementById("mobile-user-avatar-container");
+
+                  if (desktopUserName) desktopUserName.textContent = newNick;
+                  if (desktopDropdownName) desktopDropdownName.textContent = newNick;
+                  if (mobileDropdownName) mobileDropdownName.textContent = newNick;
+                  if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${newNick}`;
+
+                  if (desktopAvatarContainer && window.ChatEngine) {
+                    desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(newNick, "avatar-xs");
+                  }
+                  if (mobileAvatarContainer && window.ChatEngine) {
+                    mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(newNick, "avatar-xs");
+                  }
+
+                  if (sidebarUsername) sidebarUsername.textContent = newNick;
+                  if (sidebarAvatarPlaceholder && window.ChatEngine) {
+                    sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(newNick, "avatar-lg mx-auto mb-2");
+                  }
+
+                  // Sincronizar com WebSocket
+                  if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                      type: "update_profile",
+                      nickname: newNick,
+                      bio: newBio,
+                      age: newAge,
+                      gender: newGender,
+                      roomId: currentRoomId
+                    }));
+                  } else {
+                    user.getIdToken(true).then((token) => {
+                      if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ type: "sync_auth", token }));
+                      }
+                    }).catch(() => {});
+                  }
+
+                  if (typeof renderMembers === "function") {
+                    renderMembers();
+                  }
+                  if (typeof renderPrivateConversationsSidebar === "function") {
+                    renderPrivateConversationsSidebar();
+                  }
+                }
+              });
             }
           }).catch(err => {
             console.error("Error during profile sync:", err);

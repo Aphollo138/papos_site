@@ -269,7 +269,10 @@ const ChatEngine = {
   saveUser(nickname) {
     if (!nickname || nickname.trim() === "") return false;
     const nick = nickname.trim();
+    const currentAuth = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+    const currentUid = currentAuth ? currentAuth.uid : (localStorage.getItem("papos_uid") || "");
     const isCurrentUserAuthorized = Boolean(
+      currentUid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2" ||
       localStorage.getItem("papos_is_admin") === "true" ||
       localStorage.getItem("papos_is_support_authorized") === "true"
     );
