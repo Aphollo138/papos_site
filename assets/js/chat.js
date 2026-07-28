@@ -272,6 +272,105 @@ document.addEventListener("DOMContentLoaded", () => {
   // Local direct messages storage mapped by username
   let privateChats = JSON.parse(localStorage.getItem(`papos_pms_${currentUser}`) || "{}");
 
+  // Notification Audio & Unread Badge Helpers
+  const notifiedPrivateMessageIds = new Set();
+  let isInitialSyncDone = false;
+
+  function markExistingMessagesAsNotified() {
+    if (!privateChats) return;
+    Object.keys(privateChats).forEach(partner => {
+      const history = privateChats[partner];
+      if (Array.isArray(history)) {
+        history.forEach(m => {
+          if (m && m.id) {
+            notifiedPrivateMessageIds.add(m.id);
+          }
+        });
+      }
+    });
+  }
+
+  function playPrivateNotificationSound() {
+    const audioEl = document.getElementById("privateMessageSound") || document.querySelector("audio#privateMessageSound");
+    if (!audioEl) return;
+    try {
+      audioEl.volume = 1.0;
+      audioEl.currentTime = 0;
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          // Silent catch for autoplay block
+        });
+      }
+    } catch (e) {
+      // Catch any execution error
+    }
+  }
+
+  function triggerBadgePulse(badgeElement, isCentered = true) {
+    if (!badgeElement) return;
+    const className = isCentered ? "badge-pulse" : "badge-pulse-simple";
+    badgeElement.classList.remove(className);
+    void badgeElement.offsetWidth; // force reflow
+    badgeElement.classList.add(className);
+    setTimeout(() => {
+      badgeElement.classList.remove(className);
+    }, 750);
+  }
+
+  function getUnreadConversationsCount() {
+    if (!privateChats) return 0;
+    const partners = Object.keys(privateChats);
+    let unreadConversations = 0;
+    partners.forEach(partner => {
+      const history = privateChats[partner];
+      if (Array.isArray(history) && history.some(m => m.unread === true)) {
+        unreadConversations++;
+      }
+    });
+    return unreadConversations;
+  }
+
+  function updatePrivateUnreadBadge(triggerPulse = false) {
+    const unreadConversationsCount = getUnreadConversationsCount();
+    
+    const sidebarToggleBadge = document.getElementById("sidebar-toggle-badge");
+    const totalPrivateUnreadBadge = document.getElementById("total-private-unread");
+
+    if (sidebarToggleBadge) {
+      if (unreadConversationsCount > 0) {
+        sidebarToggleBadge.classList.remove("d-none");
+        sidebarToggleBadge.textContent = unreadConversationsCount;
+        if (triggerPulse) {
+          triggerBadgePulse(sidebarToggleBadge, true);
+        }
+      } else {
+        sidebarToggleBadge.classList.add("d-none");
+        sidebarToggleBadge.textContent = "0";
+      }
+    }
+
+    if (totalPrivateUnreadBadge) {
+      if (unreadConversationsCount > 0) {
+        totalPrivateUnreadBadge.classList.remove("d-none");
+        totalPrivateUnreadBadge.textContent = unreadConversationsCount;
+        if (triggerPulse) {
+          triggerBadgePulse(totalPrivateUnreadBadge, false);
+        }
+      } else {
+        totalPrivateUnreadBadge.classList.add("d-none");
+        totalPrivateUnreadBadge.textContent = "0";
+      }
+    }
+  }
+
+  // Pre-load existing IDs and update badge on load
+  markExistingMessagesAsNotified();
+  setTimeout(() => {
+    updatePrivateUnreadBadge(false);
+    isInitialSyncDone = true;
+  }, 500);
+
   // Subscribe to Firebase Auth and sync private messages if authenticated
   let profileUnsubscribe = null;
 
@@ -315,8 +414,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
           console.log("[Firebase] Sincronizando mensagens privadas do Firestore...");
           window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
+            let hasNewIncomingUnread = false;
+
+            if (syncedChats) {
+              Object.keys(syncedChats).forEach(partner => {
+                const history = syncedChats[partner];
+                if (Array.isArray(history)) {
+                  history.forEach(m => {
+                    if (m && m.id) {
+                      if (!notifiedPrivateMessageIds.has(m.id)) {
+                        notifiedPrivateMessageIds.add(m.id);
+                        if (isInitialSyncDone && m.sender !== currentUser && m.unread) {
+                          hasNewIncomingUnread = true;
+                        }
+                      }
+                    }
+                  });
+                }
+              });
+            }
+
             privateChats = syncedChats;
             localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+
+            if (!isInitialSyncDone) {
+              markExistingMessagesAsNotified();
+              isInitialSyncDone = true;
+            } else if (hasNewIncomingUnread) {
+              playPrivateNotificationSound();
+            }
+
+            updatePrivateUnreadBadge(hasNewIncomingUnread);
             renderPrivateConversationsSidebar();
             if (chatMode === "private") {
               renderMessages();
@@ -1089,6 +1217,21 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
       isNew = true;
 
+      // Trigger audio and badge notification if message is from another user
+      const isFromOther = (sender !== currentUser);
+      if (isFromOther && !notifiedPrivateMessageIds.has(id)) {
+        notifiedPrivateMessageIds.add(id);
+        if (isInitialSyncDone) {
+          playPrivateNotificationSound();
+          updatePrivateUnreadBadge(true);
+        } else {
+          updatePrivateUnreadBadge(false);
+        }
+      } else {
+        notifiedPrivateMessageIds.add(id);
+        updatePrivateUnreadBadge(false);
+      }
+
       // Save to Firestore if authenticated (Strictly DO NOT save Bot_Papos messages)
       if (
         partner !== "Bot_Papos" &&
@@ -1180,6 +1323,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     updateActiveHeader();
     renderMessages();
+    updatePrivateUnreadBadge(false);
     renderPrivateConversationsSidebar();
 
     // Focus on entry
@@ -1213,18 +1357,16 @@ document.addEventListener("DOMContentLoaded", () => {
           Nenhuma conversa privada.<br>Clique em um membro na lista lateral para abrir um chat seguro.
         </div>
       `;
-      if (totalPrivateUnreadBadge) totalPrivateUnreadBadge.classList.add("d-none");
+      updatePrivateUnreadBadge(false);
       return;
     }
 
     privateConversationsList.innerHTML = "";
-    let totalUnread = 0;
 
     partners.forEach(partner => {
       const history = privateChats[partner];
       const lastMsg = history[history.length - 1] || { text: "Sem mensagens", time: "" };
       const unreadCount = history.filter(m => m.unread).length;
-      totalUnread += unreadCount;
 
       const isActive = (chatMode === "private" && activePrivateRecipient === partner);
 
@@ -1259,14 +1401,7 @@ document.addEventListener("DOMContentLoaded", () => {
       privateConversationsList.appendChild(threadDiv);
     });
 
-    if (totalPrivateUnreadBadge) {
-      if (totalUnread > 0) {
-        totalPrivateUnreadBadge.classList.remove("d-none");
-        totalPrivateUnreadBadge.textContent = totalUnread;
-      } else {
-        totalPrivateUnreadBadge.classList.add("d-none");
-      }
-    }
+    updatePrivateUnreadBadge(false);
   }
 
   // Toast Helper

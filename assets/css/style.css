@@ -1707,6 +1707,39 @@ body.chat-page i.bi {
   color: #0f172a !important;
 }
 
+/* Badge Notification Pulse Animations */
+@keyframes badgePulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.35);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.badge-pulse {
+  animation: badgePulse 700ms ease-in-out !important;
+}
+
+@keyframes badgePulseSimple {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.badge-pulse-simple {
+  animation: badgePulseSimple 700ms ease-in-out !important;
+}
+
 
 
 
