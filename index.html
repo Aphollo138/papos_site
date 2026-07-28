@@ -1,49 +1,52 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
+    
+    <script>
+      document.documentElement.classList.add('js-enabled');
+      document.documentElement.classList.add('js-active');
+      
+      setTimeout(function() {
+        if (!window.ChatEngineInitialized) {
+          document.documentElement.classList.remove('js-enabled');
+          const elements = document.querySelectorAll(".scroll-reveal");
+          elements.forEach(function(el) {
+            el.classList.add("revealed");
+          });
+        }
+      }, 1500);
+    </script>
+    
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Papo.net.br - Chat online gratuito para conversar com pessoas reais</title>
     
-    <title>Blog do Papo.net.br - Dicas de Comunicação e Bate-Papo</title>
-    <meta name="description" content="Aprenda a perder a timidez, manter conversas interessantes nas salas de bate-papo brasileiras e fazer amigos online com total segurança digital no Blog do Papo.net.br." />
-    <meta name="keywords" content="blog papo.net.br, salas de bate-papo, conversar online, como fazer amigos, vencer a timidez, papo online" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/mstile-150x150.png?v=5">
+    
+    <meta name="description" content="Papo.net.br é um chat online gratuito para conversar com pessoas reais, fazer amizades, participar de salas de bate-papo e trocar mensagens privadas com segurança." />
+    <meta name="keywords" content="chat online, bate papo, salas de bate papo, conversar online, amizades, chat Brasil, chat gratuito, papo online" />
     <meta name="author" content="Papo.net.br" />
     <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://papo.net.br/blog/" />
+    <link rel="canonical" href="https://papo.net.br/" />
 
+    <meta property="og:title" content="Papo.net.br" />
+    <meta property="og:description" content="Chat online gratuito para conversar com pessoas reais em salas públicas e privadas." />
+    <meta property="og:url" content="https://papo.net.br" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Blog do Papo.net.br - Dicas de Conversas e Conexões Humanas" />
-    <meta property="og:description" content="Melhore suas conversas online, descubra os melhores assuntos de chat e aprenda a criar novas amizades online com privacidade." />
-    <meta property="og:url" content="https://papo.net.br/blog/" />
-    <meta property="og:site_name" content="Papo.net.br" />
     <meta property="og:image" content="https://papo.net.br/assets/img/og-image.png?v=5" />
+    <meta property="og:site_name" content="Papo.net.br" />
     <meta property="og:locale" content="pt_BR" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Blog do Papo.net.br" />
-    <meta name="twitter:description" content="Saiba como conversar de forma fluida nas salas brasileiras, desabafar com privacidade e encontrar novas conexões online." />
+    <meta name="twitter:title" content="Papo.net.br" />
+    <meta name="twitter:description" content="Converse em salas públicas e privadas com pessoas reais." />
     <meta name="twitter:image" content="https://papo.net.br/assets/img/og-image.png?v=5" />
 
     <script type="application/ld+json">
     [
-      {
-        "@context": "https://schema.org",
-        "@type": "Blog",
-        "name": "Blog do Papo.net.br",
-        "url": "https://papo.net.br/blog/",
-        "description": "Artigos originais sobre amizade, relacionamentos, habilidades sociais e segurança nas salas de bate-papo brasileiras.",
-        "publisher": {
-          "@type": "Organization",
-          "name": "Papo.net.br",
-          "url": "https://papo.net.br/",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "https://papo.net.br/assets/icons/logo-square.png",
-            "width": 512,
-            "height": 512
-          }
-        }
-      },
       {
         "@context": "https://schema.org",
         "@type": "Organization",
@@ -56,14 +59,22 @@
           "height": 512
         },
         "image": "https://papo.net.br/assets/icons/logo-square.png"
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Papo.net.br",
+        "url": "https://papo.net.br",
+        "logo": "https://papo.net.br/assets/icons/logo-square.png",
+        "description": "Chat online gratuito para conversar com pessoas reais em salas públicas e privadas.",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://papo.net.br/search?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
       }
     ]
     </script>
-
-    <meta name="theme-color" content="#ffffff" />
-    <meta name="color-scheme" content="dark light" />
-    <meta name="msapplication-TileColor" content="#ffffff">
-    <meta name="msapplication-TileImage" content="/mstile-150x150.png?v=5">
 
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=5">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=5">
@@ -78,7 +89,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <link rel="stylesheet" href="/assets/css/style.css" />
-    <link rel="stylesheet" href="/assets/css/blog.css" />
   </head>
   <body>
 
@@ -91,11 +101,11 @@
           <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
               <g>
-                <mask id="logo-mask-blog">
+                <mask id="logo-mask-nav">
                   <rect x="0" y="0" width="100" height="100" fill="white" />
                   <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
                 </mask>
-                <g mask="url(#logo-mask-blog)">
+                <g mask="url(#logo-mask-nav)">
                   <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
                   <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
                 </g>
@@ -117,16 +127,16 @@
               <a class="nav-link fw-medium" href="/">Início</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link fw-medium" href="/#popular-rooms">Salas</a>
+              <a class="nav-link fw-medium" href="#popular-rooms">Salas</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link fw-medium" href="/#how-it-works">Como Funciona</a>
+              <a class="nav-link fw-medium" href="#how-it-works">Como Funciona</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link fw-medium" href="/#safety">Segurança</a>
+              <a class="nav-link fw-medium" href="#safety">Segurança</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link fw-medium active" href="/blog/" aria-current="page">Blog</a>
+              <a class="nav-link fw-medium" href="/blog/">Blog</a>
             </li>
           </ul>
           
@@ -138,128 +148,359 @@
               <i class="bi bi-moon-fill theme-moon-icon" style="font-size: 1.1rem; color: #7e57c2; transition: var(--transition-smooth);"></i>
             </div>
             
-            <a href="/#login-anchor" class="btn btn-primary btn-sm py-2 px-4" id="btn-nav-login">Entrar</a>
+            <a href="#login-anchor" class="btn btn-primary btn-sm py-2 px-4" id="btn-nav-login">Entrar</a>
           </div>
         </div>
       </div>
     </header>
 
-    <main class="blog-main">
+    <main>
       
-      <section class="blog-hero position-relative">
-        <div class="container py-5 text-center">
-          <span class="badge bg-success bg-opacity-10 text-success py-2 px-4 rounded-pill fw-semibold small mb-3">CONEXÕES & HISTÓRIAS</span>
-          <h1 class="display-4 fw-extrabold text-white mb-3 tracking-tight font-display" style="letter-spacing: -1.5px;">
-            Portal de Conteúdo Papos
-          </h1>
-          <p class="lead text-secondary mx-auto mb-5" style="max-width: 680px; font-size: 1.1rem;">
-            Aprenda a iniciar conversas interessantes, vencer o medo de socializar e interagir com total privacidade nas salas de bate-papo brasileiras mais ativas.
-          </p>
-          
-          <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-6">
-              <div class="input-group p-1 border border-secondary rounded-pill bg-dark shadow-lg">
-                <span class="input-group-text bg-transparent border-0 text-secondary ps-3">
-                  <i class="bi bi-search"></i>
-                </span>
-                <input type="text" class="form-control bg-transparent border-0 text-white py-3" id="blog-search-input" placeholder="Pesquisar por títulos, tags ou temas..." aria-label="Pesquisar artigos">
-                <button class="btn btn-premium rounded-pill px-4" type="button" id="blog-search-btn">Buscar</button>
-              </div>
-              <div id="search-results-counter" class="mt-3 text-secondary small d-none"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="py-5" style="border-top: 1px solid var(--border);">
-        <div class="container">
-          <div class="row g-5">
+      <section class="hero-section" id="hero-banner">
+        <div class="container position-relative">
+          <div class="row align-items-center gy-5">
             
-            <div class="col-lg-8">
-              <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom border-secondary">
-                <h2 class="h4 fw-bold text-white mb-0 font-display">Nossos Artigos</h2>
-                <span class="text-secondary small">Explorando o melhor da socialização online</span>
+            <div class="col-lg-6 text-center text-lg-start">
+              <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 mb-4 border border-secondary rounded-pill bg-dark scroll-reveal" style="font-size: 0.8rem;">
+                <span class="status-indicator status-online d-inline-block"></span>
+                <span class="text-secondary fw-medium text-white-50">Sempre tem alguém online querendo conversar agora.</span>
               </div>
+              <h1 class="display-4 fw-extrabold mb-4 lh-sm text-white scroll-reveal delay-100" style="letter-spacing: -1.5px;">
+                Sempre tem alguém querendo trocar ideia
+              </h1>
+              <p class="lead text-secondary mb-5 scroll-reveal delay-200" style="max-width: 530px; font-size: 1.05rem; line-height: 1.6;">
+                Escolha um apelido temporário, entre em um de nossos canais e converse sem pressão. Sem formulários cansativos ou a necessidade de criar um perfil perfeito. Apenas conexões espontâneas e conversas humanas em tempo real.
+              </p>
               
-              <div class="row g-4" id="blog-posts-grid">
-                
-              </div>
-            </div>
-
-            <div class="col-lg-4 blog-sidebar">
-              
-              <div class="card p-4 text-center border-success bg-dark mb-4">
-                <div class="mx-auto mb-3" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
-                    <g>
-                      <mask id="logo-mask-cta">
-                        <rect x="0" y="0" width="100" height="100" fill="white" />
-                        <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
-                      </mask>
-                      <g mask="url(#logo-mask-cta)">
-                        <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--accent-color) !important;" />
-                        <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--accent-color) !important;" />
-                      </g>
-                      <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" style="stroke: var(--accent-color) !important; fill: none;" />
-                      <circle cx="78" cy="26" r="6" style="fill: var(--accent-color) !important;" />
-                    </g>
-                  </svg>
-                </div>
-                <h3 class="h5 fw-bold text-white mb-2 font-display">Troque ideias in Tempo Real</h3>
-                <p class="text-secondary small mb-4">Conecte-se instantaneamente com pessoas reais de todo o Brasil nas salas mais movimentadas.</p>
-                <a href="/#login-anchor" class="btn btn-premium w-100 py-2 px-3 rounded-pill">
-                  Entrar no Chat <i class="bi bi-arrow-right-short ms-1 fs-5"></i>
+              <div class="d-flex flex-column flex-sm-row justify-content-center justify-content-lg-start gap-3 scroll-reveal delay-300">
+                <a href="#login-anchor" class="btn btn-premium px-4 py-3 fs-6 d-inline-flex align-items-center justify-content-center gap-2">
+                  Começar a conversar <i class="bi bi-arrow-right-short fs-5"></i>
+                </a>
+                <a href="#popular-rooms" class="btn btn-secondary-custom px-4 py-3 fs-6 d-inline-flex align-items-center justify-content-center gap-2">
+                  Explorar salas <i class="bi bi-hash fs-5"></i>
                 </a>
               </div>
+              
+              <p class="text-secondary mt-3 small scroll-reveal delay-400">
+                Conecte-se instantaneamente de forma gratuita. <span class="text-white">Não é preciso criar conta</span>.
+              </p>
+            </div>
 
-              <div class="card p-4">
-                <h3 class="h6 fw-bold text-uppercase tracking-wider text-white mb-3 font-display">Categorias</h3>
-                <nav class="d-flex flex-column gap-1" id="blog-categories-list" aria-label="Categorias de artigos">
-                  <a href="#" class="category-filter-item active text-success" data-slug="all">
-                    <span><i class="bi bi-grid-fill me-2"></i> Todos os artigos</span>
-                    <span class="badge bg-secondary bg-opacity-25 text-white-50" id="cat-count-all">20</span>
-                  </a>
-                  
-                </nav>
-              </div>
+            <div class="col-lg-6 position-relative d-flex justify-content-center">
+              <div class="mockup-wrapper scroll-reveal reveal-right delay-200">
+                
+                <div class="position-absolute bg-dark border border-secondary px-3 py-2 rounded-pill d-none d-md-flex align-items-center gap-2 shadow" style="top: 20%; left: -30px; z-index: 100; font-size: 0.75rem;">
+                  <span class="status-indicator status-online"></span>
+                  <span class="text-white-50">Música & Playlists ativa</span>
+                </div>
+                <div class="position-absolute bg-dark border border-secondary px-3 py-2 rounded-pill d-none d-md-flex align-items-center gap-2 shadow" style="bottom: 15%; right: -30px; z-index: 100; font-size: 0.75rem;">
+                  <span class="status-indicator status-online"></span>
+                  <span class="text-white-50">Club da Madrugada aquecido 🌙</span>
+                </div>
 
-              <div class="card p-4">
-                <h3 class="h6 fw-bold text-uppercase tracking-wider text-white mb-2 font-display">Newsletter Semanal</h3>
-                <p class="text-secondary small mb-4">Receba em primeira mão nossas melhores dicas de oratória, conversas e psicologia social.</p>
-                <form id="newsletter-form" onsubmit="event.preventDefault(); alert('Inscrição realizada com sucesso!'); this.reset();">
-                  <div class="mb-3">
-                    <input type="email" class="form-control bg-dark border-secondary text-white small" placeholder="Seu melhor e-mail" required>
+                <div class="phone-container">
+                  <div class="phone-notch" aria-hidden="true"></div>
+                  <div class="phone-screen">
+                    
+                    <div class="phone-header">
+                      <div class="avatar-circle" style="background-color: #f43f5e; color: #ffffff; width: 32px; height: 32px; font-size: 0.85rem;">P</div>
+                      <div>
+                        <span class="fw-bold d-block text-white" style="font-size: 0.82rem; line-height: 1.2;">Papo Geral 💬</span>
+                        <span class="text-secondary d-flex align-items-center gap-1" style="font-size: 0.65rem;">
+                          <span class="status-indicator status-online position-static d-inline-block" style="width: 6px; height: 6px;"></span>
+                          946 pessoas online
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="phone-messages-list" id="hero-messages-simulation" aria-live="polite">
+                      
+                    </div>
+
+                    <div id="phone-typing-indicator" class="text-secondary p-2 d-none" style="font-size: 0.72rem;">
+                      
+                    </div>
+
                   </div>
-                  <button type="submit" class="btn btn-outline-light btn-sm w-100 rounded-pill py-2">Inscrever-se</button>
-                </form>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-              <div class="card p-4">
-                <h3 class="h6 fw-bold text-uppercase tracking-wider text-white mb-3 font-display">Artigos Populares</h3>
-                <ul class="list-unstyled d-flex flex-column gap-3 mb-0" id="popular-posts-list">
-                  
-                </ul>
-              </div>
+      <section class="py-5" id="popular-rooms" style="background-color: var(--surface);">
+        <div class="container py-5">
+          <div class="row mb-5 align-items-end">
+            <div class="col-md-7 text-center text-md-start scroll-reveal">
+              <span class="text-secondary fw-bold text-uppercase tracking-wider small">Bate-Papo Coletivo</span>
+              <h2 class="h1 fw-extrabold text-white mt-2">Salas acontecendo agora</h2>
+              <p class="text-secondary mb-0">Composição editorial das salas em destaque. Escolha um assunto que combine com você.</p>
+            </div>
+            <div class="col-md-5 text-center text-md-end mt-3 mt-md-0 scroll-reveal delay-100">
+              <a href="#login-anchor" class="btn btn-secondary-custom">Entrar em uma Sala</a>
+            </div>
+          </div>
 
+          <div class="rooms-bento-grid">
+            
+            <div class="bento-large scroll-reveal reveal-left">
+              <article class="card card-room d-flex flex-column justify-content-between p-4">
+                <div>
+                  <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="avatar-circle" style="background-color: #3b82f6; width: 48px; height: 48px; font-size: 1.1rem;">G</div>
+                    <span class="badge bg-dark border border-secondary text-white rounded-pill px-3 py-1.5 small">Destaque Geral</span>
+                  </div>
+                  <h3 class="h4 fw-bold mb-3 text-white">Brasil 🇧🇷</h3>
+                  <p class="text-secondary small mb-4" style="max-width: 550px;">
+                    O ponto de encontro de todas as regiões de norte a sul. Fale sobre cultura local, piadas regionais, esportes, novidades e faça amizades com sotaques de todo o país sem burocracias.
+                  </p>
+                </div>
+                <div class="pt-4 border-top border-secondary d-flex justify-content-between align-items-center">
+                  <span class="text-secondary small font-mono">Sala Pública Principal</span>
+                  <a href="#login-anchor" onclick="setTargetRoom('room-11')" class="text-white fw-bold small text-decoration-none d-inline-flex align-items-center gap-1">Entrar no Papo <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+              </article>
+            </div>
+
+            <div class="bento-medium scroll-reveal reveal-right delay-150">
+              <article class="card card-room d-flex flex-column justify-content-between p-4">
+                <div>
+                  <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="avatar-circle" style="background-color: #8b5cf6; width: 48px; height: 48px; font-size: 1.1rem;">M</div>
+                    <span class="badge bg-dark border border-secondary text-secondary rounded-pill px-3 py-1.5 small">Ativa</span>
+                  </div>
+                  <h3 class="h4 fw-bold mb-3 text-white">Madrugada 🌙</h3>
+                  <p class="text-secondary small mb-4">
+                    A sala preferida das corujas e insones. Conversas sinceras, desabafos leves e companheirismo no silêncio da noite.
+                  </p>
+                </div>
+                <div class="pt-4 border-top border-secondary d-flex justify-content-between align-items-center">
+                  <span class="text-secondary small font-mono">Corujas Online</span>
+                  <a href="#login-anchor" onclick="setTargetRoom('room-10')" class="text-white fw-bold small text-decoration-none d-inline-flex align-items-center gap-1">Entrar <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+              </article>
+            </div>
+
+            <div class="bento-small scroll-reveal delay-100">
+              <article class="card card-room d-flex flex-column justify-content-between p-4">
+                <div>
+                  <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="avatar-circle" style="background-color: #ec4899; width: 44px; height: 44px; font-size: 1rem;">MS</div>
+                  </div>
+                  <h3 class="h5 fw-bold mb-2 text-white">Música 🎧</h3>
+                  <p class="text-secondary small mb-4">
+                    Compartilhe canções de artistas independentes, mostre sua playlist preferida e descubra sons novos com a comunidade.
+                  </p>
+                </div>
+                <div class="pt-3 border-top border-secondary d-flex justify-content-between align-items-center">
+                  <span class="text-secondary small font-mono">Canal #3</span>
+                  <a href="#login-anchor" onclick="setTargetRoom('room-4')" class="text-white fw-bold small text-decoration-none d-inline-flex align-items-center gap-1">Ouvir e Conversar <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+              </article>
+            </div>
+
+            <div class="bento-small scroll-reveal delay-200">
+              <article class="card card-room d-flex flex-column justify-content-between p-4">
+                <div>
+                  <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="avatar-circle" style="background-color: #10b981; width: 44px; height: 44px; font-size: 1rem;">AM</div>
+                  </div>
+                  <h3 class="h5 fw-bold mb-2 text-white">Amizades 🤝</h3>
+                  <p class="text-secondary small mb-4">
+                    Sem compromissos ou cobranças. Um espaço ideal para dar um "oi" caloroso, rir de piadas bobas e conhecer novas pessoas de bem.
+                  </p>
+                </div>
+                <div class="pt-3 border-top border-secondary d-flex justify-content-between align-items-center">
+                  <span class="text-secondary small font-mono">Canal #4</span>
+                  <a href="#login-anchor" onclick="setTargetRoom('room-7')" class="text-white fw-bold small text-decoration-none d-inline-flex align-items-center gap-1">Fazer Amizades <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+              </article>
+            </div>
+
+            <div class="bento-small scroll-reveal delay-300">
+              <article class="card card-room d-flex flex-column justify-content-between p-4">
+                <div>
+                  <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="avatar-circle" style="background-color: #14b8a6; width: 44px; height: 44px; font-size: 1rem;">JG</div>
+                  </div>
+                  <h3 class="h5 fw-bold mb-2 text-white">Jogos 🎮</h3>
+                  <p class="text-secondary small mb-4">
+                    Encontre o seu duo para subir de elo, debata os novos lançamentos ou marque partidas casuais com outros membros online.
+                  </p>
+                </div>
+                <div class="pt-3 border-top border-secondary d-flex justify-content-between align-items-center">
+                  <span class="text-secondary small font-mono">Canal #5</span>
+                  <a href="#login-anchor" onclick="setTargetRoom('room-5')" class="text-white fw-bold small text-decoration-none d-inline-flex align-items-center gap-1">Entrar no Game <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+              </article>
+            </div>
+
+            <div class="bento-large scroll-reveal reveal-left">
+              <article class="card card-room d-flex flex-column justify-content-between p-4">
+                <div>
+                  <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="avatar-circle" style="background-color: #f43f5e; width: 48px; height: 48px; font-size: 1.1rem;">D</div>
+                    <span class="badge bg-dark border border-secondary text-danger rounded-pill px-3 py-1.5 small">Espaço Acolhedor</span>
+                  </div>
+                  <h3 class="h4 fw-bold mb-3 text-white">Desabafos ❤️</h3>
+                  <p class="text-secondary small mb-4">
+                    Um ambiente calmo e livre de julgamentos para expressar suas angústias diárias, aliviar o peso mental do trabalho ou estudos, compartilhar vitórias silenciosas e receber apoio de quem também entende de sentimentos.
+                  </p>
+                </div>
+                <div class="pt-4 border-top border-secondary d-flex justify-content-between align-items-center">
+                  <span class="text-secondary small font-mono">Apoio Coletivo Anônimo</span>
+                  <a href="#login-anchor" onclick="setTargetRoom('room-6')" class="text-white fw-bold small text-decoration-none d-inline-flex align-items-center gap-1">Entrar e Desabafar <i class="bi bi-arrow-right-short"></i></a>
+                </div>
+              </article>
             </div>
 
           </div>
         </div>
       </section>
 
-      <section class="py-5" style="border-top: 1px solid var(--border); background-color: var(--surface);">
-        <div class="container py-4 text-center">
-          <div class="p-4 p-md-5 border border-secondary rounded-4 bg-dark max-width-md mx-auto" style="max-width: 720px;">
-            <span class="text-secondary fw-bold text-uppercase tracking-wider small">Mais de 10.000 papos hoje</span>
-            <h2 class="h1 fw-extrabold text-white mt-2 mb-3 font-display" style="letter-spacing: -1px;">Entre agora no Papos e converse com pessoas reais.</h2>
-            <p class="text-secondary small mb-4 mx-auto" style="max-width: 480px;">Sem burocracias, sem anúncios invasivos, sem criar perfis permanentes. Comece a conversar no seu tempo de forma anônima e gratuita.</p>
-            <a href="/#login-anchor" class="btn btn-premium py-3 px-5 rounded-pill font-display fw-bold">
-              Começar uma conversa <i class="bi bi-chat-fill ms-2"></i>
-            </a>
+      <section class="py-5" id="how-it-works" style="background-color: var(--background);">
+        <div class="container py-5">
+          <div class="text-center mb-5 scroll-reveal">
+            <span class="text-secondary fw-bold text-uppercase tracking-wider small">Fluxo Descomplicado</span>
+            <h2 class="h1 fw-extrabold text-white mt-2">Como funciona</h2>
+            <p class="text-secondary mx-auto" style="max-width: 530px;">Acreditamos que conversar não deve requerer etapas burocráticas ou contratos. Três passos simples e você está conectado.</p>
+          </div>
+
+          <div class="row g-4 text-center text-md-start">
+            
+            <div class="col-md-4 scroll-reveal reveal-left delay-100">
+              <article class="p-4 h-100 rounded-4 border border-secondary" style="background-color: var(--surface);">
+                <span class="display-4 font-mono text-white d-block mb-3 fw-bold" style="color: #00e676 !important;">01</span>
+                <h3 class="h4 fw-bold text-white mb-3">Escolher um apelido</h3>
+                <p class="text-secondary small mb-0">Use seu primeiro nome ou invente um codinome divertido. Não solicitamos senhas, confirmações ou links invasivos.</p>
+              </article>
+            </div>
+            
+            <div class="col-md-4 scroll-reveal delay-200">
+              <article class="p-4 h-100 rounded-4 border border-secondary" style="background-color: var(--surface);">
+                <span class="display-4 font-mono text-white d-block mb-3 fw-bold" style="color: #00e676 !important;">02</span>
+                <h3 class="h4 fw-bold text-white mb-3">Entrar em uma sala</h3>
+                <p class="text-secondary small mb-0">Selecione uma sala de conversa temática ativa criada por nossa equipe ou monte seu próprio grupo em instantes.</p>
+              </article>
+            </div>
+
+            <div class="col-md-4 scroll-reveal reveal-right delay-300">
+              <article class="p-4 h-100 rounded-4 border border-secondary" style="background-color: var(--surface);">
+                <span class="display-4 font-mono text-white d-block mb-3 fw-bold" style="color: #00e676 !important;">03</span>
+                <h3 class="h4 fw-bold text-white mb-3">Começar a conversar</h3>
+                <p class="text-secondary small mb-0">Envie mensagens instantâneas, reaja com emojis, mencione membros e mande sussurros privados com total liberdade.</p>
+              </article>
+            </div>
           </div>
         </div>
       </section>
 
+      <section class="py-5" id="safety" style="background-color: var(--surface);">
+        <div class="container py-5">
+          <div class="row align-items-center gy-5">
+            <div class="col-lg-6 scroll-reveal reveal-left">
+              <span class="text-secondary fw-bold text-uppercase tracking-wider small">Convivência Saudável</span>
+              <h2 class="h1 fw-extrabold text-white mt-2 mb-4">Segurança para você se expressar</h2>
+              <p class="text-secondary mb-4">No Papos, acreditamos que anônimo não significa sem lei. Construímos ferramentas nativas de proteção ao usuário para que você permaneça no controle de sua experiência o tempo todo:</p>
+              
+              <ul class="list-unstyled text-secondary d-flex flex-column gap-3 mb-0">
+                <li class="d-flex gap-3 align-items-start">
+                  <i class="bi bi-shield-fill text-success fs-4"></i>
+                  <div>
+                    <strong class="text-white d-block">Bloquear Usuários</strong>
+                    Achou alguém inconveniente ou desagradável? Use o botão de bloqueio integrado em cada mensagem. A pessoa desaparecerá da sua tela e você nunca mais receberá dados dela.
+                  </div>
+                </li>
+                <li class="d-flex gap-3 align-items-start">
+                  <i class="bi bi-flag-fill text-warning fs-4"></i>
+                  <div>
+                    <strong class="text-white d-block">Denunciar Comportamentos</strong>
+                    Qualquer ofensa, assédio ou tentativa de fraude pode ser denunciada com um clique. Nossos moderadores recebem alertas imediatos e banem transgressores rapidamente.
+                  </div>
+                </li>
+                <li class="d-flex gap-3 align-items-start">
+                  <i class="bi bi-box-arrow-left text-white fs-4"></i>
+                  <div>
+                    <strong class="text-white d-block">Sair quando quiser</strong>
+                    Não há conexões ocultas ou rastreadores corporativos. Basta clicar em sair para limpar seu rastro de sessão. Suas preferências permanecem puramente em seu computador.
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <div class="col-lg-6 scroll-reveal reveal-right delay-200">
+              <div class="p-4 p-md-5 rounded-4 border border-secondary" style="background-color: var(--background);">
+                <h3 class="h4 fw-bold text-white mb-3">Recomendação Básica</h3>
+                <p class="text-secondary small mb-4">Queremos que você faça boas conexões. Para se manter totalmente protegido, siga nossa dica de ouro:</p>
+                
+                <div class="p-3 border border-warning rounded-4 bg-dark mb-4 text-warning small">
+                  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                  <strong>Evite compartilhar informações pessoais:</strong> Não publique seu número de celular, fotos íntimas, senhas de redes sociais ou endereço físico no chat público ou privado. Preserve o seu anonimato.
+                </div>
+                
+                <p class="text-secondary small mb-0">O Papos é um ambiente descontraído. Use com bom senso e ajude-nos a manter as salas ativas sempre amigáveis e divertidas para todo mundo.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="py-5" id="latest-blog-posts" style="background-color: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+        <div class="container py-4">
+          <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-5 scroll-reveal">
+            <div class="text-center text-md-start mb-3 mb-md-0">
+              <span class="text-success fw-bold text-uppercase tracking-wider small">Conteúdo & Conexões</span>
+              <h2 class="h1 fw-extrabold text-white mt-1 mb-2 font-display" style="letter-spacing: -1px;">Últimos artigos do Blog</h2>
+              <p class="text-secondary mb-0 small">Aprenda dicas valiosas de comunicação, amizade e navegação segura.</p>
+            </div>
+            <a href="/blog/" class="btn btn-outline-light rounded-pill px-4 py-2 small d-inline-flex align-items-center gap-1.5">
+              Ver todo o Blog <i class="bi bi-arrow-right-short fs-5"></i>
+            </a>
+          </div>
+
+          <div class="row g-4" id="home-blog-grid">
+            
+          </div>
+        </div>
+      </section>
+
+      <section class="py-5" id="login-anchor" style="background-color: var(--background);">
+        <div class="container py-5">
+          <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6 text-center">
+              <div class="p-4 p-md-5 border border-secondary rounded-4 bg-dark shadow-lg scroll-reveal">
+                <span class="text-secondary fw-bold text-uppercase tracking-wider small">Apenas um Clique de Distância</span>
+                <h2 class="h1 fw-extrabold text-white mt-2 mb-3">Talvez o próximo bom papo esteja a um clique daqui</h2>
+                <p class="text-secondary small mb-4 mx-auto" style="max-width: 440px;">Escolha o apelido que deseja usar para se identificar na sala selecionada.</p>
+                
+                <form id="nickname-form" class="text-start">
+                  <div class="mb-4">
+                    <label for="user-nickname" class="form-label text-secondary fw-semibold small">Seu Apelido Temporário</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-dark border-secondary text-secondary" id="user-addon-icon">
+                        <i class="bi bi-person-fill"></i>
+                      </span>
+                      <input type="text" class="form-control form-control-lg bg-dark border-secondary border-start-0 text-white" id="user-nickname" placeholder="Ex: coruja_noturna" minlength="2" maxlength="15" required aria-describedby="user-addon-icon">
+                    </div>
+                    <div class="form-text text-secondary" style="font-size: 0.75rem;">
+                      De 2 a 15 caracteres. O apelido é armazenado localmente em seu navegador.
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn btn-premium w-100 py-3 font-display fw-bold" id="btn-submit-nickname">
+                    Entrar nas salas de bate-papo <i class="bi bi-arrow-right-short ms-1 fs-5"></i>
+                  </button>
+                </form>
+
+                <p class="text-secondary small mt-4 mb-0">
+                  Ao entrar, você declara estar de acordo com as regras de convivência e privacidade de papos.net.br.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer class="py-5" style="border-top: 1px solid var(--border); background-color: var(--surface);">
@@ -267,22 +508,7 @@
         <div class="row justify-content-between gy-4">
           <div class="col-md-5">
             <a class="d-flex align-items-center gap-2 mb-3 text-decoration-none text-white animate-brand" href="/">
-              <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
-                  <g>
-                    <mask id="logo-mask-footer">
-                      <rect x="0" y="0" width="100" height="100" fill="white" />
-                      <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
-                    </mask>
-                    <g mask="url(#logo-mask-footer)">
-                      <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
-                      <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
-                    </g>
-                    <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" style="stroke: var(--text-primary) !important; fill: none;" />
-                    <circle cx="78" cy="26" r="6" style="fill: var(--text-primary) !important;" />
-                  </g>
-                </svg>
-              </div>
+              <img src="/favicon.svg" alt="Papos Logo" class="footer-logo" />
               <span class="font-display fw-extrabold fs-4 tracking-tight">Papos</span>
             </a>
             <p class="text-secondary small" style="max-width: 420px;">
@@ -290,16 +516,19 @@
             </p>
           </div>
           <div class="col-md-3">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Políticas</h3>
-            <ul class="list-unstyled d-flex flex-column gap-2">
-              <li><a href="/" class="footer-link text-secondary text-decoration-none small">Início</a></li>
-              <li><a href="/salas" class="footer-link text-secondary text-decoration-none small">Salas Ativas</a></li>
-              <li><a href="/privacidade" class="footer-link text-secondary text-decoration-none small">Privacidade</a></li>
-              <li><a href="/termos" class="footer-link text-secondary text-decoration-none small">Termos de Uso</a></li>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Navegação</h3>
+            <ul class="list-unstyled footer-nav-container">
+              <li><a href="/" class="footer-link">Início</a></li>
+              <li><a href="/salas" class="footer-link">Salas Ativas</a></li>
+              <li><a href="/sobre" class="footer-link">Sobre</a></li>
+              <li><a href="/regras" class="footer-link">Regras</a></li>
+              <li><a href="/contato" class="footer-link">Contato</a></li>
+              <li><a href="/privacidade" class="footer-link">Privacidade</a></li>
+              <li><a href="/termos" class="footer-link">Termos de Uso</a></li>
             </ul>
           </div>
           <div class="col-md-4">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Artigos Populares</h3>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Artigos Populares</h3>
             <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
               
             </ul>
@@ -314,106 +543,177 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
+    <script type="module" src="/firebase/auth.js"></script>
+    <script type="module" src="/assets/js/auth-controller.js"></script>
+
     <script src="/assets/js/main.js"></script>
 
     <script src="/assets/js/monetization.js"></script>
 
     <script src="/assets/js/blog-posts.js"></script>
-
     <script src="/assets/js/blog.js"></script>
 
-    <script src="/assets/js/blog-search.js"></script>
-    <script src="/assets/js/blog-filter.js"></script>
-
     <script>
+      function setTargetRoom(roomId) {
+        localStorage.setItem("target_room_id", roomId);
+      }
+
       document.addEventListener("DOMContentLoaded", () => {
-        const BlogEngine = window.BlogEngine;
-        if (!BlogEngine) return;
-
-        const postsGrid = document.getElementById("blog-posts-grid");
-        const categoriesList = document.getElementById("blog-categories-list");
-        const popularList = document.getElementById("popular-posts-list");
-        const footerPopularList = document.getElementById("footer-popular-posts");
-
-        // 1. Renderizar os cards iniciais de posts
-        if (postsGrid) {
-          let html = "";
-          BlogEngine.getPosts().forEach(post => {
-            html += BlogEngine.buildPostCardHtml(post);
-          });
-          postsGrid.innerHTML = html;
-        }
-
-        // 2. Renderizar categorias extras no Sidebar
-        if (categoriesList) {
-          const categories = BlogEngine.getCategories();
-          categories.forEach(cat => {
-            const count = BlogEngine.getPostsByCategory(cat.slug).length;
-            const link = document.createElement("a");
-            link.href = `/blog/categoria.html?cat=${cat.slug}`;
-            link.className = "category-filter-item text-secondary text-decoration-none";
-            link.setAttribute("data-slug", cat.slug);
-            link.innerHTML = `
-              <span><i class="bi ${cat.icon} me-2"></i> ${cat.name}</span>
-              <span class="badge bg-secondary bg-opacity-25 text-white-50">${count}</span>
-            `;
-            categoriesList.appendChild(link);
-          });
-        }
-
-        // 3. Renderizar artigos populares no Sidebar
-        if (popularList) {
-          const popular = BlogEngine.getPopularPosts(4);
-          let html = "";
-          popular.forEach(post => {
-            html += `
-              <li class="d-flex gap-3 align-items-center">
-                <img src="${post.image}" alt="${post.title}" class="rounded object-fit-cover" style="width: 54px; height: 54px; min-width: 54px;" />
-                <div>
-                  <h4 class="h6 mb-1 text-white small" style="line-height: 1.3;">
-                    <a href="/blog/artigo.html?slug=${post.slug}" class="text-decoration-none text-white hover:text-success">${post.title}</a>
-                  </h4>
-                  <time class="text-secondary small" style="font-size: 0.72rem;">${post.date}</time>
-                </div>
-              </li>
-            `;
-          });
-          popularList.innerHTML = html;
-        }
-
-        // 4. Renderizar artigos populares no Footer
-        if (footerPopularList) {
-          const popular = BlogEngine.getPopularPosts(3);
-          let html = "";
-          popular.forEach(post => {
-            html += `
-              <li>
-                <a href="/blog/artigo.html?slug=${post.slug}" class="text-secondary text-decoration-none small hover:text-success d-block text-truncate" style="max-width: 280px;">
-                  &bull; ${post.title}
-                </a>
-              </li>
-            `;
-          });
-          footerPopularList.innerHTML = html;
-        }
-
-        // Re-sincronizar revelações de scroll
-        setTimeout(() => {
-          const revealElements = document.querySelectorAll(".scroll-reveal");
-          if ("IntersectionObserver" in window) {
-            const scrollObserver = new IntersectionObserver((entries) => {
-              entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                  entry.target.classList.add("revealed");
-                  scrollObserver.unobserve(entry.target);
-                }
-              });
-            }, { root: null, threshold: 0.05 });
-            revealElements.forEach(el => scrollObserver.observe(el));
-          } else {
-            revealElements.forEach(el => el.classList.add("revealed"));
+        // Autofill nickname if already saved
+        const savedName = window.ChatEngine ? window.ChatEngine.getUser() : null;
+        if (savedName) {
+          const nameInput = document.getElementById("user-nickname");
+          if (nameInput) {
+            nameInput.value = savedName;
           }
-        }, 300);
+        }
+
+        // Form submission and validation logic
+        const nickForm = document.getElementById("nickname-form");
+        if (nickForm) {
+          nickForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const nicknameInput = document.getElementById("user-nickname");
+            const nickname = nicknameInput.value.trim();
+            
+            if (window.ChatEngine && window.ChatEngine.saveUser(nickname)) {
+              const targetRoom = localStorage.getItem("target_room_id");
+              if (targetRoom) {
+                localStorage.removeItem("target_room_id");
+                window.location.href = `/chat?room=${targetRoom}`;
+              } else {
+                window.location.href = "/salas";
+              }
+            }
+          });
+        }
+
+        // --- CELLULAR CONVERSATION STREAMING SIMULATOR ---
+        const messagesData = [
+          { sender: "gabi_coruja", text: "alguém ainda acordado por aqui?", isMe: false, avatarColor: "#f43f5e" },
+          { sender: "guilherme_dev", text: "tô procurando uma música boa pra programar", isMe: false, avatarColor: "#3b82f6" },
+          { sender: "Você", text: "tô por aqui ouvindo um lo-fi e resolvendo uns códigos haha", isMe: true, avatarColor: "#00e676" },
+          { sender: "gabi_coruja", text: "entra na sala de música, tá legal lá! tem várias indicações", isMe: false, avatarColor: "#f43f5e" },
+          { sender: "lucas_99", text: "cheguei agora kkk, salve pessoal!", isMe: false, avatarColor: "#a855f7" }
+        ];
+
+        const container = document.getElementById("hero-messages-simulation");
+        const typingIndicator = document.getElementById("phone-typing-indicator");
+
+        function getRealTime() {
+          const now = new Date();
+          return now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        }
+
+        let msgIndex = 0;
+
+        function simulateConversation() {
+          if (!container) return;
+
+          // Clear initial placeholders
+          if (msgIndex === 0) {
+            container.innerHTML = "";
+          }
+
+          if (msgIndex < messagesData.length) {
+            const msg = messagesData[msgIndex];
+            
+            // Show typing indicator
+            if (!msg.isMe && typingIndicator) {
+              typingIndicator.classList.remove("d-none");
+              typingIndicator.innerHTML = `<span class="fw-bold">${msg.sender}</span> está digitando...`;
+            }
+
+            // Time delay before sending
+            setTimeout(() => {
+              if (typingIndicator) {
+                typingIndicator.classList.add("d-none");
+              }
+
+              const msgElement = document.createElement("div");
+              msgElement.className = `mock-message ${msg.isMe ? 'me' : 'other'}`;
+              
+              const avatarLetter = msg.sender.charAt(0).toUpperCase();
+
+              // Build HTML block representing human message
+              msgElement.innerHTML = `
+                <div class="d-flex gap-2 align-items-start mb-2">
+                  <div class="avatar-circle avatar-sm" style="background-color: ${msg.avatarColor}; width: 24px; height: 24px; font-size: 0.72rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff;">
+                    ${avatarLetter}
+                  </div>
+                  <div>
+                    <span class="fw-bold d-block text-secondary" style="font-size: 0.65rem;">${msg.sender}</span>
+                    <div class="mock-bubble" style="font-size: 0.75rem;">${msg.text}</div>
+                    <span class="mock-time" style="font-size: 0.58rem;">${getRealTime()}</span>
+                  </div>
+                </div>
+              `;
+
+              container.appendChild(msgElement);
+              container.scrollTop = container.scrollHeight;
+
+              msgIndex++;
+              // Trigger next message recursive
+              setTimeout(simulateConversation, 3000);
+            }, msg.isMe ? 1200 : 2200);
+          } else {
+            // Loop simulator infinitely after 8 seconds
+            setTimeout(() => {
+              msgIndex = 0;
+              simulateConversation();
+            }, 8000);
+          }
+        }
+
+        // Launch simulated phone mockup chats
+        setTimeout(simulateConversation, 1500);
+
+        // --- CARREGAR CONTEÚDO DO BLOG NA HOME ---
+        if (window.BlogEngine) {
+          const homeGrid = document.getElementById("home-blog-grid");
+          if (homeGrid) {
+            const recent = window.BlogEngine.getRecentPosts(3);
+            let html = "";
+            recent.forEach(post => {
+              html += window.BlogEngine.buildPostCardHtml(post);
+            });
+            homeGrid.innerHTML = html;
+          }
+
+          const footerPopular = document.getElementById("footer-popular-posts");
+          if (footerPopular) {
+            const popular = window.BlogEngine.getPopularPosts(3);
+            let html = "";
+            popular.forEach(post => {
+              html += `
+                <li>
+                  <a href="/blog/artigo.html?slug=${post.slug}" class="text-secondary text-decoration-none small hover:text-success d-block text-truncate" style="max-width: 280px;">
+                    &bull; ${post.title}
+                  </a>
+                </li>
+              `;
+            });
+            footerPopular.innerHTML = html;
+          }
+
+          // Ativar revelações no scroll após renderizar
+          setTimeout(() => {
+            const revealElements = document.querySelectorAll(".scroll-reveal");
+            if ("IntersectionObserver" in window) {
+              const scrollObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                  if (entry.isIntersecting) {
+                    entry.target.classList.add("revealed");
+                    scrollObserver.unobserve(entry.target);
+                  }
+                });
+              }, { root: null, threshold: 0.05 });
+              revealElements.forEach(el => scrollObserver.observe(el));
+            } else {
+              revealElements.forEach(el => el.classList.add("revealed"));
+            }
+          }, 300);
+        }
       });
     </script>
   </body>
