@@ -217,9 +217,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  let activeGlobalProfileUnsub = null;
+
   const fService = window.FirebaseService || FirebaseService;
   if (fService) {
     fService.subscribeToAuth((user) => {
+      if (activeGlobalProfileUnsub) {
+        activeGlobalProfileUnsub();
+        activeGlobalProfileUnsub = null;
+      }
+
       const btnAuthTrigger = document.getElementById("btn-auth-trigger");
       const btnAuthTriggerMobile = document.getElementById("btn-auth-trigger-mobile");
       const btnLogoutAction = document.getElementById("btn-logout-action");
@@ -239,8 +246,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (user) {
         
-        const nickname = user.displayName || user.email.split("@")[0];
-        localStorage.setItem("papos_nickname", nickname);
+        const initialNickname = user.displayName || user.email.split("@")[0];
+        localStorage.setItem("papos_nickname", initialNickname);
 
         fService.syncUserProfile().then((profileData) => {
           if (profileData) {
@@ -257,6 +264,60 @@ document.addEventListener("DOMContentLoaded", () => {
           console.error("Error syncing profile on auth:", err);
         });
 
+        if (typeof fService.subscribeToUserProfile === "function") {
+          activeGlobalProfileUnsub = fService.subscribeToUserProfile(user.uid, (profile) => {
+            if (!profile) return;
+            const nick = profile.displayName || profile.nickname || profile.name || user.email.split("@")[0];
+            const bio = profile.bio || "";
+            const age = profile.age !== undefined && profile.age !== null ? profile.age : "";
+            const gender = profile.gender || "";
+            const permId = profile.permanentId || profile.internalId || "USR-000000";
+
+            localStorage.setItem("papos_nickname", nick);
+            localStorage.setItem("papos_bio", bio);
+            localStorage.setItem("papos_age", String(age));
+            localStorage.setItem("papos_gender", gender);
+            localStorage.setItem("papos_permanent_id", permId);
+            localStorage.setItem("papos_is_admin", (profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") ? "true" : "false");
+
+            if (desktopUserName) desktopUserName.textContent = nick;
+            if (desktopDropdownName) desktopDropdownName.textContent = nick;
+            if (mobileDropdownName) mobileDropdownName.textContent = nick;
+            const mobileMenuUserNickEl = document.getElementById("mobile-menu-user-nick");
+            if (mobileMenuUserNickEl) mobileMenuUserNickEl.textContent = `Olá, ${nick}`;
+
+            const renderAvatar = (name, size) => {
+              const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
+              return `<div class="avatar-circle ${size}" title="${name}">${initial}</div>`;
+            };
+
+            if (desktopAvatarContainer) {
+              desktopAvatarContainer.innerHTML = renderAvatar(nick, "avatar-xs");
+            }
+            if (mobileAvatarContainer) {
+              mobileAvatarContainer.innerHTML = renderAvatar(nick, "avatar-xs");
+            }
+
+            const localIdEl = document.getElementById("user-local-id");
+            if (localIdEl) {
+              localIdEl.textContent = permId;
+            }
+
+            const userHeaderContainer = document.getElementById("user-profile-header");
+            if (userHeaderContainer) {
+              userHeaderContainer.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                  ${renderAvatar(nick, "avatar-sm")}
+                  <div class="d-none d-sm-block text-start">
+                    <p class="mb-0 fw-semibold lh-1 text-white">${nick}</p>
+                    <small class="text-success"><span class="status-indicator status-online position-static d-inline-block me-1" style="width:6px; height:6px;"></span>Conectado</small>
+                  </div>
+                </div>
+              `;
+            }
+          });
+        }
+
         if (btnAuthTrigger) btnAuthTrigger.classList.add("d-none");
         if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.add("d-none");
 
@@ -264,7 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
         const mobileMenuBtnAuth = document.getElementById("mobile-menu-btn-auth");
         if (mobileMenuUserBox) mobileMenuUserBox.classList.remove("d-none");
-        if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${nickname}`;
+        if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${initialNickname}`;
         if (mobileMenuBtnAuth) mobileMenuBtnAuth.classList.add("d-none");
 
         if (btnLogoutAction) {

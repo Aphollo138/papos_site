@@ -26,12 +26,11 @@ import {
 } from "firebase/firestore";
 
 const FirebaseService = {
-  // Get active user from Firebase Auth
+  
   getCurrentUser() {
     return auth.currentUser;
   },
 
-  // Sync user profile to Firestore, check bans/suspensions, and return profile data
   async syncUserProfile() {
     const user = auth.currentUser;
     if (!user) return null;
@@ -68,7 +67,6 @@ const FirebaseService = {
           needsUpdate = true;
         }
 
-        // Auto-migrate old permanentId format to new USR-000001 format
         if (!data.permanentId || !data.permanentId.startsWith("USR-") || data.permanentId.length !== 10 || isNaN(Number(data.permanentId.split("-")[1]))) {
           const usersSnap = await getDocs(collection(db, "users"));
           let nextNum = usersSnap.size + 1;
@@ -107,7 +105,6 @@ const FirebaseService = {
         return data;
       }
 
-      // Generate a brand new unique permanent ID (format USR-000001)
       const usersSnap = await getDocs(collection(db, "users"));
       let nextNum = usersSnap.size + 1;
       let permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
@@ -151,12 +148,10 @@ const FirebaseService = {
     }
   },
 
-  // Listen to Auth State Changes
   subscribeToAuth(callback) {
     return onAuthStateChanged(auth, callback);
   },
 
-  // Listen to User Profile Document in Firestore
   subscribeToUserProfile(uid, callback) {
     if (typeof uid === "function") {
       callback = uid;
@@ -182,7 +177,6 @@ const FirebaseService = {
     });
   },
 
-  // Register user
   async register(email, password, nickname) {
     if (typeof window !== "undefined" && typeof window.isReservedNickname === "function") {
       if (window.isReservedNickname(nickname)) {
@@ -190,11 +184,9 @@ const FirebaseService = {
       }
     }
 
-    // 1. Create the account
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // 2. Update their display name
     await updateProfile(user, {
       displayName: nickname
     });
@@ -202,28 +194,23 @@ const FirebaseService = {
     return user;
   },
 
-  // Login user
   async login(email, password, rememberMe = true) {
-    // 1. Set persistence based on rememberMe checkbox
+    
     const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
     await setPersistence(auth, persistence);
     
-    // 2. Sign in
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   },
 
-  // Logout user
   async logout() {
     await signOut(auth);
   },
 
-  // Forgot Password / Reset Password
   async resetPassword(email) {
     await sendPasswordResetEmail(auth, email);
   },
 
-  // Update profile details (nickname, photoUrl)
   async updateProfileDetails(nickname, photoUrl) {
     const user = auth.currentUser;
     if (!user) throw new Error("Usuário não autenticado");
@@ -235,14 +222,10 @@ const FirebaseService = {
     await updateProfile(user, updatePayload);
   },
 
-  // --- FIRESTORE PRIVATE CHATS HISTORIES ---
- 
-  // Save a private message (for logged-in user inbox/outbox history)
   async savePrivateMessage(partnerNickname, messageObj) {
     const user = auth.currentUser;
     if (!user) return;
 
-    // Strict guard: DO NOT save bot messages in Firestore privateChats
     if (
       partnerNickname === "Bot_Papos" ||
       messageObj.sender === "Bot_Papos" ||
@@ -252,15 +235,13 @@ const FirebaseService = {
       return;
     }
 
-    // Strict guard: DO NOT save messages containing links in Firestore
     if (typeof window !== "undefined" && typeof window.containsLink === "function") {
       if (window.containsLink(messageObj.text || "")) {
-        console.warn("[Firestore] Blocked attempt to save private message containing a link.");
+        
         return;
       }
     }
 
-    // Use a unique document path under the user's subcollection
     const docRef = doc(db, "users", user.uid, "privateChats", messageObj.id);
  
     const messageData = {
@@ -282,7 +263,6 @@ const FirebaseService = {
     await setDoc(docRef, messageData);
   },
  
-  // Mark all messages from a partner as read
   async markMessagesAsRead(partnerNickname) {
     const user = auth.currentUser;
     if (!user) return;
@@ -303,7 +283,6 @@ const FirebaseService = {
     await batch.commit();
   },
  
-  // Delete a private message document
   async deletePrivateMessage(messageId) {
     const user = auth.currentUser;
     if (!user) return;
@@ -312,7 +291,6 @@ const FirebaseService = {
     await deleteDoc(docRef);
   },
  
-  // Delete an entire private conversation thread with partnerNickname
   async deletePrivateConversation(partnerNickname) {
     const user = auth.currentUser;
     if (!user) return;
@@ -332,7 +310,6 @@ const FirebaseService = {
     await batch.commit();
   },
 
-  // Real-time listener for user's private messages
   subscribeToPrivateMessages(callback) {
     const user = auth.currentUser;
     if (!user) {
@@ -371,7 +348,6 @@ const FirebaseService = {
         privateChats[partner].push(msg);
       });
  
-      // Sort messages for each partner by timestamp
       Object.keys(privateChats).forEach(partner => {
         privateChats[partner].sort((a, b) => a.timestamp - b.timestamp);
       });
@@ -382,27 +358,6 @@ const FirebaseService = {
     });
   },
 
-  // Real-time listener for user profile document to check ban, suspension, and admin statuses dynamically
-  subscribeToUserProfile(callback) {
-    const user = auth.currentUser;
-    if (!user) {
-      callback(null);
-      return () => {};
-    }
-
-    const userDocRef = doc(db, "users", user.uid);
-    return onSnapshot(userDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        callback(docSnap.data());
-      } else {
-        callback(null);
-      }
-    }, (error) => {
-      console.error("Erro ao sincronizar perfil do usuário do Firestore:", error);
-    });
-  },
-
-  // Real-time listener for users with admin == true
   subscribeToAdmins(callback) {
     try {
       const q = query(collection(db, "users"), where("admin", "==", true));
@@ -423,7 +378,6 @@ const FirebaseService = {
     }
   },
 
-  // Real-time listener exclusively for 'users' collection (Admin panel)
   subscribeToAllUsers(callback) {
     const user = auth.currentUser;
     if (!user) {
@@ -437,7 +391,7 @@ const FirebaseService = {
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
         if (!data || (data.text !== undefined && data.sender !== undefined && !data.email && !data.displayName && !data.nickname)) {
-          return; // Skip non-user documents
+          return; 
         }
         usersList.push({
           id: docSnap.id,
@@ -464,14 +418,12 @@ const FirebaseService = {
     });
   },
 
-  // Directly update user document fields in Firestore
   async updateUserField(targetUid, fieldsPayload) {
     if (!targetUid) return;
     const targetDocRef = doc(db, "users", targetUid);
     await updateDoc(targetDocRef, fieldsPayload);
   },
 
-  // Real-time listener for supportNames collection (Admin panel)
   subscribeToSupportNames(callback) {
     const user = auth.currentUser;
     if (!user) {
@@ -498,12 +450,10 @@ const FirebaseService = {
     });
   },
 
-  // Authorize UID to use reserved nickname
   async authorizeSupportName(targetUid, createdByUid) {
     if (!targetUid) return;
     const cleanUid = targetUid.trim();
     
-    // Save document with cleanUid as key
     const docRef = doc(db, "supportNames", cleanUid);
     await setDoc(docRef, {
       uid: cleanUid,
@@ -512,7 +462,6 @@ const FirebaseService = {
       createdBy: createdByUid || (auth.currentUser ? auth.currentUser.uid : "admin")
     }, { merge: true });
 
-    // If cleanUid is a permanent ID (e.g. USR-000001), resolve the real Auth UID and authorize that too
     if (cleanUid.startsWith("USR-")) {
       try {
         const q = query(collection(db, "users"), where("permanentId", "==", cleanUid));
@@ -534,26 +483,34 @@ const FirebaseService = {
     }
   },
 
-  // Save or update user profile fields in Firestore
   async saveUserProfile(profileData) {
     const user = auth.currentUser;
     if (!user) throw new Error("Usuário não autenticado");
 
     const nickname = (profileData.nickname || profileData.displayName || profileData.name || "").trim();
-    const bio = profileData.bio !== undefined ? String(profileData.bio).trim() : "";
-    const age = profileData.age !== undefined && profileData.age !== null && profileData.age !== "" ? Number(profileData.age) : null;
-    const gender = profileData.gender !== undefined ? String(profileData.gender).trim() : "";
+    const bio = profileData.bio !== undefined ? String(profileData.bio).trim() : undefined;
+    const age = profileData.age !== undefined && profileData.age !== null && profileData.age !== "" ? Number(profileData.age) : (profileData.age === null ? null : undefined);
+    const gender = profileData.gender !== undefined ? String(profileData.gender).trim() : undefined;
+    const photoURL = profileData.photoURL !== undefined ? String(profileData.photoURL).trim() : undefined;
+    const city = profileData.city !== undefined ? String(profileData.city).trim() : undefined;
+    const country = profileData.country !== undefined ? String(profileData.country).trim() : undefined;
 
     const userDocRef = doc(db, "users", user.uid);
     const updatePayload = {
-      nickname: nickname,
-      displayName: nickname,
-      name: nickname,
-      bio: bio,
-      age: age,
-      gender: gender,
       updatedAt: Date.now()
     };
+
+    if (nickname) {
+      updatePayload.nickname = nickname;
+      updatePayload.displayName = nickname;
+      updatePayload.name = nickname;
+    }
+    if (bio !== undefined) updatePayload.bio = bio;
+    if (age !== undefined) updatePayload.age = age;
+    if (gender !== undefined) updatePayload.gender = gender;
+    if (photoURL !== undefined) updatePayload.photoURL = photoURL;
+    if (city !== undefined) updatePayload.city = city;
+    if (country !== undefined) updatePayload.country = country;
 
     if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
       updatePayload.admin = true;
@@ -562,13 +519,16 @@ const FirebaseService = {
     await setDoc(userDocRef, updatePayload, { merge: true });
 
     if (nickname && nickname !== user.displayName) {
-      await updateProfile(user, { displayName: nickname });
+      try {
+        await updateProfile(user, { displayName: nickname });
+      } catch (e) {
+        console.error("Erro ao atualizar displayName no auth:", e);
+      }
     }
 
     return updatePayload;
   },
 
-  // Delete UID authorization and remove document from supportNames in Firestore
   async deleteSupportName(targetUid) {
     if (!targetUid) return;
     const cleanUid = targetUid.trim();
@@ -576,7 +536,6 @@ const FirebaseService = {
     await deleteDoc(docRef);
   },
 
-  // Revoke UID authorization for reserved nickname (deletes from Firestore)
   async revokeSupportName(targetUid) {
     if (!targetUid) return;
     const cleanUid = targetUid.trim();
@@ -585,7 +544,6 @@ const FirebaseService = {
   }
 };
 
-// Expose services on the window object
 window.FirebaseService = FirebaseService;
 export default FirebaseService;
 export { auth, db };
