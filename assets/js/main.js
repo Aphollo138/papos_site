@@ -1,27 +1,22 @@
-/**
- * main.js - Core State, Theme management, Navbar reactions, and Reveal Animations
- */
 
-// Configuração centralizada do servidor do Chat (Express + WebSocket)
 const CHAT_CONFIG = {
-  // Altere esta variável para apontar para o seu servidor backend do Render quando estiver em produção
+  
   productionServerUrl: "https://papos-site.onrender.com",
   
-  // Função para retornar a URL do WebSocket de forma dinâmica
   getWebSocketUrl() {
     const isLocalhost = window.location.hostname === "localhost" || 
                         window.location.hostname === "127.0.0.1" || 
                         window.location.hostname === "0.0.0.0" ||
-                        window.location.hostname.includes("ais-dev-") || // AI Studio dev
-                        window.location.hostname.includes("ais-pre-") || // AI Studio preview
-                        window.location.hostname.includes(".run.app");   // AI Studio run.app
+                        window.location.hostname.includes("ais-dev-") || 
+                        window.location.hostname.includes("ais-pre-") || 
+                        window.location.hostname.includes(".run.app");   
     
     if (isLocalhost) {
-      // Se estiver rodando localmente, conecta ao mesmo host
+      
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       return `${protocol}//${window.location.host}`;
     } else {
-      // Em produção, converte o link do Render (HTTPS) para o protocolo WebSocket correto (WSS)
+      
       let cleanUrl = this.productionServerUrl.trim();
       if (cleanUrl.endsWith("/")) {
         cleanUrl = cleanUrl.slice(0, -1);
@@ -31,10 +26,8 @@ const CHAT_CONFIG = {
   }
 };
 
-// Expor globalmente para a aplicação usar em qualquer lugar
 window.CHAT_CONFIG = CHAT_CONFIG;
 
-// Validar nicknames reservados da equipe
 function isReservedNickname(nickname) {
   if (!nickname || typeof nickname !== "string") return false;
 
@@ -76,7 +69,6 @@ function isReservedNickname(nickname) {
 window.isReservedNickname = isReservedNickname;
 window.containsReservedNickname = isReservedNickname;
 
-// Toast Helper Global
 if (!window.showToast) {
   window.showToast = function (message, type = "success") {
     let container = document.getElementById("global-toast-container");
@@ -121,9 +113,8 @@ if (!window.showToast) {
   };
 }
 
-// Global modal helper for admin warnings (Global & Individual) across all pages
 window.showIncomingAdminWarningModal = window.showAdminWarningModal = function (text, title = "Mensagem da Administração", onCloseCallback = null) {
-  // Inject custom styles if not present
+  
   if (!document.getElementById("admin-warning-modal-css")) {
     const styleEl = document.createElement("style");
     styleEl.id = "admin-warning-modal-css";
@@ -187,7 +178,6 @@ window.showIncomingAdminWarningModal = window.showAdminWarningModal = function (
     document.head.appendChild(styleEl);
   }
 
-  // Remove existing warning modals
   const existingModal = document.getElementById("adminIncomingWarningModal") || document.getElementById("adminWarningModal");
   if (existingModal) {
     if (existingModal._autoCloseTimer) clearTimeout(existingModal._autoCloseTimer);
@@ -234,7 +224,6 @@ window.showIncomingAdminWarningModal = window.showAdminWarningModal = function (
   if (window.bootstrap && window.bootstrap.Modal) {
     const bsModal = new window.bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
     
-    // Auto close timer (20 seconds)
     const autoCloseTimer = setTimeout(() => {
       try {
         bsModal.hide();
@@ -260,12 +249,11 @@ window.showIncomingAdminWarningModal = window.showAdminWarningModal = function (
 };
 
 const ChatEngine = {
-  // Get persistent nickname
+  
   getUser() {
     return localStorage.getItem("papos_nickname") || null;
   },
 
-  // Save persistent nickname
   saveUser(nickname) {
     if (!nickname || nickname.trim() === "") return false;
     const nick = nickname.trim();
@@ -286,20 +274,17 @@ const ChatEngine = {
     return true;
   },
 
-  // Clear nickname (logout)
   logoutUser() {
     localStorage.removeItem("papos_nickname");
   },
 
-  // Initiate WebSocket connection on correct host/port
   connectSocket() {
     const wsUrl = window.CHAT_CONFIG.getWebSocketUrl();
-    console.log("[ChatEngine] Conectando WebSocket em:", wsUrl);
+    
     const socket = new WebSocket(wsUrl);
     return socket;
   },
 
-  // Theme Management
   initTheme() {
     const savedTheme = localStorage.getItem("papos_theme");
     if (savedTheme) {
@@ -314,14 +299,12 @@ const ChatEngine = {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("papos_theme", theme);
     
-    // Update all toggle image elements on the page
     const toggles = document.querySelectorAll(".theme-toggle-img");
     toggles.forEach(img => {
       img.src = (theme === "dark") ? "/assets/img/toggle-on.svg" : "/assets/img/toggle-off.svg";
       img.alt = (theme === "dark") ? "Tema Escuro Ligado" : "Tema Claro Ligado";
     });
 
-    // Sync any standard checkbox toggles if they exist (backward compatibility)
     const togglerCheckbox = document.getElementById("theme-toggle-checkbox");
     if (togglerCheckbox) {
       togglerCheckbox.checked = (theme === "dark");
@@ -334,7 +317,6 @@ const ChatEngine = {
     this.setTheme(next);
   },
 
-  // Avatar visual color generation based on name
   getAvatarColor(name) {
     if (!name) return "#ffffff";
     const colors = [
@@ -349,13 +331,11 @@ const ChatEngine = {
     return colors[sum % colors.length];
   },
 
-  // HTML Avatar bubble builder
   renderAvatar(name, sizeClass = "") {
     if (!name || name.trim() === "") name = "A";
     const cleanName = name.trim();
     const initial = cleanName.charAt(0).toUpperCase();
     
-    // Suporte para foto de perfil válida do LocalStorage se houver
     let photoUrl = null;
     const currentUser = localStorage.getItem("papos_nickname");
     if (cleanName === currentUser || cleanName === "Você") {
@@ -377,14 +357,12 @@ const ChatEngine = {
   }
 };
 
-// Global Admin Panel Controls
 window.mostrarPainelAdmin = function () {
   try {
-    console.log("Admin confirmado");
+    
     let btn = document.querySelector("#admin-button");
     if (!btn) {
-      console.log("Criando botão admin");
-      console.log("Criando botão");
+      
       btn = document.createElement("button");
       btn.id = "admin-button";
       btn.type = "button";
@@ -404,8 +382,7 @@ window.mostrarPainelAdmin = function () {
         }
       };
       document.body.appendChild(btn);
-      console.log("Botão criado");
-      console.log("Botão inserido");
+      
     } else {
       btn.style.display = "flex";
       btn.classList.remove("d-none");
@@ -417,20 +394,20 @@ window.mostrarPainelAdmin = function () {
         s.src = "/assets/js/admin-controller.js";
         s.onload = () => {
           if (window.injectAdminPanelUI) window.injectAdminPanelUI();
-          console.log("Painel pronto");
+          
         };
         document.head.appendChild(s);
       }
     } else {
       window.injectAdminPanelUI();
-      console.log("Painel pronto");
+      
     }
 
     const trigger = document.getElementById("admin-trigger-container");
     if (trigger) {
       trigger.classList.remove("d-none");
     }
-    console.log("Painel exibido.");
+    
   } catch (err) {
     console.error("Erro ao exibir painel admin:", err);
   }
@@ -457,13 +434,10 @@ window.esconderPainelAdmin = function () {
   }
 };
 
-// Expor globalmente para a aplicação usar em qualquer lugar
 window.ChatEngine = ChatEngine;
 
-// Apply theme before page renders to avoid white flashes
 ChatEngine.initTheme();
 
-// URL Query Error Handler for Banned/Suspended redirect visual states
 (function handleUrlErrors() {
   const params = new URLSearchParams(window.location.search);
   if (params.has("error")) {
@@ -480,7 +454,7 @@ ChatEngine.initTheme();
     }
 
     if (message) {
-      // Clean query parameters from URL without reloading
+      
       const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
       window.history.replaceState({ path: newUrl }, "", newUrl);
 
@@ -488,7 +462,7 @@ ChatEngine.initTheme();
         if (window.showAdminWarningModal) {
           window.showAdminWarningModal(message, title);
         } else {
-          // Dynamic fallback modal
+          
           const modalEl = document.createElement("div");
           modalEl.className = "modal fade";
           modalEl.id = "urlErrorModal";
@@ -523,15 +497,13 @@ ChatEngine.initTheme();
   }
 })();
 
-// Global reveal scroll animations, progress indicator and navbar resize
 document.addEventListener("DOMContentLoaded", () => {
-  // Let style sheets know JavaScript is working
+  
   document.documentElement.classList.add('js-enabled');
   document.documentElement.classList.add('js-active');
   
   ChatEngine.init();
 
-  // 1. Reading Progress Bar Logic
   const progressBar = document.getElementById("scroll-progress-bar");
   window.addEventListener("scroll", () => {
     const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
@@ -541,7 +513,6 @@ document.addEventListener("DOMContentLoaded", () => {
       progressBar.style.width = scrolled + "%";
     }
 
-    // 2. Navbar Shrink / Floating Behavior
     const header = document.querySelector(".navbar-custom");
     if (header) {
       if (window.scrollY > 20) {
@@ -552,14 +523,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 3. Staggered Entrance Scroll Reveal Animations
   const revealElements = document.querySelectorAll(".scroll-reveal");
   if ("IntersectionObserver" in window) {
     const scrollObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add("revealed");
-          // Stop observing so it only triggers once
+          
           scrollObserver.unobserve(entry.target);
         }
       });
@@ -571,11 +541,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     revealElements.forEach(el => scrollObserver.observe(el));
   } else {
-    // Fallback if IntersectionObserver is not supported
+    
     revealElements.forEach(el => el.classList.add("revealed"));
   }
 
-  // 4. Keyboard support for theme toggle button
   const themeToggleWrappers = document.querySelectorAll(".theme-switch-container");
   themeToggleWrappers.forEach(wrap => {
     wrap.addEventListener("keydown", (e) => {
@@ -587,6 +556,5 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// Bind globally
 window.ChatEngine = ChatEngine;
 window.ChatEngineInitialized = true;

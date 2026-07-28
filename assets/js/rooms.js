@@ -1,6 +1,3 @@
-/**
- * rooms.js - Real-time rooms view syncing over WebSockets for Papos
- */
 
 document.addEventListener("DOMContentLoaded", () => {
   const ChatEngine = window.ChatEngine || {
@@ -22,17 +19,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // DOM Elements
   const roomsContainer = document.getElementById("rooms-container");
   const searchInput = document.getElementById("search-rooms");
   const createRoomForm = document.getElementById("create-room-form");
   const userHeaderContainer = document.getElementById("user-profile-header");
   const createRoomModalEl = document.getElementById("createRoomModal");
 
-  // In-memory rooms cache for local filtering
   let cachedRooms = [];
 
-  // Render User Header Profile
   if (userHeaderContainer) {
     userHeaderContainer.innerHTML = `
       <div class="d-flex align-items-center gap-2">
@@ -45,11 +39,10 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
-  // Connect to the real-time WebSocket server
   const socket = ChatEngine.connectSocket();
 
   socket.onopen = () => {
-    console.log("[Rooms] Connected to WebSocket server.");
+    
   };
 
   socket.onmessage = (event) => {
@@ -63,12 +56,12 @@ document.addEventListener("DOMContentLoaded", () => {
           break;
 
         case "room_created":
-          // Close modal
+          
           const modalInstance = bootstrap.Modal.getInstance(createRoomModalEl);
           if (modalInstance) {
             modalInstance.hide();
           }
-          // Redirect straight to new room clean route
+          
           window.location.href = `/chat?room=${data.room.id}`;
           break;
 
@@ -78,8 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
         case "admin-private-message":
         case "global_warning":
         case "individual_warning":
-          console.log("Mensagem administrativa recebida.");
-          console.log("Exibindo popup.");
+          
           if (typeof window.showIncomingAdminWarningModal === "function") {
             window.showIncomingAdminWarningModal(
               data.message || data.text,
@@ -106,7 +98,6 @@ document.addEventListener("DOMContentLoaded", () => {
     console.error("[Rooms] Socket error:", err);
   };
 
-  // Render rooms cards based on current query
   function renderRooms(filterText = "") {
     if (!roomsContainer) return;
     roomsContainer.innerHTML = "";
@@ -132,7 +123,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const col = document.createElement("div");
       col.className = "col-md-6 col-lg-4";
       
-      // Determine initials for clean editorial avatar
       const initials = room.name.split(" ").map(w => w.charAt(0)).join("").substring(0, 2).toUpperCase();
       const countLabel = room.count === 1 ? "1 pessoa ativa" : `${room.count} pessoas ativas`;
 
@@ -167,14 +157,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Handle Search Input Filter
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
       renderRooms(e.target.value);
     });
   }
 
-  // Handle Create Room Modal Submit
   if (createRoomForm) {
     createRoomForm.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -187,7 +175,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (name === "") return;
 
-      // Send room creation request over WS
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
           type: "create_room",

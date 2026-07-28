@@ -4,8 +4,6 @@
   if (window.BLOG_ENGINE_INITIALIZED) return;
   window.BLOG_ENGINE_INITIALIZED = true;
 
-  console.log("[Blog Engine] Inicializando portal de conteúdo integrado...");
-
   const BlogEngine = {
     getPosts() {
       return window.BLOG_POSTS || [];
@@ -20,7 +18,7 @@
     },
 
     getPopularPosts(limit = 4) {
-     
+      
       return this.getPosts().filter((_, i) => i % 2 === 0).slice(0, limit);
     },
 
@@ -50,16 +48,13 @@
       });
     },
 
-    
     updateSEO(post) {
       if (!post) return;
 
       const fullTitle = `${post.title} | Blog Papos`;
       document.title = fullTitle;
 
-     
       this.setMeta("description", post.description);
-      
       
       let canonicalEl = document.querySelector("link[rel='canonical']");
       if (!canonicalEl) {
@@ -67,27 +62,23 @@
         canonicalEl.setAttribute("rel", "canonical");
         document.head.appendChild(canonicalEl);
       }
-      const canonicalUrl = `https://papo.net.br/blog/artigo.html?slug=${post.slug}`;
+      const canonicalUrl = `https://papos.net.br/blog/artigo.html?slug=${post.slug}`;
       canonicalEl.setAttribute("href", canonicalUrl);
 
-      
       this.setMetaProperty("og:type", "article");
       this.setMetaProperty("og:title", fullTitle);
       this.setMetaProperty("og:description", post.description);
       this.setMetaProperty("og:url", canonicalUrl);
       this.setMetaProperty("og:image", post.image);
 
-      
       this.setMeta("twitter:card", "summary_large_image");
       this.setMeta("twitter:title", fullTitle);
       this.setMeta("twitter:description", post.description);
       this.setMeta("twitter:image", post.image);
 
-      
       const oldSchemas = document.querySelectorAll("script[data-schema='blog']");
       oldSchemas.forEach(el => el.remove());
 
-      
       const articleSchema = {
         "@context": "https://schema.org",
         "@type": "BlogPosting",
@@ -103,7 +94,7 @@
         "publisher": {
           "@type": "Organization",
           "name": "Papos",
-          "url": "https://papo.net.br/",
+          "url": "https://papos.net.br/",
           "logo": {
             "@type": "ImageObject",
             "url": "https://papos.net.br/favicon.svg"
@@ -121,7 +112,6 @@
       articleScript.textContent = JSON.stringify(articleSchema);
       document.head.appendChild(articleScript);
 
-      
       const breadcrumbSchema = {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
@@ -130,19 +120,19 @@
             "@type": "ListItem",
             "position": 1,
             "name": "Papos",
-            "item": "https://papo.net.br/"
+            "item": "https://papos.net.br/"
           },
           {
             "@type": "ListItem",
             "position": 2,
             "name": "Blog",
-            "item": "https://papo.net.br/blog/"
+            "item": "https://papos.net.br/blog/"
           },
           {
             "@type": "ListItem",
             "position": 3,
             "name": post.category,
-            "item": `https://papo.net.br/blog/categoria.html?cat=${post.categorySlug}`
+            "item": `https://papos.net.br/blog/categoria.html?cat=${post.categorySlug}`
           },
           {
             "@type": "ListItem",
@@ -159,7 +149,6 @@
       breadcrumbScript.textContent = JSON.stringify(breadcrumbSchema);
       document.head.appendChild(breadcrumbScript);
 
-      
       if (post.faq && post.faq.length > 0) {
         const faqSchema = {
           "@context": "https://schema.org",
@@ -202,7 +191,6 @@
       el.setAttribute("content", content);
     },
 
-    
     renderTOC() {
       const tocContainer = document.getElementById("auto-toc-container");
       if (!tocContainer) return;
@@ -231,7 +219,6 @@
       tocHtml += `</ul>`;
       tocContainer.innerHTML = tocHtml;
 
-      
       tocContainer.querySelectorAll("a").forEach(link => {
         link.addEventListener("click", (e) => {
           e.preventDefault();
@@ -251,7 +238,6 @@
       });
     },
 
-    
     buildPostCardHtml(post) {
       return `
         <div class="col-md-6 col-lg-4 scroll-reveal">
@@ -293,7 +279,6 @@
     }
   };
 
-  
   window.BlogEngine = BlogEngine;
 
 })();

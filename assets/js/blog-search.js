@@ -12,7 +12,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  
   let searchTimeout = null;
   searchInput.addEventListener("input", (e) => {
     clearTimeout(searchTimeout);
@@ -24,7 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 250);
   });
 
-  
   const searchButton = document.getElementById("blog-search-btn");
   if (searchButton) {
     searchButton.addEventListener("click", () => {
@@ -33,9 +31,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function performSearch(query) {
-    console.log(`[Blog Search] Buscando posts por: "${query}"`);
-    const filteredPosts = BlogEngine.searchPosts(query);
     
+    const filteredPosts = BlogEngine.searchPosts(query);
     
     if (resultsCounter) {
       if (query.trim() === "") {
@@ -46,7 +43,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    
     if (filteredPosts.length === 0) {
       postsContainer.innerHTML = `
         <div class="col-12 text-center py-5">
@@ -69,7 +65,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     postsContainer.innerHTML = postsHtml;
 
-    
     if ("IntersectionObserver" in window) {
       const revealElements = postsContainer.querySelectorAll(".scroll-reveal");
       const scrollObserver = new IntersectionObserver((entries) => {

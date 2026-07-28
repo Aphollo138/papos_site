@@ -1,5 +1,4 @@
 
-
 window.BLOG_CATEGORIES = [
   { name: "Amizade", slug: "amizade", icon: "bi-people-fill", description: "Dicas de ouro para criar laços reais e conexões saudáveis pela internet." },
   { name: "Relacionamentos", slug: "relacionamentos", icon: "bi-heart-fill", description: "Como navegar no universo de encontros, conversas e sentimentos online." },

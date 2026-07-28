@@ -1,8 +1,8 @@
-// auth-controller.js - Controls the Auth Modal and UI Session states
+
 import FirebaseService from "/firebase/auth.js";
 
 document.addEventListener("DOMContentLoaded", () => {
-  // --- UI ELEMENTS ---
+  
   const authModalEl = document.getElementById("authModal");
   if (!authModalEl) return;
 
@@ -30,7 +30,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnSubmitRegister = document.getElementById("btn-submit-register");
   const registerConfirmError = document.getElementById("register-confirm-error");
 
-  // --- TAB TOGGLING ---
   function showLoginTab() {
     tabLogin.classList.remove("text-secondary", "border-secondary", "border-1");
     tabLogin.classList.add("text-white", "border-success", "border-2");
@@ -56,7 +55,6 @@ document.addEventListener("DOMContentLoaded", () => {
   tabLogin.addEventListener("click", showLoginTab);
   tabRegister.addEventListener("click", showRegisterTab);
 
-  // --- TRANSLATE FIREBASE ERRORS ---
   function translateAuthError(code) {
     switch (code) {
       case "auth/invalid-email":
@@ -82,7 +80,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- PASSWORD MATCH VALIDATION ---
   function validatePasswordsMatch() {
     if (registerPassword.value !== registerConfirmPassword.value) {
       registerConfirmPassword.classList.add("is-invalid");
@@ -102,9 +99,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- NICKNAME SANITIZATION ---
   registerNickname.addEventListener("input", () => {
-    // Keep only alphanumeric and underscore, limit to 15 chars
+    
     let val = registerNickname.value;
     val = val.replace(/[^a-zA-Z0-9_]/g, "");
     if (val.length > 15) {
@@ -113,7 +109,6 @@ document.addEventListener("DOMContentLoaded", () => {
     registerNickname.value = val;
   });
 
-  // --- LOGIN SUBMISSION ---
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     loginAlert.classList.add("d-none");
@@ -122,7 +117,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const password = loginPassword.value;
     const rememberMe = loginRemember.checked;
 
-    // Show loading state
     loginSpinner.classList.remove("d-none");
     loginBtnText.textContent = "Entrando...";
     btnSubmitLogin.disabled = true;
@@ -130,18 +124,14 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const user = await FirebaseService.login(email, password, rememberMe);
       
-      // Save display name or email prefix to localStorage
       const displayName = user.displayName || email.split("@")[0];
       localStorage.setItem("papos_nickname", displayName);
 
-      // Hide modal
       const modalInstance = bootstrap.Modal.getInstance(authModalEl);
       if (modalInstance) modalInstance.hide();
       
-      // Clear fields
       loginForm.reset();
 
-      // Show temporary toast or notice and reload to trigger ChatEngine with correct nickname
       window.location.reload();
     } catch (error) {
       console.error("Erro de login:", error);
@@ -154,7 +144,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- REGISTRATION SUBMISSION ---
   registerForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     registerAlert.classList.add("d-none");
@@ -180,7 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Show loading state
     registerSpinner.classList.remove("d-none");
     registerBtnText.textContent = "Criando conta...";
     btnSubmitRegister.disabled = true;
@@ -188,17 +176,13 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await FirebaseService.register(email, password, nickname);
       
-      // Store nickname
       localStorage.setItem("papos_nickname", nickname);
 
-      // Hide modal
       const modalInstance = bootstrap.Modal.getInstance(authModalEl);
       if (modalInstance) modalInstance.hide();
       
-      // Clear fields
       registerForm.reset();
 
-      // Reload to activate session
       window.location.reload();
     } catch (error) {
       console.error("Erro no cadastro:", error);
@@ -211,7 +195,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- FORGOT PASSWORD ---
   btnForgotPassword.addEventListener("click", async () => {
     const email = loginEmail.value.trim();
     if (!email) {
@@ -234,7 +217,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- AUTH STATE SYNC FOR UI ---
   const fService = window.FirebaseService || FirebaseService;
   if (fService) {
     fService.subscribeToAuth((user) => {
@@ -256,11 +238,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const mobileAvatarContainer = document.getElementById("mobile-user-avatar-container");
 
       if (user) {
-        // Authenticated
+        
         const nickname = user.displayName || user.email.split("@")[0];
         localStorage.setItem("papos_nickname", nickname);
 
-        // Fetch and save the real permanentId to localStorage for the profile page to consume
         fService.syncUserProfile().then((profileData) => {
           if (profileData) {
             if (profileData.permanentId) {
@@ -276,11 +257,9 @@ document.addEventListener("DOMContentLoaded", () => {
           console.error("Error syncing profile on auth:", err);
         });
 
-        // Hide "Entrar" buttons
         if (btnAuthTrigger) btnAuthTrigger.classList.add("d-none");
         if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.add("d-none");
 
-        // Mobile Menu Auth Sync
         const mobileMenuUserBox = document.getElementById("mobile-menu-user-box");
         const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
         const mobileMenuBtnAuth = document.getElementById("mobile-menu-btn-auth");
@@ -288,7 +267,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${nickname}`;
         if (mobileMenuBtnAuth) mobileMenuBtnAuth.classList.add("d-none");
 
-        // Show "Sair" buttons
         if (btnLogoutAction) {
           btnLogoutAction.classList.remove("d-none");
           btnLogoutAction.classList.add("d-flex");
@@ -298,13 +276,11 @@ document.addEventListener("DOMContentLoaded", () => {
           btnLogoutActionMobile.classList.add("d-flex");
         }
 
-        // Show Profile Dropdowns & Three Dots
         if (userProfileDesktop) userProfileDesktop.classList.remove("d-none");
         if (userProfileMobile) userProfileMobile.classList.remove("d-none");
         const headerThreeDots = document.getElementById("header-three-dots-container");
         if (headerThreeDots) headerThreeDots.classList.remove("d-none");
 
-        // Set name/email info
         if (desktopUserName) desktopUserName.textContent = nickname;
         if (desktopDropdownName) desktopDropdownName.textContent = nickname;
         if (desktopDropdownEmail) desktopDropdownEmail.textContent = user.email;
@@ -312,7 +288,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (mobileDropdownName) mobileDropdownName.textContent = nickname;
         if (mobileDropdownEmail) mobileDropdownEmail.textContent = user.email;
 
-        // Render Avatars
         const renderAvatar = (name, size) => {
           const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
           return `<div class="avatar-circle ${size}" title="${name}">${initial}</div>`;
@@ -326,18 +301,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
       } else {
-        // Visitor/Not Authenticated
-        // Show "Entrar" buttons
+        
         if (btnAuthTrigger) btnAuthTrigger.classList.remove("d-none");
         if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.remove("d-none");
 
-        // Mobile Menu Auth Sync (Logged out)
         const mobileMenuUserBoxOut = document.getElementById("mobile-menu-user-box");
         const mobileMenuBtnAuthOut = document.getElementById("mobile-menu-btn-auth");
         if (mobileMenuUserBoxOut) mobileMenuUserBoxOut.classList.add("d-none");
         if (mobileMenuBtnAuthOut) mobileMenuBtnAuthOut.classList.remove("d-none");
 
-        // Hide "Sair" buttons
         if (btnLogoutAction) {
           btnLogoutAction.classList.add("d-none");
           btnLogoutAction.classList.remove("d-flex");
@@ -347,7 +319,6 @@ document.addEventListener("DOMContentLoaded", () => {
           btnLogoutActionMobile.classList.remove("d-flex");
         }
 
-        // Hide Profile Dropdowns & Three Dots
         if (userProfileDesktop) userProfileDesktop.classList.add("d-none");
         if (userProfileMobile) userProfileMobile.classList.add("d-none");
         const headerThreeDotsOut = document.getElementById("header-three-dots-container");
@@ -356,7 +327,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- LOGOUT EVENT HANDLER FOR CONFIRM MODAL ---
   const btnConfirmLogoutAction = document.getElementById("btn-confirm-logout-action");
   if (btnConfirmLogoutAction) {
     btnConfirmLogoutAction.addEventListener("click", async () => {
@@ -365,7 +335,6 @@ document.addEventListener("DOMContentLoaded", () => {
         
         await fService.logout();
 
-        // Clear local storage session and private messages cache
         if (currentNickname) {
           localStorage.removeItem(`papos_pms_${currentNickname}`);
         }
@@ -373,14 +342,12 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.removeItem("papos_photo");
         localStorage.removeItem("papos_permanent_id");
 
-        // Close logout modal
         const logoutModalEl = document.getElementById("logoutConfirmModal");
         if (logoutModalEl) {
           const modalInstance = bootstrap.Modal.getInstance(logoutModalEl);
           if (modalInstance) modalInstance.hide();
         }
 
-        // Reload to completely clean up the state and redirect to welcome/visitor setup
         window.location.reload();
       } catch (error) {
         console.error("Erro ao fazer logout:", error);

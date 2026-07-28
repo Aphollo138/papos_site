@@ -1,7 +1,3 @@
-/**
- * admin-controller.js - Dynamic Administrative Panel Injection and Controls
- * Fullscreen modern dashboard with real-time Firestore integration.
- */
 
 (function () {
   let firestoreUsers = [];
@@ -10,7 +6,7 @@
   let currentPage = 1;
   const itemsPerPage = 10;
   let searchQuery = "";
-  let activeTab = "users"; // "users", "global", "individual", "audits", "ads", "support-names"
+  let activeTab = "users"; 
   let isFirestoreSubscribed = false;
   let supportNamesList = [];
   let isSupportNamesSubscribed = false;
@@ -96,7 +92,6 @@
     });
   }
 
-  // Initialize Firestore user real-time listener
   function initFirestoreUsersListener() {
     if (isFirestoreSubscribed) return;
     if (window.FirebaseService && typeof window.FirebaseService.subscribeToAllUsers === "function") {
@@ -109,11 +104,9 @@
     }
   }
 
-  // Inject Admin trigger button and full screen Bootstrap Modal
   function injectAdminPanelUI() {
     if (document.getElementById("admin-trigger-container")) return;
 
-    // Inject custom CSS for modern dark theme
     if (!document.getElementById("admin-panel-custom-css")) {
       const styleEl = document.createElement("style");
       styleEl.id = "admin-panel-custom-css";
@@ -341,7 +334,6 @@
       document.head.appendChild(styleEl);
     }
 
-    // 1. Floating Trigger Button (Bottom Left)
     const triggerContainer = document.createElement("div");
     triggerContainer.id = "admin-trigger-container";
     triggerContainer.className = "position-fixed bottom-0 start-0 m-3 d-none";
@@ -354,7 +346,6 @@
     `;
     document.body.appendChild(triggerContainer);
 
-    // 2. Fullscreen Admin Modal (100% width, 100% height, dark theme)
     const adminModal = document.createElement("div");
     adminModal.id = "adminPanelModal";
     adminModal.className = "modal fade p-0";
@@ -620,8 +611,6 @@
                 </div>
               </div>
 
-
-
             </div>
           </div>
         </div>
@@ -629,7 +618,6 @@
     `;
     document.body.appendChild(adminModal);
 
-    // Attach listeners
     setupAdminPanelListeners();
     initFirestoreUsersListener();
   }
@@ -648,7 +636,6 @@
       refreshAdminData();
     });
 
-    // Sidebar collapse toggle
     const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
     const adminSidebar = document.getElementById("admin-sidebar");
     if (btnToggleSidebar && adminSidebar) {
@@ -657,7 +644,6 @@
       });
     }
 
-    // Tab buttons switching
     const tabBtns = document.querySelectorAll(".btn-admin-tab");
     tabBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -671,7 +657,6 @@
       });
     });
 
-    // Search input
     const searchInput = document.getElementById("admin-users-search");
     if (searchInput) {
       searchInput.addEventListener("input", (e) => {
@@ -681,7 +666,6 @@
       });
     }
 
-    // Pagination
     const btnPrev = document.getElementById("admin-users-btn-prev");
     const btnNext = document.getElementById("admin-users-btn-next");
 
@@ -703,7 +687,6 @@
       });
     }
 
-    // Select change in individual message tab
     const selectEl = document.getElementById("admin-individual-user-select");
     const targetInput = document.getElementById("admin-individual-target-id");
     if (selectEl && targetInput) {
@@ -714,7 +697,6 @@
       });
     }
 
-    // Send global announcement
     const btnSendGlobal = document.getElementById("btn-admin-send-global");
     if (btnSendGlobal) {
       btnSendGlobal.addEventListener("click", () => {
@@ -741,7 +723,6 @@
       });
     }
 
-    // Send individual warning
     const btnSendIndividual = document.getElementById("btn-admin-send-individual");
     if (btnSendIndividual) {
       btnSendIndividual.addEventListener("click", () => {
@@ -776,7 +757,6 @@
       });
     }
 
-    // Refresh audit logs
     const btnRefreshAudits = document.getElementById("btn-refresh-audit-logs");
     if (btnRefreshAudits) {
       btnRefreshAudits.addEventListener("click", () => {
@@ -784,7 +764,6 @@
       });
     }
 
-    // Ads Management tab handlers
     let activeAdsSearchUid = "";
 
     const btnAdsSearch = document.getElementById("btn-admin-ads-search");
@@ -872,7 +851,6 @@
       });
     }
 
-    // Support Names tab handler
     const btnAddSupportUid = document.getElementById("btn-admin-add-support-uid");
     if (btnAddSupportUid) {
       btnAddSupportUid.addEventListener("click", async () => {
@@ -899,8 +877,6 @@
       });
     }
   }
-
-
 
   function showActiveTabContent() {
     const contents = document.querySelectorAll(".admin-tab-content");
@@ -971,14 +947,12 @@
         ? `<span class="badge px-2 py-1" style="background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2);"><i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i>Online</span>`
         : `<span class="badge px-2 py-1" style="background-color: rgba(255, 255, 255, 0.05); color: #9f9f9f; border: 1px solid rgba(255, 255, 255, 0.08);">Offline</span>`;
 
-      // Admin Switch Bootstrap
       const adminSwitch = `
         <div class="form-check form-switch mb-0 d-flex justify-content-center">
           <input class="form-check-input btn-admin-toggle-switch" type="checkbox" role="switch" ${u.admin ? "checked" : ""} data-uid="${u.uid}" style="cursor: pointer; width: 2.2em; height: 1.15em;">
         </div>
       `;
 
-      // Suspend / Unsuspend buttons
       const isSuspended = u.suspendedUntil && u.suspendedUntil > Date.now();
       let suspendHTML = "";
       if (isSuspended) {
@@ -1006,7 +980,6 @@
         `;
       }
 
-      // Ban / Unban buttons
       const isBanned = u.banned === true;
       let banHTML = "";
       if (isBanned) {
@@ -1055,7 +1028,6 @@
       pagInfo.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${filtered.length} usuários`;
     }
 
-    // Attach Switch listeners for real-time Firestore admin updates
     const switches = tbody.querySelectorAll(".btn-admin-toggle-switch");
     switches.forEach((sw) => {
       sw.addEventListener("change", (e) => {
@@ -1064,15 +1036,13 @@
 
         window.showAdminLoading(true);
 
-        // 1. Immediate Firestore update
         if (window.FirebaseService && typeof window.FirebaseService.updateUserField === "function") {
           window.FirebaseService.updateUserField(targetUid, { admin: newAdminState }).catch((err) => {
             console.error("Erro ao atualizar admin no Firestore:", err);
-            sw.checked = !newAdminState; // revert on failure
+            sw.checked = !newAdminState; 
           });
         }
 
-        // 2. Notify backend for server session state and audit log
         sendAdminAction({
           type: "admin_action",
           action: "set_admin",
@@ -1082,7 +1052,6 @@
       });
     });
 
-    // Attach Suspend buttons
     const suspendBtns = tbody.querySelectorAll(".btn-admin-suspend");
     suspendBtns.forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -1111,7 +1080,6 @@
       });
     });
 
-    // Attach Unsuspend buttons
     const unsuspendBtns = tbody.querySelectorAll(".btn-admin-unsuspend");
     unsuspendBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1134,7 +1102,6 @@
       });
     });
 
-    // Attach Ban buttons
     const banBtns = tbody.querySelectorAll(".btn-admin-ban");
     banBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1157,7 +1124,6 @@
       });
     });
 
-    // Attach Unban buttons
     const unbanBtns = tbody.querySelectorAll(".btn-admin-unban");
     unbanBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1268,7 +1234,6 @@
     }
   }
 
-  // Export handlers to window object for WebSocket responses
   window.handleAdminOnlineUsers = function (users) {
     onlineUsersWS = users || [];
     renderUsersTable();
@@ -1283,14 +1248,12 @@
     refreshAdminData();
   };
 
-  // Admin Warning Modal (Non-blocking)
   window.showAdminWarningModal = function (text, title = "Mensagem da Administração", onCloseCallback = null) {
     if (typeof window.showIncomingAdminWarningModal === "function") {
       window.showIncomingAdminWarningModal(text, title, onCloseCallback);
     }
   };
 
-  // Confirm Action Modal
   window.showAdminConfirmModal = function (title, text, onConfirm) {
     let modalEl = document.getElementById("adminConfirmModal");
     if (!modalEl) {
@@ -1339,7 +1302,6 @@
     bModal.show();
   };
 
-  // Toast Notification System
   window.showAdminToast = function (message, type = "success") {
     let container = document.getElementById("admin-toast-container");
     if (!container) {
@@ -1379,7 +1341,6 @@
     });
   };
 
-  // Global Loading overlay
   let adminLoadingTimer = null;
 
   window.showAdminLoading = function (show = true) {
@@ -1406,7 +1367,7 @@
         `;
         document.body.appendChild(loader);
       }
-      // Safety guard: auto close after 6 seconds so buttons never freeze
+      
       adminLoadingTimer = setTimeout(() => {
         const activeLoader = document.getElementById("admin-global-loader");
         if (activeLoader) {
@@ -1423,10 +1384,8 @@
     }
   };
 
-  // Expose UI trigger
   window.injectAdminPanelUI = injectAdminPanelUI;
 
-  // Global Socket interceptor
   const originalConnect = window.ChatEngine ? window.ChatEngine.connectSocket : null;
   let currentSocketInstance = null;
 
@@ -1439,10 +1398,7 @@
         try {
           const data = JSON.parse(event.data);
           if (data && data.type === "user-permissions") {
-            console.log("Permissões recebidas.");
-            console.log(`admin=${data.admin}`);
-            console.log(`adsDisabled=${data.adsDisabled}`);
-
+            
             if (data.admin) {
               if (typeof window.mostrarPainelAdmin === "function") {
                 window.mostrarPainelAdmin();
@@ -1490,8 +1446,7 @@
             if (window.showAdminToast) window.showAdminToast(data.message || "Erro ao executar operação.", "error");
           }
           if (data && (data.type === "admin:broadcast" || data.type === "admin:private" || data.type === "global_warning" || data.type === "individual_warning" || data.type === "admin-global-message" || data.type === "admin-private-message")) {
-            console.log("Mensagem administrativa recebida.");
-            console.log("Exibindo popup.");
+            
             if (typeof window.showIncomingAdminWarningModal === "function") {
               window.showIncomingAdminWarningModal(
                 data.message || data.text,

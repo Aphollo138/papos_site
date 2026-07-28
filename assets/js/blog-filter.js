@@ -7,7 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const BlogEngine = window.BlogEngine;
   if (!BlogEngine) return;
 
-  
   const urlParams = new URLSearchParams(window.location.search);
   const catParam = urlParams.get("cat");
 
@@ -23,7 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
         categoryDesc.textContent = matchedCategory.description;
       }
 
-     
       const catPosts = BlogEngine.getPostsByCategory(catParam);
       renderFilteredPosts(catPosts);
     } else {
@@ -39,7 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  
   if (categoriesList) {
     categoriesList.addEventListener("click", (e) => {
       const categoryLink = e.target.closest(".category-filter-item");
@@ -48,10 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const slug = categoryLink.getAttribute("data-slug");
       if (!slug) return;
 
-      
       if (window.location.pathname.includes("index.html") || window.location.pathname.endsWith("/blog/")) {
         e.preventDefault();
-        
         
         categoriesList.querySelectorAll(".category-filter-item").forEach(el => el.classList.remove("active", "text-success"));
         categoryLink.classList.add("active", "text-success");
@@ -81,7 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     postsContainer.innerHTML = html;
 
-    
     if ("IntersectionObserver" in window) {
       const revealElements = postsContainer.querySelectorAll(".scroll-reveal");
       const scrollObserver = new IntersectionObserver((entries) => {

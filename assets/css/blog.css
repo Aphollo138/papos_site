@@ -1,11 +1,4 @@
-/* 
- * blog.css - Estilos adicionais exclusivos do Blog integrado do Papos
- * 
- * Mantém harmonia visual de 100% com style.css, apoiando-se nas variáveis globais
- * de cores, tipografia, bordas e sombras tanto para tema claro quanto escuro.
- */
 
-/* Estilos de Estrutura do Blog */
 .blog-hero {
   padding: 100px 0 60px 0;
   background-color: var(--background);
@@ -16,7 +9,6 @@
   min-height: 80vh;
 }
 
-/* Post Cards Adicionais e Adaptação */
 .card-body h3 a:hover {
   color: var(--accent-color) !important;
 }
@@ -35,7 +27,6 @@
   overflow: hidden;
 }
 
-/* Sidebar do Blog */
 .blog-sidebar .card {
   border: 1px solid var(--border);
   background-color: var(--surface);
@@ -66,7 +57,6 @@
   font-weight: 600;
 }
 
-/* TOC (Table of Contents) */
 .toc-link {
   border-left: 2px solid transparent;
   padding-left: 12px;
@@ -78,7 +68,6 @@
   padding-left: 16px;
 }
 
-/* Artigo Completo */
 .article-header {
   padding-top: 120px;
   background-color: var(--surface);
@@ -113,7 +102,6 @@
   color: var(--text-secondary);
 }
 
-/* FAQ Accordion Styling */
 .faq-accordion .accordion-item {
   border: 1px solid var(--border);
   background-color: var(--surface);
@@ -140,7 +128,6 @@
   line-height: 1.6;
 }
 
-/* Compartilhamento Social */
 .social-share-btn {
   width: 38px;
   height: 38px;
@@ -159,7 +146,6 @@
   transform: translateY(-2px);
 }
 
-/* Tema Claro Overrides para o Blog */
 [data-theme="light"] .article-content p {
   color: var(--text-secondary);
 }

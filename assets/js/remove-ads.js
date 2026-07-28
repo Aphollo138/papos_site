@@ -1,14 +1,9 @@
-/**
- * remove-ads.js - Remover Anúncios Modal Flow and Realtime Ads Check
- * Papo.net.br
- */
 
 (function () {
   let currentStep = 1;
   let userProfileUnsubscribe = null;
   let currentUserData = null;
 
-  // Saved DOM references for removing and re-inserting #btn-remove-ads
   let btnRemoveAdsElement = null;
   let btnRemoveAdsParent = null;
   let btnRemoveAdsNextSibling = null;
@@ -17,7 +12,6 @@
   let btnMobileRemoveAdsParent = null;
   let btnMobileRemoveAdsNextSibling = null;
 
-  // Get logged in user from Firebase Auth
   function getAuthUser() {
     if (window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function") {
       return window.FirebaseService.getCurrentUser();
@@ -25,13 +19,11 @@
     return null;
   }
 
-  // Check and update adsDisabled state in header button and modal
   function checkAdsStatus(userData) {
     currentUserData = userData;
     const btnRemoveAds = document.getElementById("btn-remove-ads");
     const mobileBtnRemoveAds = document.getElementById("mobile-menu-remove-ads");
 
-    // Store references to the buttons and their parents before removing
     if (btnRemoveAds && !btnRemoveAdsElement) {
       btnRemoveAdsElement = btnRemoveAds;
       btnRemoveAdsParent = btnRemoveAds.parentNode;
@@ -50,14 +42,12 @@
         window.desabilitarMonetag();
       }
 
-      // 1. If modal is open, close it immediately
       const modalEl = document.getElementById("removeAdsModal");
       if (modalEl && window.bootstrap && window.bootstrap.Modal) {
         const bsModal = window.bootstrap.Modal.getInstance(modalEl);
         if (bsModal) bsModal.hide();
       }
 
-      // 2. Remove desktop button completely from DOM
       const targetBtn = document.getElementById("btn-remove-ads");
       if (targetBtn) {
         if (!btnRemoveAdsParent) btnRemoveAdsParent = targetBtn.parentNode;
@@ -66,7 +56,6 @@
         targetBtn.remove();
       }
 
-      // 3. Remove mobile menu button completely from DOM
       const targetMobileBtn = document.getElementById("mobile-menu-remove-ads");
       if (targetMobileBtn) {
         if (!btnMobileRemoveAdsParent) btnMobileRemoveAdsParent = targetMobileBtn.parentNode;
@@ -75,7 +64,7 @@
         targetMobileBtn.remove();
       }
     } else {
-      // User does not have ads disabled - ensure buttons exist in DOM
+      
       if (!document.getElementById("btn-remove-ads") && btnRemoveAdsElement && btnRemoveAdsParent) {
         if (btnRemoveAdsNextSibling && btnRemoveAdsParent.contains(btnRemoveAdsNextSibling)) {
           btnRemoveAdsParent.insertBefore(btnRemoveAdsElement, btnRemoveAdsNextSibling);
@@ -108,7 +97,6 @@
 
   window.checkAdsStatus = checkAdsStatus;
 
-  // Subscribe to real-time Auth & Firestore User Profile
   function initRealtimeAdsListener() {
     if (!window.FirebaseService) {
       setTimeout(initRealtimeAdsListener, 300);
@@ -137,9 +125,8 @@
     }
   }
 
-  // Format internal ID nicely (always USR-XXXXXX)
   function getFormattedInternalId() {
-    // 1. Try Firestore user profile
+    
     if (currentUserData) {
       if (currentUserData.permanentId && currentUserData.permanentId.startsWith("USR-")) {
         return currentUserData.permanentId;
@@ -153,7 +140,6 @@
       }
     }
 
-    // 2. Try localStorage
     const stored = localStorage.getItem("papos_permanent_id");
     if (stored) {
       if (stored.startsWith("USR-")) return stored;
@@ -161,7 +147,6 @@
       return `USR-${clean.padStart(6, "0").toUpperCase()}`;
     }
 
-    // 3. Fallback: generate a clean 6-digit USR- ID from auth UID hash
     const user = getAuthUser();
     if (user && user.uid) {
       let hash = 0;
@@ -176,7 +161,6 @@
     return "USR-000001";
   }
 
-  // Format User Nickname
   function getUserNickname() {
     if (currentUserData && (currentUserData.displayName || currentUserData.nickname)) {
       return currentUserData.displayName || currentUserData.nickname;
@@ -188,7 +172,6 @@
     return "Anônimo";
   }
 
-  // Format User Email
   function getUserEmail() {
     const user = getAuthUser();
     if (user && user.email) return user.email;
@@ -196,7 +179,6 @@
     return "Não informado";
   }
 
-  // Inject Modal HTML into Document Body
   function injectRemoveAdsModal() {
     if (document.getElementById("removeAdsModal")) return;
 
@@ -424,7 +406,6 @@
 
     document.body.appendChild(modal);
 
-    // Prevent modal from showing if ads are disabled
     modal.addEventListener("show.bs.modal", (e) => {
       if (currentUserData && currentUserData.adsDisabled === true) {
         e.preventDefault();
@@ -434,24 +415,19 @@
     attachRemoveAdsEvents(modal);
   }
 
-  // Update step navigation UI
   function updateStepUI(step) {
     currentStep = step;
 
-    // Step Title Indicator
     const titleEl = document.getElementById("remove-ads-step-title");
     if (titleEl) titleEl.textContent = `Etapa ${step} de 4`;
 
-    // Hide all step divs
     document.querySelectorAll(".remove-ads-step").forEach((el) => {
       el.classList.remove("active");
     });
 
-    // Show current step div
     const targetStep = document.getElementById(`remove-ads-step-${step}`);
     if (targetStep) targetStep.classList.add("active");
 
-    // Update dots
     for (let i = 1; i <= 4; i++) {
       const dot = document.getElementById(`dot-step-${i}`);
       if (!dot) continue;
@@ -463,7 +439,6 @@
       }
     }
 
-    // Populate data for step 1 & 2 & 3 & 4
     const user = getAuthUser();
     const isLogged = !!user;
 
@@ -512,9 +487,8 @@
     }
   }
 
-  // Attach event handlers
   function attachRemoveAdsEvents(modalEl) {
-    // Step 1 buttons
+    
     const btnLogin = modalEl.querySelector("#btn-step-1-login");
     const btnRegister = modalEl.querySelector("#btn-step-1-register");
     const btnStep1Next = modalEl.querySelector("#btn-step-1-next");
@@ -547,34 +521,29 @@
       btnStep1Next.addEventListener("click", () => updateStepUI(2));
     }
 
-    // Step 2 buttons
     const btnStep2Back = modalEl.querySelector("#btn-step-2-back");
     const btnStep2Next = modalEl.querySelector("#btn-step-2-next");
 
     if (btnStep2Back) btnStep2Back.addEventListener("click", () => updateStepUI(1));
     if (btnStep2Next) btnStep2Next.addEventListener("click", () => updateStepUI(3));
 
-    // Step 3 buttons
     const btnStep3Back = modalEl.querySelector("#btn-step-3-back");
     const btnStep3Next = modalEl.querySelector("#btn-step-3-next");
 
     if (btnStep3Back) btnStep3Back.addEventListener("click", () => updateStepUI(2));
     if (btnStep3Next) btnStep3Next.addEventListener("click", () => updateStepUI(4));
 
-    // Step 4 buttons
     const btnStep4Back = modalEl.querySelector("#btn-step-4-back");
     if (btnStep4Back) btnStep4Back.addEventListener("click", () => updateStepUI(3));
   }
 
-  // Public Initialization
   function initRemoveAds() {
     injectRemoveAdsModal();
 
-    // Delegate click on header button (supports dynamic DOM reinsertion)
     document.addEventListener("click", (e) => {
       const btnHeader = e.target.closest("#btn-remove-ads");
       if (btnHeader) {
-        // Prevent opening if user already has ads disabled
+        
         if (currentUserData && currentUserData.adsDisabled === true) return;
 
         const modalEl = document.getElementById("removeAdsModal");

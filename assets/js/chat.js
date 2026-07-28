@@ -1,14 +1,9 @@
-/**
- * chat.js - Real-time WebSocket Client, Private Chats, Modal rooms, and Search engines
- */
 
-// Robust link detection algorithm to block URLs, domains, IPs, and obfuscation
 function containsLink(str) {
   if (!str || typeof str !== "string") return false;
 
   let text = str;
 
-  // 1. URL Decoding if percent encoded
   try {
     if (text.includes("%")) {
       text = decodeURIComponent(text);
@@ -21,22 +16,18 @@ function containsLink(str) {
       .replace(/%20/gi, " ");
   }
 
-  // 2. Unicode Normalization (NFKC desarms homoglyphs and unicode tricks)
   try {
     text = text.normalize("NFKC");
   } catch (e) {}
 
-  // 3. Remove invisible / zero-width / control / directionality characters
   text = text.replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "");
 
   const lower = text.toLowerCase();
 
-  // 4. Fast check for explicit schemes & www
   if (/(?:https?|ftp|file|wss?):\/\/|www\./i.test(lower)) {
     return true;
   }
 
-  // 5. Check IPv4 & IPv6
   if (/\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/.test(lower)) {
     return true;
   }
@@ -44,25 +35,20 @@ function containsLink(str) {
     return true;
   }
 
-  // 6. Normalization for Obfuscation
-  // Replace obfuscated dot patterns like (dot), [dot], {dot}, <dot>, (ponto), [ponto], " dot "
   let normalized = lower
     .replace(/\s*(?:\[|\(|\{|<)\s*(?:dot|ponto|\.)\s*(?:\]|\)|\}|>)\s*/gi, ".")
     .replace(/\s+(?:dot|ponto)\s+/gi, ".")
     .replace(/\s*(?:\[|\(|\{|<)\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk|pt|ar|mx)\s*(?:\]|\)|\}|>)\s*/gi, ".$1");
 
-  // Handle commas or slashes between letters used as dots: site,com -> site.com, site/com -> site.com
   normalized = normalized
     .replace(/([a-z0-9])\s*,\s*([a-z]{2,10})\b/gi, "$1.$2")
     .replace(/([a-z0-9])\s*\/\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk)\b/gi, "$1.$2");
 
-  // Collapse spaces around dots: "google . com", "google. com", "google .com"
   const collapsedSpaces = normalized
     .replace(/([a-z0-9])\s+\.\s+([a-z0-9])/gi, "$1.$2")
     .replace(/([a-z0-9])\.\s+([a-z0-9])/gi, "$1.$2")
     .replace(/([a-z0-9])\s+\.([a-z0-9])/gi, "$1.$2");
 
-  // TLD list
   const tldList = [
     "com", "net", "org", "gov", "edu", "mil", "br", "io", "gg", "co", "app", "dev",
     "xyz", "me", "info", "online", "site", "store", "top", "tk", "ml", "ga", "cf",
@@ -74,14 +60,12 @@ function containsLink(str) {
   ];
   const tldPattern = tldList.join("|");
 
-  // Regex to detect domain names with TLDs
   const domainRegex = new RegExp(`\\b[a-z0-9\\-]+\\.(?:${tldPattern})(?:\\.[a-z]{2,4})?(?:\\/[^\\s]*)?\\b`, "i");
 
   if (domainRegex.test(collapsedSpaces)) {
     return true;
   }
 
-  // 7. Check spaced-out words (e.g., "g o o g l e . c o m")
   const noSpaces = lower.replace(/\s+/g, "");
   if (noSpaces.includes(".") && domainRegex.test(noSpaces)) {
     return true;
@@ -91,7 +75,6 @@ function containsLink(str) {
 }
 window.containsLink = containsLink;
 
-// Format message time securely in user's local timezone
 function formatMessageTime(msg) {
   if (!msg) return "";
   if (msg.timestamp) {
@@ -124,11 +107,9 @@ function formatMessageTime(msg) {
   return "";
 }
 
-// Global action handles
 let replyTargetMsg = null;
 let blockedUsers = JSON.parse(localStorage.getItem("papos_blocked_users") || "[]");
 
-// Global Admin User helper & Real-time admin state tracking
 window.adminUsersSet = window.adminUsersSet || new Set();
 window.isAdminUser = function(nickname) {
   if (!nickname) return false;
@@ -137,8 +118,8 @@ window.isAdminUser = function(nickname) {
   if (lower.includes("admin") || lower.includes("mod") || lower === "sistema") return true;
   return false;
 };
-let activePrivateRecipient = null; // Username of active direct message partner
-let chatMode = "public"; // "public" or "private"
+let activePrivateRecipient = null; 
+let chatMode = "public"; 
 let activeMessageColor = "";
 
 window.setMessageColor = (color, indicatorColor) => {
@@ -162,28 +143,28 @@ window.getUsernameColor = (username) => {
   const isLight = document.documentElement.getAttribute("data-theme") === "light";
   
   const darkThemeColors = [
-    "#38bdf8", // Sky blue
-    "#34d399", // Emerald green
-    "#f472b6", // Pink
-    "#fbbf24", // Amber yellow
-    "#a78bfa", // Purple/violet
-    "#fb7185", // Rose
-    "#60a5fa", // Blue
-    "#fb923c", // Warm Orange
-    "#2dd4bf", // Teal
-    "#a3e635"  // Lime/green
+    "#38bdf8", 
+    "#34d399", 
+    "#f472b6", 
+    "#fbbf24", 
+    "#a78bfa", 
+    "#fb7185", 
+    "#60a5fa", 
+    "#fb923c", 
+    "#2dd4bf", 
+    "#a3e635"  
   ];
 
   const lightThemeColors = [
-    "#0369a1", // Deeper blue
-    "#047857", // Deeper emerald green
-    "#be185d", // Deeper magenta
-    "#b45309", // Deeper amber/brown
-    "#6d28d9", // Deeper purple
-    "#be123c", // Deeper rose/crimson
-    "#1d4ed8", // Deeper blue
-    "#c2410c", // Deeper orange
-    "#0f766e"  // Deeper teal
+    "#0369a1", 
+    "#047857", 
+    "#be185d", 
+    "#b45309", 
+    "#6d28d9", 
+    "#be123c", 
+    "#1d4ed8", 
+    "#c2410c", 
+    "#0f766e"  
   ];
 
   const colors = isLight ? lightThemeColors : darkThemeColors;
@@ -216,11 +197,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // Retrieve room param
   const urlParams = new URLSearchParams(window.location.search);
   let activeRoomId = urlParams.get("room") || "room-1";
 
-  // Elements
   const chatMessagesContainer = document.getElementById("chat-messages-container");
   const messageInput = document.getElementById("message-input");
   const sendButton = document.getElementById("btn-send");
@@ -228,38 +207,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebarAvatarPlaceholder = document.getElementById("sidebar-user-avatar-placeholder");
   const btnClearChat = document.getElementById("btn-clear-chat");
   
-  // Sidebar mobile toggler
   const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
   const chatSidebar = document.getElementById("chat-sidebar");
   
-  // Search features
   const btnToggleSearch = document.getElementById("btn-toggle-search");
   const searchBarWrapper = document.getElementById("chat-search-bar-wrapper");
   const searchMessagesInput = document.getElementById("chat-search-messages-input");
   const btnCloseSearch = document.getElementById("btn-close-search");
   
-  // Room modal features
   const modalRoomsContainer = document.getElementById("modal-rooms-container");
   const searchRoomsModal = document.getElementById("search-rooms-modal");
   
-  // Members list features
   const membersListContainer = document.getElementById("members-list-container");
   const searchMembersInput = document.getElementById("search-members-input");
   
-  // Private chats list features
   const privateConversationsList = document.getElementById("private-conversations-list");
   const totalPrivateUnreadBadge = document.getElementById("total-private-unread");
   
-  // Reply reference
   const replyReferenceBar = document.getElementById("reply-reference-bar");
   const replyReferenceText = document.getElementById("reply-reference-text");
   const btnCancelReply = document.getElementById("btn-cancel-reply");
   const typingIndicatorBar = document.getElementById("typing-indicator-bar");
   
-  // Back to public chat button
   const btnBackToPublic = document.getElementById("btn-back-to-public");
 
-  // In-memory data states
   let socket = null;
   let typingTimeout = null;
   let isCurrentlyTyping = false;
@@ -269,10 +240,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let onlineUsersList = [];
   let activeTypingUsers = new Set();
   
-  // Local direct messages storage mapped by username
   let privateChats = JSON.parse(localStorage.getItem(`papos_pms_${currentUser}`) || "{}");
 
-  // Notification Audio & Unread Badge Helpers
   const notifiedPrivateMessageIds = new Set();
   let isInitialSyncDone = false;
 
@@ -299,11 +268,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const playPromise = audioEl.play();
       if (playPromise !== undefined) {
         playPromise.catch(err => {
-          // Silent catch for autoplay block
+          
         });
       }
     } catch (e) {
-      // Catch any execution error
+      
     }
   }
 
@@ -311,7 +280,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!badgeElement) return;
     const className = isCentered ? "badge-pulse" : "badge-pulse-simple";
     badgeElement.classList.remove(className);
-    void badgeElement.offsetWidth; // force reflow
+    void badgeElement.offsetWidth; 
     badgeElement.classList.add(className);
     setTimeout(() => {
       badgeElement.classList.remove(className);
@@ -364,14 +333,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Pre-load existing IDs and update badge on load
   markExistingMessagesAsNotified();
   setTimeout(() => {
     updatePrivateUnreadBadge(false);
     isInitialSyncDone = true;
   }, 500);
 
-  // Subscribe to Firebase Auth and sync private messages if authenticated
   let profileUnsubscribe = null;
 
   function updateDOMUserInfo(nick, profile) {
@@ -410,9 +377,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (user) {
           const uid = user.uid;
-          console.log("[Auth] UID:", uid);
-
-          console.log("[Firebase] Sincronizando mensagens privadas do Firestore...");
+          
           window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
             let hasNewIncomingUnread = false;
 
@@ -460,23 +425,12 @@ document.addEventListener("DOMContentLoaded", () => {
             });
           }
 
-          // 1. Carregar documento users/{uid}
           window.FirebaseService.syncUserProfile().then((initialProfile) => {
-            console.log("[Firestore] Documento carregado");
+            
             if (initialProfile) {
               const isAdmin = Boolean(initialProfile.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2");
               const isAdsDisabled = Boolean(initialProfile.adsDisabled === true || isAdmin);
 
-              console.log("[Admin]", isAdmin);
-              console.log("[AdsDisabled]", isAdsDisabled);
-              console.log("[Perfil]", {
-                nickname: initialProfile.displayName || initialProfile.nickname || initialProfile.name || user.email.split("@")[0],
-                name: initialProfile.displayName || initialProfile.nickname || initialProfile.name || user.email.split("@")[0],
-                bio: initialProfile.bio || "",
-                age: initialProfile.age !== undefined && initialProfile.age !== null ? initialProfile.age : ""
-              });
-
-              // Painel Admin
               if (isAdmin) {
                 if (typeof window.mostrarPainelAdmin === "function") window.mostrarPainelAdmin();
                 localStorage.setItem("papos_is_admin", "true");
@@ -485,7 +439,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 localStorage.setItem("papos_is_admin", "false");
               }
 
-              // Ads
               if (isAdsDisabled) {
                 if (typeof window.desabilitarMonetag === "function") window.desabilitarMonetag();
                 if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: true, admin: isAdmin });
@@ -505,24 +458,13 @@ document.addEventListener("DOMContentLoaded", () => {
               updateDOMUserInfo(nick, initialProfile);
             }
 
-            // 2. Ouvinte em tempo real no mesmo documento (onSnapshot)
             if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
               profileUnsubscribe = window.FirebaseService.subscribeToUserProfile(uid, (profile) => {
                 if (profile) {
-                  console.log("[Firestore] Documento carregado");
+                  
                   const isAdmin = Boolean(profile.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2");
                   const isAdsDisabled = Boolean(profile.adsDisabled === true || isAdmin);
 
-                  console.log("[Admin]", isAdmin);
-                  console.log("[AdsDisabled]", isAdsDisabled);
-                  console.log("[Perfil]", {
-                    nickname: profile.displayName || profile.nickname || profile.name || user.email.split("@")[0],
-                    name: profile.displayName || profile.nickname || profile.name || user.email.split("@")[0],
-                    bio: profile.bio || "",
-                    age: profile.age !== undefined && profile.age !== null ? profile.age : ""
-                  });
-
-                  // Verification of bans and suspensions
                   if (profile.banned) {
                     window.FirebaseService.logout().then(() => {
                       localStorage.clear();
@@ -539,7 +481,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                   }
 
-                  // Painel Admin
                   if (isAdmin) {
                     if (typeof window.mostrarPainelAdmin === "function") window.mostrarPainelAdmin();
                     localStorage.setItem("papos_is_admin", "true");
@@ -548,7 +489,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     localStorage.setItem("papos_is_admin", "false");
                   }
 
-                  // Ads
                   if (isAdsDisabled) {
                     if (typeof window.desabilitarMonetag === "function") window.desabilitarMonetag();
                     if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: true, admin: isAdmin });
@@ -572,7 +512,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                   updateDOMUserInfo(newNick, profile);
 
-                  // Atualizar formulário se estiver na página de perfil
                   const inputNickname = document.getElementById("input-nickname");
                   const nameDisplay = document.getElementById("profile-display-name");
                   const inputBio = document.getElementById("input-bio");
@@ -584,7 +523,6 @@ document.addEventListener("DOMContentLoaded", () => {
                   if (inputAge) inputAge.value = newAge;
                   if (inputGender) inputGender.value = newGender;
 
-                  // Sincronizar com WebSocket
                   if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({
                       type: "update_profile",
@@ -632,19 +570,16 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   initializeFirebaseSync();
 
-  // Load User Details in sidebar
   if (sidebarUsername && sidebarAvatarPlaceholder) {
     sidebarUsername.textContent = currentUser;
     sidebarAvatarPlaceholder.innerHTML = ChatEngine.renderAvatar(currentUser, "avatar-lg mx-auto mb-2");
   }
 
-  // Validate private message payload safely
   function isValidPrivateMessage(pm) {
     if (!pm) return false;
     if (typeof pm !== "object") return false;
     if (!pm.id) return false;
     
-    // Support both standardized and legacy formats
     const sender = pm.senderName || pm.from;
     const recipient = pm.recipientName || pm.to;
     const content = pm.content !== undefined ? pm.content : pm.text;
@@ -657,9 +592,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  // Cache para perfis de outros usuários para evitar requisições sequenciais repetidas
   const profileCache = new Map();
-  const CACHE_TTL_MS = 15000; // 15 segundos
+  const CACHE_TTL_MS = 15000; 
 
   function sendJoinRoom(roomId) {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
@@ -685,13 +619,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   }
 
-  // Connect WebSockets
   function connect() {
     socket = ChatEngine.connectSocket();
     window.activeChatSocket = socket;
 
     socket.onopen = () => {
-      console.log("[Chat] Connected. Joining public room: " + activeRoomId);
+      
       sendJoinRoom(activeRoomId);
     };
 
@@ -708,7 +641,6 @@ document.addEventListener("DOMContentLoaded", () => {
             publicRoomMessages = data.messages;
             onlineUsersList = data.onlineUsers;
             
-            // Sync UI headers
             updateActiveHeader(data.roomName, data.roomDesc);
             renderMessages();
             renderMembers();
@@ -789,7 +721,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           case "private_message":
             if (!isValidPrivateMessage(data)) {
-              console.warn("[WebSocket] Received incomplete or invalid private message payload:", data);
+              
               break;
             }
             handleIncomingPrivateMessage(data);
@@ -850,10 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "user-permissions": {
-            console.log("Permissões recebidas.");
-            console.log(`admin=${data.admin}`);
-            console.log(`adsDisabled=${data.adsDisabled}`);
-
+            
             if (data.admin) {
               if (typeof window.mostrarPainelAdmin === "function") {
                 window.mostrarPainelAdmin();
@@ -910,7 +839,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           case "ads-status":
             window.MONETAG_DISABLED = data.disabled === true || data.adsDisabled === true;
-            console.log("[AdsStatus] Status de anúncios atualizado via WS:", window.MONETAG_DISABLED);
+            
             break;
 
           case "admin_online_users":
@@ -953,8 +882,7 @@ document.addEventListener("DOMContentLoaded", () => {
           case "admin-private-message":
           case "global_warning":
           case "individual_warning":
-            console.log("Mensagem administrativa recebida.");
-            console.log("Exibindo popup.");
+            
             if (typeof window.showIncomingAdminWarningModal === "function") {
               window.showIncomingAdminWarningModal(
                 data.message || data.text,
@@ -1010,7 +938,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     socket.onclose = () => {
-      console.warn("[Chat] Connection closed. Reconnecting...");
+      
       appendSystemMessage("Conexão instável. Restabelecendo canal criptografado...");
       setTimeout(connect, 3000);
     };
@@ -1020,7 +948,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  // Update central Header
   function updateActiveHeader(name, desc) {
     const headerName = document.getElementById("active-room-name");
     const headerDesc = document.getElementById("active-room-description");
@@ -1046,7 +973,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (headerStatus) headerStatus.classList.remove("d-none");
 
-      // Show header action controls for public chat
       if (desktopActions) {
         desktopActions.classList.remove("d-none");
         desktopActions.classList.add("d-none", "d-md-flex");
@@ -1073,7 +999,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (headerStatus) headerStatus.classList.add("d-none");
 
-      // Hide ALL action icons and mobile hamburger menu toggle during private chat
       if (desktopActions) {
         desktopActions.classList.add("d-none");
         desktopActions.classList.remove("d-md-flex");
@@ -1083,7 +1008,6 @@ document.addEventListener("DOMContentLoaded", () => {
         mobileMenuToggle.classList.remove("d-flex");
       }
 
-      // Close offcanvas mobile menu if open
       const mobileMenuEl = document.getElementById("offcanvasMobileMenu");
       if (mobileMenuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
         const bsMenu = bootstrap.Offcanvas.getInstance(mobileMenuEl);
@@ -1092,9 +1016,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Mobile Offcanvas Menu Interactions Setup
   function initMobileMenuInteractions() {
-    // 1. Membros Online
+    
     const btnMembers = document.getElementById("mobile-menu-members");
     if (btnMembers) {
       btnMembers.addEventListener("click", () => {
@@ -1111,7 +1034,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 2. Buscar
     const btnSearch = document.getElementById("mobile-menu-search");
     if (btnSearch) {
       btnSearch.addEventListener("click", () => {
@@ -1129,7 +1051,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 3. Remover Anúncios
     const btnRemoveAds = document.getElementById("mobile-menu-remove-ads");
     if (btnRemoveAds) {
       btnRemoveAds.addEventListener("click", () => {
@@ -1151,7 +1072,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 4. Painel Admin
     const btnAdmin = document.getElementById("mobile-menu-admin");
     if (btnAdmin) {
       btnAdmin.addEventListener("click", (e) => {
@@ -1177,14 +1097,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Initialize mobile menu interactions
   initMobileMenuInteractions();
 
-  // Direct Message Handler
   function handleIncomingPrivateMessage(pm) {
     if (!pm) return;
 
-    // Map fields supporting both unified and legacy keys for robust backward compatibility
     const id = pm.id;
     const sender = pm.senderName || pm.from;
     const recipient = pm.recipientName || pm.to;
@@ -1194,14 +1111,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!sender || !recipient) return;
 
-    // Detect conversation partner name
     const partner = sender === currentUser ? recipient : sender;
     
     if (!privateChats[partner]) {
       privateChats[partner] = [];
     }
 
-    // Append only if not already duplicated (checks using unique identifier)
     let isNew = false;
     if (!privateChats[partner].some(m => m.id === id)) {
       privateChats[partner].push({
@@ -1213,11 +1128,9 @@ document.addEventListener("DOMContentLoaded", () => {
         unread: (partner !== activePrivateRecipient)
       });
       
-      // Save local persistence
       localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
       isNew = true;
 
-      // Trigger audio and badge notification if message is from another user
       const isFromOther = (sender !== currentUser);
       if (isFromOther && !notifiedPrivateMessageIds.has(id)) {
         notifiedPrivateMessageIds.add(id);
@@ -1232,7 +1145,6 @@ document.addEventListener("DOMContentLoaded", () => {
         updatePrivateUnreadBadge(false);
       }
 
-      // Save to Firestore if authenticated (Strictly DO NOT save Bot_Papos messages)
       if (
         partner !== "Bot_Papos" &&
         sender !== "Bot_Papos" &&
@@ -1255,7 +1167,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Direct render if active
     if (isNew && chatMode === "private" && activePrivateRecipient === partner) {
       appendSingleMessage({
         id: id,
@@ -1269,7 +1180,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPrivateConversationsSidebar();
   }
 
-  // Send Direct Message Frame
   function sendPrivateMessage(text, msgId) {
     if (!activePrivateRecipient || !socket || socket.readyState !== WebSocket.OPEN) return;
     
@@ -1282,21 +1192,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   }
 
-  // Start direct conversation with user
   window.startPrivateChat = (partnerName) => {
     if (partnerName === currentUser) {
       alert("Você não pode iniciar um chat privado com você mesmo!");
       return;
     }
 
-    // Close members panel
     const offcanvasEl = document.getElementById("offcanvasMembers");
     if (offcanvasEl) {
       const offcanvasInstance = bootstrap.Offcanvas.getInstance(offcanvasEl);
       if (offcanvasInstance) offcanvasInstance.hide();
     }
 
-    // Close sidebar on mobile
     if (chatSidebar && chatSidebar.classList.contains("active")) {
       chatSidebar.classList.remove("active");
     }
@@ -1311,7 +1218,6 @@ document.addEventListener("DOMContentLoaded", () => {
       privateChats[partnerName] = [];
     }
 
-    // Mark as read
     privateChats[partnerName].forEach(m => m.unread = false);
     localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
 
@@ -1326,11 +1232,9 @@ document.addEventListener("DOMContentLoaded", () => {
     updatePrivateUnreadBadge(false);
     renderPrivateConversationsSidebar();
 
-    // Focus on entry
     if (messageInput) messageInput.focus();
   };
 
-  // Return to public channel
   if (btnBackToPublic) {
     btnBackToPublic.addEventListener("click", () => {
       chatMode = "public";
@@ -1340,12 +1244,10 @@ document.addEventListener("DOMContentLoaded", () => {
       activeTypingUsers.clear();
       if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
       
-      // Re-trigger server sync for safety
       sendJoinRoom(activeRoomId);
     });
   }
 
-  // Render Left Private Chats Threads
   function renderPrivateConversationsSidebar() {
     if (!privateConversationsList) return;
     
@@ -1404,7 +1306,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updatePrivateUnreadBadge(false);
   }
 
-  // Toast Helper
   if (!window.showToast) {
     window.showToast = function (message, type = "success") {
       let container = document.getElementById("global-toast-container");
@@ -1447,7 +1348,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  // Excluir conversa privada handler
   window.partnerToDeletePrivateChat = null;
   window.confirmDeletePrivateChat = (partnerName) => {
     window.partnerToDeletePrivateChat = partnerName;
@@ -1472,12 +1372,11 @@ document.addEventListener("DOMContentLoaded", () => {
       btnConfirmDeletePrivate.disabled = true;
 
       try {
-        // 1. Apagar do Firestore no perfil do usuário logado
+        
         if (window.FirebaseService && typeof window.FirebaseService.deletePrivateConversation === "function") {
           await window.FirebaseService.deletePrivateConversation(partner);
         }
 
-        // 2. Apagar da memória local e localStorage
         if (privateChats[partner]) {
           delete privateChats[partner];
         }
@@ -1485,7 +1384,6 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
         }
 
-        // 3. Notificar via WebSocket se conectado
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({
             type: "delete_private_conversation",
@@ -1493,7 +1391,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }));
         }
 
-        // 4. Se a conversa excluída estiver aberta no momento, fecha e volta para o chat público
         if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === partner.toLowerCase()) {
           chatMode = "public";
           activePrivateRecipient = null;
@@ -1505,7 +1402,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         renderPrivateConversationsSidebar();
 
-        // Fechar modal
         const modalEl = document.getElementById("deletePrivateChatModal");
         if (modalEl) {
           const bModal = bootstrap.Modal.getInstance(modalEl);
@@ -1531,14 +1427,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Copy to clipboard helper
   window.copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       alert("Texto copiado para a área de transferência!");
     }).catch(err => console.error("Clipboard failure:", err));
   };
 
-  // Render dynamic Message feed with consecutive sender grouping
   function renderMessages(filterText = "") {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.innerHTML = "";
@@ -1572,18 +1466,16 @@ document.addEventListener("DOMContentLoaded", () => {
         sysDiv.className = "msg-system";
         sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${msg.text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${formatMessageTime(msg)})</span>`;
         chatMessagesContainer.appendChild(sysDiv);
-        lastSender = null; // Break grouping
+        lastSender = null; 
       } else {
         const isMe = msg.sender === (window.confirmedNickname || currentUser);
         
-        // Group consecutive message rows
         const isGrouped = (msg.sender === lastSender);
 
         const msgDiv = document.createElement("div");
         msgDiv.className = `msg-container ${isMe ? 'msg-me' : ''} ${isGrouped ? 'msg-grouped' : ''}`;
         msgDiv.id = `msg-id-${msg.id}`;
 
-        // Reactions Html build (Only for public rooms)
         let reactionsHtml = "";
         if (chatMode === "public" && msg.reactions && Object.keys(msg.reactions).length > 0) {
           reactionsHtml = '<div class="reactions-list">';
@@ -1599,7 +1491,6 @@ document.addEventListener("DOMContentLoaded", () => {
           reactionsHtml += '</div>';
         }
 
-        // Reply HTML Build (Only for public rooms)
         let replyHtml = "";
         if (chatMode === "public" && msg.replyTo) {
           replyHtml = `
@@ -1609,7 +1500,6 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
         }
 
-        // Actions menu overlay
         let actionsHtml = "";
         let deleteBtnHtml = isMe ? `
           <button class="btn-action-msg text-danger" onclick="window.deleteMessage('${msg.id}')" title="Excluir Mensagem">
@@ -1632,7 +1522,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           `;
         } else {
-          // Direct message actions
+          
           actionsHtml = `
             <div class="message-actions-menu">
               <button class="btn-action-msg" onclick="copyToClipboard('${msg.text.replace(/'/g, "\\'")}')" title="Copiar"><i class="bi bi-clipboard"></i></button>
@@ -1666,13 +1556,11 @@ document.addEventListener("DOMContentLoaded", () => {
     scrollToBottom();
   }
 
-  // Real-time append single incoming msg frame
   function appendSingleMessage(msg) {
     if (!chatMessagesContainer) return;
     const isBlocked = blockedUsers.includes(msg.sender);
     if (isBlocked) return;
 
-    // Prevent duplicating in the UI if the DOM element with this ID already exists
     if (msg.id && chatMessagesContainer.querySelector(`#msg-id-${msg.id}`)) {
       return;
     }
@@ -1683,7 +1571,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const isMe = msg.sender === (window.confirmedNickname || currentUser);
     
-    // Check grouping
     const lastMsgDiv = chatMessagesContainer.lastElementChild;
     const isGrouped = lastMsgDiv && lastMsgDiv.classList.contains("msg-container") && 
                       !lastMsgDiv.classList.contains("msg-system") &&
@@ -1753,7 +1640,6 @@ document.addEventListener("DOMContentLoaded", () => {
     scrollToBottom();
   }
 
-  // Draw system messages
   function appendSystemMessage(text) {
     if (!chatMessagesContainer) return;
     const sysDiv = document.createElement("div");
@@ -1763,7 +1649,6 @@ document.addEventListener("DOMContentLoaded", () => {
     scrollToBottom();
   }
 
-  // Search/Filters elements on message feed
   const setupSearchToggle = (btn) => {
     if (!btn) return;
     btn.addEventListener("click", () => {
@@ -1796,7 +1681,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Modal Rooms render engine
   function renderModalRooms(filterText = "") {
     if (!modalRoomsContainer) return;
     modalRoomsContainer.innerHTML = "";
@@ -1839,9 +1723,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Public switcher
   window.switchPublicRoom = (roomId) => {
-    // Hide modal
+    
     const modalEl = document.getElementById("roomsModal");
     if (modalEl) {
       const modalInstance = bootstrap.Modal.getInstance(modalEl);
@@ -1855,11 +1738,9 @@ document.addEventListener("DOMContentLoaded", () => {
     activeTypingUsers.clear();
     if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
 
-    // Update URL query state gracefully without reloading
     const newUrl = `${window.location.pathname}?room=${roomId}`;
     window.history.pushState({ path: newUrl }, "", newUrl);
 
-    // Join room
     sendJoinRoom(roomId);
   };
 
@@ -1869,7 +1750,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Draw Members connected in offcanvas under active search filtering
   function renderMembers(filterText = "") {
     if (!membersListContainer) return;
     membersListContainer.innerHTML = "";
@@ -1945,7 +1825,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Handle typing activity indicators
   function toggleTypingIndicator(nickname, isTyping) {
     if (!typingIndicatorBar) return;
     
@@ -1989,19 +1868,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Scroll to bottom helper
   function scrollToBottom() {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
   }
 
-  // Handle Message dispatching (Public rooms vs Direct private threads)
   function handleSendMessage() {
     if (!messageInput || !socket) return;
     const text = messageInput.value.trim();
     if (text === "") return;
 
-    // Strict client-side link validation
     if (containsLink(text) || (replyTargetMsg && containsLink(replyTargetMsg.text))) {
       if (typeof window.showToast === "function") {
         window.showToast("Links não são permitidos nas conversas.", "warning");
@@ -2017,7 +1893,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (chatMode === "public") {
-      // Send standard message
+      
       socket.send(JSON.stringify({
         type: "message",
         text: text,
@@ -2030,13 +1906,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }));
       clearReplyTarget();
     } else {
-      // Generate unique client-side message ID to prevent duplicates
+      
       const msgId = "pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
 
-      // Send private message via WebSocket including the client-side ID
       sendPrivateMessage(text, msgId);
       
-      // Auto-append our sent private message local with standard unified fields
       handleIncomingPrivateMessage({
         id: msgId,
         senderName: currentUser,
@@ -2048,10 +1922,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     messageInput.value = "";
-    messageInput.style.height = "40px"; // Reset height on send
+    messageInput.style.height = "40px"; 
     messageInput.focus();
 
-    // Disable typing trigger
     if (isCurrentlyTyping) {
       isCurrentlyTyping = false;
       if (chatMode === "public") {
@@ -2062,10 +1935,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Debounced Typing Packets and Dynamic Textarea Resizing
   if (messageInput) {
     messageInput.addEventListener("input", () => {
-      // Adjust height dynamically
+      
       messageInput.style.height = "auto";
       const scrollHeight = messageInput.scrollHeight;
       const maxHeight = 120;
@@ -2110,7 +1982,6 @@ document.addEventListener("DOMContentLoaded", () => {
     sendButton.addEventListener("click", handleSendMessage);
   }
 
-  // Sidebar Toggling for mobile
   if (btnToggleSidebar && chatSidebar) {
     btnToggleSidebar.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2128,7 +1999,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // History cleaner
   const setupClearChat = (btn) => {
     if (!btn) return;
     btn.addEventListener("click", () => {
@@ -2142,16 +2012,13 @@ document.addEventListener("DOMContentLoaded", () => {
   setupClearChat(btnClearChat);
   setupClearChat(document.getElementById("btn-clear-chat-mobile"));
 
-  // Reply cancel trigger
   if (btnCancelReply) {
     btnCancelReply.addEventListener("click", clearReplyTarget);
   }
 
-  // Initialize socket
   connect();
   renderPrivateConversationsSidebar();
 
-  // Expose triggers
   window.sendReaction = (messageId, emoji) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
@@ -2192,7 +2059,6 @@ document.addEventListener("DOMContentLoaded", () => {
     alert(`Usuário '${username}' denunciado. Nossa equipe de moderação avaliará o comportamento nas últimas conversas.`);
   };
 
-  // Conversas Privadas list accordion toggle
   const privateToggleHeader = document.getElementById("private-chats-toggle");
   const privateList = document.getElementById("private-conversations-list");
   const privateArrow = document.getElementById("private-chats-arrow");
@@ -2213,7 +2079,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Backdrop click handler for mobile
   const sidebarBackdrop = document.getElementById("sidebar-backdrop");
   if (sidebarBackdrop && chatSidebar) {
     sidebarBackdrop.addEventListener("click", () => {
@@ -2222,7 +2087,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Draggable Resizable Sidebar (Desktop/Tablet only, with touch support)
   const resizer = document.getElementById("sidebar-resizer");
   const sidebar = document.getElementById("chat-sidebar");
   let isResizing = false;
@@ -2240,23 +2104,21 @@ document.addEventListener("DOMContentLoaded", () => {
           if (savedWidth > maxSidebarWidth) savedWidth = maxSidebarWidth;
           sidebar.style.width = savedWidth + "px";
         } else {
-          sidebar.style.width = "280px"; // default desktop width
+          sidebar.style.width = "280px"; 
         }
       } else {
-        sidebar.style.width = ""; // Reset width on mobile to fallback to CSS layout
+        sidebar.style.width = ""; 
       }
     };
 
-    // Apply initially
     applySidebarWidth();
 
-    // Listen to window resizing
     window.addEventListener("resize", applySidebarWidth);
 
     const startResize = (clientX) => {
       isResizing = true;
       resizer.classList.add("dragging");
-      sidebar.style.transition = "none"; // Disable CSS transition for ultra-smooth live dragging
+      sidebar.style.transition = "none"; 
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     };
@@ -2278,14 +2140,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isResizing) {
         isResizing = false;
         resizer.classList.remove("dragging");
-        sidebar.style.transition = ""; // Restore transitions
+        sidebar.style.transition = ""; 
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         localStorage.setItem("papos_sidebar_width", sidebar.offsetWidth);
       }
     };
 
-    // Mouse Resizing Events
     resizer.addEventListener("mousedown", (e) => {
       if (window.innerWidth <= 768) return;
       e.preventDefault();
@@ -2299,7 +2160,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("mouseup", stopResize);
 
-    // Touch Resizing Events
     resizer.addEventListener("touchstart", (e) => {
       if (window.innerWidth <= 768) return;
       if (e.touches.length > 0) {
@@ -2318,7 +2178,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// Reply target actions
 function setReplyTarget(id, sender, text) {
   replyTargetMsg = { id, sender, text };
   const bar = document.getElementById("reply-reference-bar");
@@ -2338,7 +2197,6 @@ function clearReplyTarget() {
   if (bar) bar.classList.add("d-none");
 }
 
-// Custom Pure Vanilla JS Emoji Picker Implementation
 const EMOJI_CATEGORIES = {
   faces: [
     "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","😈","👿","👹","👺","💀","☠️","👻","👽","👾","🤖","💩","😺","😸","😹","😻","😼","😽","🙀","😿","😾","👋","🤚","🖐️","✋","🖖","👌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✍️","💅","🤳","💪","🦾","🧠","🧡"
@@ -2363,7 +2221,6 @@ const EMOJI_CATEGORIES = {
   ]
 };
 
-// Portuguese Search Tags for Emojis
 const EMOJI_TAGS = {
   "😀": "sorriso rir alegre feliz dente papos", "😃": "sorriso rir alegre feliz dente", "😄": "sorriso rir alegre feliz olho", "😁": "sorriso rindo alegre dente",
   "😆": "gargalhada rir risada engraçado", "😅": "suor rir alivio tenso", "😂": "chorar de rir riso gargalhada engraçado", "🤣": "rolar de rir risada hilario",
@@ -2407,7 +2264,6 @@ window.renderEmojiGrid = function(emojis, targetContainer, isMobile) {
     btn.style.transition = "transform 0.1s ease";
     btn.innerText = emoji;
     
-    // Insert emoji on click
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       const input = document.getElementById("message-input");
@@ -2419,12 +2275,10 @@ window.renderEmojiGrid = function(emojis, targetContainer, isMobile) {
         input.selectionStart = input.selectionEnd = startPos + emoji.length;
         input.focus();
         
-        // Trigger input event to auto-expand height
         input.dispatchEvent(new Event("input", { bubbles: true }));
       }
     });
     
-    // Add hover effect
     btn.addEventListener("mouseenter", () => {
       btn.style.transform = "scale(1.2)";
     });
@@ -2444,11 +2298,11 @@ window.filterEmojis = function(query, containerId, isMobile) {
   const cleanQuery = query.toLowerCase().trim();
   
   if (cleanQuery === "") {
-    // Show emojis for current category
+    
     const category = window.currentEmojiCategory || "faces";
     const emojis = EMOJI_CATEGORIES[category] || [];
     window.renderEmojiGrid(emojis, container, isMobile);
-    // Show tabs again
+    
     let parent = container.parentElement;
     if (parent) {
       const tabs = parent.querySelector(".emoji-tabs");
@@ -2459,7 +2313,6 @@ window.filterEmojis = function(query, containerId, isMobile) {
     return;
   }
   
-  // Find matching emojis across all categories
   const matchedEmojis = [];
   
   for (const cat in EMOJI_CATEGORIES) {
@@ -2485,7 +2338,6 @@ window.filterEmojis = function(query, containerId, isMobile) {
     window.renderEmojiGrid(matchedEmojis, container, isMobile);
   }
   
-  // Hide category tabs when searching to avoid layout clutter
   let parent = container.parentElement;
   if (parent) {
     const tabs = parent.querySelector(".emoji-tabs");
@@ -2525,7 +2377,6 @@ window.switchEmojiCategory = function(category) {
     if (mobileTabs) mobileTabs.style.setProperty("display", "flex", "important");
   }
 
-  // Update active tab styling for both desktop and mobile panels
   const updateTabs = (dropdownId) => {
     const dropdown = document.getElementById(dropdownId);
     if (dropdown) {
@@ -2550,7 +2401,6 @@ window.switchEmojiCategory = function(category) {
   updateTabs("mobile-actions-dropdown");
 };
 
-// Search listeners and Mobile Menu Multi-Step bindings
 document.addEventListener("DOMContentLoaded", () => {
   const searchDesktop = document.getElementById("emoji-search-desktop");
   const searchMobile = document.getElementById("emoji-search-mobile");
@@ -2567,7 +2417,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Set up mobile action menu triggers
   const btnMobileOpenEmojis = document.getElementById("btn-mobile-open-emojis");
   const btnMobileOpenColors = document.getElementById("btn-mobile-open-colors");
   const btnMobileEmojiBack = document.getElementById("btn-mobile-emoji-back");
@@ -2614,7 +2463,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Reset menu steps when clicking mobile actions button
   const btnMobileActions = document.getElementById("btn-mobile-actions");
   if (btnMobileActions) {
     btnMobileActions.addEventListener("click", () => {
@@ -2626,14 +2474,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- INÍCIO DA INTEGRAÇÃO DO PERFIL PÚBLICO ---
   window.openUserProfile = (nickname) => {
     if (!nickname) return;
     
-    // Ignorar bots ou sistema
     if (nickname === "Sistema" || nickname === "System") return;
     
-    // Converter nome "Você" para o apelido real
     const realName = (nickname === "Você") ? (window.confirmedNickname || currentUser) : nickname;
     const isMe = (realName.toLowerCase() === (window.confirmedNickname || currentUser).toLowerCase());
 
@@ -2679,7 +2524,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const reqInfo = window.pendingProfileRequest;
     const isMe = reqInfo ? (data.nickname.toLowerCase() === (window.confirmedNickname || currentUser).toLowerCase()) : false;
     
-    // Salvar no cache
     profileCache.set(data.nickname.toLowerCase(), {
       data: data,
       timestamp: Date.now()
@@ -2703,12 +2547,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const bioEl = document.getElementById("modal-profile-bio");
     const actionBtn = document.getElementById("btn-modal-profile-action");
 
-    // 1. Avatar
     if (avatarContainer) {
       avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-lg mx-auto");
     }
 
-    // 2. Indicador Online
     if (onlineIndicator) {
       if (profile.online) {
         onlineIndicator.classList.remove("d-none");
@@ -2717,7 +2559,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3. Nome
     if (nicknameEl) {
       nicknameEl.textContent = profile.nickname;
 
@@ -2746,18 +2587,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3.5 Identificador Único
     if (permanentIdEl) {
       permanentIdEl.textContent = profile.permanentId || "USR-Membro";
     }
 
-    // 4. Status de texto
     if (statusTextEl) {
       statusTextEl.textContent = profile.online ? "Membro conectado" : "Offline no momento";
       statusTextEl.className = profile.online ? "text-success small mb-4" : "text-secondary small mb-4";
     }
 
-    // 5. Idade
     if (ageEl) {
       if (profile.age !== null && profile.age !== undefined && profile.age !== "") {
         ageEl.textContent = `${profile.age} anos`;
@@ -2768,7 +2606,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 6. Sexo
     if (genderEl) {
       if (profile.gender && profile.gender.trim() !== "") {
         genderEl.textContent = profile.gender;
@@ -2779,7 +2616,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 7. Biografia (texto seguro, sem HTML injection)
     if (bioEl) {
       if (profile.bio && profile.bio.trim() !== "") {
         bioEl.textContent = profile.bio;
@@ -2790,7 +2626,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 8. Botão de Ação
     if (actionBtn) {
       actionBtn.classList.remove("d-none");
       if (isMe) {
@@ -2812,23 +2647,20 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Mostrar modal com a API do Bootstrap
     const modalInstance = new bootstrap.Modal(modalEl);
     modalInstance.show();
   }
-  // --- FIM DA INTEGRAÇÃO DO PERFIL PÚBLICO ---
+  
 });
 
-// Expose safe Mock commonJS module exports for emoji-picker-react package to satisfy requirements
 if (typeof exports !== 'undefined') {
   try {
     exports.EmojiPickerReact = require('emoji-picker-react');
   } catch (e) {
-    // Ignore gracefully in client browsers
+    
   }
 }
 
-// Initialize faces category initially
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => { window.switchEmojiCategory("faces"); }, 200);

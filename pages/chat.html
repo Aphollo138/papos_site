@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    <!-- Progressive Enhancement -->
+    
     <script>document.documentElement.classList.add('js-enabled');</script>
     
     <meta charset="UTF-8" />
@@ -17,7 +17,6 @@
     <meta name="msapplication-TileColor" content="#ffffff">
     <meta name="msapplication-TileImage" content="/mstile-150x150.png?v=5">
 
-    <!-- Open Graph / Redes Sociais -->
     <meta property="og:title" content="Chat Online e Mensagens Privadas - Papo.net.br" />
     <meta property="og:description" content="Converse ao vivo em salas públicas ou envie mensagens privadas em tempo real." />
     <meta property="og:url" content="https://papo.net.br/chat" />
@@ -26,13 +25,11 @@
     <meta property="og:site_name" content="Papo.net.br" />
     <meta property="og:locale" content="pt_BR" />
 
-    <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Chat Online - Papo.net.br" />
     <meta name="twitter:description" content="Converse ao vivo em salas públicas e mensagens privadas." />
     <meta name="twitter:image" content="https://papo.net.br/assets/img/og-image.png?v=5" />
 
-    <!-- Structured Data (JSON-LD) for SEO -->
     <script type="application/ld+json">
     [
       {
@@ -58,7 +55,6 @@
     ]
     </script>
 
-    <!-- Manifest & Favicons (Cache Invalidation v=5) -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=5">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=5">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=5" />
@@ -67,13 +63,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=5" />
     <link rel="manifest" href="/manifest.webmanifest?v=5" />
 
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-    <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="/assets/css/style.css" />
     <link rel="stylesheet" href="/assets/css/remove-ads.css" />
     <style>
@@ -176,20 +169,17 @@
   </head>
   <body class="chat-page">
 
-    <!-- Estrutura do Chat de Duas Colunas (Sidebar Esquerdo + Main Area) -->
     <main class="container-fluid p-0">
       <section class="chat-wrapper">
         
-        <!-- 1. BARRA LATERAL ESQUERDA (Dedicada ao Perfil e Conversas Privadas APENAS) -->
         <aside class="chat-sidebar" id="chat-sidebar">
           
-          <!-- Seção de Perfil do Usuário Logado -->
           <div class="p-3 border-bottom border-secondary d-flex flex-column align-items-center text-center gap-2 position-relative" id="user-profile-sidebar-card" style="background-color: var(--surface-secondary);">
-            <!-- Botão Fechar Sidebar Mobile -->
+            
             <button class="btn btn-close btn-close-white d-md-none position-absolute" type="button" id="btn-close-sidebar" aria-label="Fechar" style="top: 12px; right: 12px; font-size: 0.8rem;"></button>
             
             <div id="sidebar-user-avatar-placeholder">
-              <!-- Avatar grande gerado dinamicamente -->
+              
             </div>
             <div class="w-100">
               <h3 class="h6 fw-bold mb-1 text-white text-truncate" id="sidebar-username">Carregando...</h3>
@@ -203,7 +193,6 @@
             </div>
           </div>
 
-          <!-- Área de Conversas Privadas (Isoladas por usuário) -->
           <div class="flex-grow-1 d-flex flex-column overflow-hidden">
             <div class="p-3 border-bottom border-secondary d-flex align-items-center justify-content-between bg-dark" id="private-chats-toggle" style="cursor: pointer; user-select: none;">
               <div class="d-flex align-items-center gap-2">
@@ -213,7 +202,6 @@
               <span class="badge rounded-pill bg-danger d-none" id="total-private-unread" style="font-size: 0.65rem;">0</span>
             </div>
             
-            <!-- Listagem de Mensagens Privadas directas -->
             <div class="flex-grow-1 overflow-y-auto p-2" id="private-conversations-list" role="navigation" aria-label="Canais privados">
               <div class="text-center py-5 text-secondary small" id="no-private-chats-placeholder">
                 <div class="fs-4 mb-2"><i class="bi bi-chat-left-dots"></i></div>
@@ -222,23 +210,19 @@
             </div>
           </div>
           
-          <!-- Draggable Resize Handle -->
           <div class="sidebar-resizer" id="sidebar-resizer"></div>
         </aside>
 
-        <!-- 2. ÁREA CENTRAL DE CHAT (Larga e expandida) -->
         <section class="chat-area" id="chat-conversation-panel">
           
-          <!-- Cabeçalho do Chat Selecionado -->
           <header class="chat-header">
             <div class="d-flex align-items-center gap-2" style="min-width: 0; flex: 1; margin-right: 8px;">
-              <!-- Botão Lateral Mobile (Alternar Conversas) -->
+              
               <button class="btn btn-secondary-custom d-md-none border-0 px-2.5 py-1.5 position-relative" type="button" id="btn-toggle-sidebar" aria-label="Alternar conversas" style="border-radius: var(--radius-sm); flex-shrink: 0;">
                 <i class="bi bi-chat-dots fs-5"></i>
                 <span class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle d-none" id="sidebar-toggle-badge" aria-live="polite" style="font-size: 0.65rem; border: 1.5px solid var(--surface-dark); z-index: 2;">0</span>
               </button>
 
-              <!-- Botão Voltar para Sala Pública (Aparece apenas quando visualizando privado!) -->
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-none" id="btn-back-to-public" title="Voltar para a sala pública" style="border-radius: var(--radius-sm); flex-shrink: 0;">
                 <i class="bi-arrow-left"></i> <span class="d-none d-sm-inline ms-1">Voltar ao Público</span>
               </button>
@@ -257,16 +241,12 @@
               </div>
             </div>
 
-            <!-- Botões de Ação do Cabeçalho (Desktop + Mobile Organizados) -->
-            <!-- DESKTOP ACTIONS CONTAINER (Exibido apenas em telas md ou superiores) -->
             <div class="d-none d-md-flex align-items-center gap-1.5 flex-shrink-0" id="desktop-header-actions">
               
-              <!-- 1. Botão "Salas" -->
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" aria-label="Trocar de sala" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-grid-fill" aria-hidden="true"></i> <span class="d-none d-sm-inline">Salas</span>
               </button>
 
-              <!-- 2. Botão Suporte WhatsApp -->
               <a href="https://wa.me/5511913303930?text=Ol%C3%A1!%20Gostaria%20de%20falar%20com%20o%20suporte%20do%20Papo.net.br." 
                  target="_blank" 
                  rel="noopener noreferrer" 
@@ -280,39 +260,32 @@
                 <span class="d-none d-sm-inline">Suporte</span>
               </a>
 
-              <!-- 3. Botão "Membros" -->
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados" aria-label="Ver membros conectados" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-people-fill" aria-hidden="true"></i> <span class="d-none d-sm-inline">Membros</span>
               </button>
 
-              <!-- 4. Botão "Remover Anúncios" -->
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-remove-ads" title="Remover anúncios" aria-label="Remover anúncios" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <img src="/assets/icons/ad-blocker.svg" alt="Remover anúncios" title="Remover anúncios" style="filter: brightness(0) invert(1);" aria-hidden="true" />
                 <span class="d-none d-sm-inline">Sem Anúncios</span>
               </button>
               
-              <!-- 5. Ícone Pesquisar (lupa) -->
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" id="btn-toggle-search" title="Pesquisar nesta sala" aria-label="Pesquisar nesta sala" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-search" aria-hidden="true"></i>
               </button>
 
-              <!-- 6. Botão Tema (Sol/Lua) -->
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" id="btn-theme-toggle" onclick="window.ChatEngine.toggleTheme()" title="Alternar tema" aria-label="Alternar tema" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-sun-fill theme-sun-icon-btn text-warning" aria-hidden="true"></i>
                 <i class="bi bi-moon-fill theme-moon-icon-btn text-primary" aria-hidden="true"></i>
               </button>
 
-              <!-- 7. Botão Entrar (Exibido apenas quando deslogado) -->
               <button class="btn btn-premium btn-sm py-1.5 px-2.5 px-sm-3 d-flex align-items-center gap-1.5" id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" title="Entrar" aria-label="Entrar" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> <span class="d-none d-sm-inline">Entrar</span>
               </button>
 
-              <!-- 8. Botão Sair (Exibido apenas quando logado) -->
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 px-sm-3 d-none align-items-center gap-1.5 text-danger" id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" title="Sair" aria-label="Sair" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-box-arrow-right text-danger" aria-hidden="true"></i> <span class="d-none d-sm-inline">Sair</span>
               </button>
 
-              <!-- 9. Botão ⋮ Três Pontos Verticais (Exibido apenas quando logado) -->
               <div class="dropdown d-none" id="header-three-dots-container">
                 <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 dropdown-toggle-no-caret d-flex align-items-center justify-content-center" type="button" id="dropdownMenuThreeDots" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm); font-size: 0.8rem;" title="Mais Opções" aria-label="Mais Opções" role="button">
                   <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
@@ -323,13 +296,11 @@
 
             </div>
 
-            <!-- MENU HAMBURGER MOBILE (Exibido apenas em telas menores que md) -->
             <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center justify-content-center d-md-none flex-shrink-0" id="btn-mobile-menu-toggle" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMobileMenu" aria-controls="offcanvasMobileMenu" title="Menu principal" aria-label="Abrir menu principal" role="button" style="border-radius: var(--radius-sm); font-size: 0.9rem;">
               <i class="bi bi-list fs-5" aria-hidden="true"></i>
             </button>
           </header>
 
-          <!-- Barra de Pesquisa/Filtro interna de mensagens (Oculta por padrão) -->
           <div class="bg-dark p-2 border-bottom border-secondary d-none" id="chat-search-bar-wrapper">
             <div class="input-group input-group-sm">
               <span class="input-group-text bg-transparent border-secondary text-secondary"><i class="bi bi-funnel"></i></span>
@@ -338,7 +309,6 @@
             </div>
           </div>
 
-          <!-- Container Principal do Feed de Mensagens -->
           <div class="chat-messages" id="chat-messages-container" aria-live="polite">
             <div class="text-center py-5">
               <div class="spinner-border text-white" role="status">
@@ -348,15 +318,12 @@
             </div>
           </div>
 
-          <!-- Indicador de Membro Digitante -->
           <div class="typing-text d-none" id="typing-indicator-bar">
-            <!-- Injetado dinamicamente via WebSocket -->
+            
           </div>
 
-          <!-- Barra Inferior de Entrada e Respostas -->
           <footer class="chat-input-area">
             
-            <!-- Caixa de Referência de Resposta (Mencionando outra mensagem) -->
             <div class="reply-reference-bar d-none" id="reply-reference-bar">
               <div class="d-flex align-items-center gap-2 text-truncate">
                 <i class="bi bi-reply-fill text-secondary"></i>
@@ -367,22 +334,20 @@
               </button>
             </div>
 
-            <!-- Formulário de Envio -->
             <form id="message-form" class="m-0" onsubmit="return false;">
               <div class="input-group flex-nowrap align-items-end">
                 <textarea class="form-control bg-dark border-secondary px-3 py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none;"></textarea>
                 
-                <!-- Botão de Emoji (Somente Desktop) -->
                 <div class="dropdown d-none d-md-block" style="align-self: flex-end;">
                   <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-emoji-picker" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Escolher emoji" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0; padding: 0; border-left: none; border-right: none;">
                     <i class="bi bi-emoji-smile" style="color: var(--text-primary); font-size: 1.15rem;"></i>
                   </button>
                   <div class="dropdown-menu dropdown-menu-end p-2 border-secondary shadow-lg" id="emoji-picker-dropdown" aria-labelledby="btn-emoji-picker" style="background-color: var(--surface); width: 310px; max-width: 90vw; z-index: 1060; border-radius: var(--radius-md);">
-                    <!-- Search input for desktop -->
+                    
                     <div class="mb-2">
                       <input type="text" id="emoji-search-desktop" class="form-control form-control-sm bg-dark border-secondary text-white" placeholder="Pesquisar emoji..." style="font-size: 0.85rem;">
                     </div>
-                    <!-- Tabs of Categories -->
+                    
                     <div class="d-flex justify-content-between border-bottom border-secondary pb-2 mb-2 emoji-tabs" style="font-size: 1.1rem; overflow-x: auto; scrollbar-width: none;">
                       <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none active-emoji-tab" onclick="window.switchEmojiCategory('faces')" style="box-shadow: none;">😀</button>
                       <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('animals')" style="box-shadow: none;">🐱</button>
@@ -392,26 +357,23 @@
                       <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('objects')" style="box-shadow: none;">💡</button>
                       <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('hearts')" style="box-shadow: none;">💖</button>
                     </div>
-                    <!-- Emoji grid area -->
+                    
                     <div class="emoji-grid d-flex flex-wrap gap-1" id="emoji-grid-container" style="max-height: 180px; overflow-y: auto; font-size: 1.3rem; padding: 2px; justify-content: center;">
-                      <!-- Populated via Javascript -->
+                      
                     </div>
                   </div>
                 </div>
 
-                <!-- Botão Enviar (Symmetric & Narrowed) -->
                 <button class="btn btn-premium d-flex align-items-center justify-content-center" type="submit" id="btn-send" title="Enviar mensagem" aria-label="Enviar" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; align-self: flex-end; border-radius: 0; border-right: none; padding: 0;">
                   <i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>
                 </button>
 
-                <!-- Botão Mobile Actions (Somente Celular - Compacto e Elegante) -->
                 <div class="dropdown d-block d-md-none" style="align-self: flex-end;">
                   <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-mobile-actions" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Mais opções" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0; border-left: none;">
                     <i class="bi bi-three-dots-vertical" style="font-size: 1rem; color: var(--text-secondary);"></i>
                   </button>
                   <div class="dropdown-menu dropdown-menu-end p-3 border-secondary shadow-lg" id="mobile-actions-dropdown" aria-labelledby="btn-mobile-actions" style="background-color: var(--surface); width: 320px; max-width: 90vw; z-index: 1060; border-radius: var(--radius-md);">
                     
-                    <!-- PASSO 1: Exibir apenas os dois ícones descritos pelo usuário -->
                     <div id="mobile-menu-step-1" class="d-flex justify-content-around py-2 gap-3">
                       <button type="button" class="btn btn-secondary-custom d-flex flex-column align-items-center justify-content-center p-3 text-white border-secondary transition-all" id="btn-mobile-open-emojis" style="width: 110px; height: 95px; border-radius: var(--radius-md); background-color: rgba(255, 255, 255, 0.03);">
                         <i class="bi bi-emoji-smile text-warning mb-2" style="font-size: 1.8rem;"></i>
@@ -423,7 +385,6 @@
                       </button>
                     </div>
 
-                    <!-- PASSO 2A: Seletor de Emojis Mobile -->
                     <div id="mobile-menu-emojis" class="d-none">
                       <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom border-secondary">
                         <button type="button" class="btn btn-sm text-secondary p-0 d-flex align-items-center gap-1" id="btn-mobile-emoji-back" style="box-shadow: none; font-size: 0.85rem;">
@@ -433,7 +394,6 @@
                         <span style="width: 50px;"></span>
                       </div>
 
-                      <!-- Search input for mobile emojis -->
                       <div class="mb-2">
                         <input type="text" id="emoji-search-mobile" class="form-control form-control-sm bg-dark border-secondary text-white" placeholder="Pesquisar emoji..." style="font-size: 0.85rem;">
                       </div>
@@ -448,11 +408,10 @@
                         <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('hearts')" style="box-shadow: none;">💖</button>
                       </div>
                       <div class="emoji-grid d-flex flex-wrap gap-1" id="mobile-emoji-grid-container" style="max-height: 180px; overflow-y: auto; font-size: 1.3rem; padding: 2px; justify-content: center;">
-                        <!-- Populated via Javascript -->
+                        
                       </div>
                     </div>
 
-                    <!-- PASSO 2B: Seletor de Cores Mobile -->
                     <div id="mobile-menu-colors" class="d-none">
                       <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
                         <button type="button" class="btn btn-sm text-secondary p-0 d-flex align-items-center gap-1" id="btn-mobile-color-back" style="box-shadow: none; font-size: 0.85rem;">
@@ -478,7 +437,6 @@
                   </div>
                 </div>
 
-                <!-- Seletor de Cores de Mensagem (Somente Desktop) -->
                 <div class="dropdown d-none d-md-block" style="align-self: flex-end;">
                   <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-color-picker" data-bs-toggle="dropdown" aria-expanded="false" title="Escolher cor do texto" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0;">
                     <i class="bi bi-palette-fill" id="selected-color-indicator" style="color: var(--text-primary); font-size: 1.1rem;"></i>
@@ -521,7 +479,6 @@
       </section>
     </main>
 
-    <!-- MODAL DE LISTA DE SALAS (Substitui a coluna fixa e preserva espaço) -->
     <div class="modal fade" id="roomsModal" tabindex="-1" aria-labelledby="roomsModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-secondary shadow-lg rounded-4" style="background-color: var(--surface);">
@@ -533,7 +490,6 @@
           </div>
           <div class="modal-body p-4">
             
-            <!-- Busca Rápida de Salas no Modal -->
             <div class="mb-4">
               <div class="input-group input-group-sm">
                 <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-search"></i></span>
@@ -541,7 +497,6 @@
               </div>
             </div>
 
-            <!-- Grid Dinâmica das salas disponíveis -->
             <div class="row g-3" id="modal-rooms-container">
               <div class="col-12 text-center py-4 text-secondary">
                 <div class="spinner-border spinner-border-sm text-white" role="status"></div>
@@ -557,7 +512,6 @@
       </div>
     </div>
 
-    <!-- OFFCANVAS MENU MOBILE (Painel lateral moderno com Glassmorphic Design) -->
     <div class="offcanvas offcanvas-end border-0" tabindex="-1" id="offcanvasMobileMenu" aria-labelledby="offcanvasMobileMenuLabel" style="background: rgba(18, 18, 18, 0.88); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: var(--text-primary); z-index: 1060; width: 285px;">
       <div class="offcanvas-header border-bottom border-secondary p-3 d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-2">
@@ -568,44 +522,37 @@
       </div>
       <div class="offcanvas-body p-3 d-flex flex-column gap-2 overflow-y-auto">
         
-        <!-- 1. Salas -->
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-rooms" data-bs-toggle="modal" data-bs-target="#roomsModal" data-bs-dismiss="offcanvas" aria-label="Salas de Bate-Papo" title="Salas de Bate-Papo" role="button" style="border-radius: var(--radius-sm);">
           <i class="bi bi-grid-fill text-primary" aria-hidden="true"></i>
           <span>Salas</span>
         </button>
 
-        <!-- 2. Membros Online -->
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-members" aria-label="Ver membros conectados" title="Ver membros conectados" role="button" style="border-radius: var(--radius-sm);">
           <i class="bi bi-people-fill text-info" aria-hidden="true"></i>
           <span>Membros Online</span>
         </button>
 
-        <!-- 3. Buscar -->
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-search" aria-label="Pesquisar nesta sala" title="Pesquisar nesta sala" role="button" style="border-radius: var(--radius-sm);">
           <i class="bi bi-search text-warning" aria-hidden="true"></i>
           <span>Buscar</span>
         </button>
 
-        <!-- 4. Tema -->
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-theme" onclick="window.ChatEngine.toggleTheme()" aria-label="Alternar tema" title="Alternar tema" role="button" style="border-radius: var(--radius-sm);">
           <i class="bi bi-sun-fill theme-sun-icon-btn text-warning" aria-hidden="true"></i>
           <i class="bi bi-moon-fill theme-moon-icon-btn text-primary" aria-hidden="true"></i>
           <span class="ms-1">Tema</span>
         </button>
 
-        <!-- 5. Remover anúncios -->
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-remove-ads" aria-label="Remover anúncios" title="Remover anúncios" role="button" style="border-radius: var(--radius-sm);">
           <img src="/assets/icons/ad-blocker.svg" alt="Remover anúncios" title="Remover anúncios" width="18" height="18" style="filter: brightness(0) invert(1);" aria-hidden="true" />
           <span>Remover anúncios</span>
         </button>
 
-        <!-- 6. WhatsApp Suporte -->
         <a href="https://wa.me/5511913303930?text=Ol%C3%A1!%20Gostaria%20de%20falar%20com%20o%20suporte%20do%20Papo.net.br." target="_blank" rel="noopener noreferrer" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-whatsapp" aria-label="Suporte via WhatsApp" title="Suporte via WhatsApp" role="button" style="border-radius: var(--radius-sm);">
           <img src="/assets/icons/whatsapp.svg" alt="WhatsApp" title="WhatsApp" width="18" height="18" style="filter: brightness(0) invert(1);" aria-hidden="true" />
           <span>WhatsApp Suporte</span>
         </a>
 
-        <!-- 7. Painel Admin (Exibido apenas para Administradores) -->
         <button type="button" class="btn btn-secondary-custom text-start d-none align-items-center gap-2.5 py-2 px-3 border border-warning text-warning" id="mobile-menu-admin" aria-label="Painel de Administração" title="Painel de Administração" role="button" style="border-radius: var(--radius-sm);">
           <i class="bi bi-shield-lock-fill text-warning" aria-hidden="true"></i>
           <span>Painel Admin</span>
@@ -613,15 +560,13 @@
 
         <hr class="border-secondary my-2">
 
-        <!-- Autenticação / Perfil -->
         <div id="mobile-menu-auth-container" class="mt-auto pt-2">
-          <!-- Quando deslogado -->
+          
           <button type="button" class="btn btn-premium w-100 py-2 px-3 d-flex align-items-center justify-content-center gap-2 fw-semibold" id="mobile-menu-btn-auth" data-bs-toggle="modal" data-bs-target="#authModal" data-bs-dismiss="offcanvas" aria-label="Entrar ou criar conta" title="Entrar ou criar conta" role="button">
             <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>
             <span>Entrar / Criar Conta</span>
           </button>
 
-          <!-- Quando logado -->
           <div id="mobile-menu-user-box" class="d-none">
             <div class="mb-2 p-2.5 rounded bg-dark border border-secondary text-truncate" id="mobile-menu-user-greeting">
               <small class="text-secondary d-block" style="font-size: 0.72rem;">Conectado como:</small>
@@ -637,7 +582,6 @@
       </div>
     </div>
 
-    <!-- DRAWER OFFCANVAS DE MEMBROS (Painel sobreposto direito vindo sob demanda) -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasMembers" aria-labelledby="offcanvasMembersLabel">
       <div class="offcanvas-header">
         <h5 class="h6 fw-bold text-white mb-0" id="offcanvasMembersLabel">
@@ -647,7 +591,6 @@
       </div>
       <div class="offcanvas-body d-flex flex-column" style="background-color: var(--background) !important;">
         
-        <!-- Campo de Pesquisa de Membros -->
         <div class="p-3 border-bottom border-secondary bg-dark">
           <div class="input-group input-group-sm">
             <span class="input-group-text bg-transparent border-secondary text-secondary"><i class="bi bi-search"></i></span>
@@ -655,15 +598,13 @@
           </div>
         </div>
 
-        <!-- Lista dinâmica com categorias (Moderação, Online, Ausentes) -->
         <div class="flex-grow-1 overflow-y-auto" id="members-list-container">
-          <!-- Injetado dinamicamente via chat.js -->
+          
         </div>
 
       </div>
     </div>
 
-    <!-- MODAL DE VISUALIZAÇÃO DE PERFIL PÚBLICO -->
     <div class="modal fade" id="userProfileModal" tabindex="-1" aria-labelledby="userProfileModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-secondary shadow-lg rounded-4" style="background-color: var(--surface);">
@@ -674,19 +615,17 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar" style="filter: invert(1);"></button>
           </div>
           <div class="modal-body p-4 text-center">
-            <!-- Avatar / Foto do Usuário -->
+            
             <div class="mb-4 text-center position-relative d-inline-block">
               <div id="modal-profile-avatar-container" class="mx-auto" style="width: 100px; height: 100px; display: flex; align-items: center; justify-content: center;">
-                <!-- Injetado dinamicamente -->
+                
               </div>
               <span id="modal-profile-online-indicator" class="status-indicator status-online position-absolute d-none" style="width: 16px; height: 16px; bottom: 4px; right: 4px; border: 2.5px solid var(--surface);"></span>
             </div>
 
-            <!-- Nome e Status -->
             <h3 class="h4 fw-extrabold text-white mb-1 font-display" id="modal-profile-nickname">Nome do Usuário</h3>
             <p class="text-secondary small mb-4" id="modal-profile-status-text">Status offline</p>
 
-            <!-- Informações do Perfil -->
             <div class="text-start bg-dark p-3 rounded-3 border border-secondary mb-4">
               <div class="mb-3">
                 <span class="text-secondary small fw-bold d-block mb-1">Identificador Único</span>
@@ -706,7 +645,6 @@
               </div>
             </div>
 
-            <!-- Botões de Ação -->
             <div class="d-flex gap-2">
               <button type="button" class="btn btn-secondary-custom w-100 py-2.5" data-bs-dismiss="modal">Fechar</button>
               <button type="button" class="btn btn-premium w-100 py-2.5 d-none" id="btn-modal-profile-action">Conversar no privado</button>
@@ -716,7 +654,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE AUTENTICAÇÃO (Login / Cadastro) -->
     <div class="modal fade" id="authModal" tabindex="-1" aria-labelledby="authModalLabel" aria-hidden="true" style="z-index: 1060;">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: var(--surface);">
@@ -730,7 +667,7 @@
           </div>
 
           <div class="modal-body p-4">
-            <!-- FORMULÁRIO DE LOGIN -->
+            
             <form id="login-form">
               <div class="mb-3">
                 <label for="login-email" class="form-label fw-bold small text-secondary">E-mail</label>
@@ -766,7 +703,6 @@
               </button>
             </form>
 
-            <!-- FORMULÁRIO DE CADASTRO (Oculto por padrão) -->
             <form id="register-form" class="d-none">
               <div class="mb-3">
                 <label for="register-nickname" class="form-label fw-bold small text-secondary">Apelido (Nome visível)</label>
@@ -815,7 +751,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE CONFIRMAÇÃO DE LOGOUT -->
     <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true" style="z-index: 1070;">
       <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: var(--surface);">
@@ -830,7 +765,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE CONVERSA PRIVADA -->
     <div class="modal fade" id="deletePrivateChatModal" tabindex="-1" aria-labelledby="deletePrivateChatModalLabel" aria-hidden="true" style="z-index: 1070;">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-secondary shadow-lg rounded-4 overflow-hidden" style="background-color: var(--surface);">
@@ -857,31 +791,23 @@
       </div>
     </div>
 
-    <!-- Backdrop para o painel lateral mobile -->
     <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
-    <!-- Áudio de Notificação de Mensagens Privadas -->
     <audio id="privateMessageSound" preload="auto">
       <source src="/assets/audio/dragon-studio-new-notification-3-398649.mp3" type="audio/mpeg">
     </audio>
 
-    <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-    <!-- Firebase SDK initialization and services -->
     <script type="module" src="/firebase/auth.js"></script>
     <script type="module" src="/assets/js/auth-controller.js"></script>
 
-    <!-- Remove Ads Controller JS -->
     <script src="/assets/js/remove-ads.js"></script>
 
-    <!-- Core ChatEngine State JS -->
     <script src="/assets/js/main.js"></script>
 
-    <!-- Monetization Manager JS (Monetag) -->
     <script src="/assets/js/monetization.js"></script>
 
-    <!-- Chat Page Interaction JS -->
     <script src="/assets/js/chat.js"></script>
   </body>
 </html>

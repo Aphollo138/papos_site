@@ -1,20 +1,14 @@
-/* 
- * Style CSS - Papos
- * Identidade Visual: Design Elegante, Humano e Arredondado
- * Totalmente compatível com temas Claro e Escuro
- */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* DARK THEME (Default) */
 :root, [data-theme="dark"] {
-  --background: #0a0a0c; /* Preto forte com leve toque azulado */
-  --surface: #121216; /* Superfícies em tons muito escuros */
+  --background: #0a0a0c; 
+  --surface: #121216; 
   --surface-secondary: #1a1a22;
-  --border: #22222a; /* Bordas cinza-escuras */
-  --text-primary: #ffffff; /* Texto branco */
+  --border: #22222a; 
+  --text-primary: #ffffff; 
   --text-secondary: #8e8e9f;
-  --accent-color: #00e676; /* Verde online vibrante */
+  --accent-color: #00e676; 
   --white: #ffffff;
   --black: #000000;
   
@@ -36,31 +30,28 @@
   --transition-smooth: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-/* LIGHT THEME */
 [data-theme="light"] {
-  --background: #f3f4f6; /* Soft light gray for the main page background */
-  --surface: #ffffff; /* Clear pure white for cards, headers, modal contents */
-  --surface-secondary: #e5e7eb; /* Slightly darker light gray for active items or grouping */
-  --border: #d1d5db; /* Very visible but soft borders */
-  --text-primary: #111827; /* Rich dark primary text (slate/black) */
-  --text-secondary: #4b5563; /* Readable dark gray secondary text */
-  --accent-color: #10b981; /* Vibrant emerald green for online status */
-  --white: #ffffff; /* Fixed white for specific accents */
-  --black: #000000; /* Fixed black */
+  --background: #f3f4f6; 
+  --surface: #ffffff; 
+  --surface-secondary: #e5e7eb; 
+  --border: #d1d5db; 
+  --text-primary: #111827; 
+  --text-secondary: #4b5563; 
+  --accent-color: #10b981; 
+  --white: #ffffff; 
+  --black: #000000; 
   
-  --btn-bg: #111827; /* Black primary buttons */
-  --btn-text: #ffffff; /* White text on primary buttons */
+  --btn-bg: #111827; 
+  --btn-text: #ffffff; 
   --navbar-bg: rgba(255, 255, 255, 0.92);
   --shadow: rgba(0, 0, 0, 0.08);
   --card-hover-border: #9ca3af;
 }
 
-/* Light Theme Component Overrides */
 [data-theme="light"] body {
   background-color: var(--background) !important;
 }
 
-/* Let's ensure that in the light theme, the navbar has great contrast */
 [data-theme="light"] .navbar-custom {
   background-color: var(--navbar-bg) !important;
   border: 1px solid var(--border) !important;
@@ -71,7 +62,6 @@
   color: var(--text-primary) !important;
 }
 
-/* Light Theme Buttons */
 [data-theme="light"] .btn-premium, 
 [data-theme="light"] .btn-primary {
   background-color: var(--btn-bg) !important;
@@ -99,7 +89,6 @@
   color: var(--text-primary) !important;
 }
 
-/* Inputs and Forms in light theme */
 [data-theme="light"] .form-control {
   background-color: #ffffff !important;
   border: 1px solid var(--border) !important;
@@ -110,39 +99,33 @@
   background-color: #ffffff !important;
 }
 
-/* Chat Interface specifically for light theme */
 [data-theme="light"] .chat-wrapper {
   background-color: var(--background) !important;
 }
 
-/* Sidebar of the chat in light theme has a distinct gray background, different from the messages container */
 [data-theme="light"] .chat-sidebar {
-  background-color: #edf0f5 !important; /* Elegant light grayish-blue background */
+  background-color: #edf0f5 !important; 
   border-right: 1px solid var(--border) !important;
 }
 
-/* Pull up the profile card and ensure transparent or light surface background */
 [data-theme="light"] #user-profile-sidebar-card {
-  background-color: #ffffff !important; /* Distinct white card at the top */
+  background-color: #ffffff !important; 
   border-bottom: 1px solid var(--border) !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.02);
 }
 
-/* Username of the user */
 [data-theme="light"] #sidebar-username {
   color: var(--text-primary) !important;
 }
 
-/* Private Chats header in Sidebar */
 [data-theme="light"] .chat-sidebar .bg-dark {
-  background-color: #edf0f5 !important; /* Match sidebar background */
+  background-color: #edf0f5 !important; 
   border-bottom: 1px solid var(--border) !important;
 }
 [data-theme="light"] .chat-sidebar h4 {
   color: var(--text-secondary) !important;
 }
 
-/* Private chat items inside the list */
 [data-theme="light"] .private-chat-item {
   color: var(--text-secondary) !important;
 }
@@ -156,7 +139,6 @@
   color: var(--text-secondary) !important;
 }
 
-/* Highlighted private chat conversation - using theme variables with clean dark border */
 [data-theme="light"] .private-chat-item.active {
   background-color: var(--surface-secondary) !important;
   color: var(--text-primary) !important;
@@ -172,9 +154,8 @@
   color: var(--text-secondary) !important;
 }
 
-/* Chat Area */
 [data-theme="light"] .chat-area {
-  background-color: #f9fafb !important; /* Very soft readable surface for messages */
+  background-color: #f9fafb !important; 
 }
 [data-theme="light"] .chat-header {
   background-color: #ffffff !important;
@@ -187,7 +168,6 @@
   color: var(--text-secondary) !important;
 }
 
-/* Chat Messages */
 [data-theme="light"] .chat-messages {
   background-color: #f9fafb !important;
 }
@@ -210,7 +190,6 @@
   box-shadow: 0 2px 10px rgba(0,0,0,0.03) !important;
 }
 
-/* Message actions menu in light theme */
 [data-theme="light"] .message-actions-menu {
   background-color: #ffffff !important;
   border: 1px solid var(--border) !important;
@@ -224,7 +203,6 @@
   color: var(--text-primary) !important;
 }
 
-/* Input Form Area - visual separation */
 [data-theme="light"] .chat-input-area {
   background-color: #ffffff !important;
   border-top: 1px solid var(--border) !important;
@@ -243,19 +221,16 @@
   color: #ffffff !important;
 }
 
-/* Search bar wrapper */
 [data-theme="light"] #chat-search-bar-wrapper {
   background-color: #ffffff !important;
   border-bottom: 1px solid var(--border) !important;
 }
 
-/* Typing Indicators */
 [data-theme="light"] .typing-text {
   background-color: #f9fafb !important;
   color: var(--text-secondary) !important;
 }
 
-/* Modal Content and Forms */
 [data-theme="light"] .modal-content {
   background-color: #ffffff !important;
   border: 1px solid var(--border) !important;
@@ -271,7 +246,6 @@
   border-top: 1px solid var(--border) !important;
 }
 
-/* Offcanvas members list */
 [data-theme="light"] .offcanvas {
   background-color: #ffffff !important;
   border-left: 1px solid var(--border) !important;
@@ -304,14 +278,12 @@
   border-bottom: 1px solid var(--border) !important;
 }
 
-/* Reply Reference bar in light theme */
 [data-theme="light"] .reply-reference-bar {
   background-color: #f3f4f6 !important;
   border: 1px solid var(--border) !important;
   border-bottom: none !important;
 }
 
-/* Mockup elements */
 [data-theme="light"] .phone-container {
   border-color: var(--border) !important;
 }
@@ -319,7 +291,6 @@
   background-color: var(--border) !important;
 }
 
-/* Overriding Bootstrap helper classes to fit themes dynamically */
 [data-theme="light"] .text-white {
   color: var(--text-primary) !important;
 }
@@ -336,14 +307,12 @@
   border-color: var(--border) !important;
 }
 [data-theme="light"] .btn-close {
-  filter: none !important; /* Keep close buttons readable in light mode */
+  filter: none !important; 
 }
 [data-theme="light"] .navbar-toggler {
   filter: none !important;
 }
 
-
-/* Global / Base Styles */
 body {
   background-color: var(--background) !important;
   color: var(--text-primary) !important;
@@ -360,12 +329,10 @@ h1, h2, h3, h4, h5, h6, .font-display {
   color: var(--text-primary) !important;
 }
 
-/* Smooth Scroll */
 html {
   scroll-behavior: smooth;
 }
 
-/* Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -381,7 +348,6 @@ html {
   background: var(--text-secondary);
 }
 
-/* Remove default Bootstrap card stylings */
 .card {
   background-color: var(--surface) !important;
   border: 1px solid var(--border) !important;
@@ -394,9 +360,8 @@ html {
   transform: translateY(-2px);
 }
 
-/* Buttons */
 .btn {
-  border-radius: var(--radius-xl) !important; /* Elegant rounded buttons */
+  border-radius: var(--radius-xl) !important; 
   font-family: var(--font-sans);
   font-weight: 600 !important;
   font-size: 0.9rem !important;
@@ -406,7 +371,6 @@ html {
   box-shadow: none !important;
 }
 
-/* Primary Button: High contrast */
 .btn-premium, .btn-primary {
   background-color: var(--btn-bg) !important;
   color: var(--btn-text) !important;
@@ -419,7 +383,6 @@ html {
   transform: scale(1.03);
 }
 
-/* Secondary Button */
 .btn-secondary-custom, .btn-secondary, .btn-outline-secondary {
   background-color: transparent !important;
   color: var(--text-primary) !important;
@@ -432,7 +395,6 @@ html {
   transform: scale(1.03);
 }
 
-/* Red / Danger Action buttons */
 .btn-outline-danger {
   background-color: transparent !important;
   color: #ff4a4a !important;
@@ -445,7 +407,6 @@ html {
   border-color: #ff4a4a !important;
 }
 
-/* Inputs and Forms */
 .form-control, .input-group-text {
   background-color: var(--surface) !important;
   border: 1px solid var(--border) !important;
@@ -475,7 +436,6 @@ html {
   border-right: none !important;
 }
 
-/* Floating Navbar */
 .navbar-custom {
   background-color: var(--navbar-bg) !important;
   backdrop-filter: blur(16px);
@@ -491,7 +451,6 @@ html {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Scrolled Navbar State */
 .navbar-custom.scrolled {
   margin-top: 0px;
   border-radius: 0px !important;
@@ -516,7 +475,6 @@ html {
   background-color: var(--surface-secondary);
 }
 
-/* Editorial Bento Layout for Active Rooms */
 .rooms-bento-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
@@ -551,7 +509,6 @@ html {
   flex-direction: column;
 }
 
-/* Avatar Circle */
 .avatar-circle {
   width: 38px;
   height: 38px;
@@ -593,7 +550,6 @@ html {
   }
 }
 
-/* Sidebar Resize Handler */
 .sidebar-resizer {
   position: absolute;
   top: 0;
@@ -630,16 +586,15 @@ html {
 }
 @media (max-width: 768px) {
   .sidebar-resizer {
-    display: none !important; /* Hide resizer handle on mobile */
+    display: none !important; 
   }
 }
 
-/* Proportional interface icon controls */
 .chat-wrapper i.bi, 
 .navbar-custom i.bi,
 .offcanvas i.bi,
 .modal i.bi {
-  font-size: 0.95rem; /* Slightly smaller and much more elegant and compact */
+  font-size: 0.95rem; 
 }
 .chat-wrapper .fs-4 i.bi,
 .chat-wrapper i.bi.fs-4 {
@@ -658,7 +613,6 @@ html {
   padding-bottom: 10px !important;
 }
 
-/* Status Indicator */
 .status-indicator {
   width: 10px;
   height: 10px;
@@ -672,7 +626,6 @@ html {
   background-color: var(--text-secondary) !important;
 }
 
-/* Realistic Phone Mockup */
 .mockup-wrapper {
   position: relative;
   width: 100%;
@@ -737,7 +690,6 @@ html {
   overflow-y: hidden;
 }
 
-/* Mock Messages */
 .mock-message {
   max-width: 85%;
   display: flex;
@@ -777,7 +729,6 @@ html {
   align-self: flex-start;
 }
 
-/* Theme Switching Elements */
 .theme-switch-container {
   border: 1px solid var(--border);
   background-color: var(--surface);
@@ -808,15 +759,12 @@ html {
   transform: scale(1.1);
 }
 
-/* Progressive Scroll Reveal Mechanism */
-/* DEFAULT STATE: Always visible if JS fails/has no support */
 .scroll-reveal {
   opacity: 1;
   transform: none;
   filter: none;
 }
 
-/* Animated ONLY when JS is enabled */
 html.js-enabled .scroll-reveal {
   opacity: 0;
   transform: translateY(30px) scale(0.97);
@@ -841,14 +789,12 @@ html.js-enabled .scroll-reveal.revealed {
   filter: blur(0) !important;
 }
 
-/* Staggered Delays for Sequence */
 .delay-100 { transition-delay: 100ms !important; }
 .delay-200 { transition-delay: 200ms !important; }
 .delay-300 { transition-delay: 300ms !important; }
 .delay-400 { transition-delay: 400ms !important; }
 .delay-500 { transition-delay: 500ms !important; }
 
-/* Hero Section */
 .hero-section {
   position: relative;
   padding: 160px 0 100px;
@@ -856,7 +802,6 @@ html.js-enabled .scroll-reveal.revealed {
   border-bottom: 1px solid var(--border);
 }
 
-/* Chat Layout Mechanics - Desktop Left Sidebar + Main Feed */
 .chat-wrapper {
   height: calc(100dvh - 70px);
   display: flex;
@@ -865,7 +810,6 @@ html.js-enabled .scroll-reveal.revealed {
   position: relative;
 }
 
-/* Left Sidebar - Dedicated to profile and private conversations ONLY */
 .chat-sidebar {
   position: relative;
   width: 320px;
@@ -878,7 +822,6 @@ html.js-enabled .scroll-reveal.revealed {
   z-index: 200;
 }
 
-/* Central Chat Area (Max Width) */
 .chat-area {
   flex: 1;
   display: flex;
@@ -900,7 +843,6 @@ html.js-enabled .scroll-reveal.revealed {
   z-index: 10;
 }
 
-/* Message Feed - Vertical rows, NO balloons! */
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -910,7 +852,6 @@ html.js-enabled .scroll-reveal.revealed {
   background-color: var(--background);
 }
 
-/* Clean Message Style (Avatar on left, name + date header, content below) */
 .msg-container {
   display: flex;
   align-items: flex-start;
@@ -954,7 +895,6 @@ html.js-enabled .scroll-reveal.revealed {
   word-break: break-word;
 }
 
-/* Consecutive Grouped Message */
 .msg-grouped {
   padding-top: 3px !important;
   padding-bottom: 3px !important;
@@ -966,7 +906,6 @@ html.js-enabled .scroll-reveal.revealed {
   display: none !important;
 }
 
-/* System Messages */
 .msg-system {
   align-self: center;
   color: var(--text-secondary);
@@ -981,7 +920,6 @@ html.js-enabled .scroll-reveal.revealed {
   box-shadow: 0 4px 12px var(--shadow);
 }
 
-/* Hover Menu Actions on Messages */
 .message-actions-menu {
   position: absolute;
   top: -16px;
@@ -1014,14 +952,12 @@ html.js-enabled .scroll-reveal.revealed {
   color: var(--text-primary);
 }
 
-/* Input Form Bar */
 .chat-input-area {
   background-color: var(--surface);
   border-top: 1px solid var(--border);
   padding: 16px 24px;
 }
 
-/* Reply Reference Header */
 .reply-reference-bar {
   display: flex;
   align-items: center;
@@ -1034,7 +970,6 @@ html.js-enabled .scroll-reveal.revealed {
   border-top-right-radius: var(--radius-md);
 }
 
-/* Reactions Pill List */
 .reactions-list {
   display: flex;
   flex-wrap: wrap;
@@ -1060,7 +995,6 @@ html.js-enabled .scroll-reveal.revealed {
   background-color: var(--surface-secondary);
 }
 
-/* Private Chats list style */
 .private-chat-item {
   display: flex;
   align-items: center;
@@ -1098,7 +1032,6 @@ html.js-enabled .scroll-reveal.revealed {
   outline-offset: 2px;
 }
 
-/* Typing Indicators */
 .typing-text {
   font-size: 0.78rem;
   color: var(--text-secondary);
@@ -1106,12 +1039,10 @@ html.js-enabled .scroll-reveal.revealed {
   background-color: var(--background);
 }
 
-/* iOS zoom avoidance on focus */
 input, textarea {
   font-size: 16px !important;
 }
 
-/* Custom Profile Visuals */
 .profile-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1119,7 +1050,6 @@ input, textarea {
   padding: 30px;
 }
 
-/* Offcanvas Overrides for pristine panel overlays */
 .offcanvas {
   background-color: var(--surface) !important;
   color: var(--text-primary) !important;
@@ -1160,7 +1090,6 @@ input, textarea {
   background-color: var(--surface-secondary);
 }
 
-/* Mobile Sidebar Mechanics */
 @media (max-width: 768px) {
   .chat-sidebar {
     position: fixed;
@@ -1175,9 +1104,6 @@ input, textarea {
   }
 }
 
-/* -------------------------------------------------------------
- * Specific overrides for Chat Page (100% viewport, no top header, no body scroll)
- * ------------------------------------------------------------- */
 body.chat-page {
   height: 100vh !important;
   height: 100dvh !important;
@@ -1197,12 +1123,10 @@ body.chat-page {
   }
 }
 
-/* Hide caret inside specific drop-downs */
 .dropdown-toggle-no-caret::after {
   display: none !important;
 }
 
-/* Dynamic display of theme icon in header buttons depending on active theme */
 [data-theme="light"] .theme-sun-icon-btn {
   display: none !important;
 }
@@ -1216,7 +1140,6 @@ body.chat-page {
   display: none !important;
 }
 
-/* Private conversations accordion */
 #private-conversations-list {
   transition: max-height 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
   overflow-y: auto !important;
@@ -1248,7 +1171,6 @@ body.chat-page {
   transform: rotate(180deg) !important;
 }
 
-/* Typing indicator animation */
 .typing-indicator-dots {
   display: inline-flex;
   align-items: center;
@@ -1275,20 +1197,18 @@ body.chat-page {
   40% { transform: scale(1); }
 }
 
-/* iOS zoom avoidance and double tap zoom removal */
 button, .btn, .reaction-pill, .private-chat-item {
   touch-action: manipulation;
 }
 
-/* Respect iOS safe areas and notched displays */
 .chat-header {
-  height: 56px !important; /* Compact header height as requested */
+  height: 56px !important; 
   padding-top: max(0px, env(safe-area-inset-top)) !important;
   padding-left: calc(16px + max(0px, env(safe-area-inset-left))) !important;
   padding-right: calc(16px + max(0px, env(safe-area-inset-right))) !important;
 }
 .chat-input-area {
-  padding: 10px 16px !important; /* Reduced padding for compact layout */
+  padding: 10px 16px !important; 
   padding-bottom: calc(10px + max(0px, env(safe-area-inset-bottom))) !important;
 }
 .chat-sidebar {
@@ -1296,7 +1216,6 @@ button, .btn, .reaction-pill, .private-chat-item {
   padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
 }
 
-/* Reduced message padding and gap for denser feel */
 .msg-container {
   padding: 4px 14px !important;
   gap: 10px !important;
@@ -1306,7 +1225,6 @@ button, .btn, .reaction-pill, .private-chat-item {
   padding-bottom: 2px !important;
 }
 
-/* Backdrop overlay for mobile sidebar */
 @media (max-width: 768px) {
   .chat-sidebar {
     position: fixed !important;
@@ -1344,23 +1262,20 @@ button, .btn, .reaction-pill, .private-chat-item {
 
 @media (min-width: 769px) {
   .chat-sidebar {
-    transition: none !important; /* Absolutely disable width animations on desktop for lag-free dragging */
+    transition: none !important; 
   }
 }
 
-/* Custom Native App Tuning - Compact Mode, Locked Viewports, and Small Icons */
 body.chat-page {
-  font-size: 0.85rem !important; /* Slightly more compact font sizing for native look */
+  font-size: 0.85rem !important; 
 }
 
-/* Decrease all chat icon sizes slightly as requested */
 body.chat-page i.bi {
   font-size: 0.88rem !important;
 }
 
-/* Specific compact header & sidebar adjustments */
 .chat-page .chat-header {
-  height: 50px !important; /* Extremely compact header */
+  height: 50px !important; 
 }
 .chat-page .chat-header h1, .chat-page .chat-header .room-title {
   font-size: 0.95rem !important;
@@ -1369,7 +1284,6 @@ body.chat-page i.bi {
   padding: 4px 8px !important;
 }
 
-/* Make emojis and select tabs style beautifully */
 .active-emoji-tab {
   color: var(--accent-color) !important;
   border-bottom: 2px solid var(--accent-color) !important;
@@ -1389,12 +1303,10 @@ body.chat-page i.bi {
   border-radius: 4px;
 }
 
-/* Ensure Safari scroll elastic behavior matches native app bounce */
 .chat-messages-container, #private-conversations-list, #modal-rooms-container {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Compact message list density */
 .msg-container {
   padding: 6px 16px !important;
   gap: 8px !important;
@@ -1405,7 +1317,6 @@ body.chat-page i.bi {
   font-size: 0.8rem !important;
 }
 
-/* Footer Navigation & Policies spacing, hover, focus and logo */
 .footer-nav-container {
   display: flex;
   flex-direction: column;
@@ -1439,7 +1350,7 @@ body.chat-page i.bi {
   color: var(--text-primary) !important;
   text-shadow: 0 0 1px currentColor;
 }
-/* Ensure footer logo doesn't distort */
+
 .footer-logo {
   width: 24px;
   height: 24px;
@@ -1450,9 +1361,6 @@ body.chat-page i.bi {
   transform: rotate(5deg) scale(1.05);
 }
 
-/* --- CHAT MESSAGE ALIGNMENT AND CONTENT PROTECTIONS --- */
-
-/* Force all message containers (including own, bot, system, public, private) to remain strictly left-aligned */
 .msg-container {
   display: flex !important;
   flex-direction: row !important;
@@ -1472,7 +1380,6 @@ body.chat-page i.bi {
   position: relative !important;
 }
 
-/* Bulletproof styling to collapse the avatar button padding/margins */
 .msg-container button.flex-shrink-0 {
   padding: 0 !important;
   margin: 0 !important;
@@ -1488,7 +1395,6 @@ body.chat-page i.bi {
   justify-content: center !important;
 }
 
-/* Ensure the avatar itself stays at its visual dimensions */
 .msg-container .avatar-sm {
   width: 28px !important;
   height: 28px !important;
@@ -1496,7 +1402,6 @@ body.chat-page i.bi {
   flex-shrink: 0 !important;
 }
 
-/* Clean hover state on messages */
 .msg-container:hover {
   background-color: var(--surface-secondary) !important;
 }
@@ -1504,7 +1409,6 @@ body.chat-page i.bi {
   background-color: #f3f4f6 !important;
 }
 
-/* Subtle, tasteful visual accent on own messages - strictly keeping left alignment */
 .msg-container.msg-me {
   border-left: 3px solid #00e676 !important;
   background-color: rgba(0, 230, 118, 0.02) !important;
@@ -1514,7 +1418,6 @@ body.chat-page i.bi {
   background-color: rgba(0, 200, 83, 0.02) !important;
 }
 
-/* Ensure consecutive grouped messages also obey strict left alignment and spacing */
 .msg-grouped {
   padding-top: 3px !important;
   padding-bottom: 3px !important;
@@ -1524,7 +1427,6 @@ body.chat-page i.bi {
   pointer-events: none !important;
 }
 
-/* Ensure message content takes all available width dynamically without breaking overflow */
 .msg-content {
   flex: 1 1 0% !important;
   min-width: 0 !important;
@@ -1532,7 +1434,6 @@ body.chat-page i.bi {
   box-sizing: border-box !important;
 }
 
-/* Bulletproof text wrapping for long words, links, and long strings of emojis */
 .msg-bubble {
   font-size: 0.86rem !important;
   line-height: 1.45 !important;
@@ -1543,7 +1444,6 @@ body.chat-page i.bi {
   max-width: 100% !important;
 }
 
-/* Ensure images, links, or reply bars inside messages stay properly left-aligned and respect limits */
 .msg-content img,
 .msg-content video,
 .msg-content .reply-reference-bar {
@@ -1551,7 +1451,6 @@ body.chat-page i.bi {
   height: auto !important;
 }
 
-/* Message actions menu: stays absolute at the right-side without shifting page elements */
 .message-actions-menu {
   position: absolute !important;
   top: -12px !important;
@@ -1565,7 +1464,6 @@ body.chat-page i.bi {
   display: flex !important;
 }
 
-/* Strict protections for the main chat messages container to avoid horizontal scrolling */
 .chat-messages {
   width: 100% !important;
   max-width: 100% !important;
@@ -1576,7 +1474,6 @@ body.chat-page i.bi {
   box-sizing: border-box !important;
 }
 
-/* System messages styling and left/center safety */
 .msg-system {
   align-self: center !important;
   text-align: center !important;
@@ -1584,7 +1481,6 @@ body.chat-page i.bi {
   word-break: break-word !important;
 }
 
-/* Ensure sidebar resizing or member drawer toggling does not cause layout overflow or shift alignment */
 @media (max-width: 768px) {
   .msg-container {
     padding: 6px 14px !important;
@@ -1596,7 +1492,6 @@ body.chat-page i.bi {
   }
 }
 
-/* Verified Admin Badge animation & layout styling */
 .verified-admin-badge {
   display: inline-block !important;
   vertical-align: middle !important;
@@ -1618,7 +1513,6 @@ body.chat-page i.bi {
   }
 }
 
-/* Global Icon Sizing Reduction (~15% to 20%) */
 i.bi, .bi, i[class^="bi-"], i[class*=" bi-"] {
   font-size: 0.82em;
   vertical-align: -0.08em;
@@ -1659,7 +1553,6 @@ body.chat-page i.bi {
   font-size: 0.82rem !important;
 }
 
-/* Private Chat Delete Button Hover & Smooth Transition */
 .btn-delete-private-chat {
   opacity: 0.6;
   transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
@@ -1677,7 +1570,6 @@ body.chat-page i.bi {
   transform: scale(0.95);
 }
 
-/* Mobile Offcanvas Menu Glassmorphism & Theme Styles */
 #offcanvasMobileMenu {
   background: rgba(18, 18, 18, 0.88) !important;
   backdrop-filter: blur(20px);
@@ -1707,7 +1599,6 @@ body.chat-page i.bi {
   color: #0f172a !important;
 }
 
-/* Badge Notification Pulse Animations */
 @keyframes badgePulse {
   0% {
     transform: translate(-50%, -50%) scale(1);
@@ -1739,7 +1630,3 @@ body.chat-page i.bi {
 .badge-pulse-simple {
   animation: badgePulseSimple 700ms ease-in-out !important;
 }
-
-
-
-
