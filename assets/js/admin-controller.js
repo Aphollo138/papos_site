@@ -405,6 +405,12 @@
                   </button>
                 </li>
                 <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-bots" data-tab="bots" type="button" role="tab">
+                    <i class="bi bi-robot fs-5 flex-shrink-0"></i>
+                    <span class="fw-medium sidebar-text">Bots</span>
+                  </button>
+                </li>
+                <li class="nav-item w-100" role="presentation">
                   <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-support-names" data-tab="support-names" type="button" role="tab">
                     <i class="bi bi-shield-check fs-5 flex-shrink-0"></i>
                     <span class="fw-medium sidebar-text">Nomes de Suporte</span>
@@ -522,10 +528,35 @@
               <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-ads">
                 <div class="mb-4">
                   <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Gerenciamento de Anúncios</h5>
-                  <p class="small mb-0" style="color: #9f9f9f;">Pesquise um usuário por Firebase UID, ID Interno (ex: USR-000001) ou email para definir a permissão de exibição de anúncios.</p>
+                  <p class="small mb-0" style="color: #9f9f9f;">Controle a exibição de anúncios no ambiente global do site ou configure permissões individuais por usuário.</p>
                 </div>
 
+                <!-- Global Ads Switch Card -->
                 <div class="admin-card p-4 mb-4">
+                  <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom" style="border-color: rgba(255,255,255,0.08) !important;">
+                    <div>
+                      <h6 class="text-white fw-bold mb-1" style="font-size: 1.05rem;">Status: Anúncios Globais</h6>
+                      <p class="small mb-0" style="color: #9f9f9f;">Defina se os anúncios (Monetag) devem ser exibidos globalmente em todo o site.</p>
+                    </div>
+                    <span id="admin-global-ads-badge" class="badge bg-success text-white px-3 py-2" style="font-size: 0.85rem;">Ativado</span>
+                  </div>
+
+                  <div class="form-check form-switch py-2 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="admin-global-ads-switch" checked style="cursor: pointer; width: 3em; height: 1.6em; margin-top: 0;">
+                    <label class="form-check-label text-white fw-semibold ms-2" for="admin-global-ads-switch" id="admin-global-ads-switch-label" style="cursor: pointer; font-size: 1rem;">
+                      Ativado
+                    </label>
+                  </div>
+                  <div class="form-text small mt-2" style="color: #9f9f9f;">
+                    <i class="bi bi-info-circle me-1 text-info"></i>
+                    Quando <strong>Ativado</strong>, os anúncios seguem o controle individual (<code>adsDisabled</code>).
+                    Quando <strong>Desativado</strong>, nenhum anúncio é carregado ou exibido para ninguém no site.
+                  </div>
+                </div>
+
+                <!-- Individual User Ads Card -->
+                <div class="admin-card p-4 mb-4">
+                  <h6 class="text-white fw-bold mb-3" style="font-size: 1rem;">Configuração Individual por Usuário</h6>
                   <div class="mb-3">
                     <label for="admin-ads-search-input" class="form-label text-white fw-semibold mb-1">Pesquisar Usuário</label>
                     <div class="input-group">
@@ -567,6 +598,40 @@
                   <!-- Not Found Msg -->
                   <div id="admin-ads-user-notfound" class="d-none alert border text-white mt-3 mb-0" style="background-color: #141414; border-color: rgba(255,255,255,0.08) !important; color: #d7d7d7 !important;">
                     <i class="bi bi-exclamation-triangle me-1 text-warning"></i> Nenhum usuário localizado com a chave informada.
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 5: BOTS MANAGEMENT -->
+              <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-bots">
+                <div class="mb-4">
+                  <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Gerenciamento de Bots</h5>
+                  <p class="small mb-0" style="color: #9f9f9f;">Controle o funcionamento dos bots virtuais em todas as salas de chat.</p>
+                </div>
+
+                <div class="admin-card p-4 mb-4">
+                  <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom" style="border-color: rgba(255,255,255,0.08) !important;">
+                    <div>
+                      <h6 class="text-white fw-bold mb-1" style="font-size: 1.05rem;">Status: Bots Globais</h6>
+                      <p class="small mb-0" style="color: #9f9f9f;">Habilite ou desabilite o comportamento automático dos bots públicos.</p>
+                    </div>
+                    <span id="admin-global-bots-badge" class="badge bg-success text-white px-3 py-2" style="font-size: 0.85rem;">Ativado</span>
+                  </div>
+
+                  <div class="form-check form-switch py-2 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="admin-global-bots-switch" checked style="cursor: pointer; width: 3em; height: 1.6em; margin-top: 0;">
+                    <label class="form-check-label text-white fw-semibold ms-2" for="admin-global-bots-switch" id="admin-global-bots-switch-label" style="cursor: pointer; font-size: 1rem;">
+                      Ativado
+                    </label>
+                  </div>
+                  <div class="form-text small mt-3" style="color: #9f9f9f;">
+                    <i class="bi bi-info-circle me-1 text-info"></i>
+                    Quando <strong>Ativado</strong>, todos os bots funcionam normalmente no sistema.<br>
+                    Quando <strong>Desativado</strong>, todos os bots públicos param de enviar mensagens, responder ou iniciar eventos.<br>
+                    <div class="p-2 rounded mt-2" style="background-color: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.2); color: #fef08a;">
+                      <i class="bi bi-shield-lock-fill me-1"></i>
+                      <strong>Exceção:</strong> O bot <code>Bot_Papos</code> (bots_papos) permanece ativo para mensagens privadas automáticas e orientações ao usuário.
+                    </div>
                   </div>
                 </div>
               </div>
@@ -873,6 +938,79 @@
         } catch (err) {
           console.error("Erro ao autorizar UID:", err);
           window.showAdminToast("Erro ao autorizar UID.", "error");
+        }
+      });
+    }
+
+    const fService = window.FirebaseService || FirebaseService;
+    if (fService && typeof fService.subscribeToSystemSettings === "function") {
+      fService.subscribeToSystemSettings((settings) => {
+        if (!settings) return;
+
+        const adsSwitch = document.getElementById("admin-global-ads-switch");
+        const adsLabel = document.getElementById("admin-global-ads-switch-label");
+        const adsBadge = document.getElementById("admin-global-ads-badge");
+
+        if (adsSwitch && adsLabel && adsBadge) {
+          const isAdsEnabled = settings.adsEnabled !== false;
+          adsSwitch.checked = isAdsEnabled;
+          if (isAdsEnabled) {
+            adsLabel.textContent = "Ativado";
+            adsBadge.textContent = "Ativado";
+            adsBadge.className = "badge bg-success text-white px-3 py-2";
+          } else {
+            adsLabel.textContent = "Desativado";
+            adsBadge.textContent = "Desativado";
+            adsBadge.className = "badge bg-danger text-white px-3 py-2";
+          }
+        }
+
+        const botsSwitch = document.getElementById("admin-global-bots-switch");
+        const botsLabel = document.getElementById("admin-global-bots-switch-label");
+        const botsBadge = document.getElementById("admin-global-bots-badge");
+
+        if (botsSwitch && botsLabel && botsBadge) {
+          const isBotsEnabled = settings.botsEnabled !== false;
+          botsSwitch.checked = isBotsEnabled;
+          if (isBotsEnabled) {
+            botsLabel.textContent = "Ativado";
+            botsBadge.textContent = "Ativado";
+            botsBadge.className = "badge bg-success text-white px-3 py-2";
+          } else {
+            botsLabel.textContent = "Desativado";
+            botsBadge.textContent = "Desativado";
+            botsBadge.className = "badge bg-danger text-white px-3 py-2";
+          }
+        }
+      });
+    }
+
+    const adsSwitch = document.getElementById("admin-global-ads-switch");
+    if (adsSwitch) {
+      adsSwitch.addEventListener("change", async (e) => {
+        const fSvc = window.FirebaseService || FirebaseService;
+        if (!fSvc || typeof fSvc.updateSystemSettings !== "function") return;
+        try {
+          await fSvc.updateSystemSettings({ adsEnabled: e.target.checked });
+          window.showAdminToast("Configuração salva com sucesso.", "success");
+        } catch (err) {
+          console.error("Erro ao salvar configuração de anúncios:", err);
+          window.showAdminToast("Erro ao salvar configuração.", "error");
+        }
+      });
+    }
+
+    const botsSwitch = document.getElementById("admin-global-bots-switch");
+    if (botsSwitch) {
+      botsSwitch.addEventListener("change", async (e) => {
+        const fSvc = window.FirebaseService || FirebaseService;
+        if (!fSvc || typeof fSvc.updateSystemSettings !== "function") return;
+        try {
+          await fSvc.updateSystemSettings({ botsEnabled: e.target.checked });
+          window.showAdminToast("Configuração salva com sucesso.", "success");
+        } catch (err) {
+          console.error("Erro ao salvar configuração de bots:", err);
+          window.showAdminToast("Erro ao salvar configuração.", "error");
         }
       });
     }

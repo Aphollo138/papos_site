@@ -541,8 +541,85 @@ const FirebaseService = {
     const cleanUid = targetUid.trim();
     const docRef = doc(db, "supportNames", cleanUid);
     await deleteDoc(docRef);
+  },
+
+  subscribeToSystemSettings(callback) {
+    if (typeof callback === "function") {
+      systemSettingsCallbacks.add(callback);
+      callback(cachedSystemSettings);
+    }
+    return () => {
+      systemSettingsCallbacks.delete(callback);
+    };
+  },
+
+  async updateSystemSettings(settingsData) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const docRef = doc(db, "system", "settings");
+    const payload = {
+      updatedAt: Date.now(),
+      updatedBy: user.uid
+    };
+    if (settingsData.adsEnabled !== undefined) {
+      payload.adsEnabled = !!settingsData.adsEnabled;
+    }
+    if (settingsData.botsEnabled !== undefined) {
+      payload.botsEnabled = !!settingsData.botsEnabled;
+    }
+    await setDoc(docRef, payload, { merge: true });
+    return payload;
   }
 };
+
+let cachedSystemSettings = { adsEnabled: true, botsEnabled: true };
+const systemSettingsCallbacks = new Set();
+let isSystemSettingsListening = false;
+
+function initGlobalSystemSettingsListener() {
+  if (isSystemSettingsListening) return;
+  isSystemSettingsListening = true;
+
+  try {
+    const docRef = doc(db, "system", "settings");
+    onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        cachedSystemSettings = {
+          adsEnabled: data.adsEnabled !== false,
+          botsEnabled: data.botsEnabled !== false
+        };
+      } else {
+        cachedSystemSettings = { adsEnabled: true, botsEnabled: true };
+      }
+
+      window.SYSTEM_SETTINGS = cachedSystemSettings;
+
+      if (cachedSystemSettings.adsEnabled === false) {
+        window.MONETAG_GLOBAL_DISABLED = true;
+        if (typeof window.desabilitarMonetag === "function") {
+          window.desabilitarMonetag();
+        }
+      } else {
+        window.MONETAG_GLOBAL_DISABLED = false;
+        if (typeof window.habilitarMonetag === "function") {
+          window.habilitarMonetag();
+        }
+      }
+
+      systemSettingsCallbacks.forEach((cb) => {
+        try { cb(cachedSystemSettings); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro ao sincronizar system/settings do Firestore:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de system/settings:", err);
+  }
+}
+
+initGlobalSystemSettingsListener();
 
 window.FirebaseService = FirebaseService;
 export default FirebaseService;

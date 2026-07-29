@@ -4,13 +4,12 @@ import http from "http";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, onSnapshot } from "firebase/firestore";
 import fs from "fs";
 import crypto from "crypto";
 import https from "https";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin } from "./src/firebase-admin";
 
-// Load Firebase Config safely from environment variables
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY || "",
   authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
@@ -21,7 +20,6 @@ const firebaseConfig = {
   firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
 };
 
-// Initialize Firebase client on the server
 const firebaseApp = initializeApp({
   apiKey: firebaseConfig.apiKey,
   authDomain: firebaseConfig.authDomain,
@@ -32,12 +30,33 @@ const firebaseApp = initializeApp({
 });
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
-// Securely decodes and cryptographically verifies Firebase Auth ID Token (JWT) via Firebase Admin SDK
+const systemSettings = {
+  adsEnabled: true,
+  botsEnabled: true
+};
+
+try {
+  const settingsDocRef = doc(db, "system", "settings");
+  onSnapshot(settingsDocRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      systemSettings.adsEnabled = data.adsEnabled !== false;
+      systemSettings.botsEnabled = data.botsEnabled !== false;
+    } else {
+      systemSettings.adsEnabled = true;
+      systemSettings.botsEnabled = true;
+    }
+  }, (err) => {
+    console.error("[SystemSettings] Listener error:", err);
+  });
+} catch (err) {
+  console.error("[SystemSettings] Failed to attach listener:", err);
+}
+
 async function verifyFirebaseIdToken(token: string, projectId: string): Promise<any | null> {
   const decoded = await verifyIdToken(token);
   if (decoded) return decoded;
   
-  // Fallback to manual verification if needed
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
@@ -51,7 +70,6 @@ async function verifyFirebaseIdToken(token: string, projectId: string): Promise<
   return null;
 }
 
-// Check user suspension or ban status in Firestore
 async function checkUserBlockStatus(uid: string | undefined): Promise<{ blocked: boolean; reason: string; until?: number }> {
   if (typeof uid !== "string" || !uid) {
     return { blocked: false, reason: "" };
@@ -74,7 +92,6 @@ async function checkUserBlockStatus(uid: string | undefined): Promise<{ blocked:
   return { blocked: false, reason: "" };
 }
 
-// Double-check admin status in Firestore via Firebase Admin SDK for security validation
 async function checkIsAdmin(uid: string | undefined): Promise<boolean> {
   if (typeof uid !== "string" || !uid) {
     return false;
@@ -82,8 +99,6 @@ async function checkIsAdmin(uid: string | undefined): Promise<boolean> {
   return await checkAdminByUid(uid);
 }
 
-
-// Initial standard rooms list (matches frontend)
 const INITIAL_ROOMS = [
   { id: "room-1", name: "Bate-Papo Geral 💬", desc: "A sala principal para falar sobre qualquer assunto, mandar memes ou só ver o que o pessoal está comentando.", count: 0, icon: "chat-dots" },
   { id: "room-2", name: "Tecnologia & Devs 💻", desc: "Espaço descontraído para falar sobre programação, hardware, carreira tech e inteligência artificial.", count: 0, icon: "code" },
@@ -112,11 +127,9 @@ const INITIAL_MESSAGES: Record<string, any[]> = {
   ]
 };
 
-// In-memory data store
 const rooms = [...INITIAL_ROOMS];
 const messages = { ...INITIAL_MESSAGES } as Record<string, any[]>;
 
-// Pre-fill initial messages with today's reliable timestamps
 Object.keys(messages).forEach(roomId => {
   messages[roomId].forEach(msg => {
     if (!msg.timestamp && msg.time) {
@@ -132,7 +145,6 @@ Object.keys(messages).forEach(roomId => {
   });
 });
 
-// Simulated Bot Users always active in their respective rooms
 const BOTS = [
   { nickname: "Mariana_Tech", rooms: ["room-1", "room-2", "room-7"] },
   { nickname: "Carlos_Meme", rooms: ["room-1", "room-4", "room-11"] },
@@ -144,7 +156,6 @@ const BOTS = [
   { nickname: "Bot_Papos", rooms: ["room-1"] }
 ];
 
-// Message pools for bots per room to trigger interesting conversation starters
 const BOT_MESSAGES: Record<string, string[]> = {
   "room-1": [
     "Eae pessoal! Como está o dia de vocês por aí?",
@@ -210,7 +221,7 @@ interface ClientSession {
   ws: WebSocket;
   nickname: string;
   roomId: string;
-  lastMessageTime: number[]; // For spam prevention rate limits
+  lastMessageTime: number[]; 
   bio?: string;
   age?: number;
   gender?: string;
@@ -231,7 +242,6 @@ function getCurrentTime() {
   return now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-// Escapes special HTML tags to prevent XSS
 function sanitizeHTML(text: string): string {
   if (!text) return "";
   return text
@@ -242,13 +252,11 @@ function sanitizeHTML(text: string): string {
     .replace(/'/g, "&#039;");
 }
 
-// Robust link detection algorithm to block URLs, domains, IPs, and obfuscation
 function containsLink(str: string): boolean {
   if (!str || typeof str !== "string") return false;
 
   let text = str;
 
-  // 1. URL Decoding if percent encoded
   try {
     if (text.includes("%")) {
       text = decodeURIComponent(text);
@@ -261,22 +269,18 @@ function containsLink(str: string): boolean {
       .replace(/%20/gi, " ");
   }
 
-  // 2. Unicode Normalization (NFKC desarm homoglyphs and unicode tricks)
   try {
     text = text.normalize("NFKC");
   } catch (e) {}
 
-  // 3. Remove invisible / zero-width / control / directionality characters
   text = text.replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "");
 
   const lower = text.toLowerCase();
 
-  // 4. Fast check for explicit schemes & www
   if (/(?:https?|ftp|file|wss?):\/\/|www\./i.test(lower)) {
     return true;
   }
 
-  // 5. Check IPv4 & IPv6
   if (/\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/.test(lower)) {
     return true;
   }
@@ -284,25 +288,20 @@ function containsLink(str: string): boolean {
     return true;
   }
 
-  // 6. Normalization for Obfuscation
-  // Replace obfuscated dot patterns like (dot), [dot], {dot}, <dot>, (ponto), [ponto], " dot "
   let normalized = lower
     .replace(/\s*(?:\[|\(|\{|<)\s*(?:dot|ponto|\.)\s*(?:\]|\)|\}|>)\s*/gi, ".")
     .replace(/\s+(?:dot|ponto)\s+/gi, ".")
     .replace(/\s*(?:\[|\(|\{|<)\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk|pt|ar|mx)\s*(?:\]|\)|\}|>)\s*/gi, ".$1");
 
-  // Handle commas or slashes between letters used as dots: site,com -> site.com, site/com -> site.com
   normalized = normalized
     .replace(/([a-z0-9])\s*,\s*([a-z]{2,10})\b/gi, "$1.$2")
     .replace(/([a-z0-9])\s*\/\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk)\b/gi, "$1.$2");
 
-  // Collapse spaces around dots: "google . com", "google. com", "google .com"
   const collapsedSpaces = normalized
     .replace(/([a-z0-9])\s+\.\s+([a-z0-9])/gi, "$1.$2")
     .replace(/([a-z0-9])\.\s+([a-z0-9])/gi, "$1.$2")
     .replace(/([a-z0-9])\s+\.([a-z0-9])/gi, "$1.$2");
 
-  // TLD list
   const tldList = [
     "com", "net", "org", "gov", "edu", "mil", "br", "io", "gg", "co", "app", "dev",
     "xyz", "me", "info", "online", "site", "store", "top", "tk", "ml", "ga", "cf",
@@ -314,14 +313,12 @@ function containsLink(str: string): boolean {
   ];
   const tldPattern = tldList.join("|");
 
-  // Regex to detect domain names with TLDs
   const domainRegex = new RegExp(`\\b[a-z0-9\\-]+\\.(?:${tldPattern})(?:\\.[a-z]{2,4})?(?:\\/[^\\s]*)?\\b`, "i");
 
   if (domainRegex.test(collapsedSpaces)) {
     return true;
   }
 
-  // 7. Check spaced-out words (e.g., "g o o g l e . c o m")
   const noSpaces = lower.replace(/\s+/g, "");
   if (noSpaces.includes(".") && domainRegex.test(noSpaces)) {
     return true;
@@ -336,7 +333,6 @@ async function startServer() {
   app.use(express.json());
   const PORT = Number(process.env.PORT) || 3000;
 
-  // Middleware de segurança (CORS) para aceitar conexões apenas de origens permitidas
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     const allowedOrigins = [
@@ -362,15 +358,16 @@ async function startServer() {
     next();
   });
 
-  // Simple endpoint for health checks
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
   });
 
-  // Helper/Middleware for checking Ads permission in Firestore
   async function checkAdsPermission(uid?: string): Promise<boolean> {
+    if (systemSettings.adsEnabled === false) {
+      return false;
+    }
     if (!uid || typeof uid !== "string") {
-      return true; // Default show ads for unknown/anonymous visitors unless disabled
+      return true; 
     }
     try {
       const userDocRef = doc(db, "users", uid);
@@ -387,7 +384,6 @@ async function startServer() {
     return true;
   }
 
-  // Endpoint GET /api/user/ads-status
   app.get("/api/user/ads-status", async (req, res) => {
     try {
       const uid = (req.query.uid as string) || "";
@@ -398,7 +394,6 @@ async function startServer() {
     }
   });
 
-  // Helper to validate reserved team nicknames
   function isReservedNickname(nickname: string): boolean {
     if (!nickname || typeof nickname !== "string") return false;
 
@@ -438,26 +433,21 @@ async function startServer() {
     return reservedRoots.some(root => norm.includes(root));
   }
 
-  // Helper to check if user is authorized to use a reserved nickname
   async function isAuthorizedForReservedNickname(uid: string | null | undefined, nickname: string): Promise<boolean> {
-    // PASSO 1: Verificar se o nick é reservado
+    
     if (!isReservedNickname(nickname)) {
       return true;
     }
 
     if (!uid || typeof uid !== "string" || uid.trim() === "") {
-      console.log("[Reserved Nick] UID:", uid);
-      console.log("[Reserved Nick] Admin:", false);
-      console.log("[Reserved Nick] Support:", false);
-      console.log("[Reserved Nick] Permitido:", false);
+      
       return false;
     }
 
     const cleanUid = uid.trim();
 
-    // ID do Administrador Principal (Sempre Autorizado)
     if (cleanUid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
-      console.log("[Reserved Nick] Master Admin ID identificado:", cleanUid);
+      
       return true;
     }
 
@@ -465,7 +455,7 @@ async function startServer() {
     let isSupportEnabled = false;
 
     try {
-      // PASSO 2: Consultar users/{uid}
+      
       const userDocSnap = await getDoc(doc(db, "users", cleanUid));
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
@@ -473,7 +463,7 @@ async function startServer() {
           isUserAdmin = true;
         }
       } else {
-        // Tentar buscar por permanentId
+        
         const permQuery = query(collection(db, "users"), where("permanentId", "==", cleanUid));
         const permSnap = await getDocs(permQuery);
         if (!permSnap.empty) {
@@ -484,7 +474,6 @@ async function startServer() {
         }
       }
 
-      // PASSO 3: Se admin != true, consultar supportNames/{uid}
       if (!isUserAdmin) {
         const supportDocSnap = await getDoc(doc(db, "supportNames", cleanUid));
         if (supportDocSnap.exists()) {
@@ -493,7 +482,7 @@ async function startServer() {
             isSupportEnabled = true;
           }
         } else {
-          // Consultar a coleção supportNames com where(uid == cleanUid)
+          
           const supQuery = query(collection(db, "supportNames"), where("uid", "==", cleanUid));
           const supSnap = await getDocs(supQuery);
           if (!supSnap.empty) {
@@ -510,16 +499,9 @@ async function startServer() {
 
     const permitido = isUserAdmin || isSupportEnabled;
 
-    // LOGS
-    console.log("[Reserved Nick] UID:", cleanUid);
-    console.log("[Reserved Nick] Admin:", isUserAdmin);
-    console.log("[Reserved Nick] Support:", isSupportEnabled);
-    console.log("[Reserved Nick] Permitido:", permitido);
-
     return permitido;
   }
 
-  // Profile validation endpoint
   app.post("/api/profile/validate", async (req, res) => {
     const { bio, age, gender, nickname, uid } = req.body;
     let authUid = uid;
@@ -538,9 +520,9 @@ async function startServer() {
       if (isReservedNickname(nickname)) {
         const isAuth = await isAuthorizedForReservedNickname(authUid, nickname);
         if (isAuth) {
-          console.log("UID autorizado para utilizar nome reservado.");
+          
         } else {
-          console.log("Tentativa bloqueada de utilização de nome reservado.");
+          
           res.status(400).json({ error: "Este nome é reservado pela equipe do Papo.net.br." });
           return;
         }
@@ -571,13 +553,11 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // Attach WebSocket server on the same HTTP server instance
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (request, socket, head) => {
     const origin = request.headers.origin;
     
-    // Em produção, valida se a origem é permitida (localhost, papos.net.br, onrender, vercel, run.app)
     if (origin) {
       const isAllowed = 
         origin.includes("localhost") || 
@@ -588,7 +568,7 @@ async function startServer() {
         origin.includes("vercel.app");
         
       if (!isAllowed) {
-        console.warn(`[Security] Conexão WebSocket bloqueada de origem não autorizada: ${origin}`);
+        
         socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
         socket.destroy();
         return;
@@ -600,14 +580,12 @@ async function startServer() {
     });
   });
 
-  // Helper to send messages to a specific client safely
   function sendToClient(ws: WebSocket, type: string, payload: any) {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type, ...payload }));
     }
   }
 
-  // Helper to broadcast to a specific room
   function broadcastToRoom(roomId: string, type: string, payload: any, excludeWs?: WebSocket) {
     activeSessions.forEach((session, ws) => {
       if (session.roomId === roomId && ws.readyState === WebSocket.OPEN) {
@@ -617,7 +595,6 @@ async function startServer() {
     });
   }
 
-  // Get active online nickname list in a room (including active simulated bots)
   function getRoomOnlineUsers(roomId: string): string[] {
     const list: string[] = [];
     activeSessions.forEach((session) => {
@@ -626,17 +603,15 @@ async function startServer() {
       }
     });
     
-    // Inject bots allocated to this room
     BOTS.forEach(bot => {
       if (bot.rooms.includes(roomId)) {
         list.push(bot.nickname);
       }
     });
 
-    return Array.from(new Set(list)); // Deduplicate
+    return Array.from(new Set(list)); 
   }
 
-  // Update count in rooms list based on actual connections
   function updateRoomCounts() {
     rooms.forEach((room) => {
       let count = 0;
@@ -649,7 +624,6 @@ async function startServer() {
     });
   }
 
-  // Broadcast overall rooms list update to all connected clients
   function broadcastRoomsList() {
     updateRoomCounts();
     const roomsPayload = { rooms };
@@ -661,7 +635,7 @@ async function startServer() {
   }
 
   wss.on("connection", (ws: WebSocket) => {
-    // Add new inactive connection to map
+    
     activeSessions.set(ws, {
       ws,
       nickname: "",
@@ -669,7 +643,6 @@ async function startServer() {
       lastMessageTime: []
     });
 
-    // Send the current room list immediately to the new connection
     updateRoomCounts();
     sendToClient(ws, "room_list", { rooms });
 
@@ -679,7 +652,6 @@ async function startServer() {
         const session = activeSessions.get(ws);
         if (!session) return;
 
-        // Security check: intercept and block any action if the session UID is banned or suspended in Firestore
         const sessionUid = session.uid;
         if (typeof sessionUid === "string" && sessionUid) {
           const blockCheck = await checkUserBlockStatus(sessionUid);
@@ -705,7 +677,7 @@ async function startServer() {
             try {
               const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
               if (!decoded) {
-                console.warn("[SecureAuth] Invalid or unverified token sent");
+                
                 return;
               }
 
@@ -713,11 +685,10 @@ async function startServer() {
               const email = decoded.email;
 
               if (typeof uid !== "string" || !uid || typeof email !== "string" || !email) {
-                console.warn("[SecureAuth] Invalid uid or email in verified token");
+                
                 return;
               }
 
-              // Check Firestore database block/suspension status
               const blockCheck = await checkUserBlockStatus(uid);
               if (blockCheck.blocked) {
                 if (blockCheck.reason === "ban") {
@@ -730,13 +701,11 @@ async function startServer() {
                 return;
               }
 
-              // Update session data with verified details
               session.uid = uid;
               session.email = email;
               session.isAuthenticated = true;
               session.joinTime = session.joinTime || Date.now();
 
-              // Fetch or generate permanent ID from Firestore
               const userDocRef = doc(db, "users", uid);
               const docSnap = await getDoc(userDocRef);
               let permanentId = "";
@@ -751,24 +720,21 @@ async function startServer() {
                 isAdminUser = userData.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2";
                 isAdsDisabled = userData.adsDisabled === true || isAdminUser;
 
-                // Check if nickname is reserved
                 if (isReservedNickname(nickname)) {
                   const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
                   if (isAuth) {
-                    console.log("UID autorizado para utilizar nome reservado.");
+                    
                   } else {
-                    console.log("Tentativa bloqueada de utilização de nome reservado.");
+                    
                     nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
                     await updateDoc(userDocRef, { nickname });
                   }
                 }
 
-                // If admin is undefined, explicitly update to false
                 if (userData.admin === undefined) {
                   await updateDoc(userDocRef, { admin: false });
                 }
 
-                // Auto-migrate legacy formats to USR-000001 format on server side too
                 if (!permanentId || !permanentId.startsWith("USR-") || permanentId.length !== 10 || isNaN(Number(permanentId.split("-")[1]))) {
                   const usersSnap = await getDocs(collection(db, "users"));
                   let nextNum = usersSnap.size + 1;
@@ -787,13 +753,13 @@ async function startServer() {
                   await updateDoc(userDocRef, { permanentId });
                 }
               } else {
-                // Generate a sequential unique permanent ID (format USR-000001)
+                
                 const usersSnap = await getDocs(collection(db, "users"));
                 let nextNum = usersSnap.size + 1;
                 permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
                 let unique = false;
                 while (!unique) {
-                  // Check uniqueness in Firestore
+                  
                   const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
                   const snap = await getDocs(q);
                   if (snap.empty) {
@@ -809,9 +775,9 @@ async function startServer() {
                 if (isReservedNickname(nickname)) {
                   const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
                   if (isAuth) {
-                    console.log("UID autorizado para utilizar nome reservado.");
+                    
                   } else {
-                    console.log("Tentativa bloqueada de utilização de nome reservado.");
+                    
                     nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
                   }
                 }
@@ -833,15 +799,9 @@ async function startServer() {
               session.nickname = nickname;
               session.isAdmin = isAdminUser;
 
-              // Send permissions and status to client
               sendToClient(ws, "admin-status", { admin: isAdminUser });
               sendToClient(ws, "admin_verified", { isAdmin: isAdminUser });
               sendToClient(ws, "ads-status", { disabled: isAdsDisabled });
-
-              console.log(`UID autenticado`);
-              console.log(`Documento Firestore localizado`);
-              console.log(`admin=${isAdminUser}`);
-              console.log(`adsDisabled=${isAdsDisabled}`);
 
               sendToClient(ws, "user-permissions", {
                 type: "user-permissions",
@@ -849,11 +809,6 @@ async function startServer() {
                 adsDisabled: isAdsDisabled
               });
 
-              console.log(`Permissões enviadas`);
-
-              console.log(`[ADMIN] Admin autenticado: UID: ${uid} | Admin=${isAdminUser}`);
-
-              // Deliver pending offline notifications for this user if any exist
               try {
                 const notifQuery = query(collection(db, "notifications"), where("uid", "==", uid));
                 const notifSnap = await getDocs(notifQuery);
@@ -873,7 +828,7 @@ async function startServer() {
                         message: msgText,
                         text: msgText
                       });
-                      console.log(`[ADMIN] Mensagem Individual enviada para UID: ${uid}. Status: Entregue (offline)`);
+                      
                     }
                     await deleteDoc(notifDoc.ref);
                   }
@@ -903,7 +858,7 @@ async function startServer() {
           case "ban":
           case "unban":
           case "admin_action": {
-            // Verify ID Token if supplied in payload
+            
             const actionToken = payload.idToken || payload.token;
             if (actionToken) {
               const decodedActionToken = await verifyIdToken(actionToken);
@@ -917,15 +872,14 @@ async function startServer() {
             }
 
             if (typeof session.uid !== "string" || !session.uid) {
-              console.warn("[Admin] Unauthorized attempt to execute administrative action (missing session details)!");
+              
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
               return;
             }
 
-            // Secure validation against Firestore on every admin request via Firebase Admin SDK
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
-              console.warn(`[Admin] Unauthorized dynamic administrative action attempt by ${session.email || session.uid}!`);
+              
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
               return;
             }
@@ -962,8 +916,6 @@ async function startServer() {
                 details: adminBool ? "Nomeado Administrador" : "Removido de Administrador",
                 timestamp: Date.now()
               });
-
-              console.log(`[ADMIN] Admin alterado para ${target}: ${adminBool}`);
 
               const succMsg = `Status de administrador alterado com sucesso.`;
               sendToClient(ws, "success", { message: succMsg });
@@ -1003,8 +955,6 @@ async function startServer() {
                   activeSessions.delete(key);
                 }
               });
-
-              console.log(`[ADMIN] Usuário suspenso: ${targetUid}`);
 
               const succMsg = `Usuário ${targetName} suspenso com sucesso.`;
               sendToClient(ws, "success", { message: succMsg });
@@ -1072,8 +1022,6 @@ async function startServer() {
                 }
               });
 
-              console.log(`[ADMIN] Usuário banido: ${targetUid}`);
-
               const succMsg = `Usuário ${targetName} banido com sucesso.`;
               sendToClient(ws, "success", { message: succMsg });
               sendToClient(ws, "admin_action_success", { message: succMsg });
@@ -1112,11 +1060,8 @@ async function startServer() {
                 return;
               }
 
-              console.log("[ADMIN]");
-              console.log("Broadcast iniciado");
               const connectedClientsCount = activeSessions.size;
-              console.log(`Clientes conectados: ${connectedClientsCount}`);
-
+              
               addDoc(collection(db, "audits"), {
                 adminUid: session.uid || "ADMIN",
                 adminEmail: session.email || "admin",
@@ -1166,18 +1111,12 @@ async function startServer() {
                 }
               });
 
-              console.log(`Mensagens enviadas: ${recipientCount}`);
-
               const succMsg = `Mensagem global enviada para ${recipientCount} usuários.`;
               sendToClient(ws, "success", { message: succMsg });
               sendToClient(ws, "admin_action_success", { message: succMsg });
 
             } else if (action === "individual_warning" || action === "admin-private-message" || action === "admin:private") {
               const searchKey = typeof targetUid === "string" ? targetUid.trim() : (typeof targetId === "string" ? targetId.trim() : "");
-
-              console.log("[ADMIN]");
-              console.log("Mensagem individual");
-              console.log(`UID recebido: ${searchKey}`);
 
               if (!searchKey || typeof text !== "string" || !text) {
                 sendToClient(ws, "admin_action_error", { message: "ID do usuário e mensagem são obrigatórios." });
@@ -1202,9 +1141,7 @@ async function startServer() {
               });
 
               if (targetSocket) {
-                console.log(`UID encontrado: ${resolvedUid}`);
-                console.log("Socket encontrado: Sim");
-
+                
                 const privPayload = {
                   type: "admin:private",
                   title: "Mensagem da Administração",
@@ -1230,8 +1167,6 @@ async function startServer() {
                   timestamp: Date.now()
                 });
 
-                console.log("Mensagem enviada.");
-
                 addDoc(collection(db, "audits"), {
                   adminUid: session.uid || "ADMIN",
                   adminEmail: session.email || "admin",
@@ -1255,9 +1190,7 @@ async function startServer() {
                 sendToClient(ws, "success", { message: succMsg });
                 sendToClient(ws, "admin_action_success", { message: succMsg });
               } else {
-                console.log("Socket inexistente.");
-                console.log("Usuário desconectado.");
-
+                
                 sendToClient(ws, "admin_action_error", { message: "Usuário offline." });
               }
 
@@ -1267,10 +1200,6 @@ async function startServer() {
               const adsDisabled = payload.adsDisabled !== undefined ? !!payload.adsDisabled : !!payload.disabled;
 
               let resolvedUid = searchKey;
-
-              console.log("Atualizando adsDisabled...");
-              console.log(`UID: ${searchKey}`);
-              console.log(`Novo valor: ${adsDisabled}`);
 
               try {
                 let targetDocRef = doc(db, "users", searchKey);
@@ -1286,9 +1215,7 @@ async function startServer() {
                 }
 
                 await updateDoc(targetDocRef, { adsDisabled: adsDisabled });
-                console.log("Firestore atualizado.");
-
-                // Notify user's active session in real-time
+                
                 activeSessions.forEach((s, key) => {
                   if (s.uid === resolvedUid || s.permanentId === searchKey) {
                     sendToClient(key, "ads-status", { disabled: adsDisabled });
@@ -1304,8 +1231,6 @@ async function startServer() {
                   details: adsDisabled ? "Anúncios Ocultados (adsDisabled = true)" : "Anúncios Exibidos Normalmente (adsDisabled = false)",
                   timestamp: Date.now()
                 }).catch(() => {});
-
-                console.log("Resposta enviada.");
 
                 const succMsg = "Permissão de anúncios atualizada com sucesso.";
                 sendToClient(ws, "success", { message: succMsg });
@@ -1333,14 +1258,12 @@ async function startServer() {
               return;
             }
 
-            // Secure validation against Firestore via Firebase Admin SDK
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
               return;
             }
 
-            // Fetch list of active authenticated user sessions
             const onlineUsers: any[] = [];
             activeSessions.forEach((s) => {
               if (s.isAuthenticated && s.uid) {
@@ -1374,7 +1297,6 @@ async function startServer() {
               return;
             }
 
-            // Secure validation against Firestore via Firebase Admin SDK
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
               sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
@@ -1392,7 +1314,6 @@ async function startServer() {
                 });
               });
 
-              // Sort audit logs descending by timestamp
               logs.sort((a, b) => b.timestamp - a.timestamp);
 
               sendToClient(ws, "admin_audit_logs", { logs });
@@ -1413,15 +1334,14 @@ async function startServer() {
             if (isReservedNickname(nickname)) {
               const isAuth = await isAuthorizedForReservedNickname(session.uid, nickname);
               if (isAuth) {
-                console.log("UID autorizado para utilizar nome reservado.");
+                
               } else {
-                console.log("Tentativa bloqueada de utilização de nome reservado.");
+                
                 sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
                 return;
               }
             }
 
-            // Terminate duplicate connections with the same nickname to prevent duplicates on reconnection
             activeSessions.forEach((s, key) => {
               if (key !== ws && s.nickname && s.nickname.toLowerCase() === nickname.toLowerCase()) {
                 try {
@@ -1431,7 +1351,6 @@ async function startServer() {
               }
             });
 
-            // Check if nickname is already taken in the SAME room
             let taken = false;
             activeSessions.forEach((s, key) => {
               if (key !== ws && s.roomId === roomId && s.nickname.toLowerCase() === nickname.toLowerCase()) {
@@ -1441,7 +1360,6 @@ async function startServer() {
 
             const finalNickname = taken ? `${nickname}#${Math.floor(100 + Math.random() * 900)}` : nickname;
 
-            // Handle switching rooms if already in one
             const oldRoomId = session.roomId;
             const oldNickname = session.nickname;
 
@@ -1452,7 +1370,6 @@ async function startServer() {
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
             session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
 
-            // Alert old room about departure
             if (oldRoomId && oldRoomId !== roomId) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
               broadcastToRoom(oldRoomId, "user_left", {
@@ -1463,12 +1380,10 @@ async function startServer() {
               });
             }
 
-            // Make sure messages list exist for the target room
             if (!messages[roomId]) {
               messages[roomId] = [];
             }
 
-            // Send full room state (messages + online users list + confirmed nickname)
             sendToClient(ws, "room_state", {
               roomId,
               nickname: finalNickname,
@@ -1476,7 +1391,6 @@ async function startServer() {
               onlineUsers: getRoomOnlineUsers(roomId)
             });
 
-            // Notify everyone in new room about arrival
             broadcastToRoom(roomId, "user_joined", {
               nickname: finalNickname,
               time: getCurrentTime(),
@@ -1484,11 +1398,10 @@ async function startServer() {
               onlineUsers: getRoomOnlineUsers(roomId)
             }, ws);
 
-            // Simulate bot welcome for new joiner
-            const roomBots = BOTS.filter(b => b.rooms.includes(roomId));
+            const roomBots = BOTS.filter(b => b.rooms.includes(roomId) && (systemSettings.botsEnabled || ["bot_papos", "bots_papos"].includes(b.nickname.toLowerCase())));
             if (roomBots.length > 0) {
               const welcomeBot = roomBots[Math.floor(Math.random() * roomBots.length)];
-              // Start typing at 500ms
+              
               setTimeout(() => {
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
@@ -1496,9 +1409,8 @@ async function startServer() {
                 });
               }, 500);
 
-              // Send message at 2500ms
               setTimeout(() => {
-                // Stop typing
+                
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
                   isTyping: false
@@ -1532,7 +1444,7 @@ async function startServer() {
             broadcastRoomsList();
 
             if (!oldNickname) {
-              // Send an automated beautiful private message from Bot_Papos
+              
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
                 sendToClient(ws, "private_typing", {
@@ -1543,7 +1455,7 @@ async function startServer() {
 
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
-                // Stop typing
+                
                 sendToClient(ws, "private_typing", {
                   from: "Bot_Papos",
                   isTyping: false
@@ -1578,7 +1490,6 @@ async function startServer() {
 
             session.roomId = roomId;
 
-            // Notify old room departure
             if (oldRoomId) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
               broadcastToRoom(oldRoomId, "user_left", {
@@ -1593,7 +1504,6 @@ async function startServer() {
               messages[roomId] = [];
             }
 
-            // Send new room state
             sendToClient(ws, "room_state", {
               roomId,
               nickname: session.nickname,
@@ -1601,7 +1511,6 @@ async function startServer() {
               onlineUsers: getRoomOnlineUsers(roomId)
             });
 
-            // Notify new room about arrival
             broadcastToRoom(roomId, "user_joined", {
               nickname: session.nickname,
               time: getCurrentTime(),
@@ -1609,11 +1518,10 @@ async function startServer() {
               onlineUsers: getRoomOnlineUsers(roomId)
             }, ws);
 
-            // Simulate bot welcome for switching room
-            const roomBots = BOTS.filter(b => b.rooms.includes(roomId));
+            const roomBots = BOTS.filter(b => b.rooms.includes(roomId) && (systemSettings.botsEnabled || ["bot_papos", "bots_papos"].includes(b.nickname.toLowerCase())));
             if (roomBots.length > 0) {
               const welcomeBot = roomBots[Math.floor(Math.random() * roomBots.length)];
-              // Start typing at 500ms
+              
               setTimeout(() => {
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
@@ -1621,9 +1529,8 @@ async function startServer() {
                 });
               }, 500);
 
-              // Send message at 2500ms
               setTimeout(() => {
-                // Stop typing
+                
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
                   isTyping: false
@@ -1663,16 +1570,14 @@ async function startServer() {
               return;
             }
 
-            // Spam Rate Limiting
             const now = Date.now();
-            session.lastMessageTime = session.lastMessageTime.filter(t => now - t < 4000); // Keep last 4 seconds
+            session.lastMessageTime = session.lastMessageTime.filter(t => now - t < 4000); 
             if (session.lastMessageTime.length >= 4) {
               sendToClient(ws, "error", { message: "Você está enviando mensagens rápido demais. Aguarde um instante." });
               return;
             }
             session.lastMessageTime.push(now);
 
-            // Server-side strict link validation
             const rawText = payload.text || "";
             if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
@@ -1705,7 +1610,6 @@ async function startServer() {
             }
             messages[session.roomId].push(msgObj);
 
-            // Cap memory storage to last 100 messages per room
             if (messages[session.roomId].length > 100) {
               messages[session.roomId].shift();
             }
@@ -1721,7 +1625,6 @@ async function startServer() {
 
             if (!toNick || !rawText) return;
 
-            // Server-side strict link validation
             if (containsLink(rawText)) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
@@ -1732,7 +1635,6 @@ async function startServer() {
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 
-            // Find target socket
             let targetWs: WebSocket | null = null;
             activeSessions.forEach((s, key) => {
               if (s.nickname.toLowerCase() === toNick.toLowerCase()) {
@@ -1758,14 +1660,19 @@ async function startServer() {
                 isDeleted: false,
                 color
               };
-              // Send to recipient
+              
               sendToClient(targetWs, "private_message", pmPayload);
-              // Send confirmation to sender
+              
               sendToClient(ws, "private_message", pmPayload);
             } else {
-              // Check if recipient is a simulated Bot!
+              
               const isBot = BOTS.some(b => b.nickname.toLowerCase() === toNick.toLowerCase());
               if (isBot) {
+                const isExemptBot = ["bot_papos", "bots_papos"].includes(toNick.toLowerCase());
+                if (!systemSettings.botsEnabled && !isExemptBot) {
+                  sendToClient(ws, "error", { message: `Usuário '${toNick}' não está online.` });
+                  return;
+                }
                 const pmPayload = {
                   type: "private_message",
                   id: pmId,
@@ -1779,11 +1686,9 @@ async function startServer() {
                   isDeleted: false,
                   color
                 };
-                // Echo back the sent DM so client UI appends it
+                
                 sendToClient(ws, "private_message", pmPayload);
 
-                // Trigger a nice simulated auto-response from the bot
-                // Start typing at 200ms
                 setTimeout(() => {
                   if (ws.readyState !== WebSocket.OPEN) return;
                   sendToClient(ws, "private_typing", {
@@ -1792,10 +1697,9 @@ async function startServer() {
                   });
                 }, 200);
 
-                // Send message at 1700ms
                 setTimeout(() => {
                   if (ws.readyState !== WebSocket.OPEN) return;
-                  // Stop typing
+                  
                   sendToClient(ws, "private_typing", {
                     from: toNick,
                     isTyping: false
@@ -1874,7 +1778,6 @@ async function startServer() {
             const { messageId, emoji } = payload;
             if (!messageId || !emoji) return;
 
-            // Update in-memory message list
             const roomMsgs = messages[session.roomId] || [];
             const msgObj = roomMsgs.find(m => m.id === messageId);
             if (msgObj) {
@@ -1884,7 +1787,7 @@ async function startServer() {
               const reactors = msgObj.reactions[emoji];
               const index = reactors.indexOf(session.nickname);
               if (index > -1) {
-                reactors.splice(index, 1); // Remove reaction if already reacted (toggle)
+                reactors.splice(index, 1); 
               } else {
                 reactors.push(session.nickname);
               }
@@ -1908,7 +1811,6 @@ async function startServer() {
 
             if (!name) return;
 
-            // Prevent duplicate room names
             if (rooms.some(r => r.name.toLowerCase() === name.toLowerCase())) {
               sendToClient(ws, "error", { message: "Já existe uma sala com este nome." });
               return;
@@ -1928,10 +1830,8 @@ async function startServer() {
               { id: `sys-init-${newId}`, sender: "Sistema", text: `Sala '${name}' foi criada com sucesso por ${session.nickname}.`, time: getCurrentTime(), timestamp: Date.now(), isSystem: true }
             ];
 
-            // Send confirmation back to creator
             sendToClient(ws, "room_created", { room: newRoom });
 
-            // Broadcast updated list to everyone
             broadcastRoomsList();
             break;
           }
@@ -1945,7 +1845,7 @@ async function startServer() {
             const index = roomMsgs.findIndex(m => m.id === messageId);
             if (index > -1) {
               const msgObj = roomMsgs[index];
-              // Ensure we do not delete system messages or messages sent by other people
+              
               if (!msgObj.isSystem && msgObj.sender === session.nickname) {
                 roomMsgs.splice(index, 1);
                 broadcastToRoom(session.roomId, "message_deleted", { messageId });
@@ -1961,8 +1861,6 @@ async function startServer() {
             const { messageId, to } = payload;
             if (!messageId || !to) return;
 
-            // Direct messages are stored on client's localstorage, so we just broadcast the deletion event 
-            // so both clients can remove it from their respective histories in real-time.
             let targetWs: WebSocket | null = null;
             activeSessions.forEach((s, key) => {
               if (s.nickname.toLowerCase() === to.toLowerCase()) {
@@ -1970,10 +1868,8 @@ async function startServer() {
               }
             });
 
-            // Notify the sender
             sendToClient(ws, "private_message_deleted", { messageId, partner: to });
 
-            // Notify the recipient if online
             if (targetWs) {
               sendToClient(targetWs, "private_message_deleted", { messageId, partner: session.nickname });
             }
@@ -1992,10 +1888,8 @@ async function startServer() {
               }
             });
 
-            // Notify sender
             sendToClient(ws, "private_conversation_deleted", { partner });
 
-            // Notify recipient if online
             if (targetWs) {
               sendToClient(targetWs, "private_conversation_deleted", { partner: session.nickname });
             }
@@ -2009,7 +1903,6 @@ async function startServer() {
               return;
             }
 
-            // Procurar nas sessões ativas (online)
             let foundSession: ClientSession | null = null;
             activeSessions.forEach((s) => {
               if (s.nickname && s.nickname.toLowerCase() === requestedNickname.toLowerCase()) {
@@ -2032,7 +1925,6 @@ async function startServer() {
               permanentId = (foundSession as ClientSession).permanentId || "";
             }
 
-            // Fetch/fallback from Firestore to get permanentId and details
             try {
               const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
               const snap = await getDocs(q);
@@ -2048,7 +1940,6 @@ async function startServer() {
               console.error("[Firestore] Error fetching profile:", err);
             }
 
-            // If we still don't have permanentId (e.g., bot), set a readable placeholder
             if (!permanentId) {
               if (BOTS.some(b => b.nickname.toLowerCase() === requestedNickname.toLowerCase())) {
                 permanentId = "BOT-ASSISTANT";
@@ -2094,7 +1985,6 @@ async function startServer() {
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
             session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
 
-            // Save/merge to Firestore if user has a valid UID
             if (session.uid) {
               try {
                 const userRef = doc(db, "users", session.uid);
@@ -2112,7 +2002,6 @@ async function startServer() {
               }
             }
 
-            // Notify active room about updated user profile/nickname
             if (session.roomId) {
               broadcastToRoom(session.roomId, "user_joined", {
                 user: {
@@ -2125,7 +2014,7 @@ async function startServer() {
           }
 
           case "pong": {
-            // Heartbeat response, handled by ping interval
+            
             break;
           }
         }
@@ -2141,7 +2030,7 @@ async function startServer() {
         activeSessions.delete(ws);
 
         if (nickname && roomId) {
-          // Notify room about departure
+          
           const leftUsers = getRoomOnlineUsers(roomId);
           broadcastToRoom(roomId, "user_left", {
             nickname,
@@ -2159,14 +2048,13 @@ async function startServer() {
     });
   });
 
-  // Keep-alive connection heartbeat check (every 30 seconds)
   const interval = setInterval(() => {
     wss.clients.forEach((ws) => {
       if (ws.readyState === WebSocket.CLOSED) {
         activeSessions.delete(ws);
         return;
       }
-      ws.ping(); // Send low-level WS ping frame
+      ws.ping(); 
     });
   }, 30000);
 
@@ -2174,16 +2062,14 @@ async function startServer() {
     clearInterval(interval);
   });
 
-  // Serve static UI assets using Vite middleware in dev, and direct express.static in production
   if (process.env.NODE_ENV !== "production") {
-    console.log("Starting server in DEVELOPMENT mode with Vite Middleware...");
+    
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "custom" // Use custom to serve multi-page setup nicely
+      appType: "custom" 
     });
 
-    // Helper to serve and transform HTML templates
     const serveTemplate = async (req: express.Request, res: express.Response, next: express.NextFunction, filePath: string) => {
       try {
         const fs = await import("fs");
@@ -2199,7 +2085,6 @@ async function startServer() {
       }
     };
 
-    // Clean routes in development
     app.get("/robots.txt", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/robots.txt")));
     app.get("/sitemap.xml", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/sitemap.xml")));
     app.get("/manifest.json", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/manifest.json")));
@@ -2215,7 +2100,6 @@ async function startServer() {
     app.get("/contato", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/contact.html")));
     app.get("/regras", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/rules.html")));
 
-    // Blog Routes
     app.get("/blog", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
     app.get("/blog/", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
     app.get("/blog/index.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
@@ -2225,7 +2109,6 @@ async function startServer() {
       res.redirect("/#login-anchor");
     });
 
-    // Fallbacks for direct HTML requests in dev
     app.get("/pages/:page.html", (req, res, next) => {
       serveTemplate(req, res, next, path.resolve(process.cwd(), "pages", `${req.params.page}.html`));
     });
@@ -2235,16 +2118,13 @@ async function startServer() {
 
     app.use(vite.middlewares);
   } else {
-    console.log("Starting server in PRODUCTION mode...");
+    
     const distPath = path.join(process.cwd(), "dist");
 
-    // Servir arquivos estáticos da pasta "assets" raiz primeiro para que scripts não compilados funcionem
     app.use("/assets", express.static(path.join(process.cwd(), "assets")));
 
-    // Servir arquivos estáticos do build do Vite (dist/)
     app.use(express.static(distPath));
 
-    // Clean routes in production
     app.get("/", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
@@ -2276,7 +2156,6 @@ async function startServer() {
       res.sendFile(path.join(distPath, "pages", "rules.html"));
     });
 
-    // Blog Routes in production
     app.get("/blog", (req, res) => {
       res.sendFile(path.join(distPath, "blog", "index.html"));
     });
@@ -2296,7 +2175,6 @@ async function startServer() {
       res.redirect("/#login-anchor");
     });
 
-    // Fallbacks for direct URLs
     app.get("/pages/:page.html", (req, res) => {
       res.sendFile(path.join(distPath, "pages", `${req.params.page}.html`));
     });
@@ -2304,8 +2182,6 @@ async function startServer() {
       res.sendFile(path.join(distPath, "blog", `${req.params.page}.html`));
     });
     
-    // Evitar que arquivos estáticos com extensão ausentes (ex: .js, .css, .png, .json)
-    // caiam na rota curinga "*" e retornem o index.html, gerando erro de sintaxe.
     app.use((req, res, next) => {
       const ext = path.extname(req.path);
       if (ext && ext !== ".html") {
@@ -2320,21 +2196,21 @@ async function startServer() {
     });
   }
 
-  // Set to keep track of bots currently typing to avoid duplicate typing events
   const currentlyTypingBots = new Set<string>();
 
   const triggerBotSpeech = (bot: typeof BOTS[0]) => {
+    const isExemptBot = ["bot_papos", "bots_papos"].includes(bot.nickname.toLowerCase());
+    if (!systemSettings.botsEnabled && !isExemptBot) return;
     if (currentlyTypingBots.has(bot.nickname)) return;
     
-    // Choose room
     const roomId = bot.rooms[Math.floor(Math.random() * bot.rooms.length)];
     const roomMsgs = BOT_MESSAGES[roomId];
     if (!roomMsgs || roomMsgs.length === 0) return;
 
     let text = "";
     if (bot.nickname === "Bot_Papos") {
-      // Small chance to talk in general room
-      if (Math.random() > 0.15) return; // limit Bot_Papos general room spam
+      
+      if (Math.random() > 0.15) return; 
       const paposTips = [
         "Olá pessoal! Se quiserem saber as novidades ou tirar dúvidas sobre o chat, basta clicar no meu nome na lista de online e me mandar uma DM privada! 😊",
         "Dica: Personalize o visual das suas mensagens clicando no botão da paleta colorida no campo de texto!",
@@ -2358,14 +2234,12 @@ async function startServer() {
       reactions: {}
     };
 
-    // Mark as typing
     currentlyTypingBots.add(bot.nickname);
     broadcastToRoom(roomId, "typing", {
       nickname: bot.nickname,
       isTyping: true
     });
 
-    // Random typing duration between 1.5s and 3.5s
     const typingDuration = 1500 + Math.random() * 2000;
     setTimeout(() => {
       broadcastToRoom(roomId, "typing", {
@@ -2386,19 +2260,17 @@ async function startServer() {
     }, typingDuration);
   };
 
-  // Periodic simulated bot conversations (every 4.5 seconds for hyper-active feel)
   const botInterval = setInterval(() => {
     try {
-      // Determine how many bots will speak (1 to 3)
+      
       const r = Math.random();
       const count = r < 0.5 ? 1 : r < 0.85 ? 2 : 3;
       
-      // Shuffle BOTS to select unique ones
       const shuffled = [...BOTS].sort(() => 0.5 - Math.random());
       const selected = shuffled.slice(0, count);
 
       selected.forEach((bot, index) => {
-        // Stagger their typing starts slightly so they don't start at the exact same millisecond
+        
         setTimeout(() => {
           triggerBotSpeech(bot);
         }, index * 600);
@@ -2408,14 +2280,13 @@ async function startServer() {
     }
   }, 4500);
 
-  // Stop intervals when server/websocket terminates
   wss.on("close", () => {
     clearInterval(interval);
     clearInterval(botInterval);
   });
 
   server.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Server] Success! Serving at http://localhost:${PORT}`);
+    
   });
 }
 

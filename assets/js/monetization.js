@@ -13,8 +13,11 @@ window.MONETAG_CONFIG = {
   let vignetteLoaded = false;
 
   async function checkServerAdsPermission() {
-    if (window.MONETAG_DISABLED === true) {
-      
+    if (window.MONETAG_DISABLED === true || window.MONETAG_GLOBAL_DISABLED === true) {
+      return false;
+    }
+    if (window.SYSTEM_SETTINGS && window.SYSTEM_SETTINGS.adsEnabled === false) {
+      window.MONETAG_GLOBAL_DISABLED = true;
       return false;
     }
     try {
@@ -48,8 +51,7 @@ window.MONETAG_CONFIG = {
   }
 
   function loadInPagePush() {
-    if (window.MONETAG_DISABLED === true) {
-      
+    if (window.MONETAG_DISABLED === true || window.MONETAG_GLOBAL_DISABLED === true) {
       return;
     }
     if (!window.MONETAG_CONFIG || !window.MONETAG_CONFIG.enableInPagePush) {
@@ -77,8 +79,7 @@ window.MONETAG_CONFIG = {
   }
 
   function loadVignette() {
-    if (window.MONETAG_DISABLED === true) {
-      
+    if (window.MONETAG_DISABLED === true || window.MONETAG_GLOBAL_DISABLED === true) {
       return;
     }
     if (!window.MONETAG_CONFIG || !window.MONETAG_CONFIG.enableVignette) {
