@@ -278,6 +278,10 @@
                 <i class="bi bi-moon-fill theme-moon-icon-btn text-primary" aria-hidden="true"></i>
               </button>
 
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 px-sm-3 d-flex align-items-center gap-1.5" id="btn-feedback-trigger" onclick="window.openFeedbackModal && window.openFeedbackModal()" title="Avaliar o Papo.net" aria-label="Avaliar" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem; color: #f59e0b;">
+                <i class="bi bi-star-fill text-warning" aria-hidden="true"></i> <span class="d-none d-sm-inline">Avaliar</span>
+              </button>
+
               <button class="btn btn-premium btn-sm py-1.5 px-2.5 px-sm-3 d-flex align-items-center gap-1.5" id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" title="Entrar" aria-label="Entrar" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
                 <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> <span class="d-none d-sm-inline">Entrar</span>
               </button>
@@ -541,6 +545,11 @@
           <i class="bi bi-sun-fill theme-sun-icon-btn text-warning" aria-hidden="true"></i>
           <i class="bi bi-moon-fill theme-moon-icon-btn text-primary" aria-hidden="true"></i>
           <span class="ms-1">Tema</span>
+        </button>
+
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-feedback" onclick="window.openFeedbackModal && window.openFeedbackModal()" data-bs-dismiss="offcanvas" aria-label="Avaliar o Papo.net" title="Avaliar o Papo.net" role="button" style="border-radius: var(--radius-sm);">
+          <i class="bi bi-star-fill text-warning" aria-hidden="true"></i>
+          <span>Avaliar</span>
         </button>
 
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-remove-ads" aria-label="Remover anúncios" title="Remover anúncios" role="button" style="border-radius: var(--radius-sm);">
@@ -807,6 +816,8 @@
     <script src="/assets/js/main.js"></script>
 
     <script src="/assets/js/monetization.js"></script>
+
+    <script src="/assets/js/feedback-controller.js"></script>
 
     <script src="/assets/js/chat.js"></script>
   </body>

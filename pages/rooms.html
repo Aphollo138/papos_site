@@ -108,6 +108,12 @@
             <li class="nav-item">
               <a class="nav-link text-secondary" href="/blog/">Blog</a>
             </li>
+            <li class="nav-item">
+              <button type="button" class="nav-link text-secondary border-0 bg-transparent text-start d-flex align-items-center gap-1.5" onclick="window.openFeedbackModal && window.openFeedbackModal()" style="cursor: pointer;">
+                <i class="bi bi-star-fill text-warning"></i>
+                <span>Avaliar</span>
+              </button>
+            </li>
           </ul>
           
           <div class="d-flex align-items-center gap-3">
@@ -239,6 +245,8 @@
     <script src="/assets/js/main.js"></script>
 
     <script src="/assets/js/monetization.js"></script>
+
+    <script src="/assets/js/feedback-controller.js"></script>
 
     <script src="/assets/js/blog-posts.js"></script>
     <script src="/assets/js/blog.js"></script>

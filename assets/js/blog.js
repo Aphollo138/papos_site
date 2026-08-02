@@ -62,7 +62,7 @@
         canonicalEl.setAttribute("rel", "canonical");
         document.head.appendChild(canonicalEl);
       }
-      const canonicalUrl = `https://papos.net.br/blog/artigo.html?slug=${post.slug}`;
+      const canonicalUrl = `https://papo.net.br/blog/artigo.html?slug=${post.slug}`;
       canonicalEl.setAttribute("href", canonicalUrl);
 
       this.setMetaProperty("og:type", "article");
@@ -94,10 +94,10 @@
         "publisher": {
           "@type": "Organization",
           "name": "Papos",
-          "url": "https://papos.net.br/",
+          "url": "https://papo.net.br/",
           "logo": {
             "@type": "ImageObject",
-            "url": "https://papos.net.br/favicon.svg"
+            "url": "https://papo.net.br/favicon.svg"
           }
         },
         "mainEntityOfPage": {
@@ -120,19 +120,19 @@
             "@type": "ListItem",
             "position": 1,
             "name": "Papos",
-            "item": "https://papos.net.br/"
+            "item": "https://papo.net.br/"
           },
           {
             "@type": "ListItem",
             "position": 2,
             "name": "Blog",
-            "item": "https://papos.net.br/blog/"
+            "item": "https://papo.net.br/blog/"
           },
           {
             "@type": "ListItem",
             "position": 3,
             "name": post.category,
-            "item": `https://papos.net.br/blog/categoria.html?cat=${post.categorySlug}`
+            "item": `https://papo.net.br/blog/categoria.html?cat=${post.categorySlug}`
           },
           {
             "@type": "ListItem",

@@ -570,8 +570,101 @@ const FirebaseService = {
     }
     await setDoc(docRef, payload, { merge: true });
     return payload;
+  },
+
+  async addFeedback(feedbackData) {
+    const user = auth.currentUser;
+    let uid = null;
+    let internalId = null;
+    let name = "Visitante";
+    let logged = false;
+
+    if (user) {
+      uid = user.uid;
+      logged = true;
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          const uData = userSnap.data();
+          name = uData.displayName || uData.nickname || uData.name || user.displayName || "Usuário";
+          internalId = uData.permanentId || uData.internalId || null;
+        } else {
+          name = user.displayName || user.email?.split("@")[0] || "Usuário";
+        }
+      } catch (err) {
+        console.error("Erro ao obter perfil do usuário para feedback:", err);
+        name = user.displayName || user.email?.split("@")[0] || "Usuário";
+      }
+    }
+
+    const payload = {
+      uid: uid,
+      internalId: internalId,
+      name: name,
+      stars: Number(feedbackData.stars) || 5,
+      comment: String(feedbackData.comment || "").substring(0, 400),
+      createdAt: Date.now(),
+      logged: logged
+    };
+
+    const docRef = await addDoc(collection(db, "feedbacks"), payload);
+    return { id: docRef.id, ...payload };
+  },
+
+  subscribeToFeedbacks(callback) {
+    if (typeof callback === "function") {
+      feedbackCallbacks.add(callback);
+      if (cachedFeedbacks !== null) {
+        callback(cachedFeedbacks);
+      }
+    }
+    if (!isFeedbacksListening) {
+      initFeedbacksListener();
+    }
+    return () => {
+      feedbackCallbacks.delete(callback);
+    };
+  },
+
+  async deleteFeedback(feedbackId) {
+    if (!feedbackId) return;
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const docRef = doc(db, "feedbacks", feedbackId);
+    await deleteDoc(docRef);
   }
 };
+
+let cachedFeedbacks = null;
+const feedbackCallbacks = new Set();
+let isFeedbacksListening = false;
+
+function initFeedbacksListener() {
+  if (isFeedbacksListening) return;
+  isFeedbacksListening = true;
+
+  try {
+    const feedbacksCol = collection(db, "feedbacks");
+    onSnapshot(feedbacksCol, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cachedFeedbacks = list;
+
+      feedbackCallbacks.forEach((cb) => {
+        try { cb(cachedFeedbacks); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de feedbacks:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de feedbacks:", err);
+  }
+}
 
 let cachedSystemSettings = { adsEnabled: true, botsEnabled: true };
 const systemSettingsCallbacks = new Set();

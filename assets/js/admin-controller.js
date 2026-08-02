@@ -10,6 +10,122 @@
   let isFirestoreSubscribed = false;
   let supportNamesList = [];
   let isSupportNamesSubscribed = false;
+  let feedbacksList = [];
+  let isFeedbacksSubscribed = false;
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function initFeedbacksListener() {
+    if (isFeedbacksSubscribed) return;
+    if (window.FirebaseService && typeof window.FirebaseService.subscribeToFeedbacks === "function") {
+      isFeedbacksSubscribed = true;
+      window.FirebaseService.subscribeToFeedbacks((list) => {
+        feedbacksList = list || [];
+        renderFeedbacksTable();
+      });
+    }
+  }
+
+  function renderFeedbacksTable() {
+    const tbody = document.getElementById("admin-feedback-table-body");
+    const badge = document.getElementById("admin-feedback-total-badge");
+    if (!tbody) return;
+
+    if (badge) {
+      badge.textContent = `${feedbacksList.length} ${feedbacksList.length === 1 ? 'avaliação' : 'avaliações'}`;
+    }
+
+    tbody.innerHTML = "";
+
+    if (feedbacksList.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="text-center text-secondary py-4">Nenhuma avaliação cadastrada até o momento.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    feedbacksList.forEach((fb) => {
+      let createdDate = "N/A";
+      if (fb.createdAt) {
+        try {
+          createdDate = new Date(fb.createdAt).toLocaleString("pt-BR");
+        } catch (e) {
+          createdDate = String(fb.createdAt);
+        }
+      }
+
+      const starCount = Math.max(1, Math.min(5, Number(fb.stars) || 5));
+      let starsHTML = "";
+      for (let i = 1; i <= 5; i++) {
+        if (i <= starCount) {
+          starsHTML += `<i class="bi bi-star-fill text-warning me-1"></i>`;
+        } else {
+          starsHTML += `<i class="bi bi-star text-secondary me-1" style="opacity: 0.35;"></i>`;
+        }
+      }
+
+      const userBadge = fb.logged
+        ? `<span class="badge bg-primary text-white border-0 px-2 py-0.5 ms-1" style="font-size: 0.7rem;">Logado</span>`
+        : `<span class="badge bg-secondary text-white border-0 px-2 py-0.5 ms-1" style="font-size: 0.7rem;">Visitante</span>`;
+
+      let displayName = fb.name || "Visitante";
+      if (fb.internalId) {
+        displayName += ` <span class="font-monospace text-secondary ms-1" style="font-size: 0.75rem;">(${fb.internalId})</span>`;
+      }
+
+      const commentText = fb.comment || "";
+
+      let actionBtn = `
+        <button class="btn btn-outline-danger btn-sm py-1 px-2.5 btn-admin-delete-feedback" data-id="${fb.id}" style="font-size: 0.78rem; border-radius: 8px;" title="Excluir este feedback">
+          <i class="bi bi-trash-fill me-1"></i>Excluir
+        </button>
+      `;
+
+      const tr = document.createElement("tr");
+      tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.08)";
+      tr.innerHTML = `
+        <td class="ps-3 py-3">
+          <div class="fw-bold text-white">${escapeHtml(displayName)} ${userBadge}</div>
+          ${fb.uid ? `<div class="font-monospace small text-secondary" style="font-size: 0.75rem;">UID: ${fb.uid}</div>` : ""}
+        </td>
+        <td class="py-3" style="white-space: nowrap;">${starsHTML}</td>
+        <td class="py-3" style="max-width: 320px; word-break: break-word; color: #d7d7d7;">${escapeHtml(commentText)}</td>
+        <td class="py-3" style="white-space: nowrap;"><span style="color: #9f9f9f; font-size: 0.8rem;">${createdDate}</span></td>
+        <td class="pe-3 py-3 text-end">${actionBtn}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const deleteBtns = tbody.querySelectorAll(".btn-admin-delete-feedback");
+    deleteBtns.forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        if (!id) return;
+
+        if (confirm("Deseja realmente excluir este feedback?")) {
+          try {
+            if (window.FirebaseService && typeof window.FirebaseService.deleteFeedback === "function") {
+              await window.FirebaseService.deleteFeedback(id);
+              window.showAdminToast("Feedback excluído com sucesso.", "success");
+            }
+          } catch (err) {
+            console.error("Erro ao excluir feedback:", err);
+            window.showAdminToast("Erro ao excluir feedback.", "error");
+          }
+        }
+      });
+    });
+  }
 
   function initSupportNamesListener() {
     if (isSupportNamesSubscribed) return;
@@ -416,6 +532,12 @@
                     <span class="fw-medium sidebar-text">Nomes de Suporte</span>
                   </button>
                 </li>
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-feedback" data-tab="feedback" type="button" role="tab">
+                    <i class="bi bi-star-fill fs-5 flex-shrink-0 text-warning"></i>
+                    <span class="fw-medium sidebar-text">Feedback</span>
+                  </button>
+                </li>
 
               </ul>
 
@@ -636,7 +758,7 @@
                 </div>
               </div>
 
-              <!-- TAB 5: SUPPORT NAMES -->
+              <!-- TAB 6: SUPPORT NAMES -->
               <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-support-names">
                 <div class="mb-4">
                   <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Nomes de Suporte</h5>
@@ -676,6 +798,36 @@
                 </div>
               </div>
 
+              <!-- TAB 7: FEEDBACK -->
+              <div class="admin-tab-content d-none flex-column h-100" id="admin-content-feedback">
+                <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between mb-4">
+                  <div>
+                    <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Avaliações (Feedback)</h5>
+                    <p class="small mb-0" style="color: #9f9f9f;">Avaliações enviadas pelos usuários e visitantes em tempo real.</p>
+                  </div>
+                  <div>
+                    <span class="badge bg-secondary px-3 py-2 fw-semibold" id="admin-feedback-total-badge" style="font-size: 0.85rem;">0 avaliações</span>
+                  </div>
+                </div>
+
+                <div class="table-responsive flex-grow-1">
+                  <table class="table align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead>
+                      <tr>
+                        <th class="ps-3 py-3">Nome / Usuário</th>
+                        <th class="py-3">Estrelas</th>
+                        <th class="py-3">Comentário</th>
+                        <th class="py-3">Data</th>
+                        <th class="pe-3 py-3 text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="admin-feedback-table-body">
+                      <!-- Filled dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -698,6 +850,7 @@
       bootstrapModal.show();
       initFirestoreUsersListener();
       initSupportNamesListener();
+      initFeedbacksListener();
       refreshAdminData();
     });
 
@@ -1035,6 +1188,10 @@
     if (activeTab === "support-names") {
       initSupportNamesListener();
       renderSupportNamesTable();
+    }
+    if (activeTab === "feedback") {
+      initFeedbacksListener();
+      renderFeedbacksTable();
     }
   }
 

@@ -104,6 +104,43 @@
         }
       },
       "required": ["ticketId", "uid", "email", "subject", "category", "message", "status", "createdAt"]
+    },
+    "feedback": {
+      "title": "Feedback / Review",
+      "description": "Represents a user evaluation and review of the platform",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID or null for visitor"
+        },
+        "internalId": {
+          "type": "string",
+          "description": "User internal ID (e.g. USR-000001) or null"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name or Visitante"
+        },
+        "stars": {
+          "type": "integer",
+          "description": "Rating from 1 to 5"
+        },
+        "comment": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "User comment up to 400 characters"
+        },
+        "createdAt": {
+          "type": "integer",
+          "description": "Creation timestamp in epoch ms"
+        },
+        "logged": {
+          "type": "boolean",
+          "description": "Whether the user was authenticated"
+        }
+      },
+      "required": ["name", "stars", "comment", "createdAt", "logged"]
     }
   },
   "firestore": {
@@ -114,6 +151,10 @@
     "/supportTickets/{ticketId}": {
       "schema": "supportTicket",
       "description": "Collection storing user support tickets"
+    },
+    "/feedbacks/{feedbackId}": {
+      "schema": "feedback",
+      "description": "Collection storing user evaluations and feedback"
     }
   }
 }
