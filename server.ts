@@ -2105,15 +2105,22 @@ async function startServer() {
     app.get("/blog/index.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
     app.get("/blog/categoria.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/categoria.html")));
     app.get("/blog/artigo.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/artigo.html")));
+    app.get("/blog/:slug", (req, res, next) => {
+      const slug = req.params.slug;
+      if (slug === "index.html" || slug === "categoria.html" || slug === "artigo.html") {
+        return serveTemplate(req, res, next, path.resolve(process.cwd(), `blog/${slug}`));
+      }
+      if (slug.endsWith(".html")) {
+        return serveTemplate(req, res, next, path.resolve(process.cwd(), "blog", slug));
+      }
+      serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/artigo.html"));
+    });
     app.get("/entrar", (req, res) => {
       res.redirect("/#login-anchor");
     });
 
     app.get("/pages/:page.html", (req, res, next) => {
       serveTemplate(req, res, next, path.resolve(process.cwd(), "pages", `${req.params.page}.html`));
-    });
-    app.get("/blog/:page.html", (req, res, next) => {
-      serveTemplate(req, res, next, path.resolve(process.cwd(), "blog", `${req.params.page}.html`));
     });
 
     app.use(vite.middlewares);
@@ -2171,15 +2178,22 @@ async function startServer() {
     app.get("/blog/artigo.html", (req, res) => {
       res.sendFile(path.join(distPath, "blog", "artigo.html"));
     });
+    app.get("/blog/:slug", (req, res) => {
+      const slug = req.params.slug;
+      if (slug === "index.html" || slug === "categoria.html" || slug === "artigo.html") {
+        return res.sendFile(path.join(distPath, "blog", slug));
+      }
+      if (slug.endsWith(".html")) {
+        return res.sendFile(path.join(distPath, "blog", slug));
+      }
+      res.sendFile(path.join(distPath, "blog", "artigo.html"));
+    });
     app.get("/entrar", (req, res) => {
       res.redirect("/#login-anchor");
     });
 
     app.get("/pages/:page.html", (req, res) => {
       res.sendFile(path.join(distPath, "pages", `${req.params.page}.html`));
-    });
-    app.get("/blog/:page.html", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", `${req.params.page}.html`));
     });
     
     app.use((req, res, next) => {

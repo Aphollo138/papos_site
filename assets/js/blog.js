@@ -51,10 +51,12 @@
     updateSEO(post) {
       if (!post) return;
 
-      const fullTitle = `${post.title} | Blog Papos`;
+      const fullTitle = `${post.title} | Papo.net.br`;
       document.title = fullTitle;
 
       this.setMeta("description", post.description);
+      this.setMeta("robots", "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1");
+      this.setMeta("keywords", post.tags ? post.tags.join(", ") : "chat online, bate-papo, conversar online, papo.net.br");
       
       let canonicalEl = document.querySelector("link[rel='canonical']");
       if (!canonicalEl) {
@@ -62,7 +64,7 @@
         canonicalEl.setAttribute("rel", "canonical");
         document.head.appendChild(canonicalEl);
       }
-      const canonicalUrl = `https://papo.net.br/blog/artigo.html?slug=${post.slug}`;
+      const canonicalUrl = `https://papo.net.br/blog/${post.slug}`;
       canonicalEl.setAttribute("href", canonicalUrl);
 
       this.setMetaProperty("og:type", "article");
@@ -70,6 +72,12 @@
       this.setMetaProperty("og:description", post.description);
       this.setMetaProperty("og:url", canonicalUrl);
       this.setMetaProperty("og:image", post.image);
+      this.setMetaProperty("og:site_name", "Papo.net.br");
+      this.setMetaProperty("og:locale", "pt_BR");
+      this.setMetaProperty("article:published_time", post.dateIso);
+      this.setMetaProperty("article:modified_time", post.dateIso);
+      this.setMetaProperty("article:author", post.author);
+      this.setMetaProperty("article:section", post.category);
 
       this.setMeta("twitter:card", "summary_large_image");
       this.setMeta("twitter:title", fullTitle);
@@ -84,26 +92,30 @@
         "@type": "BlogPosting",
         "headline": post.title,
         "description": post.description,
-        "image": post.image,
+        "image": [post.image],
         "datePublished": post.dateIso,
         "dateModified": post.dateIso,
         "author": {
           "@type": "Person",
-          "name": post.author
+          "name": post.author,
+          "url": "https://papo.net.br/sobre"
         },
         "publisher": {
           "@type": "Organization",
-          "name": "Papos",
+          "name": "Papo.net.br",
           "url": "https://papo.net.br/",
           "logo": {
             "@type": "ImageObject",
-            "url": "https://papo.net.br/favicon.svg"
+            "url": "https://papo.net.br/assets/icons/logo-square.png"
           }
         },
         "mainEntityOfPage": {
           "@type": "WebPage",
           "@id": canonicalUrl
-        }
+        },
+        "keywords": post.tags ? post.tags.join(", ") : "",
+        "articleSection": post.category,
+        "inLanguage": "pt-BR"
       };
 
       const articleScript = document.createElement("script");
@@ -119,7 +131,7 @@
           {
             "@type": "ListItem",
             "position": 1,
-            "name": "Papos",
+            "name": "Papo.net.br",
             "item": "https://papo.net.br/"
           },
           {
@@ -257,7 +269,7 @@
               </div>
               
               <h3 class="h5 fw-bold text-white mb-2 line-clamp-2" style="letter-spacing: -0.5px;">
-                <a href="/blog/artigo.html?slug=${post.slug}" class="text-decoration-none text-white hover:text-success" style="transition: color 0.2s;">
+                <a href="/blog/${post.slug}" class="text-decoration-none text-white hover:text-success" style="transition: color 0.2s;">
                   ${post.title}
                 </a>
               </h3>
@@ -268,7 +280,7 @@
               
               <div class="mt-auto d-flex align-items-center justify-content-between pt-3 border-top border-secondary">
                 <span class="text-secondary small">Por <strong>${post.author}</strong></span>
-                <a href="/blog/artigo.html?slug=${post.slug}" class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 py-1.5 px-3 rounded-pill" style="font-size: 0.78rem;">
+                <a href="/blog/${post.slug}" class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 py-1.5 px-3 rounded-pill" style="font-size: 0.78rem;">
                   Ler artigo <i class="bi bi-arrow-right-short fs-6"></i>
                 </a>
               </div>
