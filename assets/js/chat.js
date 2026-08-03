@@ -542,7 +542,9 @@ document.addEventListener("DOMContentLoaded", () => {
                   } else {
                     user.getIdToken(true).then((token) => {
                       if (socket && socket.readyState === WebSocket.OPEN) {
-                        socket.send(JSON.stringify({ type: "sync_auth", token }));
+                        const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
+                        const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
+                        socket.send(JSON.stringify({ type: "sync_auth", token, clientId, fingerprint }));
                       }
                     }).catch(() => {});
                   }
@@ -611,6 +613,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return;
     }
+    const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
+    const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
+
     socket.send(JSON.stringify({
       type: "join",
       nickname: currentUser,
@@ -618,7 +623,9 @@ document.addEventListener("DOMContentLoaded", () => {
       bio: localStorage.getItem("papos_bio") || "",
       age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
       gender: localStorage.getItem("papos_gender") || "",
-      photoUrl: localStorage.getItem("papos_photo") || ""
+      photoUrl: localStorage.getItem("papos_photo") || "",
+      clientId: clientId,
+      fingerprint: fingerprint
     }));
   }
 

@@ -8,7 +8,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ad
 import fs from "fs";
 import crypto from "crypto";
 import https from "https";
-import { verifyIdToken, checkAdminByUid, authenticateAdmin } from "./src/firebase-admin";
+import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
 
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY || "",
@@ -70,25 +70,98 @@ async function verifyFirebaseIdToken(token: string, projectId: string): Promise<
   return null;
 }
 
-async function checkUserBlockStatus(uid: string | undefined): Promise<{ blocked: boolean; reason: string; until?: number }> {
-  if (typeof uid !== "string" || !uid) {
-    return { blocked: false, reason: "" };
+interface SecurityBansDoc {
+  fingerprints?: string[];
+  clientIds?: string[];
+  ips?: string[];
+  uids?: string[];
+  suspendedFingerprints?: Record<string, number>;
+  suspendedClientIds?: Record<string, number>;
+  suspendedIps?: Record<string, number>;
+  suspendedUids?: Record<string, number>;
+}
+
+let securityBansCache: SecurityBansDoc | null = null;
+let securityBansCacheTime = 0;
+
+async function getSecurityBans(): Promise<SecurityBansDoc> {
+  const now = Date.now();
+  if (securityBansCache && (now - securityBansCacheTime < 10000)) {
+    return securityBansCache;
   }
   try {
-    const userDocRef = doc(db, "users", uid);
-    const docSnap = await getDoc(userDocRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      if (data.banned) {
-        return { blocked: true, reason: "ban" };
-      }
-      if (data.suspendedUntil && data.suspendedUntil > Date.now()) {
-        return { blocked: true, reason: "suspension", until: data.suspendedUntil };
-      }
+    const secDoc = await adminDb.collection("security").doc("bans").get();
+    if (secDoc.exists) {
+      securityBansCache = secDoc.data() as SecurityBansDoc;
+    } else {
+      securityBansCache = { fingerprints: [], clientIds: [], ips: [], uids: [] };
     }
   } catch (err) {
-    console.error("[Moderation] Error checking user block status for", uid, err);
+    if (!securityBansCache) securityBansCache = { fingerprints: [], clientIds: [], ips: [], uids: [] };
   }
+  securityBansCacheTime = now;
+  return securityBansCache;
+}
+
+function invalidateSecurityBansCache() {
+  securityBansCacheTime = 0;
+}
+
+async function checkUserBlockStatus(
+  uid?: string,
+  fingerprint?: string,
+  clientId?: string,
+  ip?: string
+): Promise<{ blocked: boolean; reason: string; until?: number }> {
+  // 1. Check user document in Firestore if UID is provided
+  if (uid) {
+    try {
+      const userDocSnap = await adminDb.collection("users").doc(uid).get();
+      if (userDocSnap.exists) {
+        const data = userDocSnap.data();
+        if (data?.banned) {
+          return { blocked: true, reason: "ban" };
+        }
+        if (data?.suspendedUntil && data.suspendedUntil > Date.now()) {
+          return { blocked: true, reason: "suspension", until: data.suspendedUntil };
+        }
+      }
+    } catch (err) {
+      console.error("[Moderation] Error checking user block status for", uid, err);
+    }
+  }
+
+  // 2. Check security/bans document for UID, Fingerprint, Client ID, or IP
+  const bans = await getSecurityBans();
+  const now = Date.now();
+
+  if (uid && Array.isArray(bans.uids) && bans.uids.includes(uid)) {
+    return { blocked: true, reason: "ban" };
+  }
+  if (fingerprint && Array.isArray(bans.fingerprints) && bans.fingerprints.includes(fingerprint)) {
+    return { blocked: true, reason: "ban" };
+  }
+  if (clientId && Array.isArray(bans.clientIds) && bans.clientIds.includes(clientId)) {
+    return { blocked: true, reason: "ban" };
+  }
+  if (ip && Array.isArray(bans.ips) && bans.ips.includes(ip)) {
+    return { blocked: true, reason: "ban" };
+  }
+
+  // Check active suspensions
+  if (uid && bans.suspendedUids && bans.suspendedUids[uid] > now) {
+    return { blocked: true, reason: "suspension", until: bans.suspendedUids[uid] };
+  }
+  if (fingerprint && bans.suspendedFingerprints && bans.suspendedFingerprints[fingerprint] > now) {
+    return { blocked: true, reason: "suspension", until: bans.suspendedFingerprints[fingerprint] };
+  }
+  if (clientId && bans.suspendedClientIds && bans.suspendedClientIds[clientId] > now) {
+    return { blocked: true, reason: "suspension", until: bans.suspendedClientIds[clientId] };
+  }
+  if (ip && bans.suspendedIps && bans.suspendedIps[ip] > now) {
+    return { blocked: true, reason: "suspension", until: bans.suspendedIps[ip] };
+  }
+
   return { blocked: false, reason: "" };
 }
 
@@ -233,6 +306,9 @@ interface ClientSession {
   joinTime?: number;
   isAuthenticated?: boolean;
   isAdmin?: boolean;
+  fingerprint?: string;
+  clientId?: string;
+  ip?: string;
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
@@ -634,12 +710,14 @@ async function startServer() {
     });
   }
 
-  wss.on("connection", (ws: WebSocket) => {
+  wss.on("connection", (ws: WebSocket, req: any) => {
+    const clientIp = (req && req.headers ? (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "") : "").split(",")[0].trim();
     
     activeSessions.set(ws, {
       ws,
       nickname: "",
       roomId: "",
+      ip: clientIp,
       lastMessageTime: []
     });
 
@@ -652,9 +730,12 @@ async function startServer() {
         const session = activeSessions.get(ws);
         if (!session) return;
 
+        if (payload.fingerprint) session.fingerprint = payload.fingerprint;
+        if (payload.clientId) session.clientId = payload.clientId;
+
         const sessionUid = session.uid;
-        if (typeof sessionUid === "string" && sessionUid) {
-          const blockCheck = await checkUserBlockStatus(sessionUid);
+        if (sessionUid || session.fingerprint || session.clientId || session.ip) {
+          const blockCheck = await checkUserBlockStatus(sessionUid, session.fingerprint, session.clientId, session.ip);
           if (blockCheck.blocked) {
             if (blockCheck.reason === "ban") {
               sendToClient(ws, "banned", {});
@@ -677,7 +758,6 @@ async function startServer() {
             try {
               const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
               if (!decoded) {
-                
                 return;
               }
 
@@ -685,11 +765,10 @@ async function startServer() {
               const email = decoded.email;
 
               if (typeof uid !== "string" || !uid || typeof email !== "string" || !email) {
-                
                 return;
               }
 
-              const blockCheck = await checkUserBlockStatus(uid);
+              const blockCheck = await checkUserBlockStatus(uid, session.fingerprint, session.clientId, session.ip);
               if (blockCheck.blocked) {
                 if (blockCheck.reason === "ban") {
                   sendToClient(ws, "banned", {});
@@ -921,88 +1000,60 @@ async function startServer() {
               sendToClient(ws, "success", { message: succMsg });
               sendToClient(ws, "admin_action_success", { message: succMsg });
 
-            } else if (action === "suspend") {
+            } else if (action === "advanced_ban" || action === "ban") {
               if (typeof targetUid !== "string" || !targetUid) return;
-              const suspendedUntil = Date.now() + Number(durationMs);
-              
-              const targetDocRef = doc(db, "users", targetUid);
-              await updateDoc(targetDocRef, {
-                suspendedUntil: suspendedUntil
-              });
+
+              const doBanUid = payload.banUid !== undefined ? !!payload.banUid : true;
+              const doBanFp = payload.banFingerprint !== undefined ? !!payload.banFingerprint : true;
+              const doBanCid = payload.banClientId !== undefined ? !!payload.banClientId : true;
+              const doBanIp = payload.banIp !== undefined ? !!payload.banIp : false;
 
               let targetName = "Desconhecido";
+              let fp = "";
+              let cid = "";
+              let lastIp = "";
+
               try {
-                const docSnap = await getDoc(targetDocRef);
-                if (docSnap.exists()) {
-                  targetName = docSnap.data().nickname || "Desconhecido";
+                const userDocSnap = await adminDb.collection("users").doc(targetUid).get();
+                if (userDocSnap.exists) {
+                  const uData = userDocSnap.data();
+                  targetName = uData?.nickname || uData?.displayName || "Desconhecido";
+                  fp = uData?.fingerprint || "";
+                  cid = uData?.clientId || "";
+                  lastIp = uData?.lastIp || "";
                 }
               } catch (e) {}
 
-              await addDoc(collection(db, "audits"), {
-                adminUid: session.uid,
-                adminEmail: session.email,
-                action: "suspension",
-                targetUid: targetUid,
-                targetNickname: targetName,
-                details: `Suspenso por ${Math.round(Number(durationMs) / 60000)} minutos`,
-                timestamp: Date.now()
-              });
+              if (doBanUid) {
+                await adminDb.collection("users").doc(targetUid).set({ banned: true }, { merge: true });
+              }
 
-              activeSessions.forEach((s, key) => {
-                if (s.uid === targetUid) {
-                  sendToClient(key, "suspended", { until: suspendedUntil });
-                  try { key.close(); } catch (err) {}
-                  activeSessions.delete(key);
-                }
-              });
-
-              const succMsg = `Usuário ${targetName} suspenso com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
-
-            } else if (action === "unsuspend") {
-              if (typeof targetUid !== "string" || !targetUid) return;
-
-              const targetDocRef = doc(db, "users", targetUid);
-              await updateDoc(targetDocRef, { suspendedUntil: null });
-
-              let targetName = "Desconhecido";
               try {
-                const docSnap = await getDoc(targetDocRef);
-                if (docSnap.exists()) {
-                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
-                }
-              } catch (e) {}
+                const secRef = adminDb.collection("security").doc("bans");
+                const secDoc = await secRef.get();
+                let secData: SecurityBansDoc = secDoc.exists ? (secDoc.data() as SecurityBansDoc) : {};
 
-              await addDoc(collection(db, "audits"), {
-                adminUid: session.uid,
-                adminEmail: session.email,
-                action: "unsuspend",
-                targetUid: targetUid,
-                targetNickname: targetName,
-                details: "Suspensão removida",
-                timestamp: Date.now()
-              });
+                const fingerprints = new Set(secData.fingerprints || []);
+                const clientIds = new Set(secData.clientIds || []);
+                const ips = new Set(secData.ips || []);
+                const uids = new Set(secData.uids || []);
 
-              const succMsg = `Suspensão do usuário ${targetName} removida com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
+                if (doBanUid && targetUid) uids.add(targetUid);
+                if (doBanFp && fp) fingerprints.add(fp);
+                if (doBanCid && cid) clientIds.add(cid);
+                if (doBanIp && lastIp) ips.add(lastIp);
 
-            } else if (action === "ban") {
-              if (typeof targetUid !== "string" || !targetUid) return;
+                await secRef.set({
+                  uids: Array.from(uids),
+                  fingerprints: Array.from(fingerprints),
+                  clientIds: Array.from(clientIds),
+                  ips: Array.from(ips)
+                }, { merge: true });
 
-              const targetDocRef = doc(db, "users", targetUid);
-              await updateDoc(targetDocRef, {
-                banned: true
-              });
-
-              let targetName = "Desconhecido";
-              try {
-                const docSnap = await getDoc(targetDocRef);
-                if (docSnap.exists()) {
-                  targetName = docSnap.data().nickname || "Desconhecido";
-                }
-              } catch (e) {}
+                invalidateSecurityBansCache();
+              } catch (err) {
+                console.error("[Admin] Error updating security bans doc:", err);
+              }
 
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid,
@@ -1010,12 +1061,17 @@ async function startServer() {
                 action: "ban",
                 targetUid: targetUid,
                 targetNickname: targetName,
-                details: `Banido permanentemente`,
+                details: `Banido permanentemente (Multicamadas: UID=${doBanUid}, FP=${doBanFp}, CID=${doBanCid}, IP=${doBanIp})`,
                 timestamp: Date.now()
               });
 
               activeSessions.forEach((s, key) => {
-                if (s.uid === targetUid) {
+                const matchUid = doBanUid && s.uid === targetUid;
+                const matchFp = doBanFp && fp && s.fingerprint === fp;
+                const matchCid = doBanCid && cid && s.clientId === cid;
+                const matchIp = doBanIp && lastIp && s.ip === lastIp;
+
+                if (matchUid || matchFp || matchCid || matchIp) {
                   sendToClient(key, "banned", {});
                   try { key.close(); } catch (err) {}
                   activeSessions.delete(key);
@@ -1026,19 +1082,128 @@ async function startServer() {
               sendToClient(ws, "success", { message: succMsg });
               sendToClient(ws, "admin_action_success", { message: succMsg });
 
+            } else if (action === "advanced_suspend" || action === "suspend") {
+              if (typeof targetUid !== "string" || !targetUid) return;
+
+              const durMs = Number(payload.durationMs) || Number(durationMs) || 3600000;
+              const suspendedUntil = Date.now() + durMs;
+
+              const doSusUid = payload.suspendUid !== undefined ? !!payload.suspendUid : true;
+              const doSusFp = payload.suspendFingerprint !== undefined ? !!payload.suspendFingerprint : true;
+              const doSusCid = payload.suspendClientId !== undefined ? !!payload.suspendClientId : true;
+              const doSusIp = payload.suspendIp !== undefined ? !!payload.suspendIp : false;
+
+              let targetName = "Desconhecido";
+              let fp = "";
+              let cid = "";
+              let lastIp = "";
+
+              try {
+                const userDocSnap = await adminDb.collection("users").doc(targetUid).get();
+                if (userDocSnap.exists) {
+                  const uData = userDocSnap.data();
+                  targetName = uData?.nickname || uData?.displayName || "Desconhecido";
+                  fp = uData?.fingerprint || "";
+                  cid = uData?.clientId || "";
+                  lastIp = uData?.lastIp || "";
+                }
+              } catch (e) {}
+
+              if (doSusUid) {
+                await adminDb.collection("users").doc(targetUid).set({ suspendedUntil }, { merge: true });
+              }
+
+              try {
+                const secRef = adminDb.collection("security").doc("bans");
+                const secDoc = await secRef.get();
+                let secData: SecurityBansDoc = secDoc.exists ? (secDoc.data() as SecurityBansDoc) : {};
+
+                const susUids = secData.suspendedUids || {};
+                const susFps = secData.suspendedFingerprints || {};
+                const susCids = secData.suspendedClientIds || {};
+                const susIps = secData.suspendedIps || {};
+
+                if (doSusUid && targetUid) susUids[targetUid] = suspendedUntil;
+                if (doSusFp && fp) susFps[fp] = suspendedUntil;
+                if (doSusCid && cid) susCids[cid] = suspendedUntil;
+                if (doSusIp && lastIp) susIps[lastIp] = suspendedUntil;
+
+                await secRef.set({
+                  suspendedUids: susUids,
+                  suspendedFingerprints: susFps,
+                  suspendedClientIds: susCids,
+                  suspendedIps: susIps
+                }, { merge: true });
+
+                invalidateSecurityBansCache();
+              } catch (err) {
+                console.error("[Admin] Error updating security suspensions doc:", err);
+              }
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "suspension",
+                targetUid: targetUid,
+                targetNickname: targetName,
+                details: `Suspenso por ${Math.round(durMs / 60000)} minutos (Multicamadas: UID=${doSusUid}, FP=${doSusFp}, CID=${doSusCid}, IP=${doSusIp})`,
+                timestamp: Date.now()
+              });
+
+              activeSessions.forEach((s, key) => {
+                const matchUid = doSusUid && s.uid === targetUid;
+                const matchFp = doSusFp && fp && s.fingerprint === fp;
+                const matchCid = doSusCid && cid && s.clientId === cid;
+                const matchIp = doSusIp && lastIp && s.ip === lastIp;
+
+                if (matchUid || matchFp || matchCid || matchIp) {
+                  sendToClient(key, "suspended", { until: suspendedUntil });
+                  try { key.close(); } catch (err) {}
+                  activeSessions.delete(key);
+                }
+              });
+
+              const succMsg = `Usuário ${targetName} suspenso com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
+
             } else if (action === "unban") {
               if (typeof targetUid !== "string" || !targetUid) return;
 
-              const targetDocRef = doc(db, "users", targetUid);
-              await updateDoc(targetDocRef, { banned: false });
-
               let targetName = "Desconhecido";
+              let fp = "";
+              let cid = "";
+              let lastIp = "";
+
               try {
-                const docSnap = await getDoc(targetDocRef);
-                if (docSnap.exists()) {
-                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
+                const docSnap = await adminDb.collection("users").doc(targetUid).get();
+                if (docSnap.exists) {
+                  const uData = docSnap.data();
+                  targetName = uData?.nickname || uData?.displayName || "Desconhecido";
+                  fp = uData?.fingerprint || "";
+                  cid = uData?.clientId || "";
+                  lastIp = uData?.lastIp || "";
                 }
               } catch (e) {}
+
+              await adminDb.collection("users").doc(targetUid).set({ banned: false }, { merge: true });
+
+              try {
+                const secRef = adminDb.collection("security").doc("bans");
+                const secDoc = await secRef.get();
+                if (secDoc.exists) {
+                  const secData = secDoc.data() as SecurityBansDoc;
+                  const uids = (secData.uids || []).filter(id => id !== targetUid);
+                  const fingerprints = (secData.fingerprints || []).filter(id => id !== fp);
+                  const clientIds = (secData.clientIds || []).filter(id => id !== cid);
+                  const ips = (secData.ips || []).filter(id => id !== lastIp);
+
+                  await secRef.set({ uids, fingerprints, clientIds, ips }, { merge: true });
+                  invalidateSecurityBansCache();
+                }
+              } catch (err) {
+                console.error("[Admin] Error unbanning in security doc:", err);
+              }
 
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid,
@@ -1046,11 +1211,74 @@ async function startServer() {
                 action: "unban",
                 targetUid: targetUid,
                 targetNickname: targetName,
-                details: "Banimento removido",
+                details: "Banimento removido (Multicamadas)",
                 timestamp: Date.now()
               });
 
               const succMsg = `Banimento do usuário ${targetName} removido com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
+
+            } else if (action === "unsuspend") {
+              if (typeof targetUid !== "string" || !targetUid) return;
+
+              let targetName = "Desconhecido";
+              let fp = "";
+              let cid = "";
+              let lastIp = "";
+
+              try {
+                const docSnap = await adminDb.collection("users").doc(targetUid).get();
+                if (docSnap.exists) {
+                  const uData = docSnap.data();
+                  targetName = uData?.nickname || uData?.displayName || "Desconhecido";
+                  fp = uData?.fingerprint || "";
+                  cid = uData?.clientId || "";
+                  lastIp = uData?.lastIp || "";
+                }
+              } catch (e) {}
+
+              await adminDb.collection("users").doc(targetUid).set({ suspendedUntil: null }, { merge: true });
+
+              try {
+                const secRef = adminDb.collection("security").doc("bans");
+                const secDoc = await secRef.get();
+                if (secDoc.exists) {
+                  const secData = secDoc.data() as SecurityBansDoc;
+                  const susUids = { ...(secData.suspendedUids || {}) };
+                  const susFps = { ...(secData.suspendedFingerprints || {}) };
+                  const susCids = { ...(secData.suspendedClientIds || {}) };
+                  const susIps = { ...(secData.suspendedIps || {}) };
+
+                  delete susUids[targetUid];
+                  if (fp) delete susFps[fp];
+                  if (cid) delete susCids[cid];
+                  if (lastIp) delete susIps[lastIp];
+
+                  await secRef.set({
+                    suspendedUids: susUids,
+                    suspendedFingerprints: susFps,
+                    suspendedClientIds: susCids,
+                    suspendedIps: susIps
+                  }, { merge: true });
+
+                  invalidateSecurityBansCache();
+                }
+              } catch (err) {
+                console.error("[Admin] Error unsuspending in security doc:", err);
+              }
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "unsuspend",
+                targetUid: targetUid,
+                targetNickname: targetName,
+                details: "Suspensão removida (Multicamadas)",
+                timestamp: Date.now()
+              });
+
+              const succMsg = `Suspensão do usuário ${targetName} removida com sucesso.`;
               sendToClient(ws, "success", { message: succMsg });
               sendToClient(ws, "admin_action_success", { message: succMsg });
 

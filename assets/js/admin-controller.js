@@ -1353,25 +1353,23 @@
         e.preventDefault();
         const targetUid = btn.getAttribute("data-uid");
         const ms = Number(btn.getAttribute("data-ms"));
-        const minutes = Math.round(ms / 60000);
-        const msg = minutes > 50000000 ? "permanentemente" : `por ${minutes} minutos`;
-
-        window.showAdminConfirmModal(
-          "Confirmar Suspensão",
-          `Deseja realmente SUSPENDER este usuário ${msg}?`,
-          () => {
-            window.showAdminLoading(true);
-            if (window.FirebaseService && typeof window.FirebaseService.updateUserField === "function") {
-              window.FirebaseService.updateUserField(targetUid, { suspendedUntil: Date.now() + ms });
+        if (typeof window.showAdminSecurityBanModal === "function") {
+          window.showAdminSecurityBanModal(targetUid, false, ms);
+        } else {
+          window.showAdminConfirmModal(
+            "Confirmar Suspensão",
+            "Deseja realmente suspender este usuário?",
+            () => {
+              window.showAdminLoading(true);
+              sendAdminAction({
+                type: "admin_action",
+                action: "suspend",
+                targetUid: targetUid,
+                durationMs: ms
+              });
             }
-            sendAdminAction({
-              type: "admin_action",
-              action: "suspend",
-              targetUid: targetUid,
-              durationMs: ms
-            });
-          }
-        );
+          );
+        }
       });
     });
 
@@ -1384,9 +1382,6 @@
           "Deseja realmente remover a suspensão deste usuário?",
           () => {
             window.showAdminLoading(true);
-            if (window.FirebaseService && typeof window.FirebaseService.updateUserField === "function") {
-              window.FirebaseService.updateUserField(targetUid, { suspendedUntil: null });
-            }
             sendAdminAction({
               type: "admin_action",
               action: "unsuspend",
@@ -1401,21 +1396,22 @@
     banBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
         const targetUid = btn.getAttribute("data-uid");
-        window.showAdminConfirmModal(
-          "Confirmar Banimento",
-          "Deseja realmente BANIR este usuário permanentemente? O acesso e sessões serão invalidados.",
-          () => {
-            window.showAdminLoading(true);
-            if (window.FirebaseService && typeof window.FirebaseService.updateUserField === "function") {
-              window.FirebaseService.updateUserField(targetUid, { banned: true });
+        if (typeof window.showAdminSecurityBanModal === "function") {
+          window.showAdminSecurityBanModal(targetUid, true, 0);
+        } else {
+          window.showAdminConfirmModal(
+            "Confirmar Banimento",
+            "Deseja realmente banir este usuário permanentemente?",
+            () => {
+              window.showAdminLoading(true);
+              sendAdminAction({
+                type: "admin_action",
+                action: "ban",
+                targetUid: targetUid
+              });
             }
-            sendAdminAction({
-              type: "admin_action",
-              action: "ban",
-              targetUid: targetUid
-            });
-          }
-        );
+          );
+        }
       });
     });
 
@@ -1594,6 +1590,105 @@
     };
 
     submitBtn.addEventListener("click", handleConfirm, { once: true });
+    bModal.show();
+  };
+
+  window.showAdminSecurityBanModal = function (targetUid, isBan = true, durationMs = 0) {
+    let modalEl = document.getElementById("adminSecurityModal");
+    if (!modalEl) {
+      modalEl = document.createElement("div");
+      modalEl.id = "adminSecurityModal";
+      modalEl.className = "modal fade";
+      modalEl.tabIndex = -1;
+      modalEl.setAttribute("aria-hidden", "true");
+      modalEl.style.zIndex = "1110";
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="background-color: #171717; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
+            <div class="modal-header border-bottom p-3" style="border-color: rgba(255, 255, 255, 0.08) !important; background-color: #111111;">
+              <h5 class="modal-title text-white fw-bold d-flex align-items-center gap-2" style="font-size: 1rem;">
+                <i class="bi bi-shield-slash-fill text-danger"></i>
+                <span id="sec-modal-title">Proteção Multicamadas</span>
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body p-3 text-white">
+              <p class="text-white-50 mb-3" style="font-size: 0.85rem; line-height: 1.4;">
+                Selecione as camadas de segurança para aplicar esta ação de moderação:
+              </p>
+              <div class="d-flex flex-column gap-2 mb-3">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="sec-check-uid" checked>
+                  <label class="form-check-label text-white" for="sec-check-uid" style="font-size: 0.88rem;">
+                    <strong>UID do Usuário</strong> <span class="text-muted" style="font-size: 0.78rem;">(Bloqueia a conta Firebase)</span>
+                  </label>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="sec-check-fp" checked>
+                  <label class="form-check-label text-white" for="sec-check-fp" style="font-size: 0.88rem;">
+                    <strong>Fingerprint do Navegador</strong> <span class="text-muted" style="font-size: 0.78rem;">(Bloqueia o navegador)</span>
+                  </label>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="sec-check-cid" checked>
+                  <label class="form-check-label text-white" for="sec-check-cid" style="font-size: 0.88rem;">
+                    <strong>Client ID Local</strong> <span class="text-muted" style="font-size: 0.78rem;">(Identificador localStorage)</span>
+                  </label>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="sec-check-ip">
+                  <label class="form-check-label text-white" for="sec-check-ip" style="font-size: 0.88rem;">
+                    <strong>Endereço IP</strong> <span class="text-muted" style="font-size: 0.78rem;">(Opcional - pode afetar redes compartilhadas)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer border-top p-2 d-flex gap-2" style="border-color: rgba(255, 255, 255, 0.08) !important;">
+              <button type="button" class="btn btn-admin-dark flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size: 0.8rem;">Cancelar</button>
+              <button type="button" class="btn btn-danger flex-grow-1 py-2" id="sec-modal-submit-btn" style="font-size: 0.8rem;">Aplicar Moderação</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalEl);
+    }
+
+    const minutes = Math.round(durationMs / 60000);
+    document.getElementById("sec-modal-title").textContent = isBan 
+      ? "Banimento Multicamadas (Permanente)" 
+      : `Suspensão Multicamadas (${minutes} minutos)`;
+
+    const bModal = new bootstrap.Modal(modalEl);
+    const submitBtn = modalEl.querySelector("#sec-modal-submit-btn");
+
+    const handleSubmit = () => {
+      const banUid = document.getElementById("sec-check-uid").checked;
+      const banFingerprint = document.getElementById("sec-check-fp").checked;
+      const banClientId = document.getElementById("sec-check-cid").checked;
+      const banIp = document.getElementById("sec-check-ip").checked;
+
+      window.showAdminLoading(true);
+
+      sendAdminAction({
+        type: "admin_action",
+        action: isBan ? "advanced_ban" : "advanced_suspend",
+        targetUid: targetUid,
+        durationMs: durationMs,
+        banUid: banUid,
+        banFingerprint: banFingerprint,
+        banClientId: banClientId,
+        banIp: banIp,
+        suspendUid: banUid,
+        suspendFingerprint: banFingerprint,
+        suspendClientId: banClientId,
+        suspendIp: banIp
+      });
+
+      bModal.hide();
+      submitBtn.removeEventListener("click", handleSubmit);
+    };
+
+    submitBtn.addEventListener("click", handleSubmit, { once: true });
     bModal.show();
   };
 

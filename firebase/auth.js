@@ -35,8 +35,43 @@ const FirebaseService = {
     const user = auth.currentUser;
     if (!user) return null;
 
+    const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
+    const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
+
     const userDocRef = doc(db, "users", user.uid);
     try {
+      // Security collection check
+      try {
+        const secSnap = await getDoc(doc(db, "security", "bans"));
+        if (secSnap.exists()) {
+          const sec = secSnap.data();
+          const now = Date.now();
+          if (
+            (user.uid && Array.isArray(sec.uids) && sec.uids.includes(user.uid)) ||
+            (fingerprint && Array.isArray(sec.fingerprints) && sec.fingerprints.includes(fingerprint)) ||
+            (clientId && Array.isArray(sec.clientIds) && sec.clientIds.includes(clientId))
+          ) {
+            await signOut(auth);
+            localStorage.removeItem("papos_nickname");
+            window.location.href = "/?error=banned";
+            return null;
+          }
+
+          const uUntil = sec.suspendedUids ? sec.suspendedUids[user.uid] : null;
+          const fpUntil = sec.suspendedFingerprints ? sec.suspendedFingerprints[fingerprint] : null;
+          const cidUntil = sec.suspendedClientIds ? sec.suspendedClientIds[clientId] : null;
+          const maxUntil = Math.max(uUntil || 0, fpUntil || 0, cidUntil || 0);
+
+          if (maxUntil > now) {
+            const secRemaining = Math.ceil((maxUntil - now) / 60000);
+            await signOut(auth);
+            localStorage.removeItem("papos_nickname");
+            window.location.href = `/?error=suspended&remaining=${secRemaining}`;
+            return null;
+          }
+        }
+      } catch (e) {}
+
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -55,7 +90,22 @@ const FirebaseService = {
         }
 
         let needsUpdate = false;
-        const updatePayload = {};
+        const updatePayload = {
+          lastSeen: Date.now(),
+          lastLogin: Date.now()
+        };
+        needsUpdate = true;
+
+        if (fingerprint && data.fingerprint !== fingerprint) {
+          updatePayload.fingerprint = fingerprint;
+          data.fingerprint = fingerprint;
+          needsUpdate = true;
+        }
+        if (clientId && data.clientId !== clientId) {
+          updatePayload.clientId = clientId;
+          data.clientId = clientId;
+          needsUpdate = true;
+        }
 
         if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
           data.admin = true;
@@ -135,6 +185,9 @@ const FirebaseService = {
         online: true,
         createdAt: Date.now(),
         lastLogin: Date.now(),
+        lastSeen: Date.now(),
+        fingerprint: fingerprint,
+        clientId: clientId,
         banned: false,
         suspendedUntil: null,
         admin: false

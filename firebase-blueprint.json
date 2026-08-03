@@ -141,6 +141,17 @@
         }
       },
       "required": ["name", "stars", "comment", "createdAt", "logged"]
+    },
+    "securityBan": {
+      "title": "Multi-Layered Security Record",
+      "description": "Stores lists of blacklisted fingerprints, client IDs, IPs, UIDs and temporary suspensions",
+      "type": "object",
+      "properties": {
+        "fingerprints": { "type": "array" },
+        "clientIds": { "type": "array" },
+        "ips": { "type": "array" },
+        "uids": { "type": "array" }
+      }
     }
   },
   "firestore": {
@@ -155,6 +166,10 @@
     "/feedbacks/{feedbackId}": {
       "schema": "feedback",
       "description": "Collection storing user evaluations and feedback"
+    },
+    "/security/{docId}": {
+      "schema": "securityBan",
+      "description": "Multi-layered ban and suspension rules"
     }
   }
 }
