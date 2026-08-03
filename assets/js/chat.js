@@ -181,6 +181,9 @@ window.profileCache = window.profileCache || new Map();
 const profileCache = window.profileCache;
 const CACHE_TTL_MS = 30000;
 
+let socket = null;
+window.socket = null;
+
 document.addEventListener("DOMContentLoaded", () => {
   const ChatEngine = window.ChatEngine || {
     getUser: () => localStorage.getItem("papos_nickname") || null,
@@ -195,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const currentUser = ChatEngine.getUser();
+  let currentUser = ChatEngine.getUser();
   if (!currentUser) {
     window.location.href = "/?error=name_required";
     return;
@@ -235,7 +238,6 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const btnBackToPublic = document.getElementById("btn-back-to-public");
 
-  let socket = null;
   let typingTimeout = null;
   let isCurrentlyTyping = false;
   
@@ -623,6 +625,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function connect() {
     socket = ChatEngine.connectSocket();
     window.activeChatSocket = socket;
+    window.socket = socket;
 
     socket.onopen = () => {
       
@@ -2516,14 +2519,16 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (socket && socket.readyState === WebSocket.OPEN) {
+    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+
+    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
       window.pendingProfileRequest = {
         nickname: realName,
         isMe: isMe,
         timestamp: now
       };
       
-      socket.send(JSON.stringify({
+      activeSocket.send(JSON.stringify({
         type: "get_profile",
         nickname: realName
       }));
