@@ -177,6 +177,10 @@ window.getUsernameColor = (username) => {
   return colors[index];
 };
 
+window.profileCache = window.profileCache || new Map();
+const profileCache = window.profileCache;
+const CACHE_TTL_MS = 30000;
+
 document.addEventListener("DOMContentLoaded", () => {
   const ChatEngine = window.ChatEngine || {
     getUser: () => localStorage.getItem("papos_nickname") || null,
@@ -591,9 +595,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     return true;
   }
-
-  const profileCache = new Map();
-  const CACHE_TTL_MS = 15000; 
 
   function sendJoinRoom(roomId) {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
@@ -2474,16 +2475,41 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const fetchProfileFromFirestore = async (nickname) => {
+    if (window.FirebaseService && typeof window.FirebaseService.getUserProfileByNickname === "function") {
+      try {
+        const firestoreData = await window.FirebaseService.getUserProfileByNickname(nickname);
+        if (firestoreData) {
+          return {
+            nickname: firestoreData.nickname || firestoreData.displayName || nickname,
+            photoUrl: firestoreData.photoUrl || firestoreData.photoURL || "",
+            bio: firestoreData.bio || "",
+            age: firestoreData.age !== undefined && firestoreData.age !== null && firestoreData.age !== "" ? Number(firestoreData.age) : null,
+            gender: firestoreData.gender || "",
+            online: firestoreData.online !== undefined ? firestoreData.online : false,
+            permanentId: firestoreData.permanentId || firestoreData.internalId || "USR-Membro",
+            admin: firestoreData.admin === true
+          };
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar perfil no Firestore:", e);
+      }
+    }
+    return null;
+  };
+
   window.openUserProfile = (nickname) => {
     if (!nickname) return;
     
     if (nickname === "Sistema" || nickname === "System") return;
     
-    const realName = (nickname === "Você") ? (window.confirmedNickname || currentUser) : nickname;
-    const isMe = (realName.toLowerCase() === (window.confirmedNickname || currentUser).toLowerCase());
+    const currentNick = window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname"));
+    const realName = (nickname === "Você") ? currentNick : nickname;
+    const isMe = currentNick && (realName.toLowerCase() === currentNick.toLowerCase());
 
     const now = Date.now();
-    const cached = profileCache.get(realName.toLowerCase());
+    const cache = window.profileCache || profileCache;
+    const cached = cache.get(realName.toLowerCase());
     
     if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
       displayUserProfileModal(cached.data, isMe);
@@ -2501,30 +2527,62 @@ document.addEventListener("DOMContentLoaded", () => {
         type: "get_profile",
         nickname: realName
       }));
+
+      // Timeout fallback to Firestore if socket is slow or drops
+      setTimeout(() => {
+        if (window.pendingProfileRequest && window.pendingProfileRequest.nickname === realName) {
+          fetchProfileFromFirestore(realName).then((data) => {
+            if (data && window.pendingProfileRequest && window.pendingProfileRequest.nickname === realName) {
+              cache.set(realName.toLowerCase(), { data, timestamp: Date.now() });
+              displayUserProfileModal(data, isMe);
+              window.pendingProfileRequest = null;
+            }
+          });
+        }
+      }, 1500);
     } else {
-      if (isMe) {
-        const localProfile = {
-          nickname: realName,
-          photoUrl: localStorage.getItem("papos_photo") || "",
-          bio: localStorage.getItem("papos_bio") || "",
-          age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
-          gender: localStorage.getItem("papos_gender") || "",
-          online: true
-        };
-        displayUserProfileModal(localProfile, true);
-      } else {
-        alert("Não foi possível carregar o perfil. Verifique sua conexão.");
-      }
+      fetchProfileFromFirestore(realName).then((data) => {
+        if (data) {
+          cache.set(realName.toLowerCase(), { data, timestamp: Date.now() });
+          displayUserProfileModal(data, isMe);
+        } else if (isMe) {
+          const localProfile = {
+            nickname: realName,
+            photoUrl: localStorage.getItem("papos_photo") || "",
+            bio: localStorage.getItem("papos_bio") || "",
+            age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
+            gender: localStorage.getItem("papos_gender") || "",
+            online: true,
+            permanentId: localStorage.getItem("papos_permanent_id") || "USR-Membro"
+          };
+          cache.set(realName.toLowerCase(), { data: localProfile, timestamp: Date.now() });
+          displayUserProfileModal(localProfile, true);
+        } else {
+          const fallbackProfile = {
+            nickname: realName,
+            photoUrl: "",
+            bio: "",
+            age: null,
+            gender: "",
+            online: true,
+            permanentId: "USR-Membro"
+          };
+          cache.set(realName.toLowerCase(), { data: fallbackProfile, timestamp: Date.now() });
+          displayUserProfileModal(fallbackProfile, isMe);
+        }
+      });
     }
   };
 
   window.handleProfileDataResponse = (data) => {
     if (!data || !data.nickname) return;
     
+    const currentNick = window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname"));
     const reqInfo = window.pendingProfileRequest;
-    const isMe = reqInfo ? (data.nickname.toLowerCase() === (window.confirmedNickname || currentUser).toLowerCase()) : false;
+    const isMe = reqInfo ? (data.nickname.toLowerCase() === currentNick.toLowerCase()) : false;
     
-    profileCache.set(data.nickname.toLowerCase(), {
+    const cache = window.profileCache || profileCache;
+    cache.set(data.nickname.toLowerCase(), {
       data: data,
       timestamp: Date.now()
     });

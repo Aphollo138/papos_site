@@ -529,6 +529,26 @@ const FirebaseService = {
     return updatePayload;
   },
 
+  async getUserProfileByNickname(nickname) {
+    if (!nickname) return null;
+    try {
+      const q = query(collection(db, "users"), where("nickname", "==", nickname));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return snap.docs[0].data();
+      }
+      const q2 = query(collection(db, "users"), where("displayName", "==", nickname));
+      const snap2 = await getDocs(q2);
+      if (!snap2.empty) {
+        return snap2.docs[0].data();
+      }
+      return null;
+    } catch (err) {
+      console.error("Erro ao buscar perfil por apelido no Firestore:", err);
+      return null;
+    }
+  },
+
   async deleteSupportName(targetUid) {
     if (!targetUid) return;
     const cleanUid = targetUid.trim();
