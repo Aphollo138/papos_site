@@ -10,21 +10,14 @@ import crypto from "crypto";
 import https from "https";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
 
-let appletConfig: any = {};
-try {
-  if (fs.existsSync("./firebase-applet-config.json")) {
-    appletConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
-  }
-} catch (e) {}
-
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || appletConfig.appId || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || appletConfig.firestoreDatabaseId || "(default)"
+  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.VITE_FIREBASE_APP_ID || "",
+  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
 };
 
 const firebaseApp = initializeApp({
