@@ -355,49 +355,39 @@ interface ClientSession {
 
 const activeSessions = new Map<WebSocket, ClientSession>();
 
-async function syncGuestSessionToFirestore(session: ClientSession, options: { offline?: boolean } = {}) {
-  const gId = session.guestId || (session.fingerprint ? `fp_${session.fingerprint}` : null);
-  if (!gId) return;
-
-  try {
-    if (session.uid || options.offline) {
-      await adminDb.collection("guestSessions").doc(gId).set({
-        online: false,
-        lastSeen: Date.now()
-      }, { merge: true });
-    } else {
-      const connTime = session.connectedAt || Date.now();
-      await adminDb.collection("guestSessions").doc(gId).set({
-        guestId: session.guestId || gId,
-        nickname: session.nickname || "Visitante",
-        room: session.roomId || "room-1",
-        fingerprint: session.fingerprint || "",
-        ip: session.ip || "",
-        socketId: session.clientId || "",
-        online: true,
-        connectedAt: connTime,
-        lastSeen: Date.now()
-      }, { merge: true });
+function getOnlineGuestsList(): any[] {
+  const guestsMap = new Map<string, any>();
+  activeSessions.forEach((s) => {
+    // ONLY non-authenticated guests (no uid and not isAuthenticated)
+    if (!s.uid && !s.isAuthenticated) {
+      const gId = s.guestId || (s.fingerprint ? `GST-${s.fingerprint.substring(0, 8).toUpperCase()}` : "GST-UNK");
+      if (!guestsMap.has(gId)) {
+        guestsMap.set(gId, {
+          guestId: gId,
+          nickname: s.nickname || "Visitante",
+          room: s.roomId || "room-1",
+          fingerprint: s.fingerprint || "",
+          ip: s.ip || "N/A",
+          socketId: s.clientId || "",
+          online: true,
+          connectedAt: s.connectedAt || Date.now(),
+          lastSeen: Date.now()
+        });
+      }
     }
-  } catch (err) {
-    console.error("[GuestSessions] Error syncing guest session in Firestore:", err);
-  }
+  });
+  return Array.from(guestsMap.values());
 }
 
-async function resetGuestSessionsOnStart() {
-  try {
-    const snap = await adminDb.collection("guestSessions").where("online", "==", true).get();
-    if (!snap.empty) {
-      const batch = adminDb.batch();
-      snap.forEach((docSnap) => {
-        batch.update(docSnap.ref, { online: false });
-      });
-      await batch.commit();
-      console.log(`[GuestSessions] Reset ${snap.size} stale guest sessions on server start.`);
+function notifyAdminsGuestList() {
+  const guests = getOnlineGuestsList();
+  activeSessions.forEach((s, key) => {
+    if (s.isAuthenticated && s.uid && s.isAdmin && key.readyState === WebSocket.OPEN) {
+      try {
+        key.send(JSON.stringify({ type: "admin_online_guests", guests }));
+      } catch (e) {}
     }
-  } catch (err) {
-    console.error("[GuestSessions] Error resetting stale guest sessions on start:", err);
-  }
+  });
 }
 
 function getCurrentTime() {
@@ -501,7 +491,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -725,7 +715,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -823,7 +813,7 @@ async function startServer() {
         if (payload.guestId) session.guestId = payload.guestId;
 
         if (!session.uid && (session.guestId || session.fingerprint)) {
-          syncGuestSessionToFirestore(session);
+          notifyAdminsGuestList();
         }
 
         const sessionUid = session.uid;
@@ -877,7 +867,7 @@ async function startServer() {
               session.email = email;
               session.isAuthenticated = true;
               session.joinTime = session.joinTime || Date.now();
-              syncGuestSessionToFirestore(session, { offline: true });
+              notifyAdminsGuestList();
 
               const userDocRef = doc(db, "users", uid);
               const docSnap = await getDoc(userDocRef);
@@ -1382,7 +1372,14 @@ async function startServer() {
 
               let kickedCount = 0;
               activeSessions.forEach((s, key) => {
-                if (s.guestId === targetGuestId || (s.fingerprint && payload.fingerprint && s.fingerprint === payload.fingerprint)) {
+                // NEVER disconnect the admin or any logged-in user!
+                if (key === ws || s.uid || s.isAuthenticated) return;
+
+                const matchSocketId = Boolean(payload.socketId && s.clientId === payload.socketId);
+                const matchGid = Boolean(s.guestId === targetGuestId);
+                const matchFp = Boolean(s.fingerprint && payload.fingerprint && s.fingerprint === payload.fingerprint);
+
+                if (matchSocketId || matchGid || matchFp) {
                   sendToClient(key, "kicked_by_moderation", { message: "Sua conexão foi encerrada pela moderação." });
                   try { key.close(); } catch (e) {}
                   activeSessions.delete(key);
@@ -1390,9 +1387,7 @@ async function startServer() {
                 }
               });
 
-              try {
-                await adminDb.collection("guestSessions").doc(targetGuestId).set({ online: false, lastSeen: Date.now() }, { merge: true });
-              } catch (e) {}
+              notifyAdminsGuestList();
 
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid,
@@ -1434,6 +1429,9 @@ async function startServer() {
               });
 
               activeSessions.forEach((s, key) => {
+                // NEVER disconnect the admin or any logged-in user!
+                if (key === ws || s.uid || s.isAuthenticated) return;
+
                 const matchGid = Boolean(doBanGid && targetGuestId && s.guestId === targetGuestId);
                 const matchFp = Boolean(doBanFp && guestFp && s.fingerprint === guestFp);
                 const matchIp = Boolean(doBanIp && guestIp && s.ip === guestIp);
@@ -1445,11 +1443,7 @@ async function startServer() {
                 }
               });
 
-              if (targetGuestId) {
-                try {
-                  await adminDb.collection("guestSessions").doc(targetGuestId).set({ online: false, lastSeen: Date.now() }, { merge: true });
-                } catch (e) {}
-              }
+              notifyAdminsGuestList();
 
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid,
@@ -1487,6 +1481,9 @@ async function startServer() {
               });
 
               activeSessions.forEach((s, key) => {
+                // NEVER disconnect the admin or any logged-in user!
+                if (key === ws || s.uid || s.isAuthenticated) return;
+
                 const matchGid = Boolean(doBanGid && targetGuestId && s.guestId === targetGuestId);
                 const matchFp = Boolean(doBanFp && guestFp && s.fingerprint === guestFp);
                 const matchIp = Boolean(doBanIp && guestIp && s.ip === guestIp);
@@ -1498,11 +1495,7 @@ async function startServer() {
                 }
               });
 
-              if (targetGuestId) {
-                try {
-                  await adminDb.collection("guestSessions").doc(targetGuestId).set({ online: false, lastSeen: Date.now() }, { merge: true });
-                } catch (e) {}
-              }
+              notifyAdminsGuestList();
 
               await addDoc(collection(db, "audits"), {
                 adminUid: session.uid,
@@ -1733,6 +1726,7 @@ async function startServer() {
             break;
           }
 
+          case "get_online_guests":
           case "get_online_users": {
             const token = payload.idToken || payload.token;
             if (token) {
@@ -1753,6 +1747,8 @@ async function startServer() {
               return;
             }
 
+            session.isAdmin = true;
+
             const onlineUsers: any[] = [];
             activeSessions.forEach((s) => {
               if (s.isAuthenticated && s.uid) {
@@ -1769,6 +1765,7 @@ async function startServer() {
             });
 
             sendToClient(ws, "admin_online_users", { users: onlineUsers });
+            sendToClient(ws, "admin_online_guests", { guests: getOnlineGuestsList() });
             break;
           }
 
@@ -1860,7 +1857,7 @@ async function startServer() {
             session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
 
             if (!session.uid) {
-              syncGuestSessionToFirestore(session);
+              notifyAdminsGuestList();
             }
 
             if (oldRoomId && oldRoomId !== roomId) {
@@ -2494,7 +2491,7 @@ async function startServer() {
                 console.error("[update_profile] Erro ao atualizar Firestore:", e);
               }
             } else {
-              syncGuestSessionToFirestore(session);
+              notifyAdminsGuestList();
             }
 
             if (session.roomId) {
@@ -2525,16 +2522,7 @@ async function startServer() {
         activeSessions.delete(ws);
 
         if (!session.uid) {
-          let isStillConnected = false;
-          activeSessions.forEach((s, otherWs) => {
-            if (otherWs !== ws && !s.uid) {
-              if (session.guestId && s.guestId === session.guestId) isStillConnected = true;
-              if (session.fingerprint && s.fingerprint === session.fingerprint) isStillConnected = true;
-            }
-          });
-          if (!isStillConnected) {
-            syncGuestSessionToFirestore(session, { offline: true });
-          }
+          notifyAdminsGuestList();
         }
 
         if (nickname && roomId) {
@@ -2808,7 +2796,7 @@ async function startServer() {
   });
 
   server.listen(PORT, "0.0.0.0", () => {
-    resetGuestSessionsOnStart();
+    console.log(`[Server] Express + WebSocket server running on port ${PORT}`);
   });
 }
 

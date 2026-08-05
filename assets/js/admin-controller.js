@@ -1274,14 +1274,9 @@
 
   function initGuestListeners() {
     if (isGuestSubscribed) return;
+    isGuestSubscribed = true;
+    requestOnlineGuests();
     if (window.FirebaseService) {
-      isGuestSubscribed = true;
-      if (typeof window.FirebaseService.subscribeToGuestSessions === "function") {
-        window.FirebaseService.subscribeToGuestSessions((list) => {
-          guestSessionsList = list || [];
-          renderGuestSessionsTable();
-        });
-      }
       if (typeof window.FirebaseService.subscribeToGuestSuspensions === "function") {
         window.FirebaseService.subscribeToGuestSuspensions((list) => {
           guestSuspensionsList = list || [];
@@ -1336,14 +1331,14 @@
       tr.innerHTML = `
         <td class="ps-3">
           <div class="d-flex align-items-center gap-2">
-            <span class="badge font-monospace px-2 py-1 bg-dark text-info border border-info border-opacity-25">${g.guestId || "GST-UNK"}</span>
+            <span class="badge font-monospace px-2 py-1 bg-dark text-info border border-info border-opacity-50 fw-bold">${g.guestId || "GST-UNK"}</span>
             <span class="fw-bold text-white">${g.nickname || "Visitante"}</span>
           </div>
         </td>
-        <td><span class="badge bg-secondary font-monospace">${g.room || "room-1"}</span></td>
-        <td><span class="small text-muted font-monospace"><i class="bi bi-clock me-1"></i>${timeStr}</span></td>
-        <td><span class="font-monospace small text-muted" title="${g.fingerprint || ''}">${(g.fingerprint || "N/A").substring(0, 10)}...</span></td>
-        <td><span class="font-monospace small text-muted">${g.ip || "N/A"}</span></td>
+        <td><span class="badge bg-secondary font-monospace text-white">${g.room || "room-1"}</span></td>
+        <td><span class="small text-white font-monospace"><i class="bi bi-clock me-1 text-info"></i>${timeStr}</span></td>
+        <td><span class="font-monospace small text-white" title="${g.fingerprint || ''}">${(g.fingerprint || "N/A").substring(0, 10)}...</span></td>
+        <td><span class="font-monospace small text-white">${g.ip || "N/A"}</span></td>
         <td><span class="badge bg-success-subtle text-success border border-success border-opacity-25 px-2 py-1"><i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i>Online</span></td>
         <td class="pe-3 text-end">
           <div class="d-inline-flex gap-1">
@@ -1746,6 +1741,7 @@
     }
     if (activeTab === "guests") {
       initGuestListeners();
+      requestOnlineGuests();
       renderGuestSessionsTable();
     }
     if (activeTab === "guest-blocks") {
@@ -2072,6 +2068,10 @@
     sendAdminAction({ type: "get_online_users" });
   }
 
+  function requestOnlineGuests() {
+    sendAdminAction({ type: "get_online_guests" });
+  }
+
   function requestAuditLogs() {
     sendAdminAction({ type: "get_audit_logs" });
   }
@@ -2080,6 +2080,7 @@
     initFirestoreUsersListener();
     initGuestListeners();
     requestOnlineUsers();
+    requestOnlineGuests();
     if (activeTab === "audits") {
       requestAuditLogs();
     }
@@ -2088,6 +2089,11 @@
   window.handleAdminOnlineUsers = function (users) {
     onlineUsersWS = users || [];
     renderUsersTable();
+  };
+
+  window.handleAdminOnlineGuests = function (guests) {
+    guestSessionsList = guests || [];
+    renderGuestSessionsTable();
   };
 
   window.handleAdminAuditLogs = function (logs) {

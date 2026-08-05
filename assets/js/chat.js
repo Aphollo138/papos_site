@@ -862,6 +862,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             break;
 
+          case "admin_online_guests":
+            if (window.handleAdminOnlineGuests) {
+              window.handleAdminOnlineGuests(data.guests);
+            }
+            break;
+
           case "admin_audit_logs":
             if (window.handleAdminAuditLogs) {
               window.handleAdminAuditLogs(data.logs);

@@ -711,17 +711,9 @@ const FirebaseService = {
 
   subscribeToGuestSessions(callback) {
     if (typeof callback === "function") {
-      guestSessionsCallbacks.add(callback);
-      if (cachedGuestSessions !== null) {
-        callback(cachedGuestSessions);
-      }
+      callback([]);
     }
-    if (!isGuestSessionsListening) {
-      initGuestSessionsListener();
-    }
-    return () => {
-      guestSessionsCallbacks.delete(callback);
-    };
+    return () => {};
   },
 
   subscribeToGuestSuspensions(callback) {
