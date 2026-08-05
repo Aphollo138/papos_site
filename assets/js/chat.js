@@ -543,8 +543,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     user.getIdToken(true).then((token) => {
                       if (socket && socket.readyState === WebSocket.OPEN) {
                         const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
+                        const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
                         const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
-                        socket.send(JSON.stringify({ type: "sync_auth", token, clientId, fingerprint }));
+                        socket.send(JSON.stringify({ type: "sync_auth", token, clientId, guestId, fingerprint }));
                       }
                     }).catch(() => {});
                   }
@@ -614,6 +615,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
+    const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
     const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
 
     socket.send(JSON.stringify({
@@ -625,6 +627,7 @@ document.addEventListener("DOMContentLoaded", () => {
       gender: localStorage.getItem("papos_gender") || "",
       photoUrl: localStorage.getItem("papos_photo") || "",
       clientId: clientId,
+      guestId: guestId,
       fingerprint: fingerprint
     }));
   }
@@ -906,6 +909,21 @@ document.addEventListener("DOMContentLoaded", () => {
               );
             } else {
               alert((data.title || "Mensagem da Administração") + "\n\n" + (data.message || data.text));
+            }
+            break;
+
+          case "kicked_by_moderation":
+            if (window.showAdminWarningModal) {
+              window.showAdminWarningModal(
+                data.message || "Sua conexão foi encerrada pela moderação.",
+                "Conexão Encerrada",
+                () => {
+                  window.location.href = "/";
+                }
+              );
+            } else {
+              alert(data.message || "Sua conexão foi encerrada pela moderação.");
+              window.location.href = "/";
             }
             break;
 

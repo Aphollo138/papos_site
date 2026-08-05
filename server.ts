@@ -111,7 +111,8 @@ async function checkUserBlockStatus(
   uid?: string,
   fingerprint?: string,
   clientId?: string,
-  ip?: string
+  ip?: string,
+  guestId?: string
 ): Promise<{ blocked: boolean; reason: string; until?: number }> {
   // 1. Check user document in Firestore if UID is provided
   if (uid) {
@@ -131,7 +132,46 @@ async function checkUserBlockStatus(
     }
   }
 
-  // 2. Check security/bans document for UID, Fingerprint, Client ID, or IP
+  // 2. Check guestBans collection
+  try {
+    const bansSnap = await adminDb.collection("guestBans").get();
+    if (!bansSnap.empty) {
+      for (const docSnap of bansSnap.docs) {
+        const b = docSnap.data();
+        const matchGid = Boolean(guestId && b.guestId && b.guestId === guestId);
+        const matchFp = Boolean(fingerprint && b.fingerprint && b.fingerprint === fingerprint);
+        const matchIp = Boolean(ip && b.ip && b.ip === ip);
+        if (matchGid || matchFp || matchIp) {
+          return { blocked: true, reason: "ban" };
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[Moderation] Error checking guestBans:", err);
+  }
+
+  // 3. Check guestSuspensions collection
+  try {
+    const susSnap = await adminDb.collection("guestSuspensions").get();
+    if (!susSnap.empty) {
+      const now = Date.now();
+      for (const docSnap of susSnap.docs) {
+        const s = docSnap.data();
+        if (s.expiresAt && s.expiresAt > now) {
+          const matchGid = Boolean(guestId && s.guestId && s.guestId === guestId);
+          const matchFp = Boolean(fingerprint && s.fingerprint && s.fingerprint === fingerprint);
+          const matchIp = Boolean(ip && s.ip && s.ip === ip);
+          if (matchGid || matchFp || matchIp) {
+            return { blocked: true, reason: "suspension", until: s.expiresAt };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[Moderation] Error checking guestSuspensions:", err);
+  }
+
+  // 4. Check security/bans document for UID, Fingerprint, Client ID, or IP
   const bans = await getSecurityBans();
   const now = Date.now();
 
@@ -300,6 +340,7 @@ interface ClientSession {
   gender?: string;
   photoUrl?: string;
   uid?: string;
+  guestId?: string;
   email?: string;
   permanentId?: string;
   internalId?: string;
@@ -732,6 +773,7 @@ async function startServer() {
 
         if (payload.fingerprint) session.fingerprint = payload.fingerprint;
         if (payload.clientId) session.clientId = payload.clientId;
+        if (payload.guestId) session.guestId = payload.guestId;
 
         const sessionUid = session.uid;
         if (sessionUid || session.fingerprint || session.clientId || session.ip) {
@@ -1279,6 +1321,173 @@ async function startServer() {
               });
 
               const succMsg = `Suspensão do usuário ${targetName} removida com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
+
+            } else if (action === "kick_guest") {
+              const targetGuestId = payload.targetGuestId || payload.guestId;
+              if (!targetGuestId) return;
+
+              let kickedCount = 0;
+              activeSessions.forEach((s, key) => {
+                if (s.guestId === targetGuestId || (s.fingerprint && payload.fingerprint && s.fingerprint === payload.fingerprint)) {
+                  sendToClient(key, "kicked_by_moderation", { message: "Sua conexão foi encerrada pela moderação." });
+                  try { key.close(); } catch (e) {}
+                  activeSessions.delete(key);
+                  kickedCount++;
+                }
+              });
+
+              try {
+                await adminDb.collection("guestSessions").doc(targetGuestId).set({ online: false, lastSeen: Date.now() }, { merge: true });
+              } catch (e) {}
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "kick_guest",
+                targetUid: targetGuestId,
+                targetNickname: payload.nickname || targetGuestId,
+                details: "Conexão de visitante encerrada pela moderação",
+                timestamp: Date.now()
+              });
+
+              const succMsg = `Visitante ${targetGuestId} desconectado com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
+
+            } else if (action === "suspend_guest") {
+              const targetGuestId = payload.targetGuestId || payload.guestId;
+              const durMs = Number(payload.durationMs) || 1800000;
+              const expiresAt = Date.now() + durMs;
+
+              const doBanGid = payload.banGuestId !== undefined ? !!payload.banGuestId : true;
+              const doBanFp = payload.banFingerprint !== undefined ? !!payload.banFingerprint : true;
+              const doBanIp = payload.banIp !== undefined ? !!payload.banIp : false;
+
+              const guestFp = payload.fingerprint || "";
+              const guestIp = payload.ip || "";
+
+              await adminDb.collection("guestSuspensions").add({
+                guestId: doBanGid ? targetGuestId : "",
+                fingerprint: doBanFp ? guestFp : "",
+                ip: doBanIp ? guestIp : "",
+                type: "suspension",
+                reason: payload.reason || "Suspensão temporária de visitante por moderação",
+                durationMs: durMs,
+                expiresAt: expiresAt,
+                createdAt: Date.now(),
+                adminEmail: session.email || "Admin",
+                adminUid: session.uid
+              });
+
+              activeSessions.forEach((s, key) => {
+                const matchGid = Boolean(doBanGid && targetGuestId && s.guestId === targetGuestId);
+                const matchFp = Boolean(doBanFp && guestFp && s.fingerprint === guestFp);
+                const matchIp = Boolean(doBanIp && guestIp && s.ip === guestIp);
+
+                if (matchGid || matchFp || matchIp) {
+                  sendToClient(key, "suspended", { until: expiresAt, message: "Sua conexão foi suspensa pela moderação." });
+                  try { key.close(); } catch (e) {}
+                  activeSessions.delete(key);
+                }
+              });
+
+              if (targetGuestId) {
+                try {
+                  await adminDb.collection("guestSessions").doc(targetGuestId).set({ online: false, lastSeen: Date.now() }, { merge: true });
+                } catch (e) {}
+              }
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "suspend_guest",
+                targetUid: targetGuestId,
+                targetNickname: payload.nickname || targetGuestId,
+                details: `Convidado suspenso por ${Math.round(durMs / 60000)}m (GId=${doBanGid}, FP=${doBanFp}, IP=${doBanIp})`,
+                timestamp: Date.now()
+              });
+
+              const succMsg = `Visitante ${targetGuestId} suspenso com sucesso por ${Math.round(durMs / 60000)} minutos.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
+
+            } else if (action === "ban_guest") {
+              const targetGuestId = payload.targetGuestId || payload.guestId;
+
+              const doBanGid = payload.banGuestId !== undefined ? !!payload.banGuestId : true;
+              const doBanFp = payload.banFingerprint !== undefined ? !!payload.banFingerprint : true;
+              const doBanIp = payload.banIp !== undefined ? !!payload.banIp : false;
+
+              const guestFp = payload.fingerprint || "";
+              const guestIp = payload.ip || "";
+
+              await adminDb.collection("guestBans").add({
+                guestId: doBanGid ? targetGuestId : "",
+                fingerprint: doBanFp ? guestFp : "",
+                ip: doBanIp ? guestIp : "",
+                type: "ban",
+                reason: payload.reason || "Banimento permanente de visitante por moderação",
+                createdAt: Date.now(),
+                adminEmail: session.email || "Admin",
+                adminUid: session.uid
+              });
+
+              activeSessions.forEach((s, key) => {
+                const matchGid = Boolean(doBanGid && targetGuestId && s.guestId === targetGuestId);
+                const matchFp = Boolean(doBanFp && guestFp && s.fingerprint === guestFp);
+                const matchIp = Boolean(doBanIp && guestIp && s.ip === guestIp);
+
+                if (matchGid || matchFp || matchIp) {
+                  sendToClient(key, "banned", { message: "Seu acesso de visitante foi bloqueado permanentemente pela moderação." });
+                  try { key.close(); } catch (e) {}
+                  activeSessions.delete(key);
+                }
+              });
+
+              if (targetGuestId) {
+                try {
+                  await adminDb.collection("guestSessions").doc(targetGuestId).set({ online: false, lastSeen: Date.now() }, { merge: true });
+                } catch (e) {}
+              }
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "ban_guest",
+                targetUid: targetGuestId,
+                targetNickname: payload.nickname || targetGuestId,
+                details: `Convidado banido permanentemente (GId=${doBanGid}, FP=${doBanFp}, IP=${doBanIp})`,
+                timestamp: Date.now()
+              });
+
+              const succMsg = `Visitante ${targetGuestId} banido permanentemente com sucesso.`;
+              sendToClient(ws, "success", { message: succMsg });
+              sendToClient(ws, "admin_action_success", { message: succMsg });
+
+            } else if (action === "remove_guest_block" || action === "unsuspend_guest_block") {
+              const blockId = payload.blockId || payload.id;
+              const colName = payload.collectionName === "guestBans" ? "guestBans" : "guestSuspensions";
+              if (!blockId) return;
+
+              try {
+                await adminDb.collection(colName).doc(blockId).delete();
+              } catch (e) {
+                console.error("Error removing guest block:", e);
+              }
+
+              await addDoc(collection(db, "audits"), {
+                adminUid: session.uid,
+                adminEmail: session.email,
+                action: "remove_guest_block",
+                targetUid: blockId,
+                targetNickname: blockId,
+                details: `Bloqueio de visitante removido (${colName})`,
+                timestamp: Date.now()
+              });
+
+              const succMsg = `Bloqueio de visitante removido com sucesso.`;
               sendToClient(ws, "success", { message: succMsg });
               sendToClient(ws, "admin_action_success", { message: succMsg });
 

@@ -503,6 +503,18 @@
                   </button>
                 </li>
                 <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-guests" data-tab="guests" type="button" role="tab">
+                    <i class="bi bi-person-badge fs-5 flex-shrink-0 text-info"></i>
+                    <span class="fw-medium sidebar-text">Convidados</span>
+                  </button>
+                </li>
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-guest-blocks" data-tab="guest-blocks" type="button" role="tab">
+                    <i class="bi bi-shield-x fs-5 flex-shrink-0 text-danger"></i>
+                    <span class="fw-medium sidebar-text">Bloqueios Temporários</span>
+                  </button>
+                </li>
+                <li class="nav-item w-100" role="presentation">
                   <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-global" data-tab="global" type="button" role="tab">
                     <i class="bi bi-megaphone fs-5 flex-shrink-0"></i>
                     <span class="fw-medium sidebar-text">Mensagem Global</span>
@@ -828,6 +840,76 @@
                 </div>
               </div>
 
+              <!-- TAB: GUESTS (Convidados) -->
+              <div class="admin-tab-content d-none flex-column h-100" id="admin-content-guests">
+                <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between mb-4">
+                  <div>
+                    <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Convidados (Visitantes Online)</h5>
+                    <p class="small mb-0" style="color: #9f9f9f;">Monitoramento e moderação em tempo real de visitantes não autenticados.</p>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success px-3 py-2 fw-semibold" id="admin-guests-online-badge" style="font-size: 0.85rem;">0 online</span>
+                    <div class="input-group" style="max-width: 300px;">
+                      <span class="input-group-text border-0 text-white" style="background-color: #141414; border-top-left-radius: 12px; border-bottom-left-radius: 12px;"><i class="bi bi-search"></i></span>
+                      <input type="text" class="form-control" id="admin-guests-search" placeholder="Buscar visitante, ID, IP..." style="border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important;">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="table-responsive flex-grow-1">
+                  <table class="table align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead>
+                      <tr>
+                        <th class="ps-3 py-3">Identificador Convidado</th>
+                        <th class="py-3">Sala Atual</th>
+                        <th class="py-3">Fingerprint</th>
+                        <th class="py-3">IP</th>
+                        <th class="py-3">Status</th>
+                        <th class="pe-3 py-3 text-end">Ações de Moderação</th>
+                      </tr>
+                    </thead>
+                    <tbody id="admin-guests-table-body">
+                      <!-- Filled dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- TAB: GUEST BLOCKS (Bloqueios Temporários) -->
+              <div class="admin-tab-content d-none flex-column h-100" id="admin-content-guest-blocks">
+                <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between mb-4">
+                  <div>
+                    <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Bloqueios Temporários & Banimentos</h5>
+                    <p class="small mb-0" style="color: #9f9f9f;">Gerencie todas as suspensões temporárias e banimentos de visitantes.</p>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-danger px-3 py-2 fw-semibold" id="admin-blocks-total-badge" style="font-size: 0.85rem;">0 bloqueios</span>
+                    <div class="input-group" style="max-width: 300px;">
+                      <span class="input-group-text border-0 text-white" style="background-color: #141414; border-top-left-radius: 12px; border-bottom-left-radius: 12px;"><i class="bi bi-search"></i></span>
+                      <input type="text" class="form-control" id="admin-blocks-search" placeholder="Buscar por ID, IP, motivo..." style="border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important;">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="table-responsive flex-grow-1">
+                  <table class="table align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead>
+                      <tr>
+                        <th class="ps-3 py-3">Alvo (ID / FP / IP)</th>
+                        <th class="py-3">Tipo</th>
+                        <th class="py-3">Motivo</th>
+                        <th class="py-3">Expira em / Data</th>
+                        <th class="py-3">Aplicado por</th>
+                        <th class="pe-3 py-3 text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="admin-blocks-table-body">
+                      <!-- Filled dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -851,6 +933,7 @@
       initFirestoreUsersListener();
       initSupportNamesListener();
       initFeedbacksListener();
+      initGuestListeners();
       refreshAdminData();
     });
 
@@ -881,6 +964,20 @@
         searchQuery = e.target.value.toLowerCase().trim();
         currentPage = 1;
         renderUsersTable();
+      });
+    }
+
+    const guestsSearch = document.getElementById("admin-guests-search");
+    if (guestsSearch) {
+      guestsSearch.addEventListener("input", () => {
+        renderGuestSessionsTable();
+      });
+    }
+
+    const blocksSearch = document.getElementById("admin-blocks-search");
+    if (blocksSearch) {
+      blocksSearch.addEventListener("input", () => {
+        renderGuestBlocksTable();
       });
     }
 
@@ -1169,6 +1266,455 @@
     }
   }
 
+  let guestSessionsList = [];
+  let guestSuspensionsList = [];
+  let guestBansList = [];
+  let isGuestSubscribed = false;
+
+  function initGuestListeners() {
+    if (isGuestSubscribed) return;
+    if (window.FirebaseService) {
+      isGuestSubscribed = true;
+      if (typeof window.FirebaseService.subscribeToGuestSessions === "function") {
+        window.FirebaseService.subscribeToGuestSessions((list) => {
+          guestSessionsList = list || [];
+          renderGuestSessionsTable();
+        });
+      }
+      if (typeof window.FirebaseService.subscribeToGuestSuspensions === "function") {
+        window.FirebaseService.subscribeToGuestSuspensions((list) => {
+          guestSuspensionsList = list || [];
+          renderGuestBlocksTable();
+        });
+      }
+      if (typeof window.FirebaseService.subscribeToGuestBans === "function") {
+        window.FirebaseService.subscribeToGuestBans((list) => {
+          guestBansList = list || [];
+          renderGuestBlocksTable();
+        });
+      }
+    }
+  }
+
+  function renderGuestSessionsTable() {
+    const tbody = document.getElementById("admin-guests-table-body");
+    const badge = document.getElementById("admin-guests-online-badge");
+    if (!tbody) return;
+
+    const guestSearch = (document.getElementById("admin-guests-search")?.value || "").toLowerCase().trim();
+
+    const onlineGuests = guestSessionsList.filter(g => g.online !== false);
+    if (badge) badge.textContent = `${onlineGuests.length} online`;
+
+    const filtered = onlineGuests.filter(g => {
+      if (!guestSearch) return true;
+      const gid = (g.guestId || "").toLowerCase();
+      const nick = (g.nickname || "").toLowerCase();
+      const room = (g.room || "").toLowerCase();
+      const ip = (g.ip || "").toLowerCase();
+      const fp = (g.fingerprint || "").toLowerCase();
+      return gid.includes(guestSearch) || nick.includes(guestSearch) || room.includes(guestSearch) || ip.includes(guestSearch) || fp.includes(guestSearch);
+    });
+
+    tbody.innerHTML = "";
+    if (filtered.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="text-center text-secondary py-5">Nenhum visitante convidado online no momento.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    filtered.forEach(g => {
+      const tr = document.createElement("tr");
+      tr.className = "border-secondary";
+      tr.innerHTML = `
+        <td class="ps-3">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge font-monospace px-2 py-1 bg-dark text-info border border-info border-opacity-25">${g.guestId || "GST-UNK"}</span>
+            <span class="fw-bold text-white">${g.nickname || "Visitante"}</span>
+          </div>
+        </td>
+        <td><span class="badge bg-secondary font-monospace">${g.room || "room-1"}</span></td>
+        <td><span class="font-monospace small text-muted" title="${g.fingerprint || ''}">${(g.fingerprint || "N/A").substring(0, 10)}...</span></td>
+        <td><span class="font-monospace small text-muted">${g.ip || "N/A"}</span></td>
+        <td><span class="badge bg-success-subtle text-success border border-success border-opacity-25 px-2 py-1"><i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i>Online</span></td>
+        <td class="pe-3 text-end">
+          <div class="d-inline-flex gap-1">
+            <button class="btn btn-outline-warning btn-sm btn-kick-guest px-2 py-1" data-gid="${g.guestId}" title="Derrubar Conexão">
+              <i class="bi bi-wifi-off me-1"></i>Derrubar
+            </button>
+            <button class="btn btn-outline-danger btn-sm btn-suspend-guest px-2 py-1" data-gid="${g.guestId}" title="Suspender">
+              <i class="bi bi-clock-history me-1"></i>Suspender
+            </button>
+            <button class="btn btn-danger btn-sm btn-ban-guest px-2 py-1" data-gid="${g.guestId}" title="Banir Permanentemente">
+              <i class="bi bi-ban me-1"></i>Banir
+            </button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll(".btn-kick-guest").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const gid = btn.getAttribute("data-gid");
+        const gSession = guestSessionsList.find(s => s.guestId === gid) || { guestId: gid };
+        window.showAdminConfirmModal(
+          "Derrubar Conexão",
+          `Deseja realmente encerrar a conexão do visitante ${gid}?`,
+          () => {
+            window.showAdminLoading(true);
+            sendAdminAction({
+              type: "admin_action",
+              action: "kick_guest",
+              targetGuestId: gid,
+              nickname: gSession.nickname || gid,
+              fingerprint: gSession.fingerprint || ""
+            });
+          }
+        );
+      });
+    });
+
+    tbody.querySelectorAll(".btn-suspend-guest").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const gid = btn.getAttribute("data-gid");
+        const gSession = guestSessionsList.find(s => s.guestId === gid) || { guestId: gid };
+        showGuestSuspendModal(gSession);
+      });
+    });
+
+    tbody.querySelectorAll(".btn-ban-guest").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const gid = btn.getAttribute("data-gid");
+        const gSession = guestSessionsList.find(s => s.guestId === gid) || { guestId: gid };
+        showGuestBanModal(gSession);
+      });
+    });
+  }
+
+  function renderGuestBlocksTable() {
+    const tbody = document.getElementById("admin-blocks-table-body");
+    const badge = document.getElementById("admin-blocks-total-badge");
+    if (!tbody) return;
+
+    const blockSearch = (document.getElementById("admin-blocks-search")?.value || "").toLowerCase().trim();
+
+    const allBlocks = [
+      ...guestSuspensionsList.map(s => ({ ...s, collectionName: "guestSuspensions", isBan: false })),
+      ...guestBansList.map(b => ({ ...b, collectionName: "guestBans", isBan: true }))
+    ];
+
+    if (badge) badge.textContent = `${allBlocks.length} bloqueio(s)`;
+
+    const filtered = allBlocks.filter(b => {
+      if (!blockSearch) return true;
+      const gid = (b.guestId || "").toLowerCase();
+      const fp = (b.fingerprint || "").toLowerCase();
+      const ip = (b.ip || "").toLowerCase();
+      const reason = (b.reason || "").toLowerCase();
+      return gid.includes(blockSearch) || fp.includes(blockSearch) || ip.includes(blockSearch) || reason.includes(blockSearch);
+    });
+
+    tbody.innerHTML = "";
+    if (filtered.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="text-center text-secondary py-5">Nenhum bloqueio ou suspensão temporária registrada.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    filtered.forEach(b => {
+      const tr = document.createElement("tr");
+      tr.className = "border-secondary";
+
+      let typeBadge = b.isBan 
+        ? `<span class="badge bg-danger px-2 py-1"><i class="bi bi-ban me-1"></i>Banimento</span>` 
+        : `<span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-clock-history me-1"></i>Suspensão</span>`;
+
+      let expiryText = b.isBan ? "Permanente" : (b.expiresAt ? new Date(b.expiresAt).toLocaleString("pt-BR") : "N/A");
+
+      let targets = [];
+      if (b.guestId) targets.push(`ID: ${b.guestId}`);
+      if (b.fingerprint) targets.push(`FP: ${b.fingerprint.substring(0, 8)}...`);
+      if (b.ip) targets.push(`IP: ${b.ip}`);
+      let targetDisplay = targets.join(" | ") || "Alvo Genérico";
+
+      tr.innerHTML = `
+        <td class="ps-3"><span class="font-monospace fw-bold text-white" style="font-size: 0.8rem;">${targetDisplay}</span></td>
+        <td>${typeBadge}</td>
+        <td><span class="text-white-50 small">${b.reason || "Sem motivo informado"}</span></td>
+        <td><span class="small text-muted">${expiryText}</span></td>
+        <td><span class="small text-muted">${b.adminEmail || "Admin"}</span></td>
+        <td class="pe-3 text-end">
+          <button class="btn btn-outline-success btn-sm btn-remove-guest-block px-2 py-1" data-id="${b.id}" data-col="${b.collectionName}">
+            <i class="bi bi-unlock me-1"></i>Remover
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll(".btn-remove-guest-block").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const col = btn.getAttribute("data-col");
+        window.showAdminConfirmModal(
+          "Remover Bloqueio",
+          "Deseja realmente remover este bloqueio de visitante?",
+          () => {
+            window.showAdminLoading(true);
+            sendAdminAction({
+              type: "admin_action",
+              action: "remove_guest_block",
+              blockId: id,
+              collectionName: col
+            });
+            if (window.FirebaseService && typeof window.FirebaseService.deleteGuestBlock === "function") {
+              window.FirebaseService.deleteGuestBlock(id, col);
+            }
+          }
+        );
+      });
+    });
+  }
+
+  function showGuestSuspendModal(guestSession) {
+    let modalEl = document.getElementById("adminGuestSuspendModal");
+    if (!modalEl) {
+      modalEl = document.createElement("div");
+      modalEl.id = "adminGuestSuspendModal";
+      modalEl.className = "modal fade";
+      modalEl.tabIndex = -1;
+      modalEl.setAttribute("aria-hidden", "true");
+      modalEl.style.zIndex = "1110";
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="background-color: #171717; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
+            <div class="modal-header border-bottom p-3" style="border-color: rgba(255, 255, 255, 0.08) !important; background-color: #111111;">
+              <h5 class="modal-title text-white fw-bold d-flex align-items-center gap-2" style="font-size: 1rem;">
+                <i class="bi bi-clock-history text-warning"></i>
+                <span>Suspender Convidado (Temporário)</span>
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body p-3 text-white">
+              <div class="mb-3 p-2 bg-dark rounded border border-secondary border-opacity-25">
+                <div class="small text-muted">Visitante Selecionado:</div>
+                <div class="fw-bold text-info" id="guest-suspend-target-label"></div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label text-white-50 small fw-bold">Duração da Suspensão:</label>
+                <select class="form-select bg-dark text-white border-secondary" id="guest-suspend-duration">
+                  <option value="1800000">30 minutos</option>
+                  <option value="3600000" selected>1 hora</option>
+                  <option value="21600000">6 horas</option>
+                  <option value="43200000">12 horas</option>
+                  <option value="86400000">24 horas</option>
+                  <option value="604800000">7 dias</option>
+                  <option value="custom">Personalizado (minutos)</option>
+                </select>
+              </div>
+
+              <div class="mb-3 d-none" id="guest-suspend-custom-container">
+                <label class="form-label text-white-50 small">Minutos Personalizados:</label>
+                <input type="number" class="form-control bg-dark text-white border-secondary" id="guest-suspend-custom-minutes" placeholder="Ex: 45" min="1">
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label text-white-50 small fw-bold mb-2">Camadas de Identificação:</label>
+                <div class="d-flex flex-column gap-2">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="guest-sus-check-gid" checked>
+                    <label class="form-check-label text-white" for="guest-sus-check-gid" style="font-size: 0.85rem;">
+                      <strong>Guest ID</strong> <span class="text-muted" style="font-size: 0.75rem;">(papo_guest_id)</span>
+                    </label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="guest-sus-check-fp" checked>
+                    <label class="form-check-label text-white" for="guest-sus-check-fp" style="font-size: 0.85rem;">
+                      <strong>Fingerprint do Navegador</strong>
+                    </label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="guest-sus-check-ip">
+                    <label class="form-check-label text-white" for="guest-sus-check-ip" style="font-size: 0.85rem;">
+                      <strong>Endereço IP</strong> <span class="text-muted" style="font-size: 0.75rem;">(Opcional)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label text-white-50 small">Motivo (opcional):</label>
+                <input type="text" class="form-control bg-dark text-white border-secondary" id="guest-suspend-reason" placeholder="Ex: Violação das regras da sala">
+              </div>
+            </div>
+            <div class="modal-footer border-top p-2 d-flex gap-2" style="border-color: rgba(255, 255, 255, 0.08) !important;">
+              <button type="button" class="btn btn-admin-dark flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size: 0.8rem;">Cancelar</button>
+              <button type="button" class="btn btn-warning flex-grow-1 py-2" id="guest-suspend-submit-btn" style="font-size: 0.8rem;">Aplicar Suspensão</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalEl);
+
+      const selectDur = modalEl.querySelector("#guest-suspend-duration");
+      const customCont = modalEl.querySelector("#guest-suspend-custom-container");
+      selectDur.addEventListener("change", () => {
+        if (selectDur.value === "custom") {
+          customCont.classList.remove("d-none");
+        } else {
+          customCont.classList.add("d-none");
+        }
+      });
+    }
+
+    document.getElementById("guest-suspend-target-label").textContent = `${guestSession.nickname || 'Visitante'} (${guestSession.guestId || 'N/A'})`;
+
+    const bModal = new bootstrap.Modal(modalEl);
+    const submitBtn = modalEl.querySelector("#guest-suspend-submit-btn");
+
+    const handleSubmit = () => {
+      const selectVal = document.getElementById("guest-suspend-duration").value;
+      let durMs = Number(selectVal);
+      if (selectVal === "custom") {
+        const mins = Number(document.getElementById("guest-suspend-custom-minutes").value) || 30;
+        durMs = mins * 60000;
+      }
+
+      const banGid = document.getElementById("guest-sus-check-gid").checked;
+      const banFp = document.getElementById("guest-sus-check-fp").checked;
+      const banIp = document.getElementById("guest-sus-check-ip").checked;
+      const reason = document.getElementById("guest-suspend-reason").value.trim();
+
+      window.showAdminLoading(true);
+
+      sendAdminAction({
+        type: "admin_action",
+        action: "suspend_guest",
+        targetGuestId: guestSession.guestId,
+        nickname: guestSession.nickname,
+        fingerprint: guestSession.fingerprint || "",
+        ip: guestSession.ip || "",
+        durationMs: durMs,
+        banGuestId: banGid,
+        banFingerprint: banFp,
+        banIp: banIp,
+        reason: reason
+      });
+
+      bModal.hide();
+      submitBtn.removeEventListener("click", handleSubmit);
+    };
+
+    submitBtn.addEventListener("click", handleSubmit, { once: true });
+    bModal.show();
+  }
+
+  function showGuestBanModal(guestSession) {
+    let modalEl = document.getElementById("adminGuestBanModal");
+    if (!modalEl) {
+      modalEl = document.createElement("div");
+      modalEl.id = "adminGuestBanModal";
+      modalEl.className = "modal fade";
+      modalEl.tabIndex = -1;
+      modalEl.setAttribute("aria-hidden", "true");
+      modalEl.style.zIndex = "1110";
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="background-color: #171717; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
+            <div class="modal-header border-bottom p-3" style="border-color: rgba(255, 255, 255, 0.08) !important; background-color: #111111;">
+              <h5 class="modal-title text-white fw-bold d-flex align-items-center gap-2" style="font-size: 1rem;">
+                <i class="bi bi-ban text-danger"></i>
+                <span>Banir Convidado Permanentemente</span>
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body p-3 text-white">
+              <div class="mb-3 p-2 bg-dark rounded border border-secondary border-opacity-25">
+                <div class="small text-muted">Visitante Selecionado:</div>
+                <div class="fw-bold text-danger" id="guest-ban-target-label"></div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label text-white-50 small fw-bold mb-2">Camadas de Identificação:</label>
+                <div class="d-flex flex-column gap-2">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="guest-ban-check-gid" checked>
+                    <label class="form-check-label text-white" for="guest-ban-check-gid" style="font-size: 0.85rem;">
+                      <strong>Guest ID</strong> <span class="text-muted" style="font-size: 0.75rem;">(papo_guest_id)</span>
+                    </label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="guest-ban-check-fp" checked>
+                    <label class="form-check-label text-white" for="guest-ban-check-fp" style="font-size: 0.85rem;">
+                      <strong>Fingerprint do Navegador</strong>
+                    </label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="guest-ban-check-ip">
+                    <label class="form-check-label text-white" for="guest-ban-check-ip" style="font-size: 0.85rem;">
+                      <strong>Endereço IP</strong> <span class="text-muted" style="font-size: 0.75rem;">(Opcional)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label text-white-50 small">Motivo (opcional):</label>
+                <input type="text" class="form-control bg-dark text-white border-secondary" id="guest-ban-reason" placeholder="Ex: Violação grave das diretrizes do chat">
+              </div>
+            </div>
+            <div class="modal-footer border-top p-2 d-flex gap-2" style="border-color: rgba(255, 255, 255, 0.08) !important;">
+              <button type="button" class="btn btn-admin-dark flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size: 0.8rem;">Cancelar</button>
+              <button type="button" class="btn btn-danger flex-grow-1 py-2" id="guest-ban-submit-btn" style="font-size: 0.8rem;">Banir Permanentemente</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalEl);
+    }
+
+    document.getElementById("guest-ban-target-label").textContent = `${guestSession.nickname || 'Visitante'} (${guestSession.guestId || 'N/A'})`;
+
+    const bModal = new bootstrap.Modal(modalEl);
+    const submitBtn = modalEl.querySelector("#guest-ban-submit-btn");
+
+    const handleSubmit = () => {
+      const banGid = document.getElementById("guest-ban-check-gid").checked;
+      const banFp = document.getElementById("guest-ban-check-fp").checked;
+      const banIp = document.getElementById("guest-ban-check-ip").checked;
+      const reason = document.getElementById("guest-ban-reason").value.trim();
+
+      window.showAdminLoading(true);
+
+      sendAdminAction({
+        type: "admin_action",
+        action: "ban_guest",
+        targetGuestId: guestSession.guestId,
+        nickname: guestSession.nickname,
+        fingerprint: guestSession.fingerprint || "",
+        ip: guestSession.ip || "",
+        banGuestId: banGid,
+        banFingerprint: banFp,
+        banIp: banIp,
+        reason: reason
+      });
+
+      bModal.hide();
+      submitBtn.removeEventListener("click", handleSubmit);
+    };
+
+    submitBtn.addEventListener("click", handleSubmit, { once: true });
+    bModal.show();
+  }
+
   function showActiveTabContent() {
     const contents = document.querySelectorAll(".admin-tab-content");
     contents.forEach((c) => {
@@ -1192,6 +1738,14 @@
     if (activeTab === "feedback") {
       initFeedbacksListener();
       renderFeedbacksTable();
+    }
+    if (activeTab === "guests") {
+      initGuestListeners();
+      renderGuestSessionsTable();
+    }
+    if (activeTab === "guest-blocks") {
+      initGuestListeners();
+      renderGuestBlocksTable();
     }
   }
 
@@ -1519,6 +2073,7 @@
 
   function refreshAdminData() {
     initFirestoreUsersListener();
+    initGuestListeners();
     requestOnlineUsers();
     if (activeTab === "audits") {
       requestAuditLogs();

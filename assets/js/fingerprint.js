@@ -81,11 +81,28 @@
     }
   }
 
+  function getOrCreateGuestId() {
+    let guestId = localStorage.getItem("papo_guest_id");
+    if (!guestId) {
+      try {
+        const randBytes = Array.from(crypto.getRandomValues(new Uint8Array(4)));
+        const randHex = randBytes.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+        guestId = "GST-" + randHex;
+      } catch (e) {
+        guestId = "GST-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+      }
+      localStorage.setItem("papo_guest_id", guestId);
+    }
+    return guestId;
+  }
+
   const clientId = getOrCreateClientId();
+  const guestId = getOrCreateGuestId();
   const fingerprint = computeFingerprint();
 
   window.SecurityIdentity = {
     getClientId: function() { return clientId; },
+    getGuestId: function() { return guestId; },
     getFingerprint: function() { return fingerprint; }
   };
 })();

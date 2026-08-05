@@ -152,6 +152,34 @@
         "ips": { "type": "array" },
         "uids": { "type": "array" }
       }
+    },
+    "guestSession": {
+      "title": "Guest Session Record",
+      "type": "object",
+      "properties": {
+        "guestId": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "ip": { "type": "string" },
+        "nickname": { "type": "string" },
+        "room": { "type": "string" },
+        "connectedAt": { "type": "number" },
+        "lastSeen": { "type": "number" },
+        "online": { "type": "boolean" }
+      }
+    },
+    "guestBan": {
+      "title": "Guest Ban or Suspension Record",
+      "type": "object",
+      "properties": {
+        "guestId": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "ip": { "type": "string" },
+        "type": { "type": "string" },
+        "reason": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "expiresAt": { "type": "number" }
+      }
     }
   },
   "firestore": {
@@ -170,6 +198,18 @@
     "/security/{docId}": {
       "schema": "securityBan",
       "description": "Multi-layered ban and suspension rules"
+    },
+    "/guestSessions/{sessionId}": {
+      "schema": "guestSession",
+      "description": "Active and past guest visitor sessions"
+    },
+    "/guestBans/{banId}": {
+      "schema": "guestBan",
+      "description": "Permanent bans for guest visitors"
+    },
+    "/guestSuspensions/{suspensionId}": {
+      "schema": "guestBan",
+      "description": "Temporary suspensions for guest visitors"
     }
   }
 }

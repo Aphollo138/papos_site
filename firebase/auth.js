@@ -707,8 +707,106 @@ const FirebaseService = {
 
     const docRef = doc(db, "feedbacks", feedbackId);
     await deleteDoc(docRef);
+  },
+
+  subscribeToGuestSessions(callback) {
+    if (typeof callback === "function") {
+      guestSessionsCallbacks.add(callback);
+      if (cachedGuestSessions !== null) {
+        callback(cachedGuestSessions);
+      }
+    }
+    if (!isGuestSessionsListening) {
+      initGuestSessionsListener();
+    }
+    return () => {
+      guestSessionsCallbacks.delete(callback);
+    };
+  },
+
+  subscribeToGuestSuspensions(callback) {
+    if (typeof callback === "function") {
+      guestSuspensionsCallbacks.add(callback);
+      if (cachedGuestSuspensions !== null) {
+        callback(cachedGuestSuspensions);
+      }
+    }
+    if (!isGuestSuspensionsListening) {
+      initGuestSuspensionsListener();
+    }
+    return () => {
+      guestSuspensionsCallbacks.delete(callback);
+    };
+  },
+
+  async deleteGuestBlock(blockId, collectionName = "guestSuspensions") {
+    if (!blockId) return;
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const col = collectionName === "guestBans" ? "guestBans" : "guestSuspensions";
+    const docRef = doc(db, col, blockId);
+    await deleteDoc(docRef);
   }
 };
+
+let cachedGuestSessions = null;
+const guestSessionsCallbacks = new Set();
+let isGuestSessionsListening = false;
+
+function initGuestSessionsListener() {
+  if (isGuestSessionsListening) return;
+  isGuestSessionsListening = true;
+
+  try {
+    const q = query(collection(db, "guestSessions"), where("online", "==", true));
+    onSnapshot(q, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.lastSeen || b.connectedAt || 0) - (a.lastSeen || a.connectedAt || 0));
+      cachedGuestSessions = list;
+
+      guestSessionsCallbacks.forEach((cb) => {
+        try { cb(cachedGuestSessions); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de guestSessions:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de guestSessions:", err);
+  }
+}
+
+let cachedGuestSuspensions = null;
+const guestSuspensionsCallbacks = new Set();
+let isGuestSuspensionsListening = false;
+
+function initGuestSuspensionsListener() {
+  if (isGuestSuspensionsListening) return;
+  isGuestSuspensionsListening = true;
+
+  try {
+    const colRef = collection(db, "guestSuspensions");
+    onSnapshot(colRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cachedGuestSuspensions = list;
+
+      guestSuspensionsCallbacks.forEach((cb) => {
+        try { cb(cachedGuestSuspensions); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de guestSuspensions:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de guestSuspensions:", err);
+  }
+}
 
 let cachedFeedbacks = null;
 const feedbackCallbacks = new Set();
