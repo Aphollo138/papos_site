@@ -862,6 +862,7 @@
                       <tr>
                         <th class="ps-3 py-3">Identificador Convidado</th>
                         <th class="py-3">Sala Atual</th>
+                        <th class="py-3">Entrada</th>
                         <th class="py-3">Fingerprint</th>
                         <th class="py-3">IP</th>
                         <th class="py-3">Status</th>
@@ -1320,13 +1321,16 @@
     if (filtered.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" class="text-center text-secondary py-5">Nenhum visitante convidado online no momento.</td>
+          <td colspan="7" class="text-center text-secondary py-5">Nenhum visitante convidado online no momento.</td>
         </tr>
       `;
       return;
     }
 
     filtered.forEach(g => {
+      const timeVal = g.connectedAt || g.lastSeen;
+      const timeStr = timeVal ? new Date(timeVal).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--:--";
+
       const tr = document.createElement("tr");
       tr.className = "border-secondary";
       tr.innerHTML = `
@@ -1337,6 +1341,7 @@
           </div>
         </td>
         <td><span class="badge bg-secondary font-monospace">${g.room || "room-1"}</span></td>
+        <td><span class="small text-muted font-monospace"><i class="bi bi-clock me-1"></i>${timeStr}</span></td>
         <td><span class="font-monospace small text-muted" title="${g.fingerprint || ''}">${(g.fingerprint || "N/A").substring(0, 10)}...</span></td>
         <td><span class="font-monospace small text-muted">${g.ip || "N/A"}</span></td>
         <td><span class="badge bg-success-subtle text-success border border-success border-opacity-25 px-2 py-1"><i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i>Online</span></td>

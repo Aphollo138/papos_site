@@ -10,14 +10,21 @@ import crypto from "crypto";
 import https from "https";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
 
+let appletConfig: any = {};
+try {
+  if (fs.existsSync("./firebase-applet-config.json")) {
+    appletConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
+  }
+} catch (e) {}
+
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
+  apiKey: process.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || "",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || "",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || "",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || "",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || "",
+  appId: process.env.VITE_FIREBASE_APP_ID || appletConfig.appId || "",
+  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || appletConfig.firestoreDatabaseId || "(default)"
 };
 
 const firebaseApp = initializeApp({
@@ -345,6 +352,7 @@ interface ClientSession {
   permanentId?: string;
   internalId?: string;
   joinTime?: number;
+  connectedAt?: number;
   isAuthenticated?: boolean;
   isAdmin?: boolean;
   fingerprint?: string;
@@ -353,6 +361,51 @@ interface ClientSession {
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
+
+async function syncGuestSessionToFirestore(session: ClientSession, options: { offline?: boolean } = {}) {
+  const gId = session.guestId || (session.fingerprint ? `fp_${session.fingerprint}` : null);
+  if (!gId) return;
+
+  try {
+    if (session.uid || options.offline) {
+      await adminDb.collection("guestSessions").doc(gId).set({
+        online: false,
+        lastSeen: Date.now()
+      }, { merge: true });
+    } else {
+      const connTime = session.connectedAt || Date.now();
+      await adminDb.collection("guestSessions").doc(gId).set({
+        guestId: session.guestId || gId,
+        nickname: session.nickname || "Visitante",
+        room: session.roomId || "room-1",
+        fingerprint: session.fingerprint || "",
+        ip: session.ip || "",
+        socketId: session.clientId || "",
+        online: true,
+        connectedAt: connTime,
+        lastSeen: Date.now()
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.error("[GuestSessions] Error syncing guest session in Firestore:", err);
+  }
+}
+
+async function resetGuestSessionsOnStart() {
+  try {
+    const snap = await adminDb.collection("guestSessions").where("online", "==", true).get();
+    if (!snap.empty) {
+      const batch = adminDb.batch();
+      snap.forEach((docSnap) => {
+        batch.update(docSnap.ref, { online: false });
+      });
+      await batch.commit();
+      console.log(`[GuestSessions] Reset ${snap.size} stale guest sessions on server start.`);
+    }
+  } catch (err) {
+    console.error("[GuestSessions] Error resetting stale guest sessions on start:", err);
+  }
+}
 
 function getCurrentTime() {
   const now = new Date();
@@ -759,7 +812,8 @@ async function startServer() {
       nickname: "",
       roomId: "",
       ip: clientIp,
-      lastMessageTime: []
+      lastMessageTime: [],
+      connectedAt: Date.now()
     });
 
     updateRoomCounts();
@@ -774,6 +828,10 @@ async function startServer() {
         if (payload.fingerprint) session.fingerprint = payload.fingerprint;
         if (payload.clientId) session.clientId = payload.clientId;
         if (payload.guestId) session.guestId = payload.guestId;
+
+        if (!session.uid && (session.guestId || session.fingerprint)) {
+          syncGuestSessionToFirestore(session);
+        }
 
         const sessionUid = session.uid;
         if (sessionUid || session.fingerprint || session.clientId || session.ip) {
@@ -826,6 +884,7 @@ async function startServer() {
               session.email = email;
               session.isAuthenticated = true;
               session.joinTime = session.joinTime || Date.now();
+              syncGuestSessionToFirestore(session, { offline: true });
 
               const userDocRef = doc(db, "users", uid);
               const docSnap = await getDoc(userDocRef);
@@ -1807,6 +1866,10 @@ async function startServer() {
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
             session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
 
+            if (!session.uid) {
+              syncGuestSessionToFirestore(session);
+            }
+
             if (oldRoomId && oldRoomId !== roomId) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
               broadcastToRoom(oldRoomId, "user_left", {
@@ -2437,6 +2500,8 @@ async function startServer() {
               } catch (e) {
                 console.error("[update_profile] Erro ao atualizar Firestore:", e);
               }
+            } else {
+              syncGuestSessionToFirestore(session);
             }
 
             if (session.roomId) {
@@ -2465,6 +2530,19 @@ async function startServer() {
       if (session) {
         const { nickname, roomId } = session;
         activeSessions.delete(ws);
+
+        if (!session.uid) {
+          let isStillConnected = false;
+          activeSessions.forEach((s, otherWs) => {
+            if (otherWs !== ws && !s.uid) {
+              if (session.guestId && s.guestId === session.guestId) isStillConnected = true;
+              if (session.fingerprint && s.fingerprint === session.fingerprint) isStillConnected = true;
+            }
+          });
+          if (!isStillConnected) {
+            syncGuestSessionToFirestore(session, { offline: true });
+          }
+        }
 
         if (nickname && roomId) {
           
@@ -2737,7 +2815,7 @@ async function startServer() {
   });
 
   server.listen(PORT, "0.0.0.0", () => {
-    
+    resetGuestSessionsOnStart();
   });
 }
 

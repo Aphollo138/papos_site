@@ -739,6 +739,21 @@ const FirebaseService = {
     };
   },
 
+  subscribeToGuestBans(callback) {
+    if (typeof callback === "function") {
+      guestBansCallbacks.add(callback);
+      if (cachedGuestBans !== null) {
+        callback(cachedGuestBans);
+      }
+    }
+    if (!isGuestBansListening) {
+      initGuestBansListener();
+    }
+    return () => {
+      guestBansCallbacks.delete(callback);
+    };
+  },
+
   async deleteGuestBlock(blockId, collectionName = "guestSuspensions") {
     if (!blockId) return;
     const user = auth.currentUser;
@@ -805,6 +820,35 @@ function initGuestSuspensionsListener() {
     });
   } catch (err) {
     console.error("Erro ao inicializar listener de guestSuspensions:", err);
+  }
+}
+
+let cachedGuestBans = null;
+const guestBansCallbacks = new Set();
+let isGuestBansListening = false;
+
+function initGuestBansListener() {
+  if (isGuestBansListening) return;
+  isGuestBansListening = true;
+
+  try {
+    const colRef = collection(db, "guestBans");
+    onSnapshot(colRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cachedGuestBans = list;
+
+      guestBansCallbacks.forEach((cb) => {
+        try { cb(cachedGuestBans); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de guestBans:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de guestBans:", err);
   }
 }
 
