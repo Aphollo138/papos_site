@@ -1809,7 +1809,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const avatarHtml = window.ChatEngine ? window.ChatEngine.renderAvatar(u, "avatar-member") : `<div class="avatar-member bg-secondary">P</div>`;
         const statusHtml = `<span class="status-indicator status-online ms-1.5" style="width: 8px; height: 8px; flex-shrink: 0; position: static; display: inline-block; ${(isAdmin || isMod) ? 'background-color: #f5c542 !important;' : ''}"></span>`;
         
-        const nameColorStyle = isAdmin ? 'color: #f5c542 !important; font-weight: 700 !important;' : (isMe ? 'color: #ffffff !important; font-weight: 700 !important;' : 'color: #d4d4d4 !important;');
+        const nameColorStyle = isAdmin ? 'color: #ff3b30 !important; font-weight: 700 !important;' : (isMe ? 'color: #ffffff !important; font-weight: 700 !important;' : 'color: #d4d4d4 !important;');
+        const adminIconSvg = `<span class="admin-logo-badge me-1" title="Administrador do Papo.net" aria-label="Administrador do Papo.net"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><mask id="logo-mask-admin-member-${u.replace(/[^a-zA-Z0-9_-]/g, '_')}"><rect x="0" y="0" width="100" height="100" fill="white" /><line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" /></mask><g mask="url(#logo-mask-admin-member-${u.replace(/[^a-zA-Z0-9_-]/g, '_')})"><path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="#111827" /><path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="#111827" /></g><line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="#111827" fill="none" /><circle cx="78" cy="26" r="6" fill="#111827" /></g></svg></span>`;
         const adminBadgeHtml = isAdmin ? `
           <img
             src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADXklEQVR4nO2Zy0tVURTGf4mTO4zUBvkg7SEhETXJqNQ7apQRDa7/gL0cWQP9DwqkIBokmWhaUEQ1Kwt6gGavYUXmxIpeDmoSSlDd2PBt2Ni95557POeeY/nBAblnr7XX59mP9a0Fy/g/0AoMAtPAvJ5p/dbCEkAtcAfIFnjGgBoSis3AZyfYe0An0KanU7/Z95+AJhKGSuC9AvyipZUPrRpjxr4FKogBK4BtwHHgNNAHdAE3FNg3oN6Hn3qNNTbX5cP4Mj6PaQ4zVyTYB7wssPY7ivCXKeDrBdAeJoFut4B454A3w3Xw4/1vC3c0xJpE24lzZ4R2xSXVpMIn5A344d5o3OsbzXpMKnN4p9c4qHqIChE1yVRUfCR4031d2R5qS3M/o4C783/i+XwY1O34d0wE3vI/X/T7o2K/m5T6s8M351O25tC3uS9yE1C2S9S3/y6vA85x/02S1/7c2s0/R1m/c60c8eNfXjX4/oG3fA=="
@@ -1829,6 +1830,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <button class="btn p-0 border-0 d-flex align-items-center gap-2 text-truncate text-start" onclick="window.openUserProfile('${u}')" style="cursor: pointer; background: transparent; color: inherit; min-width: 0; flex: 1;" tabindex="0" aria-label="Ver perfil de ${u}">
               ${avatarHtml}
               <span class="small text-truncate d-inline-flex align-items-center gap-1.5" title="${u}" style="min-width: 0; pointer-events: none; white-space: nowrap;">
+                ${isAdmin ? adminIconSvg : ''}
                 <span class="text-truncate" style="${nameColorStyle}">${u} ${isMe ? '(Você)' : ''}</span>
                 ${adminBadgeHtml}
                 ${isMod ? '<span class="badge bg-danger-subtle text-danger flex-shrink-0" style="font-size:0.55rem; padding: 2px 4px;">MOD</span>' : ''}

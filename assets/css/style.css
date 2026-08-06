@@ -1492,6 +1492,26 @@ body.chat-page i.bi {
   }
 }
 
+.admin-logo-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+  padding: 2px !important;
+}
+
+.admin-logo-badge svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: block !important;
+}
+
 .verified-admin-badge {
   display: inline-block !important;
   vertical-align: middle !important;
