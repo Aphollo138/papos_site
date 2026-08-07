@@ -765,6 +765,16 @@ async function startServer() {
     return Array.from(new Set(list)); 
   }
 
+  function getAdminNicknames(): string[] {
+    const list: string[] = ["Bot_Papos", "bot_papos", "bots_papos"];
+    activeSessions.forEach((session) => {
+      if (session.nickname && (session.isAdmin || isReservedNickname(session.nickname))) {
+        list.push(session.nickname);
+      }
+    });
+    return Array.from(new Set(list));
+  }
+
   function updateRoomCounts() {
     rooms.forEach((room) => {
       let count = 0;
@@ -1866,7 +1876,8 @@ async function startServer() {
                 nickname: oldNickname,
                 time: getCurrentTime(),
                 timestamp: Date.now(),
-                onlineUsers: leftUsers
+                onlineUsers: leftUsers,
+                adminUsers: getAdminNicknames()
               });
             }
 
@@ -1878,14 +1889,16 @@ async function startServer() {
               roomId,
               nickname: finalNickname,
               messages: messages[roomId],
-              onlineUsers: getRoomOnlineUsers(roomId)
+              onlineUsers: getRoomOnlineUsers(roomId),
+              adminUsers: getAdminNicknames()
             });
 
             broadcastToRoom(roomId, "user_joined", {
               nickname: finalNickname,
               time: getCurrentTime(),
               timestamp: Date.now(),
-              onlineUsers: getRoomOnlineUsers(roomId)
+              onlineUsers: getRoomOnlineUsers(roomId),
+              adminUsers: getAdminNicknames()
             }, ws);
 
             const roomBots = BOTS.filter(b => b.rooms.includes(roomId) && (systemSettings.botsEnabled || ["bot_papos", "bots_papos"].includes(b.nickname.toLowerCase())));
@@ -2058,7 +2071,8 @@ async function startServer() {
             const currentRoomId = session.roomId || "room-1";
             sendToClient(ws, "room_members_update", {
               roomId: currentRoomId,
-              onlineUsers: getRoomOnlineUsers(currentRoomId)
+              onlineUsers: getRoomOnlineUsers(currentRoomId),
+              adminUsers: getAdminNicknames()
             });
             break;
           }
@@ -2087,7 +2101,7 @@ async function startServer() {
             if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
-            const msgId = "m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+            const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
             const msgObj = {
               id: msgId,
               sender: session.nickname,

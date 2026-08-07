@@ -848,6 +848,10 @@
                     <p class="small mb-0" style="color: #9f9f9f;">Monitoramento e moderação em tempo real de visitantes não autenticados.</p>
                   </div>
                   <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-success d-flex align-items-center gap-1.5 fw-semibold px-3 py-2" id="btn-admin-refresh-guests" onclick="window.refreshAdminGuests && window.refreshAdminGuests()" title="Solicitar lista atualizada de convidados online" style="border-radius: 12px; font-size: 0.85rem; border-color: rgba(34, 197, 94, 0.3);">
+                      <i class="bi bi-arrow-clockwise fs-6" id="admin-guests-refresh-icon"></i>
+                      <span>Atualizar</span>
+                    </button>
                     <span class="badge bg-success px-3 py-2 fw-semibold" id="admin-guests-online-badge" style="font-size: 0.85rem;">0 online</span>
                     <div class="input-group" style="max-width: 300px;">
                       <span class="input-group-text border-0 text-white" style="background-color: #141414; border-top-left-radius: 12px; border-bottom-left-radius: 12px;"><i class="bi bi-search"></i></span>
@@ -2071,6 +2075,18 @@
   function requestOnlineGuests() {
     sendAdminAction({ type: "get_online_guests" });
   }
+
+  window.refreshAdminGuests = function() {
+    const icon = document.getElementById("admin-guests-refresh-icon");
+    if (icon) {
+      icon.style.transition = "transform 0.5s ease";
+      icon.style.transform = "rotate(360deg)";
+      setTimeout(() => {
+        icon.style.transform = "none";
+      }, 550);
+    }
+    requestOnlineGuests();
+  };
 
   function requestAuditLogs() {
     sendAdminAction({ type: "get_audit_logs" });

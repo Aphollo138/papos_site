@@ -648,7 +648,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!data) return;
 
+        if (Array.isArray(data.adminUsers)) {
+          data.adminUsers.forEach(a => {
+            if (a) window.adminUsersSet.add(String(a).toLowerCase());
+          });
+        }
+
         switch (data.type) {
+          case "room_members_update":
+            if (data.onlineUsers) {
+              onlineUsersList = data.onlineUsers;
+              renderMembers();
+            }
+            break;
+
           case "room_state":
             activeRoomId = data.roomId;
             window.confirmedNickname = data.nickname;
@@ -2009,9 +2022,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (chatMode === "public") {
-      
+      const clientMsgId = "m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+      const msgObj = {
+        id: clientMsgId,
+        sender: window.confirmedNickname || currentUser,
+        text: text,
+        time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        timestamp: Date.now(),
+        isSystem: false,
+        color: activeMessageColor || undefined,
+        replyTo: replyTargetMsg ? {
+          id: replyTargetMsg.id,
+          sender: replyTargetMsg.sender,
+          text: replyTargetMsg.text
+        } : null,
+        reactions: {}
+      };
+
+      publicRoomMessages.push(msgObj);
+      appendSingleMessage(msgObj);
+
       socket.send(JSON.stringify({
         type: "message",
+        id: clientMsgId,
         text: text,
         color: activeMessageColor || undefined,
         replyTo: replyTargetMsg ? {
@@ -2735,7 +2768,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (nicknameEl) {
-      nicknameEl.textContent = profile.nickname;
+      if (isMe) {
+        nicknameEl.innerHTML = `${profile.nickname} <span class="small text-secondary fw-normal ms-1">(Você)</span> <img src="/favicon-32x32.png" alt="Papos Logo" title="Papos Logo" width="20" height="20" class="align-middle ms-1" style="object-fit: contain;">`;
+      } else {
+        nicknameEl.textContent = profile.nickname;
+      }
 
       const isProfileAdmin = profile.admin === true || (window.isAdminUser && window.isAdminUser(profile.nickname));
       let badgeEl = document.getElementById("modal-profile-admin-badge");
