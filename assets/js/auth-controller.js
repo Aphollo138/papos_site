@@ -321,6 +321,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (btnAuthTrigger) btnAuthTrigger.classList.add("d-none");
         if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.add("d-none");
 
+        const sidebarBtnAuth = document.getElementById("sidebar-btn-auth-trigger");
+        const sidebarBtnLogout = document.getElementById("sidebar-btn-logout-action");
+        if (sidebarBtnAuth) sidebarBtnAuth.classList.add("d-none");
+        if (sidebarBtnLogout) {
+          sidebarBtnLogout.classList.remove("d-none");
+          sidebarBtnLogout.classList.add("d-flex");
+        }
+
         const mobileMenuUserBox = document.getElementById("mobile-menu-user-box");
         const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
         const mobileMenuBtnAuth = document.getElementById("mobile-menu-btn-auth");
@@ -365,6 +373,14 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (btnAuthTrigger) btnAuthTrigger.classList.remove("d-none");
         if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.remove("d-none");
+
+        const sidebarBtnAuthOut = document.getElementById("sidebar-btn-auth-trigger");
+        const sidebarBtnLogoutOut = document.getElementById("sidebar-btn-logout-action");
+        if (sidebarBtnAuthOut) sidebarBtnAuthOut.classList.remove("d-none");
+        if (sidebarBtnLogoutOut) {
+          sidebarBtnLogoutOut.classList.add("d-none");
+          sidebarBtnLogoutOut.classList.remove("d-flex");
+        }
 
         const mobileMenuUserBoxOut = document.getElementById("mobile-menu-user-box");
         const mobileMenuBtnAuthOut = document.getElementById("mobile-menu-btn-auth");

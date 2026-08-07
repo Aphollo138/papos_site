@@ -2054,6 +2054,15 @@ async function startServer() {
             break;
           }
 
+          case "get_room_members": {
+            const currentRoomId = session.roomId || "room-1";
+            sendToClient(ws, "room_members_update", {
+              roomId: currentRoomId,
+              onlineUsers: getRoomOnlineUsers(currentRoomId)
+            });
+            break;
+          }
+
           case "message": {
             if (!session.nickname || !session.roomId) {
               sendToClient(ws, "error", { message: "Você precisa se identificar antes de enviar mensagens." });

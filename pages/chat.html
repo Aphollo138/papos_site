@@ -241,63 +241,22 @@
               </div>
             </div>
 
-            <div class="d-none d-md-flex align-items-center gap-1.5 flex-shrink-0" id="desktop-header-actions">
-              
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala" aria-label="Trocar de sala" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-grid-fill" aria-hidden="true"></i> <span class="d-none d-sm-inline">Salas</span>
+            <div class="d-none d-md-flex align-items-center gap-2 flex-shrink-0" id="desktop-header-actions">
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-3 d-flex align-items-center gap-2" id="btn-desktop-sidebar-toggle" title="Menu e Ferramentas" aria-label="Abrir menu lateral" role="button" style="border-radius: var(--radius-sm); font-size: 0.88rem;">
+                <i class="bi bi-layout-sidebar fs-5" aria-hidden="true"></i>
+                <span class="d-none d-lg-inline fw-medium">Menu</span>
               </button>
 
-              <a href="https://wa.me/5511913303930?text=Ol%C3%A1!%20Gostaria%20de%20falar%20com%20o%20suporte%20do%20Papo.net.br." 
-                 target="_blank" 
-                 rel="noopener noreferrer" 
-                 class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" 
-                 id="btn-whatsapp-support" 
-                 title="Suporte via WhatsApp" 
-                 aria-label="Suporte via WhatsApp"
-                 role="button"
-                 style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <img src="/assets/icons/whatsapp.svg" alt="WhatsApp Papo.net.br" title="Suporte via WhatsApp" style="filter: brightness(0) invert(1);" aria-hidden="true" />
-                <span class="d-none d-sm-inline">Suporte</span>
-              </a>
-
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados" aria-label="Ver membros conectados" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-people-fill" aria-hidden="true"></i> <span class="d-none d-sm-inline">Membros</span>
-              </button>
-
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center gap-1.5" id="btn-remove-ads" title="Remover anúncios" aria-label="Remover anúncios" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <img src="/assets/icons/ad-blocker.svg" alt="Remover anúncios" title="Remover anúncios" style="filter: brightness(0) invert(1);" aria-hidden="true" />
-                <span class="d-none d-sm-inline">Sem Anúncios</span>
-              </button>
-              
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" id="btn-toggle-search" title="Pesquisar nesta sala" aria-label="Pesquisar nesta sala" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-search" aria-hidden="true"></i>
-              </button>
-
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 px-sm-2.5 d-flex align-items-center justify-content-center" id="btn-theme-toggle" onclick="window.ChatEngine.toggleTheme()" title="Alternar tema" aria-label="Alternar tema" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-sun-fill theme-sun-icon-btn text-warning" aria-hidden="true"></i>
-                <i class="bi bi-moon-fill theme-moon-icon-btn text-primary" aria-hidden="true"></i>
-              </button>
-
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 px-sm-3 d-flex align-items-center gap-1.5" id="btn-feedback-trigger" onclick="window.openFeedbackModal && window.openFeedbackModal()" title="Avaliar o Papo.net" aria-label="Avaliar" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem; color: #f59e0b;">
-                <i class="bi bi-star-fill text-warning" aria-hidden="true"></i> <span class="d-none d-sm-inline">Avaliar</span>
-              </button>
-
-              <button class="btn btn-premium btn-sm py-1.5 px-2.5 px-sm-3 d-flex align-items-center gap-1.5" id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" title="Entrar" aria-label="Entrar" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> <span class="d-none d-sm-inline">Entrar</span>
-              </button>
-
-              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 px-sm-3 d-none align-items-center gap-1.5 text-danger" id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" title="Sair" aria-label="Sair" role="button" style="border-radius: var(--radius-sm); font-size: 0.8rem;">
-                <i class="bi bi-box-arrow-right text-danger" aria-hidden="true"></i> <span class="d-none d-sm-inline">Sair</span>
-              </button>
-
-              <div class="dropdown d-none" id="header-three-dots-container">
-                <button class="btn btn-secondary-custom btn-sm py-1.5 px-2 dropdown-toggle-no-caret d-flex align-items-center justify-content-center" type="button" id="dropdownMenuThreeDots" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: var(--radius-sm); font-size: 0.8rem;" title="Mais Opções" aria-label="Mais Opções" role="button">
-                  <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end border-secondary" aria-labelledby="dropdownMenuThreeDots" style="background-color: var(--surface); min-width: 140px;">
-                </ul>
-              </div>
-
+              <button id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" class="d-none" aria-hidden="true" tabindex="-1"></button>
+              <a href="https://wa.me/5511913303930?text=Ol%C3%A1!%20Gostaria%20de%20falar%20com%20o%20suporte%20do%20Papo.net.br." target="_blank" rel="noopener noreferrer" id="btn-whatsapp-support" class="d-none" aria-hidden="true" tabindex="-1"></a>
+              <button id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" class="d-none" aria-hidden="true" tabindex="-1"></button>
+              <button id="btn-remove-ads" class="d-none" aria-hidden="true" tabindex="-1"></button>
+              <button id="btn-toggle-search" class="d-none" aria-hidden="true" tabindex="-1"></button>
+              <button id="btn-theme-toggle" onclick="window.ChatEngine.toggleTheme()" class="d-none" aria-hidden="true" tabindex="-1"></button>
+              <button id="btn-feedback-trigger" onclick="window.openFeedbackModal && window.openFeedbackModal()" class="d-none" aria-hidden="true" tabindex="-1"></button>
+              <button id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" class="d-none" aria-hidden="true" tabindex="-1"></button>
+              <button id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" class="d-none" aria-hidden="true" tabindex="-1"></button>
+              <div class="dropdown d-none" id="header-three-dots-container"></div>
             </div>
 
             <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center justify-content-center d-md-none flex-shrink-0" id="btn-mobile-menu-toggle" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMobileMenu" aria-controls="offcanvasMobileMenu" title="Menu principal" aria-label="Abrir menu principal" role="button" style="border-radius: var(--radius-sm); font-size: 0.9rem;">
@@ -592,10 +551,15 @@
     </div>
 
     <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasMembers" aria-labelledby="offcanvasMembersLabel">
-      <div class="offcanvas-header">
-        <h5 class="h6 fw-bold text-white mb-0" id="offcanvasMembersLabel">
-          <i class="bi bi-people-fill me-2 text-success"></i> Membros Conectados
-        </h5>
+      <div class="offcanvas-header d-flex align-items-center justify-content-between p-3 border-bottom border-secondary">
+        <div class="d-flex align-items-center gap-2">
+          <h5 class="h6 fw-bold text-white mb-0" id="offcanvasMembersLabel">
+            <i class="bi bi-people-fill me-2 text-success"></i> Membros Conectados
+          </h5>
+          <button type="button" class="btn btn-sm text-secondary hover-white p-1 rounded-circle ms-1" onclick="window.refreshMembersList && window.refreshMembersList()" title="Atualizar lista de membros">
+            <i class="bi bi-arrow-clockwise fs-6" id="btn-refresh-members-icon-canvas"></i>
+          </button>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar" style="filter: invert(1);"></button>
       </div>
       <div class="offcanvas-body d-flex flex-column" style="background-color: var(--background) !important;">
@@ -799,6 +763,83 @@
         </div>
       </div>
     </div>
+
+    <!-- Sidebar Lateral Desktop (Menu & Ferramentas) -->
+    <aside id="desktop-nav-sidebar" class="desktop-nav-sidebar">
+      <div class="desktop-sidebar-header d-flex align-items-center justify-content-between p-3 border-bottom border-secondary">
+        <div class="d-flex align-items-center gap-2">
+          <img src="/favicon-32x32.png" alt="Papos Logo" title="Papos Logo" width="22" height="22" style="object-fit: contain;">
+          <h5 class="h6 fw-bold text-white mb-0 font-display">Menu & Ferramentas</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" id="btn-close-desktop-sidebar" aria-label="Fechar menu"></button>
+      </div>
+
+      <div class="desktop-sidebar-body p-3 d-flex flex-column gap-2 overflow-y-auto">
+        
+        <!-- 1. Membros -->
+        <div class="d-flex align-items-center justify-content-between w-100 btn-secondary-custom rounded-3 py-2 px-3">
+          <button type="button" class="btn p-0 text-start border-0 text-white d-flex align-items-center gap-2 flex-grow-1" id="sidebar-item-members" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" aria-controls="offcanvasMembers" title="Ver membros conectados">
+            <i class="bi bi-people-fill text-success fs-5 me-1"></i>
+            <span class="fw-semibold">Membros</span>
+          </button>
+          <button type="button" class="btn btn-sm text-secondary hover-white p-1 rounded-circle" id="btn-refresh-members-sidebar" onclick="window.refreshMembersList && window.refreshMembersList()" title="Atualizar membros online">
+            <i class="bi bi-arrow-clockwise fs-6" id="btn-refresh-members-icon"></i>
+          </button>
+        </div>
+
+        <!-- 2. Salas -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2 py-2 px-3 rounded-3" id="sidebar-item-rooms" data-bs-toggle="modal" data-bs-target="#roomsModal" title="Trocar de sala">
+          <i class="bi bi-chat-square-text text-primary fs-5 me-1"></i>
+          <span class="fw-semibold">Salas</span>
+        </button>
+
+        <!-- 3. Suporte -->
+        <a href="https://wa.me/5511913303930?text=Ol%C3%A1!%20Gostaria%20de%20falar%20com%20o%20suporte%20do%20Papo.net.br." target="_blank" rel="noopener noreferrer" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2 py-2 px-3 rounded-3 text-white text-decoration-none" id="sidebar-item-support" title="Suporte via WhatsApp">
+          <i class="bi bi-whatsapp text-success fs-5 me-1"></i>
+          <span class="fw-semibold">Suporte</span>
+        </a>
+
+        <!-- 4. Remover Anúncios -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2 py-2 px-3 rounded-3" id="sidebar-item-remove-ads" title="Remover anúncios">
+          <i class="bi bi-badge-ad text-danger fs-5 me-1"></i>
+          <span class="fw-semibold">Remover anúncios</span>
+        </button>
+
+        <!-- 5. Pesquisa -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2 py-2 px-3 rounded-3" id="sidebar-item-search" title="Pesquisar mensagens">
+          <i class="bi bi-search text-warning fs-5 me-1"></i>
+          <span class="fw-semibold">Pesquisa</span>
+        </button>
+
+        <!-- 6. Alterar Tema -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2 py-2 px-3 rounded-3" id="sidebar-item-theme" onclick="window.ChatEngine && window.ChatEngine.toggleTheme()" title="Alternar tema claro/escuro">
+          <i class="bi bi-circle-half text-info fs-5 me-1"></i>
+          <span class="fw-semibold">Alterar Tema</span>
+        </button>
+
+        <!-- 7. Avaliações -->
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2 py-2 px-3 rounded-3" id="sidebar-item-feedback" onclick="window.openFeedbackModal && window.openFeedbackModal()" title="Avaliar o Papo.net">
+          <i class="bi bi-star-fill text-warning fs-5 me-1"></i>
+          <span class="fw-semibold">Avaliações</span>
+        </button>
+
+        <hr class="border-secondary my-2">
+
+        <!-- 8. Sair / Entrar -->
+        <div id="sidebar-auth-container" class="mt-1">
+          <button type="button" class="btn btn-premium w-100 py-2.5 px-3 d-flex align-items-center justify-content-center gap-2 fw-semibold rounded-3" id="sidebar-btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal">
+            <i class="bi bi-box-arrow-in-right fs-5"></i>
+            <span>Entrar</span>
+          </button>
+
+          <button type="button" class="btn btn-outline-danger w-100 py-2.5 px-3 d-none align-items-center justify-content-center gap-2 fw-semibold rounded-3" id="sidebar-btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
+            <i class="bi bi-box-arrow-right text-danger fs-5"></i>
+            <span>Sair</span>
+          </button>
+        </div>
+
+      </div>
+    </aside>
 
     <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 

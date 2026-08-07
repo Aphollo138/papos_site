@@ -1134,6 +1134,85 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initMobileMenuInteractions();
 
+  window.refreshMembersList = function() {
+    const icon1 = document.getElementById("btn-refresh-members-icon");
+    const icon2 = document.getElementById("btn-refresh-members-icon-canvas");
+
+    if (icon1) icon1.classList.add("spinning-icon");
+    if (icon2) icon2.classList.add("spinning-icon");
+
+    setTimeout(() => {
+      if (icon1) icon1.classList.remove("spinning-icon");
+      if (icon2) icon2.classList.remove("spinning-icon");
+    }, 700);
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        action: "get_room_members",
+        roomId: currentRoomId
+      }));
+
+      const isUserAdmin = window.isAdminUser || localStorage.getItem("papos_is_admin") === "true";
+      if (isUserAdmin) {
+        ws.send(JSON.stringify({
+          action: "get_online_guests"
+        }));
+      }
+    }
+  };
+
+  function initDesktopSidebarInteractions() {
+    const btnDesktopSidebarToggle = document.getElementById("btn-desktop-sidebar-toggle");
+    const btnCloseDesktopSidebar = document.getElementById("btn-close-desktop-sidebar");
+    const desktopNavSidebar = document.getElementById("desktop-nav-sidebar");
+
+    if (btnDesktopSidebarToggle && desktopNavSidebar) {
+      btnDesktopSidebarToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        desktopNavSidebar.classList.toggle("open");
+      });
+    }
+
+    if (btnCloseDesktopSidebar && desktopNavSidebar) {
+      btnCloseDesktopSidebar.addEventListener("click", () => {
+        desktopNavSidebar.classList.remove("open");
+      });
+    }
+
+    document.addEventListener("click", (e) => {
+      if (desktopNavSidebar && desktopNavSidebar.classList.contains("open")) {
+        if (!desktopNavSidebar.contains(e.target) && btnDesktopSidebarToggle && !btnDesktopSidebarToggle.contains(e.target)) {
+          desktopNavSidebar.classList.remove("open");
+        }
+      }
+    });
+
+    const btnSearch = document.getElementById("sidebar-item-search");
+    if (btnSearch) {
+      btnSearch.addEventListener("click", () => {
+        const searchWrapper = document.getElementById("chat-search-bar-wrapper");
+        if (searchWrapper) {
+          searchWrapper.classList.remove("d-none");
+          const searchInput = document.getElementById("chat-search-messages-input");
+          if (searchInput) searchInput.focus();
+        }
+      });
+    }
+
+    const btnRemoveAds = document.getElementById("sidebar-item-remove-ads");
+    if (btnRemoveAds) {
+      btnRemoveAds.addEventListener("click", () => {
+        const removeModal = document.getElementById("removeAdsModal");
+        if (removeModal && typeof bootstrap !== "undefined" && bootstrap.Modal) {
+          const bsRemove = bootstrap.Modal.getOrCreateInstance(removeModal);
+          bsRemove.show();
+        }
+      });
+    }
+  }
+
+  initDesktopSidebarInteractions();
+
   function handleIncomingPrivateMessage(pm) {
     if (!pm) return;
 
