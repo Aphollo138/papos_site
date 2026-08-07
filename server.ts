@@ -35,16 +35,25 @@ const systemSettings = {
   botsEnabled: true
 };
 
+let notifyBotsToggled: ((enabled: boolean) => void) | null = null;
+
 try {
   const settingsDocRef = doc(db, "system", "settings");
   onSnapshot(settingsDocRef, (snap) => {
     if (snap.exists()) {
       const data = snap.data();
       systemSettings.adsEnabled = data.adsEnabled !== false;
-      systemSettings.botsEnabled = data.botsEnabled !== false;
+      const isEnabled = data.botsEnabled !== false;
+      systemSettings.botsEnabled = isEnabled;
+      if (notifyBotsToggled) {
+        notifyBotsToggled(isEnabled);
+      }
     } else {
       systemSettings.adsEnabled = true;
       systemSettings.botsEnabled = true;
+      if (notifyBotsToggled) {
+        notifyBotsToggled(true);
+      }
     }
   }, (err) => {
     console.error("[SystemSettings] Listener error:", err);
@@ -756,11 +765,13 @@ async function startServer() {
       }
     });
     
-    BOTS.forEach(bot => {
-      if (bot.rooms.includes(roomId)) {
-        list.push(bot.nickname);
-      }
-    });
+    if (systemSettings.botsEnabled) {
+      BOTS.forEach(bot => {
+        if (bot.rooms.includes(roomId)) {
+          list.push(bot.nickname);
+        }
+      });
+    }
 
     return Array.from(new Set(list)); 
   }
@@ -783,6 +794,13 @@ async function startServer() {
           count++;
         }
       });
+      if (systemSettings.botsEnabled) {
+        BOTS.forEach(bot => {
+          if (bot.rooms.includes(room.id)) {
+            count++;
+          }
+        });
+      }
       room.count = count;
     });
   }
@@ -793,6 +811,19 @@ async function startServer() {
     activeSessions.forEach((session, ws) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "room_list", ...roomsPayload }));
+      }
+    });
+  }
+
+  function broadcastOnlineMembersUpdateToAll() {
+    broadcastRoomsList();
+    activeSessions.forEach((session, ws) => {
+      if (ws.readyState === WebSocket.OPEN && session.roomId) {
+        sendToClient(ws, "room_members_update", {
+          roomId: session.roomId,
+          onlineUsers: getRoomOnlineUsers(session.roomId),
+          adminUsers: getAdminNicknames()
+        });
       }
     });
   }
@@ -1901,36 +1932,29 @@ async function startServer() {
               adminUsers: getAdminNicknames()
             }, ws);
 
-            const roomBots = BOTS.filter(b => b.rooms.includes(roomId) && (systemSettings.botsEnabled || ["bot_papos", "bots_papos"].includes(b.nickname.toLowerCase())));
-            if (roomBots.length > 0) {
-              const welcomeBot = roomBots[Math.floor(Math.random() * roomBots.length)];
-              
+            if (systemSettings.botsEnabled) {
               setTimeout(() => {
+                if (!systemSettings.botsEnabled) return;
                 broadcastToRoom(roomId, "typing", {
-                  nickname: welcomeBot.nickname,
+                  nickname: "Bot_Papos",
                   isTyping: true
                 });
               }, 500);
 
               setTimeout(() => {
+                if (!systemSettings.botsEnabled) return;
                 
                 broadcastToRoom(roomId, "typing", {
-                  nickname: welcomeBot.nickname,
+                  nickname: "Bot_Papos",
                   isTyping: false
                 });
 
-                const welcomePhrases = [
-                  `Seja muito bem-vindo(a) @${finalNickname}! Fique à vontade para puxar assunto por aqui.`,
-                  `Opa, eae @${finalNickname}! Tudo tranquilo por aí?`,
-                  `Seja bem-vindo(a), @${finalNickname}! Qual a boa de hoje?`,
-                  `Oi @${finalNickname}, seja super bem-vindo ao nosso espaço!`
-                ];
-                const text = welcomePhrases[Math.floor(Math.random() * welcomePhrases.length)];
+                const text = `👋 Olá, ${finalNickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
                 
                 const welcomeMsgId = "bot-welcome-" + Date.now();
                 const welcomeMsg = {
                   id: welcomeMsgId,
-                  sender: welcomeBot.nickname,
+                  sender: "Bot_Papos",
                   text,
                   time: getCurrentTime(),
                   timestamp: Date.now(),
@@ -1940,8 +1964,9 @@ async function startServer() {
 
                 if (!messages[roomId]) messages[roomId] = [];
                 messages[roomId].push(welcomeMsg);
+                if (messages[roomId].length > 100) messages[roomId].shift();
                 broadcastToRoom(roomId, "message", { message: welcomeMsg });
-              }, 2500);
+              }, 1800);
             }
 
             broadcastRoomsList();
@@ -2729,32 +2754,100 @@ async function startServer() {
     });
   }
 
+  const PAPOS_TIPS = [
+    "💬 Respeite todos os participantes da conversa.",
+    "🔒 Nunca compartilhe senhas ou informações pessoais.",
+    "⭐ Avalie o Papo.net no menu se estiver gostando.",
+    "🚫 Denuncie comportamentos inadequados utilizando as ferramentas disponíveis.",
+    "😊 Converse com educação e faça novas amizades.",
+    "📱 O Papo.net funciona perfeitamente também no celular."
+  ];
+
+  let paposTipIndex = 0;
+  let paposTipInterval: NodeJS.Timeout | null = null;
+
+  function sendPaposTip() {
+    if (!systemSettings.botsEnabled) return;
+
+    const tipText = PAPOS_TIPS[paposTipIndex % PAPOS_TIPS.length];
+    paposTipIndex = (paposTipIndex + 1) % PAPOS_TIPS.length;
+
+    const targetRoomId = "room-1";
+    const msgId = "bot-tip-" + Date.now();
+    const msgObj = {
+      id: msgId,
+      sender: "Bot_Papos",
+      text: tipText,
+      time: getCurrentTime(),
+      timestamp: Date.now(),
+      isSystem: false,
+      reactions: {}
+    };
+
+    broadcastToRoom(targetRoomId, "typing", {
+      nickname: "Bot_Papos",
+      isTyping: true
+    });
+
+    setTimeout(() => {
+      if (!systemSettings.botsEnabled) return;
+
+      broadcastToRoom(targetRoomId, "typing", {
+        nickname: "Bot_Papos",
+        isTyping: false
+      });
+
+      if (!messages[targetRoomId]) {
+        messages[targetRoomId] = [];
+      }
+      messages[targetRoomId].push(msgObj);
+      if (messages[targetRoomId].length > 100) {
+        messages[targetRoomId].shift();
+      }
+
+      broadcastToRoom(targetRoomId, "message", { message: msgObj });
+    }, 1200);
+  }
+
+  function syncPaposTipTimer() {
+    if (systemSettings.botsEnabled) {
+      if (!paposTipInterval) {
+        paposTipInterval = setInterval(() => {
+          sendPaposTip();
+        }, 15 * 60 * 1000); // 15 minutes = 900,000 ms
+      }
+    } else {
+      if (paposTipInterval) {
+        clearInterval(paposTipInterval);
+        paposTipInterval = null;
+      }
+    }
+  }
+
+  let lastBotsState = systemSettings.botsEnabled;
+  notifyBotsToggled = (enabled: boolean) => {
+    systemSettings.botsEnabled = enabled;
+    if (lastBotsState !== enabled) {
+      lastBotsState = enabled;
+      syncPaposTipTimer();
+      broadcastOnlineMembersUpdateToAll();
+    }
+  };
+
+  syncPaposTipTimer();
+
   const currentlyTypingBots = new Set<string>();
 
   const triggerBotSpeech = (bot: typeof BOTS[0]) => {
-    const isExemptBot = ["bot_papos", "bots_papos"].includes(bot.nickname.toLowerCase());
-    if (!systemSettings.botsEnabled && !isExemptBot) return;
+    if (!systemSettings.botsEnabled) return;
+    if (bot.nickname === "Bot_Papos") return; // Bot_Papos handled separately (welcome + 15-min tips)
     if (currentlyTypingBots.has(bot.nickname)) return;
     
     const roomId = bot.rooms[Math.floor(Math.random() * bot.rooms.length)];
     const roomMsgs = BOT_MESSAGES[roomId];
     if (!roomMsgs || roomMsgs.length === 0) return;
 
-    let text = "";
-    if (bot.nickname === "Bot_Papos") {
-      
-      if (Math.random() > 0.15) return; 
-      const paposTips = [
-        "Olá pessoal! Se quiserem saber as novidades ou tirar dúvidas sobre o chat, basta clicar no meu nome na lista de online e me mandar uma DM privada! 😊",
-        "Dica: Personalize o visual das suas mensagens clicando no botão da paleta colorida no campo de texto!",
-        "Dica: Você pode acessar canais sobre tecnologia, música, desabafos e jogos clicando no botão 'Salas' no menu superior! 💬",
-        "Sintam-se livres para criar discussões amigáveis por aqui! Respeitem as regras e se divirtam. 🚀",
-        "Sabia que você pode enviar dezenas de reações e emojis com o novo menu seletor de emojis ao lado do botão enviar?"
-      ];
-      text = paposTips[Math.floor(Math.random() * paposTips.length)];
-    } else {
-      text = roomMsgs[Math.floor(Math.random() * roomMsgs.length)];
-    }
+    const text = roomMsgs[Math.floor(Math.random() * roomMsgs.length)];
 
     const msgId = "bot-m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
     const msgObj = {
@@ -2775,6 +2868,11 @@ async function startServer() {
 
     const typingDuration = 1500 + Math.random() * 2000;
     setTimeout(() => {
+      if (!systemSettings.botsEnabled) {
+        currentlyTypingBots.delete(bot.nickname);
+        return;
+      }
+
       broadcastToRoom(roomId, "typing", {
         nickname: bot.nickname,
         isTyping: false
@@ -2795,15 +2893,18 @@ async function startServer() {
 
   const botInterval = setInterval(() => {
     try {
-      
+      if (!systemSettings.botsEnabled) return;
+
+      const chatterBots = BOTS.filter(b => b.nickname !== "Bot_Papos");
+      if (chatterBots.length === 0) return;
+
       const r = Math.random();
       const count = r < 0.5 ? 1 : r < 0.85 ? 2 : 3;
-      
-      const shuffled = [...BOTS].sort(() => 0.5 - Math.random());
+
+      const shuffled = [...chatterBots].sort(() => 0.5 - Math.random());
       const selected = shuffled.slice(0, count);
 
       selected.forEach((bot, index) => {
-        
         setTimeout(() => {
           triggerBotSpeech(bot);
         }, index * 600);
@@ -2816,6 +2917,7 @@ async function startServer() {
   wss.on("close", () => {
     clearInterval(interval);
     clearInterval(botInterval);
+    if (paposTipInterval) clearInterval(paposTipInterval);
   });
 
   server.listen(PORT, "0.0.0.0", () => {

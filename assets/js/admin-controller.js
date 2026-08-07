@@ -760,12 +760,8 @@
                   </div>
                   <div class="form-text small mt-3" style="color: #9f9f9f;">
                     <i class="bi bi-info-circle me-1 text-info"></i>
-                    Quando <strong>Ativado</strong>, todos os bots funcionam normalmente no sistema.<br>
-                    Quando <strong>Desativado</strong>, todos os bots públicos param de enviar mensagens, responder ou iniciar eventos.<br>
-                    <div class="p-2 rounded mt-2" style="background-color: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.2); color: #fef08a;">
-                      <i class="bi bi-shield-lock-fill me-1"></i>
-                      <strong>Exceção:</strong> O bot <code>Bot_Papos</code> (bots_papos) permanece ativo para mensagens privadas automáticas e orientações ao usuário.
-                    </div>
+                    Quando <strong>Ativado</strong>, os bots entram nas salas, aparecem na lista de membros e interagem normalmente.<br>
+                    Quando <strong>Desativado</strong>, os bots somem da lista de membros online/contagem e param todas as saudações, dicas e mensagens automáticas.
                   </div>
                 </div>
               </div>
