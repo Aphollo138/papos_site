@@ -243,18 +243,20 @@
 
             <div class="d-none d-md-flex align-items-center gap-2 flex-shrink-0" id="desktop-header-actions">
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-3 d-flex align-items-center gap-2" id="btn-desktop-sidebar-toggle" title="Menu e Ferramentas" aria-label="Abrir menu lateral" role="button" style="border-radius: var(--radius-sm); font-size: 0.88rem;">
-                <i class="bi bi-layout-sidebar fs-5" aria-hidden="true"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                  <rect width="18" height="18" x="3" y="3" rx="2"/>
+                  <path d="M15 3v18"/>
+                  <path d="M10 15l-3-3 3-3"/>
+                </svg>
                 <span class="d-none d-lg-inline fw-medium">Menu</span>
               </button>
 
               <button id="btn-open-rooms-modal" data-bs-toggle="modal" data-bs-target="#roomsModal" class="d-none" aria-hidden="true" tabindex="-1"></button>
               <a href="https://wa.me/5511913303930?text=Ol%C3%A1!%20Gostaria%20de%20falar%20com%20o%20suporte%20do%20Papo.net.br." target="_blank" rel="noopener noreferrer" id="btn-whatsapp-support" class="d-none" aria-hidden="true" tabindex="-1"></a>
               <button id="btn-open-members-panel" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMembers" class="d-none" aria-hidden="true" tabindex="-1"></button>
-              <button id="btn-remove-ads" class="d-none" aria-hidden="true" tabindex="-1"></button>
               <button id="btn-toggle-search" class="d-none" aria-hidden="true" tabindex="-1"></button>
               <button id="btn-theme-toggle" onclick="window.ChatEngine.toggleTheme()" class="d-none" aria-hidden="true" tabindex="-1"></button>
               <button id="btn-feedback-trigger" onclick="window.openFeedbackModal && window.openFeedbackModal()" class="d-none" aria-hidden="true" tabindex="-1"></button>
-              <button id="btn-auth-trigger" data-bs-toggle="modal" data-bs-target="#authModal" class="d-none" aria-hidden="true" tabindex="-1"></button>
               <button id="btn-logout-action" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal" class="d-none" aria-hidden="true" tabindex="-1"></button>
               <div class="dropdown d-none" id="header-three-dots-container"></div>
             </div>
