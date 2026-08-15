@@ -2641,6 +2641,7 @@ async function startServer() {
     app.get("/privacidade", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/privacy.html")));
     app.get("/termos", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/terms.html")));
     app.get("/sobre", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/about.html")));
+    app.get("/avaliacoes", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/avaliacoes.html")));
     app.get("/contato", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/contact.html")));
     app.get("/regras", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/rules.html")));
 
@@ -2699,6 +2700,9 @@ async function startServer() {
     });
     app.get("/sobre", (req, res) => {
       res.sendFile(path.join(distPath, "pages", "about.html"));
+    });
+    app.get("/avaliacoes", (req, res) => {
+      res.sendFile(path.join(distPath, "pages", "avaliacoes.html"));
     });
     app.get("/contato", (req, res) => {
       res.sendFile(path.join(distPath, "pages", "contact.html"));

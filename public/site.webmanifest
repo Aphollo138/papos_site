@@ -1,6 +1,8 @@
 {
-  "name": "Papo.net.br",
-  "short_name": "Papos",
+  "name": "Papo.net",
+  "short_name": "Papo.net",
+  "description": "Chat online gratuito brasileiro em tempo real.",
+  "start_url": "/",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -13,7 +15,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#000000",
-  "background_color": "#ffffff",
+  "theme_color": "#111111",
+  "background_color": "#111111",
   "display": "standalone"
 }

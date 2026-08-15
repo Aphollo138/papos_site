@@ -3,75 +3,81 @@
   <!-- Páginas Principais -->
   <url>
     <loc>https://papo.net.br/</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://papo.net.br/salas</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://papo.net.br/chat</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
+    <loc>https://papo.net.br/avaliacoes</loc>
+    <lastmod>2026-08-15</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://papo.net.br/sobre</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://papo.net.br/contato</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://papo.net.br/regras</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://papo.net.br/privacidade</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://papo.net.br/termos</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.6</priority>
   </url>
 
   <!-- Blog Índice e Categorias -->
   <url>
     <loc>https://papo.net.br/blog/</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/categoria.html?cat=amizade</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/categoria.html?cat=comunicacao</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/categoria.html?cat=seguranca-digital</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -79,121 +85,121 @@
   <!-- Artigos do Blog (URLs Limpas & SEO Otimizado) -->
   <url>
     <loc>https://papo.net.br/blog/como-conversar-com-pessoas-online-com-seguranca</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-fazer-novas-amizades-pela-internet</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-vencer-a-timidez-conversando-online</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/melhores-assuntos-para-iniciar-uma-conversa</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-conhecer-pessoas-com-os-mesmos-interesses</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-fazer-amigos-depois-dos-18-anos</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-conversar-sem-vergonha</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-manter-uma-conversa-interessante</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/diferenca-entre-chat-publico-e-conversa-privada</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-encontrar-pessoas-para-conversar-em-tempo-real</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/melhores-sites-para-conversar-online</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-criar-amizades-verdadeiras-pela-internet</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-iniciar-a-conversa-com-desconhecidos</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-desenvolver-habilidades-sociais-online</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-conversar-durante-a-madrugada</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-encontrar-pessoas-da-sua-cidade-para-conversar</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-fazer-amizades-em-2026</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/o-que-conversar-quando-acaba-o-assunto</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-perder-o-medo-de-conversar</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://papo.net.br/blog/como-usar-salas-de-bate-papo-de-forma-segura</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
