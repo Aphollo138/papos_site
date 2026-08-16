@@ -1,550 +1,1011 @@
+import { auth, db } from "./firebase.js";
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail, 
+  sendEmailVerification,
+  updateProfile, 
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  verifyPasswordResetCode,
+  confirmPasswordReset,
+  applyActionCode
+} from "firebase/auth";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc,
+  getDocs, 
+  addDoc,
+  query, 
+  where, 
+  onSnapshot, 
+  updateDoc, 
+  deleteDoc,
+  writeBatch
+} from "firebase/firestore";
 
-import FirebaseService from "/firebase/auth.js";
-
-document.addEventListener("DOMContentLoaded", () => {
+const FirebaseService = {
   
-  const authModalEl = document.getElementById("authModal");
-  if (!authModalEl) return;
+  getCurrentUser() {
+    return auth.currentUser;
+  },
 
-  const tabLogin = document.getElementById("tab-login");
-  const tabRegister = document.getElementById("tab-register");
-  const loginForm = document.getElementById("login-form");
-  const registerForm = document.getElementById("register-form");
-  const viewEmailPending = document.getElementById("view-email-pending");
-  const modalHeaderNav = authModalEl.querySelector(".modal-header > .w-100");
-  const btnResendPendingEmail = document.getElementById("btn-resend-pending-email");
-  const btnBackToLogin = document.getElementById("btn-back-to-login");
-  const emailPendingMessage = document.getElementById("email-pending-message");
+  async syncUserProfile() {
+    const user = auth.currentUser;
+    if (!user) return null;
 
-  const loginEmail = document.getElementById("login-email");
-  const loginPassword = document.getElementById("login-password");
-  const loginRemember = document.getElementById("login-remember");
-  const loginAlert = document.getElementById("login-alert");
-  const loginSpinner = document.getElementById("login-spinner");
-  const loginBtnText = document.getElementById("login-btn-text");
-  const btnSubmitLogin = document.getElementById("btn-submit-login");
-  const btnForgotPassword = document.getElementById("btn-forgot-password");
-
-  const registerNickname = document.getElementById("register-nickname");
-  const registerEmail = document.getElementById("register-email");
-  const registerPassword = document.getElementById("register-password");
-  const registerConfirmPassword = document.getElementById("register-confirm-password");
-  const registerAlert = document.getElementById("register-alert");
-  const registerSpinner = document.getElementById("register-spinner");
-  const registerBtnText = document.getElementById("register-btn-text");
-  const btnSubmitRegister = document.getElementById("btn-submit-register");
-  const registerConfirmError = document.getElementById("register-confirm-error");
-
-  function hideTelaVerificacaoPendente() {
-    if (viewEmailPending) viewEmailPending.classList.add("d-none");
-    if (modalHeaderNav) modalHeaderNav.classList.remove("d-none");
-  }
-
-  function mostrarTelaVerificacaoPendente(email, password) {
-    if (modalHeaderNav) modalHeaderNav.classList.add("d-none");
-    if (loginForm) loginForm.classList.add("d-none");
-    if (registerForm) registerForm.classList.add("d-none");
-    if (loginAlert) loginAlert.classList.add("d-none");
-    if (registerAlert) registerAlert.classList.add("d-none");
-
-    if (viewEmailPending) {
-      viewEmailPending.classList.remove("d-none");
-      viewEmailPending.classList.add("animated-fade-in");
+    if (!user.emailVerified) {
+      await signOut(auth);
+      return null;
     }
-    if (emailPendingMessage) {
-      emailPendingMessage.innerHTML = `Enviamos um link de confirmação para seu endereço de e-mail. Após verificar, volte e faça login novamente.`;
-    }
-    const resendBtn = document.getElementById("btn-resend-pending-email");
-    if (resendBtn) {
-      setupResendCooldown(resendBtn, email, password);
-    }
-  }
 
-  function showLoginTab() {
-    hideTelaVerificacaoPendente();
-    if (tabLogin) {
-      tabLogin.classList.remove("text-secondary", "border-secondary", "border-1");
-      tabLogin.classList.add("text-white", "border-success", "border-2");
-    }
-    if (tabRegister) {
-      tabRegister.classList.remove("text-white", "border-success", "border-2");
-      tabRegister.classList.add("text-secondary", "border-secondary", "border-1");
-    }
-    if (loginForm) loginForm.classList.remove("d-none");
-    if (registerForm) registerForm.classList.add("d-none");
-  }
+    const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
+    const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
 
-  function showRegisterTab() {
-    hideTelaVerificacaoPendente();
-    if (tabRegister) {
-      tabRegister.classList.remove("text-secondary", "border-secondary", "border-1");
-      tabRegister.classList.add("text-white", "border-success", "border-2");
-    }
-    if (tabLogin) {
-      tabLogin.classList.remove("text-white", "border-success", "border-2");
-      tabLogin.classList.add("text-secondary", "border-secondary", "border-1");
-    }
-    if (registerForm) registerForm.classList.remove("d-none");
-    if (loginForm) loginForm.classList.add("d-none");
-  }
-
-  if (tabLogin) tabLogin.addEventListener("click", showLoginTab);
-  if (tabRegister) tabRegister.addEventListener("click", showRegisterTab);
-
-  if (btnBackToLogin) {
-    btnBackToLogin.addEventListener("click", () => {
-      hideTelaVerificacaoPendente();
-      showLoginTab();
-      if (loginEmail) loginEmail.focus();
-    });
-  }
-
-  authModalEl.addEventListener("hidden.bs.modal", () => {
-    hideTelaVerificacaoPendente();
-    showLoginTab();
-  });
-
-  let resendCooldownInterval = null;
-  function setupResendCooldown(btn, email, password) {
-    if (!btn) return;
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-
-    newBtn.addEventListener("click", async () => {
-      newBtn.disabled = true;
-      newBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando...`;
-
+    const userDocRef = doc(db, "users", user.uid);
+    try {
+      // Security collection check
       try {
-        await FirebaseService.resendVerificationEmail(email, password);
-        if (typeof window.showToast === "function") {
-          window.showToast("E-mail de verificação reenviado com sucesso!", "success");
+        const secSnap = await getDoc(doc(db, "security", "bans"));
+        if (secSnap.exists()) {
+          const sec = secSnap.data();
+          const now = Date.now();
+          if (
+            (user.uid && Array.isArray(sec.uids) && sec.uids.includes(user.uid)) ||
+            (fingerprint && Array.isArray(sec.fingerprints) && sec.fingerprints.includes(fingerprint)) ||
+            (clientId && Array.isArray(sec.clientIds) && sec.clientIds.includes(clientId))
+          ) {
+            await signOut(auth);
+            localStorage.removeItem("papos_nickname");
+            window.location.href = "/?error=banned";
+            return null;
+          }
+
+          const uUntil = sec.suspendedUids ? sec.suspendedUids[user.uid] : null;
+          const fpUntil = sec.suspendedFingerprints ? sec.suspendedFingerprints[fingerprint] : null;
+          const cidUntil = sec.suspendedClientIds ? sec.suspendedClientIds[clientId] : null;
+          const maxUntil = Math.max(uUntil || 0, fpUntil || 0, cidUntil || 0);
+
+          if (maxUntil > now) {
+            const secRemaining = Math.ceil((maxUntil - now) / 60000);
+            await signOut(auth);
+            localStorage.removeItem("papos_nickname");
+            window.location.href = `/?error=suspended&remaining=${secRemaining}`;
+            return null;
+          }
+        }
+      } catch (e) {}
+
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.banned) {
+          await signOut(auth);
+          localStorage.removeItem("papos_nickname");
+          window.location.href = "/?error=banned";
+          return null;
+        }
+        if (data.suspendedUntil && data.suspendedUntil > Date.now()) {
+          const remaining = Math.ceil((data.suspendedUntil - Date.now()) / 60000);
+          await signOut(auth);
+          localStorage.removeItem("papos_nickname");
+          window.location.href = `/?error=suspended&remaining=${remaining}`;
+          return null;
+        }
+
+        let needsUpdate = false;
+        const updatePayload = {
+          lastSeen: Date.now(),
+          lastLogin: Date.now()
+        };
+        needsUpdate = true;
+
+        if (fingerprint && data.fingerprint !== fingerprint) {
+          updatePayload.fingerprint = fingerprint;
+          data.fingerprint = fingerprint;
+          needsUpdate = true;
+        }
+        if (clientId && data.clientId !== clientId) {
+          updatePayload.clientId = clientId;
+          data.clientId = clientId;
+          needsUpdate = true;
+        }
+
+        if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+          data.admin = true;
+          updatePayload.admin = true;
+          needsUpdate = true;
+        } else if (data.admin === undefined) {
+          data.admin = false;
+          updatePayload.admin = false;
+          needsUpdate = true;
+        }
+
+        if (!data.permanentId || !data.permanentId.startsWith("USR-") || data.permanentId.length !== 10 || isNaN(Number(data.permanentId.split("-")[1]))) {
+          const usersSnap = await getDocs(collection(db, "users"));
+          let nextNum = usersSnap.size + 1;
+          let permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
+          let unique = false;
+          while (!unique) {
+            const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
+            const snap = await getDocs(q);
+            if (snap.empty) {
+              unique = true;
+            } else {
+              nextNum++;
+              permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
+            }
+          }
+          updatePayload.permanentId = permanentId;
+          data.permanentId = permanentId;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          await updateDoc(userDocRef, updatePayload);
+        }
+
+        try {
+          const supportSnap = await getDoc(doc(db, "supportNames", user.uid));
+          if (supportSnap.exists() && supportSnap.data().enabled === true) {
+            localStorage.setItem("papos_is_support_authorized", "true");
+          } else {
+            localStorage.setItem("papos_is_support_authorized", "false");
+          }
+        } catch (e) {
+          localStorage.setItem("papos_is_support_authorized", "false");
+        }
+
+        return data;
+      }
+
+      const usersSnap = await getDocs(collection(db, "users"));
+      let nextNum = usersSnap.size + 1;
+      let permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
+      let unique = false;
+      while (!unique) {
+        const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          unique = true;
+        } else {
+          nextNum++;
+          permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
+        }
+      }
+
+      const profileData = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || user.email.split("@")[0],
+        nickname: user.displayName || user.email.split("@")[0],
+        internalId: permanentId,
+        permanentId: permanentId,
+        photoURL: user.photoURL || "",
+        photoColor: "#2b3245",
+        bio: "",
+        age: 20,
+        gender: "Masculino",
+        online: true,
+        createdAt: Date.now(),
+        lastLogin: Date.now(),
+        lastSeen: Date.now(),
+        fingerprint: fingerprint,
+        clientId: clientId,
+        banned: false,
+        suspendedUntil: null,
+        admin: false
+      };
+
+      await setDoc(userDocRef, profileData);
+      return profileData;
+    } catch (err) {
+      console.error("Erro ao sincronizar perfil de usuário:", err);
+      return null;
+    }
+  },
+
+  subscribeToAuth(callback) {
+    return onAuthStateChanged(auth, callback);
+  },
+
+  subscribeToUserProfile(uid, callback) {
+    if (typeof uid === "function") {
+      callback = uid;
+      uid = auth.currentUser ? auth.currentUser.uid : null;
+    }
+    if (!uid && auth.currentUser) {
+      uid = auth.currentUser.uid;
+    }
+    if (!uid) {
+      if (typeof callback === "function") callback(null);
+      return () => {};
+    }
+    const userRef = doc(db, "users", uid);
+    return onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data());
+      } else {
+        callback(null);
+      }
+    }, (error) => {
+      console.error("Erro ao escutar perfil do usuário:", error);
+      callback(null);
+    });
+  },
+
+  async register(email, password, nickname) {
+    const emailRegex = /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
+    if (!email || !emailRegex.test(email.trim())) {
+      throw { code: "auth/invalid-email-domain", message: "Utilize um e-mail Gmail, Outlook ou UOL." };
+    }
+
+    if (typeof window !== "undefined" && typeof window.isReservedNickname === "function") {
+      if (window.isReservedNickname(nickname)) {
+        throw { code: "auth/reserved-nickname", message: "Este nome é reservado pela equipe do Papo.net.br." };
+      }
+    }
+
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    await updateProfile(user, {
+      displayName: nickname
+    });
+
+    const actionCodeSettings = {
+      url: "https://papo.net.br/verify-email",
+      handleCodeInApp: false
+    };
+
+    try {
+      await sendEmailVerification(userCredential.user, actionCodeSettings);
+    } finally {
+      await signOut(auth);
+    }
+
+    return {
+      unverified: true,
+      email: email,
+      message: "📧 Enviamos um e-mail para verificar sua conta. Verifique sua caixa de entrada antes de entrar no chat."
+    };
+  },
+
+  async login(email, password, rememberMe = true) {
+    const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+    await setPersistence(auth, persistence);
+    
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    await user.reload();
+
+    if (!user.emailVerified) {
+      await signOut(auth);
+      throw {
+        code: "auth/unverified-email",
+        message: "📧 Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada antes de entrar no chat.",
+        email: user.email,
+        unverifiedUser: user
+      };
+    }
+
+    return user;
+  },
+
+  async logout() {
+    await signOut(auth);
+  },
+
+  async resetPassword(email) {
+    const actionCodeSettings = {
+      url: "https://papo.net.br/reset-password",
+      handleCodeInApp: false
+    };
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
+  },
+
+  async resendVerificationEmail(email, password) {
+    const actionCodeSettings = {
+      url: "https://papo.net.br/verify-email",
+      handleCodeInApp: false
+    };
+
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser, actionCodeSettings);
+      return;
+    }
+
+    if (email && password) {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      try {
+        await sendEmailVerification(userCredential.user, actionCodeSettings);
+      } finally {
+        await signOut(auth);
+      }
+      return;
+    }
+
+    throw {
+      code: "auth/missing-credentials",
+      message: "Informe seu e-mail e senha para reenviar o e-mail de verificação."
+    };
+  },
+
+  async verifyPasswordResetCode(code) {
+    return await verifyPasswordResetCode(auth, code);
+  },
+
+  async confirmPasswordReset(code, newPassword) {
+    return await confirmPasswordReset(auth, code, newPassword);
+  },
+
+  async applyActionCode(code) {
+    return await applyActionCode(auth, code);
+  },
+
+  async updateProfileDetails(nickname, photoUrl) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+    
+    const updatePayload = {};
+    if (nickname) updatePayload.displayName = nickname;
+    if (photoUrl) updatePayload.photoURL = photoUrl;
+    
+    await updateProfile(user, updatePayload);
+  },
+
+  async savePrivateMessage(partnerNickname, messageObj) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    if (
+      partnerNickname === "Bot_Papos" ||
+      messageObj.sender === "Bot_Papos" ||
+      messageObj.senderId === "Bot_Papos" ||
+      messageObj.recipient === "Bot_Papos"
+    ) {
+      return;
+    }
+
+    if (typeof window !== "undefined" && typeof window.containsLink === "function") {
+      if (window.containsLink(messageObj.text || "")) {
+        
+        return;
+      }
+    }
+
+    const docRef = doc(db, "users", user.uid, "privateChats", messageObj.id);
+ 
+    const messageData = {
+      userId: user.uid,
+      partner: partnerNickname,
+      id: messageObj.id,
+      sender: messageObj.sender,
+      recipient: messageObj.recipient || partnerNickname,
+      text: messageObj.text,
+      timestamp: messageObj.timestamp || Date.now(),
+      time: messageObj.time || new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      unread: messageObj.unread !== undefined ? messageObj.unread : false
+    };
+ 
+    if (messageObj.color) {
+      messageData.color = messageObj.color;
+    }
+ 
+    await setDoc(docRef, messageData);
+  },
+ 
+  async markMessagesAsRead(partnerNickname) {
+    const user = auth.currentUser;
+    if (!user) return;
+ 
+    const q = query(
+      collection(db, "users", user.uid, "privateChats"),
+      where("partner", "==", partnerNickname),
+      where("unread", "==", true)
+    );
+ 
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    
+    querySnapshot.forEach((document) => {
+      batch.update(document.ref, { unread: false });
+    });
+ 
+    await batch.commit();
+  },
+ 
+  async deletePrivateMessage(messageId) {
+    const user = auth.currentUser;
+    if (!user) return;
+ 
+    const docRef = doc(db, "users", user.uid, "privateChats", messageId);
+    await deleteDoc(docRef);
+  },
+ 
+  async deletePrivateConversation(partnerNickname) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const q = query(
+      collection(db, "users", user.uid, "privateChats"),
+      where("partner", "==", partnerNickname)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+
+    querySnapshot.forEach((document) => {
+      batch.delete(document.ref);
+    });
+
+    await batch.commit();
+  },
+
+  subscribeToPrivateMessages(callback) {
+    const user = auth.currentUser;
+    if (!user) {
+      callback({});
+      return () => {};
+    }
+ 
+    const q = query(
+      collection(db, "users", user.uid, "privateChats")
+    );
+ 
+    return onSnapshot(q, (querySnapshot) => {
+      const privateChats = {};
+      
+      querySnapshot.forEach((document) => {
+        const data = document.data();
+        const partner = data.partner;
+        if (!privateChats[partner]) {
+          privateChats[partner] = [];
+        }
+        
+        const msg = {
+          id: data.id,
+          sender: data.sender,
+          recipient: data.recipient,
+          text: data.text,
+          time: data.time,
+          timestamp: data.timestamp,
+          unread: data.unread
+        };
+ 
+        if (data.color) {
+          msg.color = data.color;
+        }
+ 
+        privateChats[partner].push(msg);
+      });
+ 
+      Object.keys(privateChats).forEach(partner => {
+        privateChats[partner].sort((a, b) => a.timestamp - b.timestamp);
+      });
+ 
+      callback(privateChats);
+    }, (error) => {
+      console.error("Erro ao sincronizar mensagens do Firestore:", error);
+    });
+  },
+
+  subscribeToAdmins(callback) {
+    try {
+      const q = query(collection(db, "users"), where("admin", "==", true));
+      return onSnapshot(q, (querySnapshot) => {
+        const adminNicknames = [];
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const nick = data.displayName || data.nickname;
+          if (nick) adminNicknames.push(nick);
+        });
+        callback(adminNicknames);
+      }, (error) => {
+        console.error("Erro ao escutar administradores:", error);
+      });
+    } catch (e) {
+      console.error("Erro em subscribeToAdmins:", e);
+      return () => {};
+    }
+  },
+
+  subscribeToAllUsers(callback) {
+    const user = auth.currentUser;
+    if (!user) {
+      callback([]);
+      return () => {};
+    }
+
+    const q = collection(db, "users");
+    return onSnapshot(q, (querySnapshot) => {
+      const usersList = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (!data || (data.text !== undefined && data.sender !== undefined && !data.email && !data.displayName && !data.nickname)) {
+          return; 
+        }
+        usersList.push({
+          id: docSnap.id,
+          uid: data.uid || docSnap.id,
+          email: data.email || "",
+          nickname: data.displayName || data.nickname || "Usuário",
+          displayName: data.displayName || data.nickname || "Usuário",
+          permanentId: data.internalId || data.permanentId || "USR-000000",
+          internalId: data.internalId || data.permanentId || "USR-000000",
+          age: data.age || data.idade || "N/A",
+          gender: data.gender || data.sexo || "N/A",
+          bio: data.bio || "",
+          admin: data.admin === true,
+          online: data.online !== undefined ? data.online : false,
+          banned: data.banned === true,
+          suspendedUntil: data.suspendedUntil || null,
+          createdAt: data.createdAt || 0,
+          lastLogin: data.lastLogin || 0
+        });
+      });
+      callback(usersList);
+    }, (error) => {
+      console.error("Erro ao escutar coleção de usuários no Firestore:", error);
+    });
+  },
+
+  async updateUserField(targetUid, fieldsPayload) {
+    if (!targetUid) return;
+    const targetDocRef = doc(db, "users", targetUid);
+    await updateDoc(targetDocRef, fieldsPayload);
+  },
+
+  subscribeToSupportNames(callback) {
+    const user = auth.currentUser;
+    if (!user) {
+      callback([]);
+      return () => {};
+    }
+
+    const q = collection(db, "supportNames");
+    return onSnapshot(q, (querySnapshot) => {
+      const supportList = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        supportList.push({
+          id: docSnap.id,
+          uid: data.uid || docSnap.id,
+          enabled: data.enabled === true,
+          createdAt: data.createdAt || "",
+          createdBy: data.createdBy || ""
+        });
+      });
+      callback(supportList);
+    }, (error) => {
+      console.error("Erro ao escutar coleção supportNames no Firestore:", error);
+    });
+  },
+
+  async authorizeSupportName(targetUid, createdByUid) {
+    if (!targetUid) return;
+    const cleanUid = targetUid.trim();
+    
+    const docRef = doc(db, "supportNames", cleanUid);
+    await setDoc(docRef, {
+      uid: cleanUid,
+      enabled: true,
+      createdAt: new Date().toISOString(),
+      createdBy: createdByUid || (auth.currentUser ? auth.currentUser.uid : "admin")
+    }, { merge: true });
+
+    if (cleanUid.startsWith("USR-")) {
+      try {
+        const q = query(collection(db, "users"), where("permanentId", "==", cleanUid));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const authUid = snap.docs[0].id;
+          const authDocRef = doc(db, "supportNames", authUid);
+          await setDoc(authDocRef, {
+            uid: authUid,
+            permanentId: cleanUid,
+            enabled: true,
+            createdAt: new Date().toISOString(),
+            createdBy: createdByUid || (auth.currentUser ? auth.currentUser.uid : "admin")
+          }, { merge: true });
+        }
+      } catch (e) {
+        console.error("Erro ao resolver permanentId em authorizeSupportName:", e);
+      }
+    }
+  },
+
+  async saveUserProfile(profileData) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const nickname = (profileData.nickname || profileData.displayName || profileData.name || "").trim();
+    const bio = profileData.bio !== undefined ? String(profileData.bio).trim() : undefined;
+    const age = profileData.age !== undefined && profileData.age !== null && profileData.age !== "" ? Number(profileData.age) : (profileData.age === null ? null : undefined);
+    const gender = profileData.gender !== undefined ? String(profileData.gender).trim() : undefined;
+    const photoURL = profileData.photoURL !== undefined ? String(profileData.photoURL).trim() : undefined;
+    const city = profileData.city !== undefined ? String(profileData.city).trim() : undefined;
+    const country = profileData.country !== undefined ? String(profileData.country).trim() : undefined;
+
+    const userDocRef = doc(db, "users", user.uid);
+    const updatePayload = {
+      updatedAt: Date.now()
+    };
+
+    if (nickname) {
+      updatePayload.nickname = nickname;
+      updatePayload.displayName = nickname;
+      updatePayload.name = nickname;
+    }
+    if (bio !== undefined) updatePayload.bio = bio;
+    if (age !== undefined) updatePayload.age = age;
+    if (gender !== undefined) updatePayload.gender = gender;
+    if (photoURL !== undefined) updatePayload.photoURL = photoURL;
+    if (city !== undefined) updatePayload.city = city;
+    if (country !== undefined) updatePayload.country = country;
+
+    if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+      updatePayload.admin = true;
+    }
+
+    await setDoc(userDocRef, updatePayload, { merge: true });
+
+    if (nickname && nickname !== user.displayName) {
+      try {
+        await updateProfile(user, { displayName: nickname });
+      } catch (e) {
+        console.error("Erro ao atualizar displayName no auth:", e);
+      }
+    }
+
+    return updatePayload;
+  },
+
+  async getUserProfileByNickname(nickname) {
+    if (!nickname) return null;
+    try {
+      const q = query(collection(db, "users"), where("nickname", "==", nickname));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return snap.docs[0].data();
+      }
+      const q2 = query(collection(db, "users"), where("displayName", "==", nickname));
+      const snap2 = await getDocs(q2);
+      if (!snap2.empty) {
+        return snap2.docs[0].data();
+      }
+      return null;
+    } catch (err) {
+      console.error("Erro ao buscar perfil por apelido no Firestore:", err);
+      return null;
+    }
+  },
+
+  async deleteSupportName(targetUid) {
+    if (!targetUid) return;
+    const cleanUid = targetUid.trim();
+    const docRef = doc(db, "supportNames", cleanUid);
+    await deleteDoc(docRef);
+  },
+
+  async revokeSupportName(targetUid) {
+    if (!targetUid) return;
+    const cleanUid = targetUid.trim();
+    const docRef = doc(db, "supportNames", cleanUid);
+    await deleteDoc(docRef);
+  },
+
+  subscribeToSystemSettings(callback) {
+    if (typeof callback === "function") {
+      systemSettingsCallbacks.add(callback);
+      callback(cachedSystemSettings);
+    }
+    return () => {
+      systemSettingsCallbacks.delete(callback);
+    };
+  },
+
+  async updateSystemSettings(settingsData) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const docRef = doc(db, "system", "settings");
+    const payload = {
+      updatedAt: Date.now(),
+      updatedBy: user.uid
+    };
+    if (settingsData.adsEnabled !== undefined) {
+      payload.adsEnabled = !!settingsData.adsEnabled;
+    }
+    if (settingsData.botsEnabled !== undefined) {
+      payload.botsEnabled = !!settingsData.botsEnabled;
+    }
+    await setDoc(docRef, payload, { merge: true });
+    return payload;
+  },
+
+  async addFeedback(feedbackData) {
+    const user = auth.currentUser;
+    let uid = null;
+    let internalId = null;
+    let name = "Visitante";
+    let logged = false;
+
+    if (user) {
+      uid = user.uid;
+      logged = true;
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          const uData = userSnap.data();
+          name = uData.displayName || uData.nickname || uData.name || user.displayName || "Usuário";
+          internalId = uData.permanentId || uData.internalId || null;
+        } else {
+          name = user.displayName || user.email?.split("@")[0] || "Usuário";
         }
       } catch (err) {
-        console.error("Erro ao reenviar verificação:", err);
-        if (typeof window.showToast === "function") {
-          window.showToast("Não foi possível reenviar agora. Tente novamente mais tarde.", "error");
-        }
+        console.error("Erro ao obter perfil do usuário para feedback:", err);
+        name = user.displayName || user.email?.split("@")[0] || "Usuário";
       }
+    }
 
-      let seconds = 60;
-      newBtn.disabled = true;
-      newBtn.textContent = `Reenviar e-mail (${seconds}s)`;
+    const payload = {
+      uid: uid,
+      internalId: internalId,
+      name: name,
+      stars: Number(feedbackData.stars) || 5,
+      comment: String(feedbackData.comment || "").substring(0, 400),
+      createdAt: Date.now(),
+      logged: logged
+    };
 
-      if (resendCooldownInterval) clearInterval(resendCooldownInterval);
-      resendCooldownInterval = setInterval(() => {
-        seconds--;
-        if (seconds <= 0) {
-          clearInterval(resendCooldownInterval);
-          resendCooldownInterval = null;
-          newBtn.disabled = false;
-          newBtn.textContent = "Reenviar e-mail";
-        } else {
-          newBtn.textContent = `Reenviar e-mail (${seconds}s)`;
-        }
-      }, 1000);
+    const docRef = await addDoc(collection(db, "feedbacks"), payload);
+    return { id: docRef.id, ...payload };
+  },
+
+  subscribeToFeedbacks(callback) {
+    if (typeof callback === "function") {
+      feedbackCallbacks.add(callback);
+      if (cachedFeedbacks !== null) {
+        callback(cachedFeedbacks);
+      }
+    }
+    if (!isFeedbacksListening) {
+      initFeedbacksListener();
+    }
+    return () => {
+      feedbackCallbacks.delete(callback);
+    };
+  },
+
+  async deleteFeedback(feedbackId) {
+    if (!feedbackId) return;
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const docRef = doc(db, "feedbacks", feedbackId);
+    await deleteDoc(docRef);
+  },
+
+  subscribeToGuestSessions(callback) {
+    if (typeof callback === "function") {
+      callback([]);
+    }
+    return () => {};
+  },
+
+  subscribeToGuestSuspensions(callback) {
+    if (typeof callback === "function") {
+      guestSuspensionsCallbacks.add(callback);
+      if (cachedGuestSuspensions !== null) {
+        callback(cachedGuestSuspensions);
+      }
+    }
+    if (!isGuestSuspensionsListening) {
+      initGuestSuspensionsListener();
+    }
+    return () => {
+      guestSuspensionsCallbacks.delete(callback);
+    };
+  },
+
+  subscribeToGuestBans(callback) {
+    if (typeof callback === "function") {
+      guestBansCallbacks.add(callback);
+      if (cachedGuestBans !== null) {
+        callback(cachedGuestBans);
+      }
+    }
+    if (!isGuestBansListening) {
+      initGuestBansListener();
+    }
+    return () => {
+      guestBansCallbacks.delete(callback);
+    };
+  },
+
+  async deleteGuestBlock(blockId, collectionName = "guestSuspensions") {
+    if (!blockId) return;
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const col = collectionName === "guestBans" ? "guestBans" : "guestSuspensions";
+    const docRef = doc(db, col, blockId);
+    await deleteDoc(docRef);
+  }
+};
+
+let cachedGuestSessions = null;
+const guestSessionsCallbacks = new Set();
+let isGuestSessionsListening = false;
+
+function initGuestSessionsListener() {
+  if (isGuestSessionsListening) return;
+  isGuestSessionsListening = true;
+
+  try {
+    const q = query(collection(db, "guestSessions"), where("online", "==", true));
+    onSnapshot(q, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.lastSeen || b.connectedAt || 0) - (a.lastSeen || a.connectedAt || 0));
+      cachedGuestSessions = list;
+
+      guestSessionsCallbacks.forEach((cb) => {
+        try { cb(cachedGuestSessions); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de guestSessions:", err);
     });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de guestSessions:", err);
   }
+}
 
-  function translateAuthError(code) {
-    switch (code) {
-      case "auth/invalid-email":
-        return "O formato do e-mail inserido é inválido.";
-      case "auth/invalid-email-domain":
-        return "Utilize um e-mail Gmail, Outlook ou UOL.";
-      case "auth/reserved-nickname":
-        return "Este nome é reservado pela equipe do Papo.net.br.";
-      case "auth/user-disabled":
-        return "Esta conta de usuário foi desativada.";
-      case "auth/user-not-found":
-        return "Não há nenhum usuário cadastrado com este e-mail.";
-      case "auth/wrong-password":
-        return "A senha inserida está incorreta.";
-      case "auth/email-already-in-use":
-        return "Este endereço de e-mail já está sendo utilizado por outra conta.";
-      case "auth/weak-password":
-        return "A senha escolhida é muito fraca. Deve ter pelo menos 6 caracteres.";
-      case "auth/invalid-credential":
-        return "E-mail ou senha incorretos. Por favor, tente novamente.";
-      case "auth/unverified-email":
-        return "📧 Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada antes de entrar no chat.";
-      case "auth/too-many-requests":
-        return "Acesso temporariamente bloqueado devido a muitas tentativas. Tente mais tarde.";
-      default:
-        return "Ocorreu um erro ao processar sua solicitação. Tente novamente.";
-    }
+let cachedGuestSuspensions = null;
+const guestSuspensionsCallbacks = new Set();
+let isGuestSuspensionsListening = false;
+
+function initGuestSuspensionsListener() {
+  if (isGuestSuspensionsListening) return;
+  isGuestSuspensionsListening = true;
+
+  try {
+    const colRef = collection(db, "guestSuspensions");
+    onSnapshot(colRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cachedGuestSuspensions = list;
+
+      guestSuspensionsCallbacks.forEach((cb) => {
+        try { cb(cachedGuestSuspensions); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de guestSuspensions:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de guestSuspensions:", err);
   }
+}
 
-  function validatePasswordsMatch() {
-    if (registerPassword.value !== registerConfirmPassword.value) {
-      registerConfirmPassword.classList.add("is-invalid");
-      registerConfirmError.classList.remove("d-none");
-      return false;
-    } else {
-      registerConfirmPassword.classList.remove("is-invalid");
-      registerConfirmError.classList.add("d-none");
-      return true;
-    }
+let cachedGuestBans = null;
+const guestBansCallbacks = new Set();
+let isGuestBansListening = false;
+
+function initGuestBansListener() {
+  if (isGuestBansListening) return;
+  isGuestBansListening = true;
+
+  try {
+    const colRef = collection(db, "guestBans");
+    onSnapshot(colRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cachedGuestBans = list;
+
+      guestBansCallbacks.forEach((cb) => {
+        try { cb(cachedGuestBans); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de guestBans:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de guestBans:", err);
   }
+}
 
-  registerConfirmPassword.addEventListener("input", validatePasswordsMatch);
-  registerPassword.addEventListener("input", () => {
-    if (registerConfirmPassword.value) {
-      validatePasswordsMatch();
-    }
-  });
+let cachedFeedbacks = null;
+const feedbackCallbacks = new Set();
+let isFeedbacksListening = false;
 
-  registerNickname.addEventListener("input", () => {
-    let val = registerNickname.value;
-    val = val.replace(/[^a-zA-Z0-9_]/g, "");
-    if (val.length > 15) {
-      val = val.substring(0, 15);
-    }
-    registerNickname.value = val;
-  });
+function initFeedbacksListener() {
+  if (isFeedbacksListening) return;
+  isFeedbacksListening = true;
 
-  loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    loginAlert.classList.add("d-none");
+  try {
+    const feedbacksCol = collection(db, "feedbacks");
+    onSnapshot(feedbacksCol, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cachedFeedbacks = list;
 
-    const email = loginEmail.value.trim();
-    const password = loginPassword.value;
-    const rememberMe = loginRemember.checked;
+      feedbackCallbacks.forEach((cb) => {
+        try { cb(cachedFeedbacks); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de feedbacks:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de feedbacks:", err);
+  }
+}
 
-    loginSpinner.classList.remove("d-none");
-    loginBtnText.textContent = "Entrando...";
-    btnSubmitLogin.disabled = true;
+let cachedSystemSettings = { adsEnabled: true, botsEnabled: true };
+const systemSettingsCallbacks = new Set();
+let isSystemSettingsListening = false;
 
-    try {
-      const user = await FirebaseService.login(email, password, rememberMe);
-      
-      const displayName = user.displayName || email.split("@")[0];
-      localStorage.setItem("papos_nickname", displayName);
+function initGlobalSystemSettingsListener() {
+  if (isSystemSettingsListening) return;
+  isSystemSettingsListening = true;
 
-      const modalInstance = bootstrap.Modal.getInstance(authModalEl);
-      if (modalInstance) modalInstance.hide();
-      
-      loginForm.reset();
-
-      window.location.reload();
-    } catch (error) {
-      console.error("Erro de login:", error);
-      if (error.code === "auth/unverified-email") {
-        mostrarTelaVerificacaoPendente(email, password);
-      } else {
-        loginAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
-        loginAlert.textContent = translateAuthError(error.code);
-        loginAlert.classList.remove("d-none");
-      }
-    } finally {
-      loginSpinner.classList.add("d-none");
-      loginBtnText.textContent = "Entrar";
-      btnSubmitLogin.disabled = false;
-    }
-  });
-
-  registerForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    registerAlert.classList.add("d-none");
-
-    const nickname = registerNickname.value.trim();
-    const email = registerEmail.value.trim();
-    const password = registerPassword.value;
-
-    if (!validatePasswordsMatch()) return;
-
-    const emailRegex = /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
-    if (!emailRegex.test(email)) {
-      registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
-      registerAlert.textContent = "Utilize um e-mail Gmail, Outlook ou UOL.";
-      registerAlert.classList.remove("d-none");
-      return;
-    }
-
-    if (nickname.length < 2) {
-      registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
-      registerAlert.textContent = "O apelido deve ter no mínimo 2 caracteres.";
-      registerAlert.classList.remove("d-none");
-      return;
-    }
-
-    if (window.isReservedNickname && window.isReservedNickname(nickname)) {
-      if (typeof window.showToast === "function") {
-        window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
-      }
-      registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
-      registerAlert.textContent = "Este nome é reservado pela equipe do Papo.net.br.";
-      registerAlert.classList.remove("d-none");
-      return;
-    }
-
-    registerSpinner.classList.remove("d-none");
-    registerBtnText.textContent = "Criando conta...";
-    btnSubmitRegister.disabled = true;
-
-    try {
-      await FirebaseService.register(email, password, nickname);
-      registerForm.reset();
-      mostrarTelaVerificacaoPendente(email, password);
-    } catch (error) {
-      console.error("Erro no cadastro:", error);
-      registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
-      registerAlert.textContent = translateAuthError(error.code);
-      registerAlert.classList.remove("d-none");
-    } finally {
-      registerSpinner.classList.add("d-none");
-      registerBtnText.textContent = "Criar conta";
-      btnSubmitRegister.disabled = false;
-    }
-  });
-
-  btnForgotPassword.addEventListener("click", async () => {
-    const email = loginEmail.value.trim();
-    if (!email) {
-      loginAlert.textContent = "Por favor, digite seu e-mail no campo acima para recuperar a senha.";
-      loginAlert.className = "alert alert-warning py-2 px-3 small border border-warning mb-3";
-      loginAlert.classList.remove("d-none");
-      return;
-    }
-
-    try {
-      await FirebaseService.resetPassword(email);
-      loginAlert.textContent = "Um link para redefinir a senha foi enviado para o seu e-mail!";
-      loginAlert.className = "alert alert-success py-2 px-3 small border border-success mb-3";
-      loginAlert.classList.remove("d-none");
-    } catch (error) {
-      console.error("Erro ao enviar reset:", error);
-      loginAlert.textContent = translateAuthError(error.code);
-      loginAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
-      loginAlert.classList.remove("d-none");
-    }
-  });
-
-  let activeGlobalProfileUnsub = null;
-
-  const fService = window.FirebaseService || FirebaseService;
-  if (fService) {
-    fService.subscribeToAuth((user) => {
-      if (activeGlobalProfileUnsub) {
-        activeGlobalProfileUnsub();
-        activeGlobalProfileUnsub = null;
-      }
-
-      const btnAuthTrigger = document.getElementById("btn-auth-trigger");
-      const btnAuthTriggerMobile = document.getElementById("btn-auth-trigger-mobile");
-      const btnLogoutAction = document.getElementById("btn-logout-action");
-      const btnLogoutActionMobile = document.getElementById("btn-logout-action-mobile");
-      
-      const userProfileDesktop = document.getElementById("user-profile-dropdown-desktop");
-      const userProfileMobile = document.getElementById("user-profile-dropdown-mobile");
-
-      const desktopUserName = document.getElementById("desktop-user-name");
-      const desktopDropdownName = document.getElementById("desktop-dropdown-user-name");
-      const desktopDropdownEmail = document.getElementById("desktop-dropdown-user-email");
-      const desktopAvatarContainer = document.getElementById("desktop-user-avatar-container");
-
-      const mobileDropdownName = document.getElementById("mobile-dropdown-user-name");
-      const mobileDropdownEmail = document.getElementById("mobile-dropdown-user-email");
-      const mobileAvatarContainer = document.getElementById("mobile-user-avatar-container");
-
-      if (user) {
-        if (!user.emailVerified) {
-          fService.logout();
-          return;
-        }
-        const initialNickname = user.displayName || user.email.split("@")[0];
-        localStorage.setItem("papos_nickname", initialNickname);
-
-        fService.syncUserProfile().then((profileData) => {
-          if (profileData) {
-            if (profileData.permanentId) {
-              localStorage.setItem("papos_permanent_id", profileData.permanentId);
-              const localIdEl = document.getElementById("user-local-id");
-              if (localIdEl) {
-                localIdEl.textContent = profileData.permanentId;
-              }
-            }
-            localStorage.setItem("papos_is_admin", profileData.admin === true ? "true" : "false");
-          }
-        }).catch((err) => {
-          console.error("Error syncing profile on auth:", err);
-        });
-
-        if (typeof fService.subscribeToUserProfile === "function") {
-          activeGlobalProfileUnsub = fService.subscribeToUserProfile(user.uid, (profile) => {
-            if (!profile) return;
-            const nick = profile.displayName || profile.nickname || profile.name || user.email.split("@")[0];
-            const bio = profile.bio || "";
-            const age = profile.age !== undefined && profile.age !== null ? profile.age : "";
-            const gender = profile.gender || "";
-            const permId = profile.permanentId || profile.internalId || "USR-000000";
-
-            localStorage.setItem("papos_nickname", nick);
-            localStorage.setItem("papos_bio", bio);
-            localStorage.setItem("papos_age", String(age));
-            localStorage.setItem("papos_gender", gender);
-            localStorage.setItem("papos_permanent_id", permId);
-            localStorage.setItem("papos_is_admin", (profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") ? "true" : "false");
-
-            if (desktopUserName) desktopUserName.textContent = nick;
-            if (desktopDropdownName) desktopDropdownName.textContent = nick;
-            if (mobileDropdownName) mobileDropdownName.textContent = nick;
-            const mobileMenuUserNickEl = document.getElementById("mobile-menu-user-nick");
-            if (mobileMenuUserNickEl) mobileMenuUserNickEl.textContent = `Olá, ${nick}`;
-
-            const renderAvatar = (name, size) => {
-              const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
-              return `<div class="avatar-circle ${size}" title="${name}">${initial}</div>`;
-            };
-
-            if (desktopAvatarContainer) {
-              desktopAvatarContainer.innerHTML = renderAvatar(nick, "avatar-xs");
-            }
-            if (mobileAvatarContainer) {
-              mobileAvatarContainer.innerHTML = renderAvatar(nick, "avatar-xs");
-            }
-
-            const localIdEl = document.getElementById("user-local-id");
-            if (localIdEl) {
-              localIdEl.textContent = permId;
-            }
-
-            const userHeaderContainer = document.getElementById("user-profile-header");
-            if (userHeaderContainer) {
-              userHeaderContainer.innerHTML = `
-                <div class="d-flex align-items-center gap-2">
-                  ${renderAvatar(nick, "avatar-sm")}
-                  <div class="d-none d-sm-block text-start">
-                    <p class="mb-0 fw-semibold lh-1 text-white">${nick}</p>
-                    <small class="text-success"><span class="status-indicator status-online position-static d-inline-block me-1" style="width:6px; height:6px;"></span>Conectado</small>
-                  </div>
-                </div>
-              `;
-            }
-          });
-        }
-
-        if (btnAuthTrigger) btnAuthTrigger.classList.add("d-none");
-        if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.add("d-none");
-
-        const sidebarBtnAuth = document.getElementById("sidebar-btn-auth-trigger");
-        const sidebarBtnLogout = document.getElementById("sidebar-btn-logout-action");
-        if (sidebarBtnAuth) sidebarBtnAuth.classList.add("d-none");
-        if (sidebarBtnLogout) {
-          sidebarBtnLogout.classList.remove("d-none");
-          sidebarBtnLogout.classList.add("d-flex");
-        }
-
-        const mobileMenuUserBox = document.getElementById("mobile-menu-user-box");
-        const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
-        const mobileMenuBtnAuth = document.getElementById("mobile-menu-btn-auth");
-        if (mobileMenuUserBox) mobileMenuUserBox.classList.remove("d-none");
-        if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${initialNickname}`;
-        if (mobileMenuBtnAuth) mobileMenuBtnAuth.classList.add("d-none");
-
-        if (btnLogoutAction) {
-          btnLogoutAction.classList.remove("d-none");
-          btnLogoutAction.classList.add("d-flex");
-        }
-        if (btnLogoutActionMobile) {
-          btnLogoutActionMobile.classList.remove("d-none");
-          btnLogoutActionMobile.classList.add("d-flex");
-        }
-
-        if (userProfileDesktop) userProfileDesktop.classList.remove("d-none");
-        if (userProfileMobile) userProfileMobile.classList.remove("d-none");
-        const headerThreeDots = document.getElementById("header-three-dots-container");
-        if (headerThreeDots) headerThreeDots.classList.remove("d-none");
-
-        if (desktopUserName) desktopUserName.textContent = nickname;
-        if (desktopDropdownName) desktopDropdownName.textContent = nickname;
-        if (desktopDropdownEmail) desktopDropdownEmail.textContent = user.email;
-
-        if (mobileDropdownName) mobileDropdownName.textContent = nickname;
-        if (mobileDropdownEmail) mobileDropdownEmail.textContent = user.email;
-
-        const renderAvatar = (name, size) => {
-          const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
-          return `<div class="avatar-circle ${size}" title="${name}">${initial}</div>`;
+  try {
+    const docRef = doc(db, "system", "settings");
+    onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        cachedSystemSettings = {
+          adsEnabled: data.adsEnabled !== false,
+          botsEnabled: data.botsEnabled !== false
         };
-
-        if (desktopAvatarContainer) {
-          desktopAvatarContainer.innerHTML = renderAvatar(nickname, "avatar-xs");
-        }
-        if (mobileAvatarContainer) {
-          mobileAvatarContainer.innerHTML = renderAvatar(nickname, "avatar-xs");
-        }
-
       } else {
-        
-        if (btnAuthTrigger) btnAuthTrigger.classList.remove("d-none");
-        if (btnAuthTriggerMobile) btnAuthTriggerMobile.classList.remove("d-none");
-
-        const sidebarBtnAuthOut = document.getElementById("sidebar-btn-auth-trigger");
-        const sidebarBtnLogoutOut = document.getElementById("sidebar-btn-logout-action");
-        if (sidebarBtnAuthOut) sidebarBtnAuthOut.classList.remove("d-none");
-        if (sidebarBtnLogoutOut) {
-          sidebarBtnLogoutOut.classList.add("d-none");
-          sidebarBtnLogoutOut.classList.remove("d-flex");
-        }
-
-        const mobileMenuUserBoxOut = document.getElementById("mobile-menu-user-box");
-        const mobileMenuBtnAuthOut = document.getElementById("mobile-menu-btn-auth");
-        if (mobileMenuUserBoxOut) mobileMenuUserBoxOut.classList.add("d-none");
-        if (mobileMenuBtnAuthOut) mobileMenuBtnAuthOut.classList.remove("d-none");
-
-        if (btnLogoutAction) {
-          btnLogoutAction.classList.add("d-none");
-          btnLogoutAction.classList.remove("d-flex");
-        }
-        if (btnLogoutActionMobile) {
-          btnLogoutActionMobile.classList.add("d-none");
-          btnLogoutActionMobile.classList.remove("d-flex");
-        }
-
-        if (userProfileDesktop) userProfileDesktop.classList.add("d-none");
-        if (userProfileMobile) userProfileMobile.classList.add("d-none");
-        const headerThreeDotsOut = document.getElementById("header-three-dots-container");
-        if (headerThreeDotsOut) headerThreeDotsOut.classList.add("d-none");
+        cachedSystemSettings = { adsEnabled: true, botsEnabled: true };
       }
-    });
-  }
 
-  const btnConfirmLogoutAction = document.getElementById("btn-confirm-logout-action");
-  if (btnConfirmLogoutAction) {
-    btnConfirmLogoutAction.addEventListener("click", async () => {
-      try {
-        const currentNickname = localStorage.getItem("papos_nickname");
-        
-        await fService.logout();
+      window.SYSTEM_SETTINGS = cachedSystemSettings;
 
-        if (currentNickname) {
-          localStorage.removeItem(`papos_pms_${currentNickname}`);
+      if (cachedSystemSettings.adsEnabled === false) {
+        window.MONETAG_GLOBAL_DISABLED = true;
+        if (typeof window.desabilitarMonetag === "function") {
+          window.desabilitarMonetag();
         }
-        localStorage.removeItem("papos_nickname");
-        localStorage.removeItem("papos_photo");
-        localStorage.removeItem("papos_permanent_id");
-
-        const logoutModalEl = document.getElementById("logoutConfirmModal");
-        if (logoutModalEl) {
-          const modalInstance = bootstrap.Modal.getInstance(logoutModalEl);
-          if (modalInstance) modalInstance.hide();
+      } else {
+        window.MONETAG_GLOBAL_DISABLED = false;
+        if (typeof window.habilitarMonetag === "function") {
+          window.habilitarMonetag();
         }
-
-        window.location.reload();
-      } catch (error) {
-        console.error("Erro ao fazer logout:", error);
       }
-    });
-  }
 
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("action") === "login" || urlParams.get("auth") === "login") {
-    setTimeout(() => {
-      try {
-        const modal = new bootstrap.Modal(authModalEl);
-        showLoginTab();
-        modal.show();
-      } catch (e) {}
-    }, 400);
+      systemSettingsCallbacks.forEach((cb) => {
+        try { cb(cachedSystemSettings); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro ao sincronizar system/settings do Firestore:", err);
+    });
+  } catch (err) {
+    console.error("Erro ao inicializar listener de system/settings:", err);
   }
-});
+}
+
+initGlobalSystemSettingsListener();
+
+window.FirebaseService = FirebaseService;
+export default FirebaseService;
+export { auth, db };
