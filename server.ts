@@ -664,9 +664,30 @@ async function startServer() {
     return permitido;
   }
 
+  const ALLOWED_EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
+
+  function isAllowedEmailDomain(email: string): boolean {
+    if (!email || typeof email !== "string") return false;
+    return ALLOWED_EMAIL_REGEX.test(email.trim());
+  }
+
+  app.post("/api/auth/validate-email", (req, res) => {
+    const { email } = req.body;
+    if (!isAllowedEmailDomain(email)) {
+      res.status(400).json({ valid: false, error: "Utilize um e-mail Gmail, Outlook ou UOL." });
+      return;
+    }
+    res.json({ valid: true });
+  });
+
   app.post("/api/profile/validate", async (req, res) => {
-    const { bio, age, gender, nickname, uid } = req.body;
+    const { bio, age, gender, nickname, uid, email } = req.body;
     let authUid = uid;
+
+    if (email && typeof email === "string" && !isAllowedEmailDomain(email)) {
+      res.status(400).json({ error: "Utilize um e-mail Gmail, Outlook ou UOL." });
+      return;
+    }
 
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
       const token = req.headers.authorization.split("Bearer ")[1];
@@ -2644,6 +2665,10 @@ async function startServer() {
     app.get("/avaliacoes", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/avaliacoes.html")));
     app.get("/contato", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/contact.html")));
     app.get("/regras", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/rules.html")));
+    app.get("/reset-password", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "public/reset-password.html")));
+    app.get("/reset-password.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "public/reset-password.html")));
+    app.get("/verify-email", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "public/verify-email.html")));
+    app.get("/verify-email.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "public/verify-email.html")));
 
     app.get("/blog", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
     app.get("/blog/", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
@@ -2709,6 +2734,18 @@ async function startServer() {
     });
     app.get("/regras", (req, res) => {
       res.sendFile(path.join(distPath, "pages", "rules.html"));
+    });
+    app.get("/reset-password", (req, res) => {
+      res.sendFile(path.join(distPath, "reset-password.html"));
+    });
+    app.get("/reset-password.html", (req, res) => {
+      res.sendFile(path.join(distPath, "reset-password.html"));
+    });
+    app.get("/verify-email", (req, res) => {
+      res.sendFile(path.join(distPath, "verify-email.html"));
+    });
+    app.get("/verify-email.html", (req, res) => {
+      res.sendFile(path.join(distPath, "verify-email.html"));
     });
 
     app.get("/blog", (req, res) => {

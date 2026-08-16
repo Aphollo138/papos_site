@@ -59,6 +59,8 @@ document.addEventListener("DOMContentLoaded", () => {
     switch (code) {
       case "auth/invalid-email":
         return "O formato do e-mail inserido é inválido.";
+      case "auth/invalid-email-domain":
+        return "Utilize um e-mail Gmail, Outlook ou UOL.";
       case "auth/reserved-nickname":
         return "Este nome é reservado pela equipe do Papo.net.br.";
       case "auth/user-disabled":
@@ -153,6 +155,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const password = registerPassword.value;
 
     if (!validatePasswordsMatch()) return;
+
+    const emailRegex = /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
+    if (!emailRegex.test(email)) {
+      registerAlert.textContent = "Utilize um e-mail Gmail, Outlook ou UOL.";
+      registerAlert.classList.remove("d-none");
+      return;
+    }
 
     if (nickname.length < 2) {
       registerAlert.textContent = "O apelido deve ter no mínimo 2 caracteres.";

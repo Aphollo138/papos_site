@@ -8,7 +8,10 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
-  browserSessionPersistence
+  browserSessionPersistence,
+  verifyPasswordResetCode,
+  confirmPasswordReset,
+  applyActionCode
 } from "firebase/auth";
 import { 
   collection, 
@@ -231,6 +234,11 @@ const FirebaseService = {
   },
 
   async register(email, password, nickname) {
+    const emailRegex = /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
+    if (!email || !emailRegex.test(email.trim())) {
+      throw { code: "auth/invalid-email-domain", message: "Utilize um e-mail Gmail, Outlook ou UOL." };
+    }
+
     if (typeof window !== "undefined" && typeof window.isReservedNickname === "function") {
       if (window.isReservedNickname(nickname)) {
         throw { code: "auth/reserved-nickname", message: "Este nome é reservado pela equipe do Papo.net.br." };
@@ -262,6 +270,18 @@ const FirebaseService = {
 
   async resetPassword(email) {
     await sendPasswordResetEmail(auth, email);
+  },
+
+  async verifyPasswordResetCode(code) {
+    return await verifyPasswordResetCode(auth, code);
+  },
+
+  async confirmPasswordReset(code, newPassword) {
+    return await confirmPasswordReset(auth, code, newPassword);
+  },
+
+  async applyActionCode(code) {
+    return await applyActionCode(auth, code);
   },
 
   async updateProfileDetails(nickname, photoUrl) {
