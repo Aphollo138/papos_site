@@ -32,7 +32,7 @@
         <!-- 1. Estado de Verificação em Andamento -->
         <div id="view-loading" class="py-3">
           <div class="status-icon-wrapper status-icon-loading">
-            <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem;">
+            <div class="spinner-border text-primary" role="status" style="width: 2.5rem; height: 2.5rem;">
               <span class="visually-hidden">Verificando...</span>
             </div>
           </div>
@@ -42,25 +42,25 @@
 
         <!-- 2. Estado de Sucesso -->
         <div id="view-success" class="d-none">
-          <div class="status-icon-wrapper status-icon-success">
-            <i class="bi bi-patch-check-fill"></i>
+          <div class="status-icon-wrapper status-icon-success mb-3">
+            <i class="bi bi-check-circle-fill text-success" style="font-size: 3.25rem;"></i>
           </div>
-          <h2 class="auth-title text-success">🎉 Seu e-mail foi verificado com sucesso!</h2>
-          <p class="auth-subtitle">Agora sua conta está totalmente validada e pronta para utilizar todos os recursos do Papo.net.</p>
-          <a href="/chat?action=login" class="btn-auth-submit text-decoration-none">
-            <i class="bi bi-box-arrow-in-right"></i> Entrar no Papo.net
+          <h2 class="auth-title text-success">E-mail verificado com sucesso!</h2>
+          <p class="auth-subtitle mb-4">Sua conta foi validada. Agora você já pode entrar normalmente no Papo.net.</p>
+          <a href="/login" class="btn-auth-submit text-decoration-none">
+            <i class="bi bi-box-arrow-in-right"></i> Ir para o Login
           </a>
         </div>
 
         <!-- 3. Estado de Erro / Link Expirado -->
         <div id="view-error" class="d-none">
-          <div class="status-icon-wrapper status-icon-error">
-            <i class="bi bi-exclamation-triangle-fill"></i>
+          <div class="status-icon-wrapper status-icon-error mb-3">
+            <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 3.25rem;"></i>
           </div>
-          <h2 class="auth-title">Link expirado</h2>
-          <p id="error-message" class="auth-subtitle">Este link expirou ou já foi utilizado.</p>
+          <h2 class="auth-title">Este link expirou.</h2>
+          <p id="error-message" class="auth-subtitle mb-4">Este link expirou ou já foi utilizado.</p>
           <div class="d-flex flex-column gap-2">
-            <a href="/" class="btn-auth-submit text-decoration-none">
+            <a href="/login" class="btn-auth-submit text-decoration-none">
               <i class="bi bi-envelope-arrow-up"></i> Solicitar novo e-mail
             </a>
             <a href="/chat" class="btn-auth-secondary">

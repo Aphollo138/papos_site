@@ -717,6 +717,27 @@
                 <span id="register-btn-text">Criar conta</span>
               </button>
             </form>
+
+            <!-- Tela E-mail Pendente -->
+            <div id="view-email-pending" class="d-none text-center py-2">
+              <div class="mb-3">
+                <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-warning bg-opacity-10 p-3" style="width: 72px; height: 72px;">
+                  <i class="bi bi-envelope-exclamation-fill text-warning fs-1"></i>
+                </div>
+              </div>
+              <h4 class="fw-bold text-white mb-2">Verifique seu e-mail</h4>
+              <p class="text-secondary small mb-4" id="email-pending-message">
+                Enviamos um link de confirmação para seu endereço de e-mail. Após verificar, volte e faça login novamente.
+              </p>
+              <div class="d-flex flex-column gap-2">
+                <button type="button" class="btn btn-premium w-100 py-2.5 fw-bold" id="btn-resend-pending-email">
+                  Reenviar e-mail
+                </button>
+                <button type="button" class="btn btn-outline-secondary w-100 py-2 fw-semibold" id="btn-back-to-login">
+                  Voltar ao Login
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

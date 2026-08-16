@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebase
 import { getAuth, verifyPasswordResetCode, confirmPasswordReset } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
- apiKey: process.env.VITE_FIREBASE_API_KEY || "",
+  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
   authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
   projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
   storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
@@ -33,7 +33,20 @@ const auth = getAuth(app);
   } catch (e) {}
 })();
 
-document.addEventListener("DOMContentLoaded", async () => {
+function getResetCode() {
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.substring(1) : window.location.hash;
+    const hashParams = new URLSearchParams(hash);
+
+    const code = searchParams.get("oobCode") || hashParams.get("oobCode") || searchParams.get("code") || hashParams.get("code");
+    return code ? code.trim() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function initResetPassword() {
   const viewLoading = document.getElementById("view-loading");
   const viewForm = document.getElementById("view-form");
   const viewSuccess = document.getElementById("view-success");
@@ -55,8 +68,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const ruleLetter = document.getElementById("rule-letter");
   const ruleNumber = document.getElementById("rule-number");
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const oobCode = urlParams.get("oobCode");
+  const oobCode = getResetCode();
 
   function showView(view) {
     [viewLoading, viewForm, viewSuccess, viewError].forEach(v => {
@@ -219,4 +231,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
   }
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initResetPassword);
+} else {
+  initResetPassword();
+}

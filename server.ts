@@ -2711,8 +2711,11 @@ async function startServer() {
       }
       serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/artigo.html"));
     });
+    app.get("/login", (req, res) => {
+      res.redirect("/chat?action=login");
+    });
     app.get("/entrar", (req, res) => {
-      res.redirect("/#login-anchor");
+      res.redirect("/chat?action=login");
     });
 
     app.get("/pages/:page.html", (req, res, next) => {
@@ -2799,8 +2802,11 @@ async function startServer() {
       }
       res.sendFile(path.join(distPath, "blog", "artigo.html"));
     });
+    app.get("/login", (req, res) => {
+      res.redirect("/chat?action=login");
+    });
     app.get("/entrar", (req, res) => {
-      res.redirect("/#login-anchor");
+      res.redirect("/chat?action=login");
     });
 
     app.get("/pages/:page.html", (req, res) => {

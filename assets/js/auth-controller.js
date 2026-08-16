@@ -10,6 +10,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const tabRegister = document.getElementById("tab-register");
   const loginForm = document.getElementById("login-form");
   const registerForm = document.getElementById("register-form");
+  const viewEmailPending = document.getElementById("view-email-pending");
+  const modalHeaderNav = authModalEl.querySelector(".modal-header > .w-100");
+  const btnResendPendingEmail = document.getElementById("btn-resend-pending-email");
+  const btnBackToLogin = document.getElementById("btn-back-to-login");
+  const emailPendingMessage = document.getElementById("email-pending-message");
 
   const loginEmail = document.getElementById("login-email");
   const loginPassword = document.getElementById("login-password");
@@ -30,37 +35,84 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnSubmitRegister = document.getElementById("btn-submit-register");
   const registerConfirmError = document.getElementById("register-confirm-error");
 
+  function hideTelaVerificacaoPendente() {
+    if (viewEmailPending) viewEmailPending.classList.add("d-none");
+    if (modalHeaderNav) modalHeaderNav.classList.remove("d-none");
+  }
+
+  function mostrarTelaVerificacaoPendente(email, password) {
+    if (modalHeaderNav) modalHeaderNav.classList.add("d-none");
+    if (loginForm) loginForm.classList.add("d-none");
+    if (registerForm) registerForm.classList.add("d-none");
+    if (loginAlert) loginAlert.classList.add("d-none");
+    if (registerAlert) registerAlert.classList.add("d-none");
+
+    if (viewEmailPending) {
+      viewEmailPending.classList.remove("d-none");
+      viewEmailPending.classList.add("animated-fade-in");
+    }
+    if (emailPendingMessage) {
+      emailPendingMessage.innerHTML = `Enviamos um link de confirmação para seu endereço de e-mail. Após verificar, volte e faça login novamente.`;
+    }
+    const resendBtn = document.getElementById("btn-resend-pending-email");
+    if (resendBtn) {
+      setupResendCooldown(resendBtn, email, password);
+    }
+  }
+
   function showLoginTab() {
-    tabLogin.classList.remove("text-secondary", "border-secondary", "border-1");
-    tabLogin.classList.add("text-white", "border-success", "border-2");
-
-    tabRegister.classList.remove("text-white", "border-success", "border-2");
-    tabRegister.classList.add("text-secondary", "border-secondary", "border-1");
-
-    loginForm.classList.remove("d-none");
-    registerForm.classList.add("d-none");
+    hideTelaVerificacaoPendente();
+    if (tabLogin) {
+      tabLogin.classList.remove("text-secondary", "border-secondary", "border-1");
+      tabLogin.classList.add("text-white", "border-success", "border-2");
+    }
+    if (tabRegister) {
+      tabRegister.classList.remove("text-white", "border-success", "border-2");
+      tabRegister.classList.add("text-secondary", "border-secondary", "border-1");
+    }
+    if (loginForm) loginForm.classList.remove("d-none");
+    if (registerForm) registerForm.classList.add("d-none");
   }
 
   function showRegisterTab() {
-    tabRegister.classList.remove("text-secondary", "border-secondary", "border-1");
-    tabRegister.classList.add("text-white", "border-success", "border-2");
-
-    tabLogin.classList.remove("text-white", "border-success", "border-2");
-    tabLogin.classList.add("text-secondary", "border-secondary", "border-1");
-
-    registerForm.classList.remove("d-none");
-    loginForm.classList.add("d-none");
+    hideTelaVerificacaoPendente();
+    if (tabRegister) {
+      tabRegister.classList.remove("text-secondary", "border-secondary", "border-1");
+      tabRegister.classList.add("text-white", "border-success", "border-2");
+    }
+    if (tabLogin) {
+      tabLogin.classList.remove("text-white", "border-success", "border-2");
+      tabLogin.classList.add("text-secondary", "border-secondary", "border-1");
+    }
+    if (registerForm) registerForm.classList.remove("d-none");
+    if (loginForm) loginForm.classList.add("d-none");
   }
 
-  tabLogin.addEventListener("click", showLoginTab);
-  tabRegister.addEventListener("click", showRegisterTab);
+  if (tabLogin) tabLogin.addEventListener("click", showLoginTab);
+  if (tabRegister) tabRegister.addEventListener("click", showRegisterTab);
+
+  if (btnBackToLogin) {
+    btnBackToLogin.addEventListener("click", () => {
+      hideTelaVerificacaoPendente();
+      showLoginTab();
+      if (loginEmail) loginEmail.focus();
+    });
+  }
+
+  authModalEl.addEventListener("hidden.bs.modal", () => {
+    hideTelaVerificacaoPendente();
+    showLoginTab();
+  });
 
   let resendCooldownInterval = null;
   function setupResendCooldown(btn, email, password) {
     if (!btn) return;
-    btn.addEventListener("click", async () => {
-      btn.disabled = true;
-      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando...`;
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.addEventListener("click", async () => {
+      newBtn.disabled = true;
+      newBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando...`;
 
       try {
         await FirebaseService.resendVerificationEmail(email, password);
@@ -75,8 +127,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       let seconds = 60;
-      btn.disabled = true;
-      btn.textContent = `Reenviar e-mail (${seconds}s)`;
+      newBtn.disabled = true;
+      newBtn.textContent = `Reenviar e-mail (${seconds}s)`;
 
       if (resendCooldownInterval) clearInterval(resendCooldownInterval);
       resendCooldownInterval = setInterval(() => {
@@ -84,10 +136,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (seconds <= 0) {
           clearInterval(resendCooldownInterval);
           resendCooldownInterval = null;
-          btn.disabled = false;
-          btn.textContent = "Reenviar e-mail";
+          newBtn.disabled = false;
+          newBtn.textContent = "Reenviar e-mail";
         } else {
-          btn.textContent = `Reenviar e-mail (${seconds}s)`;
+          newBtn.textContent = `Reenviar e-mail (${seconds}s)`;
         }
       }, 1000);
     });
@@ -177,23 +229,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error("Erro de login:", error);
       if (error.code === "auth/unverified-email") {
-        loginAlert.className = "alert alert-warning py-3 px-3 small border border-warning mb-3";
-        loginAlert.innerHTML = `
-          <div class="d-flex align-items-start gap-2">
-            <i class="bi bi-exclamation-triangle-fill fs-5 text-warning flex-shrink-0 mt-1"></i>
-            <div class="flex-grow-1">
-              <strong>📧 Enviamos um e-mail para verificar sua conta.</strong><br>
-              <span class="text-white-50">Verifique sua caixa de entrada antes de entrar no chat.</span>
-              <div class="mt-2 pt-2 border-top border-secondary">
-                <button type="button" class="btn btn-sm btn-outline-warning w-100 fw-semibold" id="btn-resend-login-email">
-                  Reenviar e-mail
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-        loginAlert.classList.remove("d-none");
-        setupResendCooldown(document.getElementById("btn-resend-login-email"), email, password);
+        mostrarTelaVerificacaoPendente(email, password);
       } else {
         loginAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
         loginAlert.textContent = translateAuthError(error.code);
@@ -247,25 +283,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       await FirebaseService.register(email, password, nickname);
-      
       registerForm.reset();
-      registerAlert.className = "alert alert-success py-3 px-3 small border border-success mb-3";
-      registerAlert.innerHTML = `
-        <div class="d-flex align-items-start gap-2">
-          <i class="bi bi-envelope-check-fill fs-5 text-success flex-shrink-0 mt-1"></i>
-          <div class="flex-grow-1">
-            <strong>📧 Enviamos um e-mail para verificar sua conta.</strong><br>
-            <span class="text-white-50">Verifique sua caixa de entrada antes de entrar no chat.</span>
-            <div class="mt-2 pt-2 border-top border-secondary">
-              <button type="button" class="btn btn-sm btn-outline-success w-100 fw-semibold" id="btn-resend-register-email">
-                Reenviar e-mail
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-      registerAlert.classList.remove("d-none");
-      setupResendCooldown(document.getElementById("btn-resend-register-email"), email, password);
+      mostrarTelaVerificacaoPendente(email, password);
     } catch (error) {
       console.error("Erro no cadastro:", error);
       registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
