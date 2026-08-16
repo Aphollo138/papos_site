@@ -693,8 +693,14 @@ async function startServer() {
       const token = req.headers.authorization.split("Bearer ")[1];
       try {
         const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
-        if (decoded && decoded.uid) {
-          authUid = decoded.uid;
+        if (decoded) {
+          if (decoded.email && decoded.email_verified !== true) {
+            res.status(403).json({ error: "403 Forbidden: E-mail não verificado. Por favor, verifique seu e-mail antes de acessar." });
+            return;
+          }
+          if (decoded.uid) {
+            authUid = decoded.uid;
+          }
         }
       } catch (e) {}
     }
@@ -910,6 +916,26 @@ async function startServer() {
               const email = decoded.email;
 
               if (typeof uid !== "string" || !uid || typeof email !== "string" || !email) {
+                return;
+              }
+
+              if (decoded.email_verified !== true) {
+                sendToClient(ws, "error", {
+                  message: "📧 Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada antes de entrar no chat.",
+                  code: "auth/unverified-email"
+                });
+                try { ws.close(); } catch (e) {}
+                activeSessions.delete(ws);
+                return;
+              }
+
+              if (!isAllowedEmailDomain(email)) {
+                sendToClient(ws, "error", {
+                  message: "Utilize um e-mail Gmail, Outlook ou UOL.",
+                  code: "auth/invalid-email-domain"
+                });
+                try { ws.close(); } catch (e) {}
+                activeSessions.delete(ws);
                 return;
               }
 

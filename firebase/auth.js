@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   sendPasswordResetEmail, 
+  sendEmailVerification,
   updateProfile, 
   onAuthStateChanged,
   setPersistence,
@@ -37,6 +38,11 @@ const FirebaseService = {
   async syncUserProfile() {
     const user = auth.currentUser;
     if (!user) return null;
+
+    if (!user.emailVerified) {
+      await signOut(auth);
+      return null;
+    }
 
     const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
     const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
@@ -251,17 +257,47 @@ const FirebaseService = {
     await updateProfile(user, {
       displayName: nickname
     });
-    
-    return user;
+
+    const actionCodeSettings = {
+      url: "https://papo.net.br/verify-email",
+      handleCodeInApp: false
+    };
+
+    try {
+      await sendEmailVerification(user, actionCodeSettings);
+    } catch (err) {
+      console.warn("Erro ao disparar e-mail de verificação:", err);
+    }
+
+    await signOut(auth);
+
+    return {
+      unverified: true,
+      email: email,
+      message: "📧 Enviamos um e-mail para verificar sua conta. Verifique sua caixa de entrada antes de entrar no chat."
+    };
   },
 
   async login(email, password, rememberMe = true) {
-    
     const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
     await setPersistence(auth, persistence);
     
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential.user;
+    const user = userCredential.user;
+
+    await user.reload();
+
+    if (!user.emailVerified) {
+      await signOut(auth);
+      throw {
+        code: "auth/unverified-email",
+        message: "📧 Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada antes de entrar no chat.",
+        email: user.email,
+        unverifiedUser: user
+      };
+    }
+
+    return user;
   },
 
   async logout() {
@@ -269,7 +305,35 @@ const FirebaseService = {
   },
 
   async resetPassword(email) {
-    await sendPasswordResetEmail(auth, email);
+    const actionCodeSettings = {
+      url: "https://papo.net.br/reset-password",
+      handleCodeInApp: false
+    };
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
+  },
+
+  async resendVerificationEmail(email, password) {
+    const actionCodeSettings = {
+      url: "https://papo.net.br/verify-email",
+      handleCodeInApp: false
+    };
+
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser, actionCodeSettings);
+      return;
+    }
+
+    if (email && password) {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      await sendEmailVerification(userCredential.user, actionCodeSettings);
+      await signOut(auth);
+      return;
+    }
+
+    throw {
+      code: "auth/missing-credentials",
+      message: "Informe seu e-mail e senha para reenviar o e-mail de verificação."
+    };
   },
 
   async verifyPasswordResetCode(code) {

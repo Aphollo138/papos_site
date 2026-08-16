@@ -55,6 +55,44 @@ document.addEventListener("DOMContentLoaded", () => {
   tabLogin.addEventListener("click", showLoginTab);
   tabRegister.addEventListener("click", showRegisterTab);
 
+  let resendCooldownInterval = null;
+  function setupResendCooldown(btn, email, password) {
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando...`;
+
+      try {
+        await FirebaseService.resendVerificationEmail(email, password);
+        if (typeof window.showToast === "function") {
+          window.showToast("E-mail de verificação reenviado com sucesso!", "success");
+        }
+      } catch (err) {
+        console.error("Erro ao reenviar verificação:", err);
+        if (typeof window.showToast === "function") {
+          window.showToast("Não foi possível reenviar agora. Tente novamente mais tarde.", "error");
+        }
+      }
+
+      let seconds = 60;
+      btn.disabled = true;
+      btn.textContent = `Reenviar e-mail (${seconds}s)`;
+
+      if (resendCooldownInterval) clearInterval(resendCooldownInterval);
+      resendCooldownInterval = setInterval(() => {
+        seconds--;
+        if (seconds <= 0) {
+          clearInterval(resendCooldownInterval);
+          resendCooldownInterval = null;
+          btn.disabled = false;
+          btn.textContent = "Reenviar e-mail";
+        } else {
+          btn.textContent = `Reenviar e-mail (${seconds}s)`;
+        }
+      }, 1000);
+    });
+  }
+
   function translateAuthError(code) {
     switch (code) {
       case "auth/invalid-email":
@@ -75,8 +113,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return "A senha escolhida é muito fraca. Deve ter pelo menos 6 caracteres.";
       case "auth/invalid-credential":
         return "E-mail ou senha incorretos. Por favor, tente novamente.";
+      case "auth/unverified-email":
+        return "📧 Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada antes de entrar no chat.";
       case "auth/too-many-requests":
-        return "Acesso temporariamente bloqueado devido a muitas tentativas incorretas. Tente mais tarde.";
+        return "Acesso temporariamente bloqueado devido a muitas tentativas. Tente mais tarde.";
       default:
         return "Ocorreu um erro ao processar sua solicitação. Tente novamente.";
     }
@@ -102,7 +142,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   registerNickname.addEventListener("input", () => {
-    
     let val = registerNickname.value;
     val = val.replace(/[^a-zA-Z0-9_]/g, "");
     if (val.length > 15) {
@@ -137,8 +176,29 @@ document.addEventListener("DOMContentLoaded", () => {
       window.location.reload();
     } catch (error) {
       console.error("Erro de login:", error);
-      loginAlert.textContent = translateAuthError(error.code);
-      loginAlert.classList.remove("d-none");
+      if (error.code === "auth/unverified-email") {
+        loginAlert.className = "alert alert-warning py-3 px-3 small border border-warning mb-3";
+        loginAlert.innerHTML = `
+          <div class="d-flex align-items-start gap-2">
+            <i class="bi bi-exclamation-triangle-fill fs-5 text-warning flex-shrink-0 mt-1"></i>
+            <div class="flex-grow-1">
+              <strong>📧 Enviamos um e-mail para verificar sua conta.</strong><br>
+              <span class="text-white-50">Verifique sua caixa de entrada antes de entrar no chat.</span>
+              <div class="mt-2 pt-2 border-top border-secondary">
+                <button type="button" class="btn btn-sm btn-outline-warning w-100 fw-semibold" id="btn-resend-login-email">
+                  Reenviar e-mail
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        loginAlert.classList.remove("d-none");
+        setupResendCooldown(document.getElementById("btn-resend-login-email"), email, password);
+      } else {
+        loginAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
+        loginAlert.textContent = translateAuthError(error.code);
+        loginAlert.classList.remove("d-none");
+      }
     } finally {
       loginSpinner.classList.add("d-none");
       loginBtnText.textContent = "Entrar";
@@ -158,12 +218,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const emailRegex = /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
     if (!emailRegex.test(email)) {
+      registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
       registerAlert.textContent = "Utilize um e-mail Gmail, Outlook ou UOL.";
       registerAlert.classList.remove("d-none");
       return;
     }
 
     if (nickname.length < 2) {
+      registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
       registerAlert.textContent = "O apelido deve ter no mínimo 2 caracteres.";
       registerAlert.classList.remove("d-none");
       return;
@@ -173,6 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (typeof window.showToast === "function") {
         window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
       }
+      registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
       registerAlert.textContent = "Este nome é reservado pela equipe do Papo.net.br.";
       registerAlert.classList.remove("d-none");
       return;
@@ -185,16 +248,27 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await FirebaseService.register(email, password, nickname);
       
-      localStorage.setItem("papos_nickname", nickname);
-
-      const modalInstance = bootstrap.Modal.getInstance(authModalEl);
-      if (modalInstance) modalInstance.hide();
-      
       registerForm.reset();
-
-      window.location.reload();
+      registerAlert.className = "alert alert-success py-3 px-3 small border border-success mb-3";
+      registerAlert.innerHTML = `
+        <div class="d-flex align-items-start gap-2">
+          <i class="bi bi-envelope-check-fill fs-5 text-success flex-shrink-0 mt-1"></i>
+          <div class="flex-grow-1">
+            <strong>📧 Enviamos um e-mail para verificar sua conta.</strong><br>
+            <span class="text-white-50">Verifique sua caixa de entrada antes de entrar no chat.</span>
+            <div class="mt-2 pt-2 border-top border-secondary">
+              <button type="button" class="btn btn-sm btn-outline-success w-100 fw-semibold" id="btn-resend-register-email">
+                Reenviar e-mail
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      registerAlert.classList.remove("d-none");
+      setupResendCooldown(document.getElementById("btn-resend-register-email"), email, password);
     } catch (error) {
       console.error("Erro no cadastro:", error);
+      registerAlert.className = "alert alert-danger py-2 px-3 small border border-danger mb-3";
       registerAlert.textContent = translateAuthError(error.code);
       registerAlert.classList.remove("d-none");
     } finally {
@@ -254,7 +328,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const mobileAvatarContainer = document.getElementById("mobile-user-avatar-container");
 
       if (user) {
-        
+        if (!user.emailVerified) {
+          fService.logout();
+          return;
+        }
         const initialNickname = user.displayName || user.email.split("@")[0];
         localStorage.setItem("papos_nickname", initialNickname);
 
@@ -439,5 +516,16 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Erro ao fazer logout:", error);
       }
     });
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("action") === "login" || urlParams.get("auth") === "login") {
+    setTimeout(() => {
+      try {
+        const modal = new bootstrap.Modal(authModalEl);
+        showLoginTab();
+        modal.show();
+      } catch (e) {}
+    }, 400);
   }
 });
