@@ -346,6 +346,23 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 500);
 
   let profileUnsubscribe = null;
+  let privateMessagesUnsubscribe = null;
+  let adminsUnsubscribe = null;
+
+  function cleanupFirebaseListeners() {
+    if (profileUnsubscribe) {
+      try { profileUnsubscribe(); } catch (e) {}
+      profileUnsubscribe = null;
+    }
+    if (privateMessagesUnsubscribe) {
+      try { privateMessagesUnsubscribe(); } catch (e) {}
+      privateMessagesUnsubscribe = null;
+    }
+    if (adminsUnsubscribe) {
+      try { adminsUnsubscribe(); } catch (e) {}
+      adminsUnsubscribe = null;
+    }
+  }
 
   function updateDOMUserInfo(nick, profile) {
     const desktopUserName = document.getElementById("desktop-user-name");
@@ -376,15 +393,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const initializeFirebaseSync = () => {
     if (window.FirebaseService) {
       window.FirebaseService.subscribeToAuth((user) => {
-        if (profileUnsubscribe) {
-          profileUnsubscribe();
-          profileUnsubscribe = null;
-        }
+        cleanupFirebaseListeners();
 
         if (user) {
           const uid = user.uid;
           
-          window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
+          privateMessagesUnsubscribe = window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
             let hasNewIncomingUnread = false;
 
             if (syncedChats) {
@@ -423,7 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           if (typeof window.FirebaseService.subscribeToAdmins === "function") {
-            window.FirebaseService.subscribeToAdmins((admins) => {
+            adminsUnsubscribe = window.FirebaseService.subscribeToAdmins((admins) => {
               window.adminUsersSet = new Set(admins.map(a => String(a).toLowerCase()));
               if (typeof renderMembers === "function") {
                 renderMembers();
@@ -563,10 +577,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("Error during profile sync:", err);
           });
         } else {
-          if (profileUnsubscribe) {
-            profileUnsubscribe();
-            profileUnsubscribe = null;
-          }
+          cleanupFirebaseListeners();
           if (typeof window.esconderPainelAdmin === "function") {
             window.esconderPainelAdmin();
           }

@@ -2711,10 +2711,19 @@ async function startServer() {
       }
       serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/artigo.html"));
     });
-    app.get("/login", (req, res) => {
-      res.redirect("/chat?action=login");
-    });
-    app.get("/entrar", (req, res) => {
+    app.get(["/login", "/entrar"], (req, res) => {
+      const mode = req.query.mode;
+      const oobCode = req.query.oobCode || req.query.code;
+      if (mode === "verifyEmail" || (oobCode && mode !== "resetPassword")) {
+        const qIndex = req.url.indexOf("?");
+        const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=verifyEmail&oobCode=${oobCode}`;
+        return res.redirect(`/verify-email${qs}`);
+      }
+      if (mode === "resetPassword") {
+        const qIndex = req.url.indexOf("?");
+        const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=resetPassword&oobCode=${oobCode}`;
+        return res.redirect(`/reset-password${qs}`);
+      }
       res.redirect("/chat?action=login");
     });
 
@@ -2802,10 +2811,19 @@ async function startServer() {
       }
       res.sendFile(path.join(distPath, "blog", "artigo.html"));
     });
-    app.get("/login", (req, res) => {
-      res.redirect("/chat?action=login");
-    });
-    app.get("/entrar", (req, res) => {
+    app.get(["/login", "/entrar"], (req, res) => {
+      const mode = req.query.mode;
+      const oobCode = req.query.oobCode || req.query.code;
+      if (mode === "verifyEmail" || (oobCode && mode !== "resetPassword")) {
+        const qIndex = req.url.indexOf("?");
+        const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=verifyEmail&oobCode=${oobCode}`;
+        return res.redirect(`/verify-email${qs}`);
+      }
+      if (mode === "resetPassword") {
+        const qIndex = req.url.indexOf("?");
+        const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=resetPassword&oobCode=${oobCode}`;
+        return res.redirect(`/reset-password${qs}`);
+      }
       res.redirect("/chat?action=login");
     });
 

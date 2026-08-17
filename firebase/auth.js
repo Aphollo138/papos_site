@@ -29,8 +29,36 @@ import {
   writeBatch
 } from "firebase/firestore";
 
+const activeFirestoreUnsubs = new Set();
+
+function registerFirestoreUnsub(unsub) {
+  if (typeof unsub === "function") {
+    activeFirestoreUnsubs.add(unsub);
+    return () => {
+      activeFirestoreUnsubs.delete(unsub);
+      try { unsub(); } catch (e) {}
+    };
+  }
+  return () => {};
+}
+
+function cancelAllFirestoreListeners() {
+  activeFirestoreUnsubs.forEach((unsub) => {
+    try {
+      if (typeof unsub === "function") {
+        unsub();
+      }
+    } catch (e) {}
+  });
+  activeFirestoreUnsubs.clear();
+}
+
 const FirebaseService = {
   
+  cancelAllFirestoreListeners() {
+    cancelAllFirestoreListeners();
+  },
+
   getCurrentUser() {
     return auth.currentUser;
   },
@@ -40,6 +68,7 @@ const FirebaseService = {
     if (!user) return null;
 
     if (!user.emailVerified) {
+      cancelAllFirestoreListeners();
       await signOut(auth);
       return null;
     }
@@ -60,6 +89,7 @@ const FirebaseService = {
             (fingerprint && Array.isArray(sec.fingerprints) && sec.fingerprints.includes(fingerprint)) ||
             (clientId && Array.isArray(sec.clientIds) && sec.clientIds.includes(clientId))
           ) {
+            cancelAllFirestoreListeners();
             await signOut(auth);
             localStorage.removeItem("papos_nickname");
             window.location.href = "/?error=banned";
@@ -73,6 +103,7 @@ const FirebaseService = {
 
           if (maxUntil > now) {
             const secRemaining = Math.ceil((maxUntil - now) / 60000);
+            cancelAllFirestoreListeners();
             await signOut(auth);
             localStorage.removeItem("papos_nickname");
             window.location.href = `/?error=suspended&remaining=${secRemaining}`;
@@ -85,6 +116,7 @@ const FirebaseService = {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.banned) {
+          cancelAllFirestoreListeners();
           await signOut(auth);
           localStorage.removeItem("papos_nickname");
           window.location.href = "/?error=banned";
@@ -92,6 +124,7 @@ const FirebaseService = {
         }
         if (data.suspendedUntil && data.suspendedUntil > Date.now()) {
           const remaining = Math.ceil((data.suspendedUntil - Date.now()) / 60000);
+          cancelAllFirestoreListeners();
           await signOut(auth);
           localStorage.removeItem("papos_nickname");
           window.location.href = `/?error=suspended&remaining=${remaining}`;
@@ -227,7 +260,7 @@ const FirebaseService = {
       return () => {};
     }
     const userRef = doc(db, "users", uid);
-    return onSnapshot(userRef, (docSnap) => {
+    const rawUnsub = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         callback(docSnap.data());
       } else {
@@ -237,6 +270,7 @@ const FirebaseService = {
       console.error("Erro ao escutar perfil do usuário:", error);
       callback(null);
     });
+    return registerFirestoreUnsub(rawUnsub);
   },
 
   async register(email, password, nickname) {
@@ -259,22 +293,21 @@ const FirebaseService = {
     });
 
     const actionCodeSettings = {
-      url: "https://papo.net.br/verify-email",
+      url: "https://papo.net.br/login",
       handleCodeInApp: false
     };
 
     try {
-      await sendEmailVerification(user, actionCodeSettings);
-    } catch (err) {
-      console.warn("Erro ao disparar e-mail de verificação:", err);
+      await sendEmailVerification(userCredential.user, actionCodeSettings);
+    } finally {
+      cancelAllFirestoreListeners();
+      await signOut(auth);
     }
-
-    await signOut(auth);
 
     return {
       unverified: true,
       email: email,
-      message: "📧 Enviamos um e-mail para verificar sua conta. Verifique sua caixa de entrada antes de entrar no chat."
+      message: "📧 Enviamos um link de confirmação para seu e-mail. Após verificar sua conta, faça login normalmente."
     };
   },
 
@@ -288,6 +321,7 @@ const FirebaseService = {
     await user.reload();
 
     if (!user.emailVerified) {
+      cancelAllFirestoreListeners();
       await signOut(auth);
       throw {
         code: "auth/unverified-email",
@@ -301,6 +335,7 @@ const FirebaseService = {
   },
 
   async logout() {
+    cancelAllFirestoreListeners();
     await signOut(auth);
   },
 
@@ -314,19 +349,38 @@ const FirebaseService = {
 
   async resendVerificationEmail(email, password) {
     const actionCodeSettings = {
-      url: "https://papo.net.br/verify-email",
+      url: "https://papo.net.br/login",
       handleCodeInApp: false
     };
 
     if (auth.currentUser) {
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        throw {
+          code: "auth/already-verified",
+          message: "Seu e-mail já foi verificado."
+        };
+      }
       await sendEmailVerification(auth.currentUser, actionCodeSettings);
       return;
     }
 
     if (email && password) {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      await sendEmailVerification(userCredential.user, actionCodeSettings);
-      await signOut(auth);
+      const user = userCredential.user;
+      try {
+        await user.reload();
+        if (user.emailVerified) {
+          throw {
+            code: "auth/already-verified",
+            message: "Seu e-mail já foi verificado."
+          };
+        }
+        await sendEmailVerification(user, actionCodeSettings);
+      } finally {
+        cancelAllFirestoreListeners();
+        await signOut(auth);
+      }
       return;
     }
 
@@ -458,7 +512,7 @@ const FirebaseService = {
       collection(db, "users", user.uid, "privateChats")
     );
  
-    return onSnapshot(q, (querySnapshot) => {
+    const rawUnsub = onSnapshot(q, (querySnapshot) => {
       const privateChats = {};
       
       querySnapshot.forEach((document) => {
@@ -493,12 +547,13 @@ const FirebaseService = {
     }, (error) => {
       console.error("Erro ao sincronizar mensagens do Firestore:", error);
     });
+    return registerFirestoreUnsub(rawUnsub);
   },
 
   subscribeToAdmins(callback) {
     try {
       const q = query(collection(db, "users"), where("admin", "==", true));
-      return onSnapshot(q, (querySnapshot) => {
+      const rawUnsub = onSnapshot(q, (querySnapshot) => {
         const adminNicknames = [];
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
@@ -509,6 +564,7 @@ const FirebaseService = {
       }, (error) => {
         console.error("Erro ao escutar administradores:", error);
       });
+      return registerFirestoreUnsub(rawUnsub);
     } catch (e) {
       console.error("Erro em subscribeToAdmins:", e);
       return () => {};
@@ -523,7 +579,7 @@ const FirebaseService = {
     }
 
     const q = collection(db, "users");
-    return onSnapshot(q, (querySnapshot) => {
+    const rawUnsub = onSnapshot(q, (querySnapshot) => {
       const usersList = [];
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -553,6 +609,7 @@ const FirebaseService = {
     }, (error) => {
       console.error("Erro ao escutar coleção de usuários no Firestore:", error);
     });
+    return registerFirestoreUnsub(rawUnsub);
   },
 
   async updateUserField(targetUid, fieldsPayload) {
@@ -569,7 +626,7 @@ const FirebaseService = {
     }
 
     const q = collection(db, "supportNames");
-    return onSnapshot(q, (querySnapshot) => {
+    const rawUnsub = onSnapshot(q, (querySnapshot) => {
       const supportList = [];
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -585,6 +642,7 @@ const FirebaseService = {
     }, (error) => {
       console.error("Erro ao escutar coleção supportNames no Firestore:", error);
     });
+    return registerFirestoreUnsub(rawUnsub);
   },
 
   async authorizeSupportName(targetUid, createdByUid) {

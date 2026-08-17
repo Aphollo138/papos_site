@@ -123,8 +123,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } catch (err) {
         console.error("Erro ao reenviar verificação:", err);
+        let errorMsg = "Não foi possível reenviar agora. Tente novamente mais tarde.";
+        if (err && err.code === "auth/already-verified") {
+          errorMsg = "Seu e-mail já foi verificado.";
+        } else if (err && (err.code === "auth/too-many-requests" || (err.message && err.message.includes("too-many-requests")))) {
+          errorMsg = "Você realizou muitas tentativas. Aguarde alguns minutos antes de solicitar outro e-mail.";
+        }
         if (typeof window.showToast === "function") {
-          window.showToast("Não foi possível reenviar agora. Tente novamente mais tarde.", "error");
+          window.showToast(errorMsg, err && err.code === "auth/already-verified" ? "info" : "error");
         }
       }
 
@@ -172,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
       case "auth/network-request-failed":
         return "Falha na conexão de rede. Verifique sua internet e tente novamente.";
       case "auth/too-many-requests":
-        return "Muitas solicitações em sequência. Por favor, aguarde alguns instantes e tente novamente.";
+        return "Você realizou muitas tentativas. Aguarde alguns minutos antes de solicitar outro e-mail.";
       case "auth/internal-error":
         return "Ocorreu um erro interno de autenticação. Tente novamente em instantes.";
       default:
