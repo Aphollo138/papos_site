@@ -52,13 +52,15 @@ document.addEventListener("DOMContentLoaded", () => {
       viewEmailPending.classList.add("animated-fade-in");
     }
     if (emailPendingMessage) {
-      emailPendingMessage.innerHTML = `Enviamos um link de confirmação para seu endereço de e-mail. Após verificar, volte e faça login novamente.`;
+      emailPendingMessage.innerHTML = `Enviamos um link de confirmação para seu e-mail. Após verificar sua conta, faça login normalmente.`;
     }
     const resendBtn = document.getElementById("btn-resend-pending-email");
     if (resendBtn) {
       setupResendCooldown(resendBtn, email, password);
     }
   }
+  window.mostrarTelaVerificacaoPendente = mostrarTelaVerificacaoPendente;
+  window.abrirTelaVerificacaoPendente = mostrarTelaVerificacaoPendente;
 
   function showLoginTab() {
     hideTelaVerificacaoPendente();
@@ -167,8 +169,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return "E-mail ou senha incorretos. Por favor, tente novamente.";
       case "auth/unverified-email":
         return "📧 Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada antes de entrar no chat.";
+      case "auth/network-request-failed":
+        return "Falha na conexão de rede. Verifique sua internet e tente novamente.";
       case "auth/too-many-requests":
-        return "Acesso temporariamente bloqueado devido a muitas tentativas. Tente mais tarde.";
+        return "Muitas solicitações em sequência. Por favor, aguarde alguns instantes e tente novamente.";
+      case "auth/internal-error":
+        return "Ocorreu um erro interno de autenticação. Tente novamente em instantes.";
       default:
         return "Ocorreu um erro ao processar sua solicitação. Tente novamente.";
     }
