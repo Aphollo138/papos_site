@@ -1,19 +1,19 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBc5MaD-riO2VOEeha3OIY9hz0",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "papo-net.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "papo-net",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "papo-net.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "344762176006",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:344762176006:web:ff73eb56d882c4e8d4e987",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-GFNMN47DSF"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ||"",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ""
 };
 
-const app = initializeApp(firebaseConfig);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
 
