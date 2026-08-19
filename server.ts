@@ -2724,7 +2724,7 @@ async function startServer() {
         const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=resetPassword&oobCode=${oobCode}`;
         return res.redirect(`/reset-password${qs}`);
       }
-      res.redirect("/chat?action=login");
+      res.redirect("/chat?room=room-1&action=login");
     });
 
     app.get("/pages/:page.html", (req, res, next) => {
@@ -2824,7 +2824,7 @@ async function startServer() {
         const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=resetPassword&oobCode=${oobCode}`;
         return res.redirect(`/reset-password${qs}`);
       }
-      res.redirect("/chat?action=login");
+      res.redirect("/chat?room=room-1&action=login");
     });
 
     app.get("/pages/:page.html", (req, res) => {

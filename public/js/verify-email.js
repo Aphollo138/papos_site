@@ -2,13 +2,13 @@ import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebase
 import { getAuth, applyActionCode } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
+  apiKey: "AIzaSyBc5MaD-riO2VOEeha3OIY9hz0",
+  authDomain: "papo-net.firebaseapp.com",
+  projectId: "papo-net",
+  storageBucket: "papo-net.firebasestorage.app",
+  messagingSenderId: "344762176006",
+  appId: "1:344762176006:web:ff73eb56d882c4e8d4e987",
+  measurementId: "G-GFNMN47DSF"
 };
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -91,6 +91,28 @@ async function verifyEmail() {
     // Executa a validação do código de ação sem requerer usuário logado
     await applyActionCode(auth, oobCode);
     showView(viewSuccess);
+
+    try {
+      if (auth.currentUser) {
+        await auth.currentUser.reload();
+        if (auth.currentUser.displayName) {
+          localStorage.setItem("papos_nickname", auth.currentUser.displayName);
+        }
+      }
+    } catch (e) {}
+
+    const btnEnter = document.getElementById("btn-enter-room");
+    if (btnEnter) {
+      btnEnter.addEventListener("click", (e) => {
+        e.preventDefault();
+        const savedNick = localStorage.getItem("papos_nickname");
+        if (auth.currentUser && auth.currentUser.emailVerified && savedNick) {
+          window.location.href = "/chat?room=room-1";
+        } else {
+          window.location.href = "/chat?room=room-1&action=login";
+        }
+      });
+    }
   } catch (error) {
     console.error("Erro na verificação de e-mail:", error);
     let msg = "Este link expirou ou já foi utilizado.";

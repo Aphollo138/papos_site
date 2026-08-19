@@ -293,7 +293,7 @@ const FirebaseService = {
     });
 
     const actionCodeSettings = {
-      url: "https://papo.net.br/login",
+      url: "https://papo.net.br/verify-email",
       handleCodeInApp: false
     };
 
@@ -349,7 +349,7 @@ const FirebaseService = {
 
   async resendVerificationEmail(email, password) {
     const actionCodeSettings = {
-      url: "https://papo.net.br/login",
+      url: "https://papo.net.br/verify-email",
       handleCodeInApp: false
     };
 

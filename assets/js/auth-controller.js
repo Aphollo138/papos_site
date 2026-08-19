@@ -104,6 +104,10 @@ document.addEventListener("DOMContentLoaded", () => {
   authModalEl.addEventListener("hidden.bs.modal", () => {
     hideTelaVerificacaoPendente();
     showLoginTab();
+    const urlP = new URLSearchParams(window.location.search);
+    if (!localStorage.getItem("papos_nickname") && (urlP.get("action") === "login" || urlP.get("auth") === "login")) {
+      window.location.href = "/?error=name_required";
+    }
   });
 
   let resendCooldownInterval = null;
@@ -237,7 +241,13 @@ document.addEventListener("DOMContentLoaded", () => {
       
       loginForm.reset();
 
-      window.location.reload();
+      const currentParams = new URLSearchParams(window.location.search);
+      const targetRoom = currentParams.get("room") || "room-1";
+      if (currentParams.get("action") === "login" || currentParams.get("auth") === "login") {
+        window.location.href = `/chat?room=${targetRoom}`;
+      } else {
+        window.location.reload();
+      }
     } catch (error) {
       console.error("Erro de login:", error);
       if (error.code === "auth/unverified-email") {

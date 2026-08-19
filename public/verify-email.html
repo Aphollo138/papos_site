@@ -56,7 +56,7 @@
           </div>
           <h2 class="auth-title text-success">✅ E-mail verificado com sucesso!</h2>
           <p class="auth-subtitle mb-4">Sua conta foi validada. Agora você já pode entrar normalmente no Papo.net.</p>
-          <a href="/login" class="btn-auth-submit text-decoration-none">
+          <a href="/chat?room=room-1" id="btn-enter-room" class="btn-auth-submit text-decoration-none">
             <i class="bi bi-box-arrow-in-right"></i> Entrar no Papo.net
           </a>
         </div>
@@ -69,10 +69,10 @@
           <h2 class="auth-title">Este link expirou.</h2>
           <p id="error-message" class="auth-subtitle mb-4">Este link expirou ou já foi utilizado.</p>
           <div class="d-flex flex-column gap-2">
-            <a href="/login" class="btn-auth-submit text-decoration-none">
+            <a href="/chat?room=room-1&action=login" class="btn-auth-submit text-decoration-none">
               <i class="bi bi-envelope-arrow-up"></i> Solicitar novo e-mail
             </a>
-            <a href="/chat" class="btn-auth-secondary">
+            <a href="/chat?room=room-1" class="btn-auth-secondary">
               Continuar como visitante
             </a>
           </div>

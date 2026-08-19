@@ -198,13 +198,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const isActionLogin = urlParams.get("action") === "login" || urlParams.get("auth") === "login";
+
   let currentUser = ChatEngine.getUser();
   if (!currentUser) {
-    window.location.href = "/?error=name_required";
+    if (!isActionLogin) {
+      window.location.href = "/?error=name_required";
+    }
     return;
   }
 
-  const urlParams = new URLSearchParams(window.location.search);
   let activeRoomId = urlParams.get("room") || "room-1";
 
   const chatMessagesContainer = document.getElementById("chat-messages-container");
