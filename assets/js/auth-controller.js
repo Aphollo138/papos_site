@@ -242,8 +242,10 @@ document.addEventListener("DOMContentLoaded", () => {
       loginForm.reset();
 
       const currentParams = new URLSearchParams(window.location.search);
-      const targetRoom = currentParams.get("room") || "room-1";
-      if (currentParams.get("action") === "login" || currentParams.get("auth") === "login") {
+      const targetRoom = currentParams.get("room") || localStorage.getItem("target_room_id") || "room-1";
+      localStorage.removeItem("target_room_id");
+      const isHomePage = window.location.pathname === "/" || window.location.pathname === "/index.html" || window.location.pathname === "";
+      if (isHomePage || currentParams.get("action") === "login" || currentParams.get("auth") === "login") {
         window.location.href = `/chat?room=${targetRoom}`;
       } else {
         window.location.reload();
