@@ -1002,7 +1002,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     socket.onclose = () => {
       
-      appendSystemMessage("Conexão instável. Restabelecendo canal criptografado...");
+      appendSystemMessage("Conexão instável. Restabelecendo conexão...");
       setTimeout(connect, 3000);
     };
 
@@ -1049,7 +1049,7 @@ document.addEventListener("DOMContentLoaded", () => {
         headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
         headerName.style.cursor = "default";
       }
-      if (headerDesc) headerDesc.textContent = "Chat privado de ponta-a-ponta. Conversas salvas localmente.";
+      if (headerDesc) headerDesc.textContent = "Chat privado.";
       if (btnBackToPublic) btnBackToPublic.classList.remove("d-none");
       
       if (headerAvatarContainer) {
