@@ -120,20 +120,61 @@ window.isAdminUser = function(nickname) {
 };
 let activePrivateRecipient = null; 
 let chatMode = "public"; 
-let activeMessageColor = "";
+
+let savedMsgColor = "";
+try {
+  savedMsgColor = localStorage.getItem("papo_message_color") || "";
+} catch (e) {}
+
+let activeMessageColor = savedMsgColor;
+
+window.updateColorCircleActiveState = (color) => {
+  const normalized = (color || "").toUpperCase();
+  const circleBtns = document.querySelectorAll(".color-circle-btn");
+  circleBtns.forEach(btn => {
+    const btnColor = (btn.getAttribute("data-color") || "").toUpperCase();
+    if (btnColor === normalized) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+};
 
 window.setMessageColor = (color, indicatorColor) => {
-  activeMessageColor = color;
+  activeMessageColor = color || "";
+  try {
+    if (activeMessageColor) {
+      localStorage.setItem("papo_message_color", activeMessageColor);
+    } else {
+      localStorage.removeItem("papo_message_color");
+    }
+  } catch (e) {}
+
+  if (window.updateColorCircleActiveState) {
+    window.updateColorCircleActiveState(activeMessageColor);
+  }
+
   const indicator = document.getElementById("selected-color-indicator");
   if (indicator) {
-    indicator.style.setProperty("color", color || "var(--text-primary)", "important");
+    indicator.style.setProperty("color", activeMessageColor || "var(--text-primary)", "important");
   }
   const messageInput = document.getElementById("message-input");
   if (messageInput) {
-    messageInput.style.setProperty("color", color || "var(--text-primary)", "important");
+    messageInput.style.setProperty("color", activeMessageColor || "var(--text-primary)", "important");
     messageInput.focus();
   }
 };
+
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", () => {
+    if (activeMessageColor) {
+      window.setMessageColor(activeMessageColor, activeMessageColor);
+    } else if (window.updateColorCircleActiveState) {
+      window.updateColorCircleActiveState("");
+    }
+  });
+}
 
 window.getUsernameColor = (username) => {
   if (username === "Sistema" || username === "System" || username === "Você") {
@@ -798,11 +839,7 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "reaction_update":
-            const msgObj = publicRoomMessages.find(m => m.id === data.messageId);
-            if (msgObj) {
-              msgObj.reactions = data.reactions;
-              if (chatMode === "public") renderMessages();
-            }
+            updateSingleMessageReactions(data.messageId, data.reactions);
             break;
 
           case "error":
@@ -1002,7 +1039,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     socket.onclose = () => {
       
-      appendSystemMessage("Conexão instável. Restabelecendo conexão...");
+      appendSystemMessage("Conexão instável. Restabelecendo canal criptografado...");
       setTimeout(connect, 3000);
     };
 
@@ -1049,7 +1086,7 @@ document.addEventListener("DOMContentLoaded", () => {
         headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
         headerName.style.cursor = "default";
       }
-      if (headerDesc) headerDesc.textContent = "Chat privado.";
+      if (headerDesc) headerDesc.textContent = "Chat privado de ponta-a-ponta. Conversas salvas localmente.";
       if (btnBackToPublic) btnBackToPublic.classList.remove("d-none");
       
       if (headerAvatarContainer) {
@@ -1194,10 +1231,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnCloseDesktopSidebar = document.getElementById("btn-close-desktop-sidebar");
     const desktopNavSidebar = document.getElementById("desktop-nav-sidebar");
 
+    const btnDesktopDonateToggle = document.getElementById("btn-desktop-donate-toggle");
+    const btnCloseDonateSidebar = document.getElementById("btn-close-donate-sidebar");
+    const desktopDonateSidebar = document.getElementById("desktop-donate-sidebar");
+
     if (btnDesktopSidebarToggle && desktopNavSidebar) {
       btnDesktopSidebarToggle.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (desktopDonateSidebar) desktopDonateSidebar.classList.remove("open");
         desktopNavSidebar.classList.toggle("open");
+      });
+    }
+
+    if (btnDesktopDonateToggle && desktopDonateSidebar) {
+      btnDesktopDonateToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (desktopNavSidebar) desktopNavSidebar.classList.remove("open");
+        desktopDonateSidebar.classList.toggle("open");
       });
     }
 
@@ -1207,10 +1257,21 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    if (btnCloseDonateSidebar && desktopDonateSidebar) {
+      btnCloseDonateSidebar.addEventListener("click", () => {
+        desktopDonateSidebar.classList.remove("open");
+      });
+    }
+
     document.addEventListener("click", (e) => {
       if (desktopNavSidebar && desktopNavSidebar.classList.contains("open")) {
         if (!desktopNavSidebar.contains(e.target) && btnDesktopSidebarToggle && !btnDesktopSidebarToggle.contains(e.target)) {
           desktopNavSidebar.classList.remove("open");
+        }
+      }
+      if (desktopDonateSidebar && desktopDonateSidebar.classList.contains("open")) {
+        if (!desktopDonateSidebar.contains(e.target) && btnDesktopDonateToggle && !btnDesktopDonateToggle.contains(e.target)) {
+          desktopDonateSidebar.classList.remove("open");
         }
       }
     });
@@ -1575,6 +1636,52 @@ document.addEventListener("DOMContentLoaded", () => {
     }).catch(err => console.error("Clipboard failure:", err));
   };
 
+  function updateSingleMessageReactions(messageId, reactions) {
+    if (!messageId) return;
+
+    const msgObj = publicRoomMessages.find(m => m.id === messageId);
+    if (msgObj) {
+      msgObj.reactions = reactions;
+    }
+
+    if (chatMode !== "public" || !chatMessagesContainer) return;
+
+    const msgDiv = document.getElementById(`msg-id-${messageId}`);
+    if (!msgDiv) return;
+
+    const msgContent = msgDiv.querySelector(".msg-content");
+    if (!msgContent) return;
+
+    let reactionsHtml = "";
+    if (reactions && typeof reactions === "object" && Object.keys(reactions).length > 0) {
+      const activeUser = window.confirmedNickname || currentUser;
+      reactionsHtml = '<div class="reactions-list">';
+      Object.entries(reactions).forEach(([emoji, list]) => {
+        if (Array.isArray(list) && list.length > 0) {
+          const activeClass = list.includes(activeUser) ? 'active' : '';
+          reactionsHtml += `
+            <button type="button" class="reaction-pill ${activeClass}" onclick="event.stopPropagation(); window.sendReaction('${messageId}', '${emoji}')">
+              <span>${emoji}</span>
+              <span class="ms-1 font-mono">${list.length}</span>
+            </button>
+          `;
+        }
+      });
+      reactionsHtml += '</div>';
+    }
+
+    const existingList = msgContent.querySelector(".reactions-list");
+    if (reactionsHtml) {
+      if (existingList) {
+        existingList.outerHTML = reactionsHtml;
+      } else {
+        msgContent.insertAdjacentHTML("beforeend", reactionsHtml);
+      }
+    } else if (existingList) {
+      existingList.remove();
+    }
+  }
+
   function renderMessages(filterText = "") {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.innerHTML = "";
@@ -1624,7 +1731,7 @@ document.addEventListener("DOMContentLoaded", () => {
           Object.entries(msg.reactions).forEach(([emoji, list]) => {
             const activeClass = list.includes(window.confirmedNickname || currentUser) ? 'active' : '';
             reactionsHtml += `
-              <button class="reaction-pill ${activeClass}" onclick="sendReaction('${msg.id}', '${emoji}')">
+              <button type="button" class="reaction-pill ${activeClass}" onclick="event.stopPropagation(); window.sendReaction('${msg.id}', '${emoji}')">
                 <span>${emoji}</span>
                 <span class="ms-1 font-mono">${list.length}</span>
               </button>
@@ -1763,9 +1870,27 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     }
 
+    let reactionsHtml = "";
+    if (chatMode === "public" && msg.reactions && Object.keys(msg.reactions).length > 0) {
+      const activeUser = window.confirmedNickname || currentUser;
+      reactionsHtml = '<div class="reactions-list">';
+      Object.entries(msg.reactions).forEach(([emoji, list]) => {
+        if (Array.isArray(list) && list.length > 0) {
+          const activeClass = list.includes(activeUser) ? 'active' : '';
+          reactionsHtml += `
+            <button type="button" class="reaction-pill ${activeClass}" onclick="event.stopPropagation(); window.sendReaction('${msg.id}', '${emoji}')">
+              <span>${emoji}</span>
+              <span class="ms-1 font-mono">${list.length}</span>
+            </button>
+          `;
+        }
+      });
+      reactionsHtml += '</div>';
+    }
+
     msgDiv.innerHTML = `
       ${actionsHtml}
-      <button class="btn p-0 border-0 flex-shrink-0" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+      <button type="button" class="btn p-0 border-0 flex-shrink-0" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
         ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm")}
       </button>
       <div class="msg-content">
@@ -1775,6 +1900,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="msg-meta">${formatMessageTime(msg)}</span>
         </div>
         <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
+        ${reactionsHtml}
       </div>
     `;
 
@@ -2183,7 +2309,8 @@ document.addEventListener("DOMContentLoaded", () => {
   connect();
   renderPrivateConversationsSidebar();
 
-  window.sendReaction = (messageId, emoji) => {
+  window.sendReaction = (messageId, emoji = "👍") => {
+    if (!messageId) return;
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: "reaction",
@@ -2191,6 +2318,14 @@ document.addEventListener("DOMContentLoaded", () => {
         emoji
       }));
     }
+  };
+
+  window.likeMessage = (messageId) => {
+    window.sendReaction(messageId, "👍");
+  };
+
+  window.toggleLike = (messageId, emoji = "👍") => {
+    window.sendReaction(messageId, emoji);
   };
 
   window.deleteMessage = (messageId) => {

@@ -245,6 +245,15 @@
             </div>
 
             <div class="d-none d-md-flex align-items-center gap-2 flex-shrink-0" id="desktop-header-actions">
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-3 d-flex align-items-center gap-2" id="btn-desktop-donate-toggle" title="Fazer uma doação" aria-label="Apoiar o Papo.net" role="button" style="border-radius: var(--radius-sm); font-size: 0.88rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-danger" aria-hidden="true">
+                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                  <path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08v0c.82.82 2.13.85 3 .07l2.07-1.9"/>
+                  <path d="M2 15h10"/>
+                </svg>
+                <span class="d-none d-lg-inline fw-medium">Apoiar</span>
+              </button>
+
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-3 d-flex align-items-center gap-2" id="btn-desktop-sidebar-toggle" title="Menu e Ferramentas" aria-label="Abrir menu lateral" role="button" style="border-radius: var(--radius-sm); font-size: 0.88rem;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
                   <rect width="18" height="18" x="3" y="3" rx="2"/>
@@ -405,36 +414,70 @@
                 </div>
 
                 <div class="dropdown d-none d-md-block" style="align-self: flex-end;">
-                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-color-picker" data-bs-toggle="dropdown" aria-expanded="false" title="Escolher cor do texto" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0;">
+                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-color-picker" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Escolher cor da mensagem" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0;">
                     <i class="bi bi-palette-fill" id="selected-color-indicator" style="color: var(--text-primary); font-size: 1.1rem;"></i>
                   </button>
-                  <ul class="dropdown-menu dropdown-menu-end p-2 border-secondary" aria-labelledby="btn-color-picker" style="background-color: var(--surface); min-width: 150px; z-index: 1050;">
-                    <li class="dropdown-header text-secondary small p-1">Cor do texto</li>
-                    <li>
-                      <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 rounded" onclick="window.setMessageColor('', 'var(--text-primary)')">
-                        <span class="d-inline-block rounded-circle" style="width: 12px; height: 12px; background-color: var(--text-primary); border: 1px solid var(--border);"></span>
-                        <span class="text-white small">Padrão</span>
+                  <div class="dropdown-menu dropdown-menu-end p-3 border-secondary shadow-lg color-picker-menu" aria-labelledby="btn-color-picker" style="background-color: var(--surface); width: 240px; z-index: 1060; border-radius: var(--radius-md);">
+                    <div class="d-flex align-items-center justify-content-between mb-2.5 pb-2 border-bottom border-secondary">
+                      <span class="small fw-bold" style="color: var(--text-primary);">Cor da Mensagem</span>
+                      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small" onclick="window.setMessageColor('', '')" style="color: var(--text-secondary); font-size: 0.75rem;">Resetar</button>
+                    </div>
+                    
+                    <div class="color-circles-grid" id="desktop-color-circles-grid">
+                      <!-- Padrão -->
+                      <button type="button" class="color-circle-btn active" data-color="" onclick="window.setMessageColor('', '')" title="Padrão do Tema" aria-label="Padrão">
+                        <span class="color-circle-preview"></span>
                       </button>
-                    </li>
-                    <li>
-                      <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 rounded" onclick="window.setMessageColor('#00d2ff', '#00d2ff')">
-                        <span class="d-inline-block rounded-circle" style="width: 12px; height: 12px; background-color: #00d2ff;"></span>
-                        <span class="text-white small">Azul Claro</span>
+                      <!-- Azul -->
+                      <button type="button" class="color-circle-btn" data-color="#2563EB" onclick="window.setMessageColor('#2563EB', '#2563EB')" title="Azul (#2563EB)" aria-label="Azul">
+                        <span class="color-circle-preview" style="background-color: #2563EB;"></span>
                       </button>
-                    </li>
-                    <li>
-                      <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 rounded" onclick="window.setMessageColor('#ff4d4d', '#ff4d4d')">
-                        <span class="d-inline-block rounded-circle" style="width: 12px; height: 12px; background-color: #ff4d4d;"></span>
-                        <span class="text-white small">Vermelho</span>
+                      <!-- Verde -->
+                      <button type="button" class="color-circle-btn" data-color="#16A34A" onclick="window.setMessageColor('#16A34A', '#16A34A')" title="Verde (#16A34A)" aria-label="Verde">
+                        <span class="color-circle-preview" style="background-color: #16A34A;"></span>
                       </button>
-                    </li>
-                    <li>
-                      <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 rounded" onclick="window.setMessageColor('#ff66cc', '#ff66cc')">
-                        <span class="d-inline-block rounded-circle" style="width: 12px; height: 12px; background-color: #ff66cc;"></span>
-                        <span class="text-white small">Rosa Lindo</span>
+                      <!-- Vermelho -->
+                      <button type="button" class="color-circle-btn" data-color="#DC2626" onclick="window.setMessageColor('#DC2626', '#DC2626')" title="Vermelho (#DC2626)" aria-label="Vermelho">
+                        <span class="color-circle-preview" style="background-color: #DC2626;"></span>
                       </button>
-                    </li>
-                  </ul>
+                      <!-- Roxo -->
+                      <button type="button" class="color-circle-btn" data-color="#7C3AED" onclick="window.setMessageColor('#7C3AED', '#7C3AED')" title="Roxo (#7C3AED)" aria-label="Roxo">
+                        <span class="color-circle-preview" style="background-color: #7C3AED;"></span>
+                      </button>
+                      <!-- Rosa -->
+                      <button type="button" class="color-circle-btn" data-color="#EC4899" onclick="window.setMessageColor('#EC4899', '#EC4899')" title="Rosa (#EC4899)" aria-label="Rosa">
+                        <span class="color-circle-preview" style="background-color: #EC4899;"></span>
+                      </button>
+                      <!-- Laranja -->
+                      <button type="button" class="color-circle-btn" data-color="#EA580C" onclick="window.setMessageColor('#EA580C', '#EA580C')" title="Laranja (#EA580C)" aria-label="Laranja">
+                        <span class="color-circle-preview" style="background-color: #EA580C;"></span>
+                      </button>
+                      <!-- Dourado -->
+                      <button type="button" class="color-circle-btn" data-color="#CA8A04" onclick="window.setMessageColor('#CA8A04', '#CA8A04')" title="Dourado (#CA8A04)" aria-label="Dourado">
+                        <span class="color-circle-preview" style="background-color: #CA8A04;"></span>
+                      </button>
+                      <!-- Turquesa -->
+                      <button type="button" class="color-circle-btn" data-color="#0F766E" onclick="window.setMessageColor('#0F766E', '#0F766E')" title="Turquesa (#0F766E)" aria-label="Turquesa">
+                        <span class="color-circle-preview" style="background-color: #0F766E;"></span>
+                      </button>
+                      <!-- Índigo -->
+                      <button type="button" class="color-circle-btn" data-color="#4338CA" onclick="window.setMessageColor('#4338CA', '#4338CA')" title="Índigo (#4338CA)" aria-label="Índigo">
+                        <span class="color-circle-preview" style="background-color: #4338CA;"></span>
+                      </button>
+                      <!-- Cinza escuro -->
+                      <button type="button" class="color-circle-btn" data-color="#374151" onclick="window.setMessageColor('#374151', '#374151')" title="Cinza Escuro (#374151)" aria-label="Cinza escuro">
+                        <span class="color-circle-preview" style="background-color: #374151;"></span>
+                      </button>
+                      <!-- Branco -->
+                      <button type="button" class="color-circle-btn" data-color="#FFFFFF" onclick="window.setMessageColor('#FFFFFF', '#FFFFFF')" title="Branco (#FFFFFF)" aria-label="Branco">
+                        <span class="color-circle-preview" style="background-color: #FFFFFF; border: 1px solid var(--border);"></span>
+                      </button>
+                      <!-- Preto -->
+                      <button type="button" class="color-circle-btn" data-color="#111827" onclick="window.setMessageColor('#111827', '#111827')" title="Preto (#111827)" aria-label="Preto">
+                        <span class="color-circle-preview" style="background-color: #111827; border: 1px solid var(--border);"></span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
               </div>
@@ -828,13 +871,13 @@
           <span class="fw-semibold">Pesquisa</span>
         </button>
 
-        <!-- 6. Alterar Tema -->
+       
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2 py-2 px-3 rounded-3" id="sidebar-item-theme" onclick="window.ChatEngine && window.ChatEngine.toggleTheme()" title="Alternar tema claro/escuro">
           <i class="bi bi-circle-half text-info fs-5 me-1"></i>
           <span class="fw-semibold">Alterar Tema</span>
         </button>
 
-        <!-- 7. Avaliações -->
+        
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2 py-2 px-3 rounded-3" id="sidebar-item-feedback" onclick="window.openFeedbackModal && window.openFeedbackModal()" title="Avaliar o Papo.net">
           <i class="bi bi-star-fill text-warning fs-5 me-1"></i>
           <span class="fw-semibold">Avaliações</span>
@@ -855,6 +898,95 @@
           </button>
         </div>
 
+      </div>
+    </aside>
+
+    
+    <aside id="desktop-donate-sidebar" class="desktop-nav-sidebar" aria-label="Painel de Doação">
+      <div class="desktop-sidebar-header d-flex align-items-center justify-content-between p-3 border-bottom border-secondary">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fs-5" role="img" aria-label="Coração"></span>
+          <h5 class="h6 fw-bold mb-0 font-display" style="color: var(--text-primary);">Apoiar o Papo.net</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" id="btn-close-donate-sidebar" aria-label="Fechar painel de doação"></button>
+      </div>
+
+      <div class="desktop-sidebar-body p-3 d-flex flex-column gap-3 overflow-y-auto" style="color: var(--text-primary);">
+        
+        <div>
+          <h6 class="fw-bold mb-1.5" style="color: var(--text-primary); font-size: 0.92rem;">
+             Ajude a manter o Papo.net vivo
+          </h6>
+          <p class="small mb-0 text-secondary" style="line-height: 1.5; font-size: 0.82rem;">
+            O Papo.net é desenvolvido por um pequeno grupo de desenvolvedores independentes. Sua doação ajuda a manter os servidores online, melhorar o chat e lançar novas funcionalidades para toda a comunidade.
+          </p>
+        </div>
+
+        
+        <div class="d-flex flex-column gap-2">
+          <div class="d-flex align-items-center gap-2.5 p-2.5 rounded-3 border" style="background-color: var(--surface-secondary); border-color: var(--border) !important;">
+            <span class="fs-5 flex-shrink-0"></span>
+            <div class="d-flex flex-column">
+              <span class="fw-semibold small" style="color: var(--text-primary); font-size: 0.82rem;">Servidores estáveis</span>
+              <span class="text-secondary" style="font-size: 0.72rem;">Alta velocidade e estabilidade</span>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2.5 p-2.5 rounded-3 border" style="background-color: var(--surface-secondary); border-color: var(--border) !important;">
+            <span class="fs-5 flex-shrink-0"></span>
+            <div class="d-flex flex-column">
+              <span class="fw-semibold small" style="color: var(--text-primary); font-size: 0.82rem;">Novas funcionalidades</span>
+              <span class="text-secondary" style="font-size: 0.72rem;">Recursos e novidades frequentes</span>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2.5 p-2.5 rounded-3 border" style="background-color: var(--surface-secondary); border-color: var(--border) !important;">
+            <span class="fs-5 flex-shrink-0"></span>
+            <div class="d-flex flex-column">
+              <span class="fw-semibold small" style="color: var(--text-primary); font-size: 0.82rem;">Mais segurança</span>
+              <span class="text-secondary" style="font-size: 0.72rem;">Proteção e privacidade contínuas</span>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2.5 p-2.5 rounded-3 border" style="background-color: var(--surface-secondary); border-color: var(--border) !important;">
+            <span class="fs-5 flex-shrink-0"></span>
+            <div class="d-flex flex-column">
+              <span class="fw-semibold small" style="color: var(--text-primary); font-size: 0.82rem;">Apoio ao desenvolvimento independente</span>
+              <span class="text-secondary" style="font-size: 0.72rem;">Comunidade livre e colaborativa</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transparência -->
+        <div class="p-2.5 rounded-3 border" style="background-color: rgba(16, 185, 129, 0.07); border-color: rgba(16, 185, 129, 0.25) !important;">
+          <h6 class="fw-bold mb-1 d-flex align-items-center gap-1.5" style="color: var(--accent-color); font-size: 0.82rem;">
+            <i class="bi bi-info-circle-fill"></i> Para onde vai sua doação?
+          </h6>
+          <p class="small mb-0 text-secondary" style="line-height: 1.45; font-size: 0.76rem;">
+            Cada contribuição ajuda diretamente com hospedagem, infraestrutura, domínio, melhorias no chat e desenvolvimento contínuo da plataforma. Mesmo uma pequena ajuda faz diferença.
+          </p>
+        </div>
+
+        
+        <div class="d-flex flex-column gap-1.5 mt-1">
+          <a href="https://pixgg.com/papo_net" target="_blank" rel="noopener noreferrer" class="btn w-100 py-2.5 px-3 d-flex align-items-center justify-content-center gap-2 fw-bold text-white text-decoration-none shadow-sm rounded-3 btn-donate-pixgg" title="Fazer uma doação via PixGG">
+            <i class="bi bi-heart-fill text-white"></i>
+            <span>Fazer uma doação via PixGG</span>
+          </a>
+          <div class="d-flex align-items-center justify-content-between px-1" style="font-size: 0.7rem; color: var(--text-secondary);">
+            <span class="d-inline-flex align-items-center gap-1"><i class="bi bi-shield-check text-success"></i> Doação segura via Pix</span>
+            <span>PixGG — Apoiar o Papo.net</span>
+          </div>
+        </div>
+
+        <hr class="border-secondary my-1">
+
+        
+        <div class="text-center pb-2">
+          <p class="small mb-0 text-secondary" style="font-size: 0.75rem;">
+            Obrigado por acreditar no Papo.
+          </p>
+        </div>
       </div>
     </aside>
 
