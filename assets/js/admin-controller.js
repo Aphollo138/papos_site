@@ -550,6 +550,12 @@
                     <span class="fw-medium sidebar-text">Feedback</span>
                   </button>
                 </li>
+                <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-maintenance" data-tab="maintenance" type="button" role="tab">
+                    <i class="bi bi-tools fs-5 flex-shrink-0 text-warning"></i>
+                    <span class="fw-medium sidebar-text">Manutenção</span>
+                  </button>
+                </li>
 
               </ul>
 
@@ -911,6 +917,57 @@
                 </div>
               </div>
 
+              <!-- TAB: MAINTENANCE (Manutenção) -->
+              <div class="admin-tab-content d-none flex-column h-100 max-w-2xl" id="admin-content-maintenance">
+                <div class="mb-4">
+                  <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Controle de Manutenção do Sistema</h5>
+                  <p class="small mb-0" style="color: #9f9f9f;">Ative o modo de manutenção para bloquear o acesso geral à plataforma enquanto administradores continuam com acesso total liberado.</p>
+                </div>
+
+                <div class="admin-card p-4 mb-4">
+                  <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom" style="border-color: rgba(255,255,255,0.08) !important;">
+                    <div>
+                      <h6 class="text-white fw-bold mb-1" style="font-size: 1.05rem;">Status do Modo de Manutenção</h6>
+                      <p class="small mb-0" style="color: #9f9f9f;">Quando ativo, todos os usuários não-administradores verão a tela de manutenção e o chat será bloqueado.</p>
+                    </div>
+                    <span id="admin-maintenance-badge" class="badge bg-secondary text-white px-3 py-2" style="font-size: 0.85rem;">Desativado</span>
+                  </div>
+
+                  <div class="form-check form-switch py-2 d-flex align-items-center gap-2 mb-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="admin-maintenance-switch" style="cursor: pointer; width: 3em; height: 1.6em; margin-top: 0;">
+                    <label class="form-check-label text-white fw-semibold ms-2" for="admin-maintenance-switch" id="admin-maintenance-switch-label" style="cursor: pointer; font-size: 1rem;">
+                      Modo de Manutenção Desativado
+                    </label>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="admin-maintenance-title" class="form-label text-white fw-semibold mb-1">Título da Tela de Manutenção</label>
+                    <input type="text" class="form-control" id="admin-maintenance-title" placeholder="Ex: Sistema em Manutenção" value="Sistema em Manutenção">
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="admin-maintenance-message" class="form-label text-white fw-semibold mb-1">Mensagem Explicativa</label>
+                    <textarea class="form-control" id="admin-maintenance-message" rows="3" placeholder="Mensagem aos usuários durante a manutenção..." style="resize: none;">Estamos realizando melhorias na plataforma. Voltamos em instantes!</textarea>
+                  </div>
+
+                  <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-6">
+                      <label for="admin-maintenance-start" class="form-label text-white fw-semibold mb-1">Início Estimado</label>
+                      <input type="text" class="form-control" id="admin-maintenance-start" placeholder="Ex: 14:00 ou Imediato">
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <label for="admin-maintenance-end" class="form-label text-white fw-semibold mb-1">Previsão de Retorno (Fim)</label>
+                      <input type="text" class="form-control" id="admin-maintenance-end" placeholder="Ex: 15:30 ou 30 minutos">
+                    </div>
+                  </div>
+
+                  <button class="btn btn-admin-primary py-2.5 px-4 fw-bold d-flex align-items-center gap-2 mt-2" id="btn-admin-save-maintenance">
+                    <i class="bi bi-check2-circle fs-6"></i>
+                    <span>Salvar Configurações de Manutenção</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1233,6 +1290,32 @@
             botsBadge.className = "badge bg-danger text-white px-3 py-2";
           }
         }
+
+        const maintSwitch = document.getElementById("admin-maintenance-switch");
+        const maintLabel = document.getElementById("admin-maintenance-switch-label");
+        const maintBadge = document.getElementById("admin-maintenance-badge");
+        const maintTitle = document.getElementById("admin-maintenance-title");
+        const maintMsg = document.getElementById("admin-maintenance-message");
+        const maintStart = document.getElementById("admin-maintenance-start");
+        const maintEnd = document.getElementById("admin-maintenance-end");
+
+        if (maintSwitch && maintLabel && maintBadge) {
+          const isMaintEnabled = settings.maintenanceEnabled === true;
+          maintSwitch.checked = isMaintEnabled;
+          if (isMaintEnabled) {
+            maintLabel.textContent = "Modo de Manutenção Ativado";
+            maintBadge.textContent = "Ativado";
+            maintBadge.className = "badge bg-warning text-dark px-3 py-2 fw-bold";
+          } else {
+            maintLabel.textContent = "Modo de Manutenção Desativado";
+            maintBadge.textContent = "Desativado";
+            maintBadge.className = "badge bg-secondary text-white px-3 py-2";
+          }
+        }
+        if (maintTitle && settings.title) maintTitle.value = settings.title;
+        if (maintMsg && settings.message) maintMsg.value = settings.message;
+        if (maintStart && settings.startTime !== undefined) maintStart.value = settings.startTime;
+        if (maintEnd && settings.endTime !== undefined) maintEnd.value = settings.endTime;
       });
     }
 
@@ -1262,6 +1345,58 @@
         } catch (err) {
           console.error("Erro ao salvar configuração de bots:", err);
           window.showAdminToast("Erro ao salvar configuração.", "error");
+        }
+      });
+    }
+
+    const maintSwitch = document.getElementById("admin-maintenance-switch");
+    if (maintSwitch) {
+      maintSwitch.addEventListener("change", (e) => {
+        const maintLabel = document.getElementById("admin-maintenance-switch-label");
+        const maintBadge = document.getElementById("admin-maintenance-badge");
+        if (e.target.checked) {
+          if (maintLabel) maintLabel.textContent = "Modo de Manutenção Ativado";
+          if (maintBadge) {
+            maintBadge.textContent = "Ativado";
+            maintBadge.className = "badge bg-warning text-dark px-3 py-2 fw-bold";
+          }
+        } else {
+          if (maintLabel) maintLabel.textContent = "Modo de Manutenção Desativado";
+          if (maintBadge) {
+            maintBadge.textContent = "Desativado";
+            maintBadge.className = "badge bg-secondary text-white px-3 py-2";
+          }
+        }
+      });
+    }
+
+    const btnSaveMaint = document.getElementById("btn-admin-save-maintenance");
+    if (btnSaveMaint) {
+      btnSaveMaint.addEventListener("click", async () => {
+        const fSvc = window.FirebaseService || FirebaseService;
+        if (!fSvc || typeof fSvc.updateMaintenanceSettings !== "function") return;
+
+        const isEnabled = document.getElementById("admin-maintenance-switch")?.checked || false;
+        const title = document.getElementById("admin-maintenance-title")?.value.trim() || "Sistema em Manutenção";
+        const message = document.getElementById("admin-maintenance-message")?.value.trim() || "Estamos realizando melhorias na plataforma. Voltamos em instantes!";
+        const startTime = document.getElementById("admin-maintenance-start")?.value.trim() || "";
+        const endTime = document.getElementById("admin-maintenance-end")?.value.trim() || "";
+
+        try {
+          btnSaveMaint.disabled = true;
+          await fSvc.updateMaintenanceSettings({
+            maintenanceEnabled: isEnabled,
+            title,
+            message,
+            startTime,
+            endTime
+          });
+          window.showAdminToast("Configurações de manutenção salvas com sucesso!", "success");
+        } catch (err) {
+          console.error("Erro ao salvar manutenção:", err);
+          window.showAdminToast("Erro ao salvar configurações de manutenção.", "error");
+        } finally {
+          btnSaveMaint.disabled = false;
         }
       });
     }

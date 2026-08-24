@@ -896,6 +896,33 @@ const FirebaseService = {
     const col = collectionName === "guestBans" ? "guestBans" : "guestSuspensions";
     const docRef = doc(db, col, blockId);
     await deleteDoc(docRef);
+  },
+
+  subscribeToSystemSettings(callback) {
+    if (typeof callback === "function") {
+      systemSettingsCallbacks.add(callback);
+      if (cachedSystemSettings !== null) {
+        callback(cachedSystemSettings);
+      }
+    }
+    if (!isSystemSettingsListening) {
+      initGlobalSystemSettingsListener();
+    }
+    return () => {
+      systemSettingsCallbacks.delete(callback);
+    };
+  },
+
+  async updateMaintenanceSettings(settings) {
+    const docRef = doc(db, "system", "settings");
+    await setDoc(docRef, {
+      maintenanceEnabled: Boolean(settings.maintenanceEnabled),
+      title: settings.title || "Sistema em Manutenção",
+      message: settings.message || "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+      startTime: settings.startTime || "",
+      endTime: settings.endTime || "",
+      updatedAt: Date.now()
+    }, { merge: true });
   }
 };
 
@@ -1015,7 +1042,15 @@ function initFeedbacksListener() {
   }
 }
 
-let cachedSystemSettings = { adsEnabled: true, botsEnabled: true };
+let cachedSystemSettings = {
+  adsEnabled: true,
+  botsEnabled: true,
+  maintenanceEnabled: false,
+  title: "Sistema em Manutenção",
+  message: "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+  startTime: "",
+  endTime: ""
+};
 const systemSettingsCallbacks = new Set();
 let isSystemSettingsListening = false;
 
@@ -1030,10 +1065,23 @@ function initGlobalSystemSettingsListener() {
         const data = docSnap.data();
         cachedSystemSettings = {
           adsEnabled: data.adsEnabled !== false,
-          botsEnabled: data.botsEnabled !== false
+          botsEnabled: data.botsEnabled !== false,
+          maintenanceEnabled: data.maintenanceEnabled === true,
+          title: data.title || "Sistema em Manutenção",
+          message: data.message || "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+          startTime: data.startTime || "",
+          endTime: data.endTime || ""
         };
       } else {
-        cachedSystemSettings = { adsEnabled: true, botsEnabled: true };
+        cachedSystemSettings = {
+          adsEnabled: true,
+          botsEnabled: true,
+          maintenanceEnabled: false,
+          title: "Sistema em Manutenção",
+          message: "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+          startTime: "",
+          endTime: ""
+        };
       }
 
       window.SYSTEM_SETTINGS = cachedSystemSettings;

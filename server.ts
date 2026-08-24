@@ -32,10 +32,21 @@ const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 const systemSettings = {
   adsEnabled: true,
-  botsEnabled: true
+  botsEnabled: true,
+  maintenanceEnabled: false,
+  maintenanceTitle: "Sistema em Manutenção",
+  maintenanceMessage: "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+  maintenanceStartTime: "",
+  maintenanceEndTime: ""
 };
 
 let notifyBotsToggled: ((enabled: boolean) => void) | null = null;
+
+function sendToClient(ws: WebSocket, type: string, payload: any) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type, ...payload }));
+  }
+}
 
 try {
   const settingsDocRef = doc(db, "system", "settings");
@@ -45,15 +56,40 @@ try {
       systemSettings.adsEnabled = data.adsEnabled !== false;
       const isEnabled = data.botsEnabled !== false;
       systemSettings.botsEnabled = isEnabled;
+      systemSettings.maintenanceEnabled = data.maintenanceEnabled === true;
+      systemSettings.maintenanceTitle = data.title || "Sistema em Manutenção";
+      systemSettings.maintenanceMessage = data.message || "Estamos realizando melhorias na plataforma. Voltamos em instantes!";
+      systemSettings.maintenanceStartTime = data.startTime || "";
+      systemSettings.maintenanceEndTime = data.endTime || "";
       if (notifyBotsToggled) {
         notifyBotsToggled(isEnabled);
       }
+
+      // Broadcast maintenance status to all connected sessions
+      activeSessions.forEach((s, clientWs) => {
+        sendToClient(clientWs, "maintenance_status", {
+          enabled: systemSettings.maintenanceEnabled,
+          title: systemSettings.maintenanceTitle,
+          message: systemSettings.maintenanceMessage,
+          startTime: systemSettings.maintenanceStartTime,
+          endTime: systemSettings.maintenanceEndTime
+        });
+      });
     } else {
       systemSettings.adsEnabled = true;
       systemSettings.botsEnabled = true;
+      systemSettings.maintenanceEnabled = false;
       if (notifyBotsToggled) {
         notifyBotsToggled(true);
       }
+
+      activeSessions.forEach((s, clientWs) => {
+        sendToClient(clientWs, "maintenance_status", {
+          enabled: false,
+          title: "Sistema em Manutenção",
+          message: ""
+        });
+      });
     }
   }, (err) => {
     console.error("[SystemSettings] Listener error:", err);
@@ -1971,6 +2007,14 @@ async function startServer() {
               adminUsers: getAdminNicknames()
             });
 
+            sendToClient(ws, "maintenance_status", {
+              enabled: systemSettings.maintenanceEnabled,
+              title: systemSettings.maintenanceTitle,
+              message: systemSettings.maintenanceMessage,
+              startTime: systemSettings.maintenanceStartTime,
+              endTime: systemSettings.maintenanceEndTime
+            });
+
             broadcastToRoom(roomId, "user_joined", {
               nickname: finalNickname,
               time: getCurrentTime(),
@@ -2150,6 +2194,11 @@ async function startServer() {
           }
 
           case "message": {
+            if (systemSettings.maintenanceEnabled && !session.isAdmin) {
+              sendToClient(ws, "error", { message: "O sistema está em manutenção no momento." });
+              return;
+            }
+
             if (!session.nickname || !session.roomId) {
               sendToClient(ws, "error", { message: "Você precisa se identificar antes de enviar mensagens." });
               return;
@@ -2204,6 +2253,11 @@ async function startServer() {
           }
 
           case "private_message": {
+            if (systemSettings.maintenanceEnabled && !session.isAdmin) {
+              sendToClient(ws, "error", { message: "O sistema está em manutenção no momento." });
+              return;
+            }
+
             if (!session.nickname) return;
             const toNick = payload.to?.trim();
             const rawText = payload.text || "";
@@ -2243,7 +2297,13 @@ async function startServer() {
                 timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
-                color
+                color,
+                replyTo: payload.replyTo ? {
+                  id: payload.replyTo.id,
+                  sender: payload.replyTo.sender,
+                  text: payload.replyTo.text
+                } : null,
+                reactions: {}
               };
               
               sendToClient(targetWs, "private_message", pmPayload);
@@ -2269,7 +2329,13 @@ async function startServer() {
                   timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,
-                  color
+                  color,
+                  replyTo: payload.replyTo ? {
+                    id: payload.replyTo.id,
+                    sender: payload.replyTo.sender,
+                    text: payload.replyTo.text
+                  } : null,
+                  reactions: {}
                 };
                 
                 sendToClient(ws, "private_message", pmPayload);
@@ -2358,11 +2424,43 @@ async function startServer() {
             break;
           }
 
+          case "private_reaction":
           case "reaction": {
-            if (!session.nickname || !session.roomId) return;
-            const { messageId, emoji } = payload;
+            if (!session.nickname) return;
+            const { messageId, emoji, to: toNick } = payload;
             if (!messageId || !emoji) return;
 
+            if (toNick) {
+              // Route reaction for private chat message
+              let targetWs: WebSocket | null = null;
+              activeSessions.forEach((s, key) => {
+                if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                  targetWs = key;
+                }
+              });
+
+              const reactionPayload = {
+                messageId,
+                emoji,
+                from: session.nickname,
+                partner: session.nickname,
+                to: toNick
+              };
+
+              if (targetWs && targetWs !== ws) {
+                sendToClient(targetWs, "private_reaction_update", reactionPayload);
+              }
+              sendToClient(ws, "private_reaction_update", {
+                messageId,
+                emoji,
+                from: session.nickname,
+                partner: toNick,
+                to: toNick
+              });
+              break;
+            }
+
+            if (!session.roomId) return;
             const roomMsgs = messages[session.roomId] || [];
             const msgObj = roomMsgs.find(m => m.id === messageId);
             if (msgObj) {
