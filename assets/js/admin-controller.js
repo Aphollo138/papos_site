@@ -951,15 +951,35 @@
                   </div>
 
                   <div class="row g-3 mb-3">
-                    <div class="col-12 col-md-6">
-                      <label for="admin-maintenance-start" class="form-label text-white fw-semibold mb-1">Início Estimado</label>
-                      <input type="text" class="form-control" id="admin-maintenance-start" placeholder="Ex: 14:00 ou Imediato">
+                    <div class="col-12 col-sm-6">
+                      <label for="admin-maintenance-start-date" class="form-label text-white fw-semibold mb-1">
+                        <i class="bi bi-calendar-event me-1 text-primary"></i> Data de Início
+                      </label>
+                      <input type="text" class="form-control" id="admin-maintenance-start-date" placeholder="Ex: 24/08/2026 ou 2026-08-24">
                     </div>
-                    <div class="col-12 col-md-6">
-                      <label for="admin-maintenance-end" class="form-label text-white fw-semibold mb-1">Previsão de Retorno (Fim)</label>
-                      <input type="text" class="form-control" id="admin-maintenance-end" placeholder="Ex: 15:30 ou 30 minutos">
+                    <div class="col-12 col-sm-6">
+                      <label for="admin-maintenance-start-time" class="form-label text-white fw-semibold mb-1">
+                        <i class="bi bi-clock me-1 text-primary"></i> Horário de Início
+                      </label>
+                      <input type="text" class="form-control" id="admin-maintenance-start-time" placeholder="Ex: 23:30">
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <label for="admin-maintenance-end-date" class="form-label text-white fw-semibold mb-1">
+                        <i class="bi bi-calendar-check me-1 text-warning"></i> Data de Término (Fim)
+                      </label>
+                      <input type="text" class="form-control" id="admin-maintenance-end-date" placeholder="Ex: 25/08/2026 ou 2026-08-25">
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <label for="admin-maintenance-end-time" class="form-label text-white fw-semibold mb-1">
+                        <i class="bi bi-clock-history me-1 text-warning"></i> Horário de Término (Fim)
+                      </label>
+                      <input type="text" class="form-control" id="admin-maintenance-end-time" placeholder="Ex: 02:00">
                     </div>
                   </div>
+
+                  <!-- Campos auxiliares legados (ocultos) para compatibilidade -->
+                  <input type="hidden" id="admin-maintenance-start">
+                  <input type="hidden" id="admin-maintenance-end">
 
                   <button class="btn btn-admin-primary py-2.5 px-4 fw-bold d-flex align-items-center gap-2 mt-2" id="btn-admin-save-maintenance">
                     <i class="bi bi-check2-circle fs-6"></i>
@@ -1296,6 +1316,10 @@
         const maintBadge = document.getElementById("admin-maintenance-badge");
         const maintTitle = document.getElementById("admin-maintenance-title");
         const maintMsg = document.getElementById("admin-maintenance-message");
+        const maintStartDate = document.getElementById("admin-maintenance-start-date");
+        const maintStartTime = document.getElementById("admin-maintenance-start-time");
+        const maintEndDate = document.getElementById("admin-maintenance-end-date");
+        const maintEndTime = document.getElementById("admin-maintenance-end-time");
         const maintStart = document.getElementById("admin-maintenance-start");
         const maintEnd = document.getElementById("admin-maintenance-end");
 
@@ -1314,6 +1338,18 @@
         }
         if (maintTitle && settings.title) maintTitle.value = settings.title;
         if (maintMsg && settings.message) maintMsg.value = settings.message;
+        if (maintStartDate && (settings.startDate !== undefined || settings.maintenanceStartDate !== undefined)) {
+          maintStartDate.value = settings.startDate || settings.maintenanceStartDate || "";
+        }
+        if (maintStartTime && (settings.startTime !== undefined || settings.maintenanceStartTime !== undefined)) {
+          maintStartTime.value = settings.startTime || settings.maintenanceStartTime || "";
+        }
+        if (maintEndDate && (settings.endDate !== undefined || settings.maintenanceEndDate !== undefined)) {
+          maintEndDate.value = settings.endDate || settings.maintenanceEndDate || "";
+        }
+        if (maintEndTime && (settings.endTime !== undefined || settings.maintenanceEndTime !== undefined)) {
+          maintEndTime.value = settings.endTime || settings.maintenanceEndTime || "";
+        }
         if (maintStart && settings.startTime !== undefined) maintStart.value = settings.startTime;
         if (maintEnd && settings.endTime !== undefined) maintEnd.value = settings.endTime;
       });
@@ -1379,8 +1415,10 @@
         const isEnabled = document.getElementById("admin-maintenance-switch")?.checked || false;
         const title = document.getElementById("admin-maintenance-title")?.value.trim() || "Sistema em Manutenção";
         const message = document.getElementById("admin-maintenance-message")?.value.trim() || "Estamos realizando melhorias na plataforma. Voltamos em instantes!";
-        const startTime = document.getElementById("admin-maintenance-start")?.value.trim() || "";
-        const endTime = document.getElementById("admin-maintenance-end")?.value.trim() || "";
+        const startDate = document.getElementById("admin-maintenance-start-date")?.value.trim() || "";
+        const startTime = document.getElementById("admin-maintenance-start-time")?.value.trim() || "";
+        const endDate = document.getElementById("admin-maintenance-end-date")?.value.trim() || "";
+        const endTime = document.getElementById("admin-maintenance-end-time")?.value.trim() || "";
 
         try {
           btnSaveMaint.disabled = true;
@@ -1388,7 +1426,9 @@
             maintenanceEnabled: isEnabled,
             title,
             message,
+            startDate,
             startTime,
+            endDate,
             endTime
           });
           window.showAdminToast("Configurações de manutenção salvas com sucesso!", "success");

@@ -2473,16 +2473,62 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  let maintenanceIntervalId = null;
+
+  function parseDateTimeToTimestamp(dateStr, timeStr) {
+    if (!dateStr && !timeStr) return null;
+    let d = dateStr ? String(dateStr).trim() : "";
+    let t = timeStr ? String(timeStr).trim() : "00:00";
+
+    if (!d && t.includes("/")) {
+      const parts = t.split(" ");
+      d = parts[0];
+      t = parts[1] || "00:00";
+    }
+
+    if (!d) {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      d = `${yyyy}-${mm}-${dd}`;
+    } else if (d.includes("/")) {
+      const parts = d.split("/");
+      if (parts.length === 3) {
+        d = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+      }
+    }
+
+    if (!t.includes(":")) {
+      t = "00:00";
+    }
+    const timeParts = t.split(":");
+    const hours = (timeParts[0] || "0").padStart(2, "0");
+    const minutes = (timeParts[1] || "0").padStart(2, "0");
+    const seconds = (timeParts[2] || "0").padStart(2, "0");
+
+    const isoString = `${d}T${hours}:${minutes}:${seconds}`;
+    const ts = Date.parse(isoString);
+    return isNaN(ts) ? null : ts;
+  }
+
   function handleMaintenanceUpdate(settings) {
     if (!settings) return;
     const isMaintenance = settings.enabled === true || settings.active === true || settings.maintenanceEnabled === true;
     const title = settings.title || settings.maintenanceTitle || "Sistema em Manutenção";
     const message = settings.message || settings.maintenanceMessage || "Estamos realizando melhorias na plataforma. Voltamos em instantes!";
+    const startDate = settings.startDate || settings.maintenanceStartDate || "";
     const startTime = settings.startTime || settings.maintenanceStartTime || "";
+    const endDate = settings.endDate || settings.maintenanceEndDate || "";
     const endTime = settings.endTime || settings.maintenanceEndTime || "";
 
     const overlay = document.getElementById("maintenanceOverlay");
     if (!overlay) return;
+
+    if (maintenanceIntervalId) {
+      clearInterval(maintenanceIntervalId);
+      maintenanceIntervalId = null;
+    }
 
     const isAdmin = localStorage.getItem("papos_is_admin") === "true" || window.isAdmin === true;
 
@@ -2491,26 +2537,99 @@ document.addEventListener("DOMContentLoaded", () => {
       const titleEl = document.getElementById("maintenanceTitle");
       const messageEl = document.getElementById("maintenanceMessage");
       const timeContainer = document.getElementById("maintenanceTimeContainer");
-      const timeText = document.getElementById("maintenanceTimeText");
+      const startText = document.getElementById("maintenanceStartText");
+      const endText = document.getElementById("maintenanceEndText");
+      const countdownRow = document.getElementById("maintenanceCountdownRow");
+      const countdownText = document.getElementById("maintenanceCountdownText");
+      const progressBar = document.getElementById("maintenanceProgressBar");
+      const progressPercent = document.getElementById("maintenanceProgressPercent");
 
       if (titleEl) titleEl.textContent = title;
       if (messageEl) messageEl.textContent = message;
 
-      if (timeContainer && timeText) {
-        if (startTime || endTime) {
+      const startTimestamp = parseDateTimeToTimestamp(startDate, startTime);
+      const endTimestamp = parseDateTimeToTimestamp(endDate, endTime);
+
+      const hasSchedule = Boolean(startDate || startTime || endDate || endTime);
+
+      if (timeContainer) {
+        if (hasSchedule) {
           timeContainer.classList.remove("d-none");
-          let t = "";
-          if (startTime && endTime) {
-            t = `Previsão: de ${startTime} até ${endTime}`;
-          } else if (endTime) {
-            t = `Previsão de retorno: ${endTime}`;
-          } else {
-            t = `Início: ${startTime}`;
+          if (startText) {
+            let sStr = "-";
+            if (startDate && startTime) sStr = `${startDate} às ${startTime}`;
+            else if (startTime) sStr = startTime;
+            else if (startDate) sStr = startDate;
+            startText.textContent = sStr;
           }
-          timeText.textContent = t;
+          if (endText) {
+            let eStr = "-";
+            if (endDate && endTime) eStr = `${endDate} às ${endTime}`;
+            else if (endTime) eStr = endTime;
+            else if (endDate) eStr = endDate;
+            endText.textContent = eStr;
+          }
         } else {
           timeContainer.classList.add("d-none");
         }
+      }
+
+      function updateTick() {
+        const now = Date.now();
+
+        if (!endTimestamp) {
+          if (countdownRow) countdownRow.classList.add("d-none");
+          if (progressBar) progressBar.style.width = "100%";
+          if (progressPercent) progressPercent.textContent = "Em andamento";
+          return;
+        }
+
+        if (countdownRow) countdownRow.classList.remove("d-none");
+
+        const diffMs = endTimestamp - now;
+        if (diffMs <= 0) {
+          if (countdownText) {
+            countdownText.textContent = "Finalizando manutenção...";
+            countdownText.className = "badge bg-success bg-opacity-20 text-success border border-success border-opacity-30 px-2.5 py-1 font-monospace fw-bold";
+          }
+          if (progressBar) {
+            progressBar.style.width = "100%";
+            progressBar.className = "progress-bar bg-success";
+          }
+          if (progressPercent) progressPercent.textContent = "100% concluído";
+          return;
+        }
+
+        const totalSecs = Math.floor(diffMs / 1000);
+        const hours = Math.floor(totalSecs / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const secs = totalSecs % 60;
+
+        let formatted = "";
+        if (hours > 0) {
+          formatted += `${String(hours).padStart(2, "0")}h `;
+        }
+        formatted += `${String(mins).padStart(2, "0")}min ${String(secs).padStart(2, "0")}s`;
+
+        if (countdownText) {
+          countdownText.textContent = formatted;
+        }
+
+        if (startTimestamp && endTimestamp > startTimestamp) {
+          const totalDuration = endTimestamp - startTimestamp;
+          const elapsed = now - startTimestamp;
+          const pct = Math.min(99, Math.max(5, Math.round((elapsed / totalDuration) * 100)));
+          if (progressBar) progressBar.style.width = `${pct}%`;
+          if (progressPercent) progressPercent.textContent = `${pct}% concluído`;
+        } else {
+          if (progressBar) progressBar.style.width = "85%";
+          if (progressPercent) progressPercent.textContent = "Em andamento";
+        }
+      }
+
+      updateTick();
+      if (endTimestamp) {
+        maintenanceIntervalId = setInterval(updateTick, 1000);
       }
     } else {
       overlay.classList.add("d-none");

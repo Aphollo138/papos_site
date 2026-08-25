@@ -193,8 +193,107 @@
 [data-theme="light"] .feedback-card,
 [data-theme="light"] .room-card,
 [data-theme="light"] .category-card,
+[data-theme="light"] .card-room,
 [data-theme="light"] article {
   background-color: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+  color: #111111 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] .card-room h3,
+[data-theme="light"] .card-room .h4,
+[data-theme="light"] .card-room p,
+[data-theme="light"] .card-room span,
+[data-theme="light"] .card-room a {
+  color: #111111 !important;
+}
+
+/* 1. TEMA CLARO — CARDS DA HOME / HERO SECTION */
+/* Card: "Sempre tem alguém online querendo conversar agora." */
+[data-theme="light"] .hero-section .rounded-pill.bg-dark,
+[data-theme="light"] #hero-banner .rounded-pill.bg-dark {
+  background-color: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+  color: #111111 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="light"] .hero-section .rounded-pill.bg-dark span,
+[data-theme="light"] #hero-banner .rounded-pill.bg-dark span,
+[data-theme="light"] .hero-section .rounded-pill.bg-dark .text-white-50,
+[data-theme="light"] #hero-banner .rounded-pill.bg-dark .text-white-50 {
+  color: #111111 !important;
+  font-weight: 500 !important;
+}
+
+/* Card: "Música & Playlists ativa" e "Club da Madrugada aquecido 🌙" */
+[data-theme="light"] .mockup-wrapper .position-absolute.bg-dark,
+[data-theme="light"] .mockup-wrapper .position-absolute.rounded-pill {
+  background-color: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+  color: #111111 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07) !important;
+}
+[data-theme="light"] .mockup-wrapper .position-absolute.bg-dark span,
+[data-theme="light"] .mockup-wrapper .position-absolute.bg-dark .text-white-50 {
+  color: #111111 !important;
+  font-weight: 600 !important;
+}
+
+/* Mockup de Celular da Home */
+[data-theme="light"] .phone-screen {
+  background-color: #FFFFFF !important;
+}
+[data-theme="light"] .phone-header {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #E5E7EB !important;
+  color: #111111 !important;
+}
+[data-theme="light"] .phone-header span.fw-bold,
+[data-theme="light"] .phone-header .text-white {
+  color: #111111 !important;
+}
+[data-theme="light"] .phone-header .text-secondary {
+  color: #4B5563 !important;
+}
+[data-theme="light"] .phone-screen .phone-msg-bubble {
+  background-color: #F3F4F6 !important;
+  color: #111111 !important;
+}
+[data-theme="light"] .phone-screen .phone-msg-bubble.my-msg {
+  background-color: #E0F2FE !important;
+  color: #111111 !important;
+}
+
+/* Card de Login / Entrada do Bate-Papo Geral (#login-anchor) */
+[data-theme="light"] #login-anchor .bg-dark,
+[data-theme="light"] #login-anchor .p-4.p-md-5.border {
+  background-color: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+  color: #111111 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] #login-anchor h2,
+[data-theme="light"] #login-anchor p,
+[data-theme="light"] #login-anchor span,
+[data-theme="light"] #login-anchor label,
+[data-theme="light"] #login-anchor .form-text {
+  color: #111111 !important;
+}
+[data-theme="light"] #login-anchor .input-group .form-control {
+  background-color: #FFFFFF !important;
+  border-color: #D1D5DB !important;
+  color: #111111 !important;
+}
+[data-theme="light"] #login-anchor .input-group-text {
+  background-color: #F3F4F6 !important;
+  border-color: #D1D5DB !important;
+  color: #111111 !important;
+}
+
+/* Badges e Tags nas Salas e Home */
+[data-theme="light"] .badge.bg-dark {
+  background-color: #F3F4F6 !important;
   border-color: #E5E7EB !important;
   color: #111111 !important;
 }

@@ -1082,22 +1082,25 @@
     <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
     <!-- Tela / Overlay de Manutenção Full-Screen -->
-    <div id="maintenanceOverlay" class="d-none" style="position: fixed; inset: 0; z-index: 999999; background-color: #0F1115; color: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 1.5rem;">
-      <div class="card text-center p-4 p-md-5 rounded-4 border shadow-2xl" style="background-color: #15181E; border-color: #1F2937 !important; max-width: 520px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);">
+    <div id="maintenanceOverlay" class="d-none" style="position: fixed; inset: 0; z-index: 999999; background-color: #0B0D11; color: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 1.25rem; overflow-y: auto;">
+      <div class="card text-center p-4 p-sm-5 rounded-4 border shadow-2xl" style="background-color: #131720; border-color: #1F2937 !important; max-width: 520px; width: 100%; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.9); margin: auto;">
         
-        <!-- Ícone / Logo com Glow -->
-        <div class="mb-4 position-relative d-inline-flex align-items-center justify-content-center mx-auto">
-          <div class="position-absolute rounded-circle" style="width: 80px; height: 80px; background: rgba(59, 130, 246, 0.2); filter: blur(18px);"></div>
-          <div class="rounded-circle d-flex align-items-center justify-content-center border" style="width: 72px; height: 72px; background: #1C1F26; border-color: #374151 !important;">
-            <i class="bi bi-tools text-primary fs-2"></i>
+        <!-- Logo do Papo.net com Glow e Ícone de Manutenção -->
+        <div class="mb-3.5 position-relative d-inline-flex align-items-center justify-content-center mx-auto">
+          <div class="position-absolute rounded-circle" style="width: 86px; height: 86px; background: rgba(0, 230, 118, 0.18); filter: blur(20px);"></div>
+          <div class="rounded-circle d-flex align-items-center justify-content-center border position-relative" style="width: 72px; height: 72px; background: #181D27; border-color: #2D3748 !important;">
+            <img src="/favicon.svg" alt="Papo.net Logo" style="width: 40px; height: 40px; object-fit: contain;">
+            <span class="position-absolute bottom-0 end-0 bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center border border-dark" style="width: 22px; height: 22px; font-size: 0.72rem;">
+              <i class="bi bi-tools"></i>
+            </span>
           </div>
         </div>
 
         <!-- Badge de Status -->
         <div class="mb-3">
-          <span class="badge rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.78rem;">
-            <span class="spinner-grow spinner-grow-sm text-primary" style="width: 8px; height: 8px;" role="status"></span>
-            Manutenção em Andamento
+          <span class="badge rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="background: rgba(234, 179, 8, 0.12); color: #FBBF24; border: 1px solid rgba(234, 179, 8, 0.28); font-size: 0.8rem;">
+            <span class="spinner-grow spinner-grow-sm text-warning" style="width: 7px; height: 7px;" role="status"></span>
+            🛠 Em manutenção
           </span>
         </div>
 
@@ -1107,23 +1110,46 @@
         </h2>
 
         <!-- Mensagem Dinâmica -->
-        <p id="maintenanceMessage" class="mb-4 text-secondary" style="color: #9CA3AF !important; font-size: 0.9rem; line-height: 1.6;">
+        <p id="maintenanceMessage" class="mb-3.5 text-secondary" style="color: #9CA3AF !important; font-size: 0.9rem; line-height: 1.6;">
           Estamos realizando melhorias na infraestrutura e segurança da plataforma. O serviço será restabelecido em breve.
         </p>
 
-        <!-- Previsão de Horário -->
-        <div id="maintenanceTimeContainer" class="d-none mb-4 p-3 rounded-3 border text-start d-flex align-items-center gap-2.5" style="background: #0F1115; border-color: #1F2937 !important;">
-          <i class="bi bi-clock-history text-warning fs-5"></i>
-          <div>
-            <div class="fw-semibold text-white small" style="font-size: 0.8rem;">Estimativa de Conclusão</div>
-            <div id="maintenanceTimeText" class="text-secondary small" style="font-size: 0.76rem; color: #D1D5DB !important;"></div>
+        <!-- Container de Previsão de Início, Fim e Contagem Regressiva -->
+        <div id="maintenanceTimeContainer" class="d-none mb-3.5 p-3 rounded-3 border text-start" style="background: #0B0D11; border-color: #1F2937 !important;">
+          <div class="row g-2 align-items-center">
+            <div class="col-12" id="maintenanceScheduleRow">
+              <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap" style="font-size: 0.78rem;">
+                <span class="text-secondary d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-play-circle text-primary"></i> <strong class="text-white-50">Início:</strong> <span id="maintenanceStartText" class="text-white">-</span>
+                </span>
+                <span class="text-secondary d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-check-circle text-warning"></i> <strong class="text-white-50">Término:</strong> <span id="maintenanceEndText" class="text-white">-</span>
+                </span>
+              </div>
+            </div>
+            <div class="col-12 mt-2 pt-2 border-top border-secondary border-opacity-25" id="maintenanceCountdownRow">
+              <div class="d-flex align-items-center justify-content-between">
+                <span class="small text-secondary d-inline-flex align-items-center gap-1.5" style="font-size: 0.78rem;">
+                  <i class="bi bi-stopwatch-fill text-warning"></i> Tempo restante:
+                </span>
+                <span id="maintenanceCountdownText" class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 font-monospace fw-bold" style="font-size: 0.82rem;">
+                  Calculando...
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Barra de Progresso Animada -->
-        <div class="mb-4">
-          <div class="progress rounded-pill overflow-hidden" style="height: 6px; background-color: #1F2937;">
-            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 100%;"></div>
+        <!-- Barra de Progresso com Porcentagem -->
+        <div class="mb-4 text-start">
+          <div class="d-flex justify-content-between align-items-center mb-1.5" style="font-size: 0.75rem; color: #9CA3AF;">
+            <span class="d-inline-flex align-items-center gap-1">
+              <i class="bi bi-gear-wide-connected text-primary"></i> Progresso
+            </span>
+            <span id="maintenanceProgressPercent" class="fw-bold font-monospace text-primary">Em andamento</span>
+          </div>
+          <div class="progress rounded-pill overflow-hidden" style="height: 7px; background-color: #1F2937;">
+            <div id="maintenanceProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 100%; transition: width 0.6s ease;"></div>
           </div>
         </div>
 

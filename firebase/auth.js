@@ -919,7 +919,9 @@ const FirebaseService = {
       maintenanceEnabled: Boolean(settings.maintenanceEnabled),
       title: settings.title || "Sistema em Manutenção",
       message: settings.message || "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+      startDate: settings.startDate || "",
       startTime: settings.startTime || "",
+      endDate: settings.endDate || "",
       endTime: settings.endTime || "",
       updatedAt: Date.now()
     }, { merge: true });
@@ -1048,7 +1050,9 @@ let cachedSystemSettings = {
   maintenanceEnabled: false,
   title: "Sistema em Manutenção",
   message: "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+  startDate: "",
   startTime: "",
+  endDate: "",
   endTime: ""
 };
 const systemSettingsCallbacks = new Set();
@@ -1069,7 +1073,9 @@ function initGlobalSystemSettingsListener() {
           maintenanceEnabled: data.maintenanceEnabled === true,
           title: data.title || "Sistema em Manutenção",
           message: data.message || "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+          startDate: data.startDate || "",
           startTime: data.startTime || "",
+          endDate: data.endDate || "",
           endTime: data.endTime || ""
         };
       } else {
@@ -1079,7 +1085,9 @@ function initGlobalSystemSettingsListener() {
           maintenanceEnabled: false,
           title: "Sistema em Manutenção",
           message: "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+          startDate: "",
           startTime: "",
+          endDate: "",
           endTime: ""
         };
       }

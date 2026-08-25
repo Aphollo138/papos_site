@@ -36,7 +36,9 @@ const systemSettings = {
   maintenanceEnabled: false,
   maintenanceTitle: "Sistema em Manutenção",
   maintenanceMessage: "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
+  maintenanceStartDate: "",
   maintenanceStartTime: "",
+  maintenanceEndDate: "",
   maintenanceEndTime: ""
 };
 
@@ -59,7 +61,9 @@ try {
       systemSettings.maintenanceEnabled = data.maintenanceEnabled === true;
       systemSettings.maintenanceTitle = data.title || "Sistema em Manutenção";
       systemSettings.maintenanceMessage = data.message || "Estamos realizando melhorias na plataforma. Voltamos em instantes!";
+      systemSettings.maintenanceStartDate = data.startDate || "";
       systemSettings.maintenanceStartTime = data.startTime || "";
+      systemSettings.maintenanceEndDate = data.endDate || "";
       systemSettings.maintenanceEndTime = data.endTime || "";
       if (notifyBotsToggled) {
         notifyBotsToggled(isEnabled);
@@ -71,7 +75,9 @@ try {
           enabled: systemSettings.maintenanceEnabled,
           title: systemSettings.maintenanceTitle,
           message: systemSettings.maintenanceMessage,
+          startDate: systemSettings.maintenanceStartDate,
           startTime: systemSettings.maintenanceStartTime,
+          endDate: systemSettings.maintenanceEndDate,
           endTime: systemSettings.maintenanceEndTime
         });
       });
@@ -79,6 +85,10 @@ try {
       systemSettings.adsEnabled = true;
       systemSettings.botsEnabled = true;
       systemSettings.maintenanceEnabled = false;
+      systemSettings.maintenanceStartDate = "";
+      systemSettings.maintenanceStartTime = "";
+      systemSettings.maintenanceEndDate = "";
+      systemSettings.maintenanceEndTime = "";
       if (notifyBotsToggled) {
         notifyBotsToggled(true);
       }
@@ -87,7 +97,11 @@ try {
         sendToClient(clientWs, "maintenance_status", {
           enabled: false,
           title: "Sistema em Manutenção",
-          message: ""
+          message: "",
+          startDate: "",
+          startTime: "",
+          endDate: "",
+          endTime: ""
         });
       });
     }
@@ -536,7 +550,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -787,7 +801,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
