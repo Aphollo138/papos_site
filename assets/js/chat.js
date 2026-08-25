@@ -1432,7 +1432,13 @@ document.addEventListener("DOMContentLoaded", () => {
       to: activePrivateRecipient,
       text: text,
       color: activeMessageColor || undefined,
-      replyTo: replyTo || undefined
+      replyTo: replyTo ? {
+        id: replyTo.id || replyTo.messageId,
+        messageId: replyTo.messageId || replyTo.id,
+        sender: replyTo.sender || replyTo.senderId,
+        senderId: replyTo.senderId || replyTo.sender,
+        text: replyTo.text
+      } : undefined
     }));
   }
 
@@ -1846,9 +1852,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let replyHtml = "";
         if (msg.replyTo) {
+          const rSender = msg.replyTo.sender || msg.replyTo.senderName || msg.replyTo.senderId || "Usuário";
+          const rText = msg.replyTo.text || msg.replyTo.content || "";
           replyHtml = `
-            <div class="small text-secondary mb-1 ps-2 border-start border-secondary" style="font-size: 0.75rem;">
-              <i class="bi bi-reply-fill text-white-50"></i> Em resposta a <strong>${msg.replyTo.sender}</strong>: <span class="text-white-50 text-truncate d-inline-block align-bottom" style="max-width: 180px;">${msg.replyTo.text}</span>
+            <div class="small text-secondary mb-1 ps-2 border-start border-secondary" style="font-size: 0.75rem; border-left: 2px solid var(--accent-color, #22c55e) !important;">
+              <i class="bi bi-reply-fill text-white-50"></i> Em resposta a <strong>${rSender}</strong>: <span class="text-white-50 text-truncate d-inline-block align-bottom" style="max-width: 220px;">${rText}</span>
             </div>
           `;
         }
@@ -1940,9 +1948,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let replyHtml = "";
     if (msg.replyTo) {
+      const rSender = msg.replyTo.sender || msg.replyTo.senderName || msg.replyTo.senderId || "Usuário";
+      const rText = msg.replyTo.text || msg.replyTo.content || "";
       replyHtml = `
-        <div class="small text-secondary mb-1 ps-2 border-start border-secondary" style="font-size: 0.75rem;">
-          <i class="bi bi-reply-fill text-white-50"></i> Em resposta a <strong>${msg.replyTo.sender}</strong>: <span class="text-white-50 text-truncate d-inline-block align-bottom" style="max-width: 180px;">${msg.replyTo.text}</span>
+        <div class="small text-secondary mb-1 ps-2 border-start border-secondary" style="font-size: 0.75rem; border-left: 2px solid var(--accent-color, #22c55e) !important;">
+          <i class="bi bi-reply-fill text-white-50"></i> Em resposta a <strong>${rSender}</strong>: <span class="text-white-50 text-truncate d-inline-block align-bottom" style="max-width: 220px;">${rText}</span>
         </div>
       `;
     }
@@ -2156,22 +2166,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const statusHtml = `<span class="status-indicator status-online ms-1.5" style="width: 8px; height: 8px; flex-shrink: 0; position: static; display: inline-block; ${(isAdmin || isMod) ? 'background-color: #f5c542 !important;' : ''}"></span>`;
         
         const isThemeLight = document.documentElement.getAttribute("data-theme") === "light";
-        let uColor = '#ffffff';
+        let uColor = isThemeLight ? '#111111' : '#ffffff';
         if (isAdmin) {
           uColor = '#ff3b30';
         } else if (isMe) {
-          uColor = isThemeLight ? '#111111' : '#ffffff';
-        } else {
-          const cachedProfile = window.profileCache && window.profileCache.get(u);
-          const customColor = cachedProfile && (cachedProfile.nameColor || cachedProfile.color);
+          const cachedProfile = window.profileCache && (window.profileCache.get(u.toLowerCase()) || window.profileCache.get(u));
+          const customColor = (cachedProfile && (cachedProfile.nameColor || cachedProfile.color || (cachedProfile.data && (cachedProfile.data.nameColor || cachedProfile.data.color)))) || localStorage.getItem("papos_name_color");
           if (customColor) {
             uColor = customColor;
-          } else if (isThemeLight) {
-            uColor = '#111111';
-          } else if (window.getUsernameColor) {
-            uColor = window.getUsernameColor(u);
           } else {
-            uColor = '#60a5fa';
+            uColor = isThemeLight ? '#111111' : '#ffffff';
+          }
+        } else {
+          const cachedProfile = window.profileCache && (window.profileCache.get(u.toLowerCase()) || window.profileCache.get(u));
+          const customColor = cachedProfile && (cachedProfile.nameColor || cachedProfile.color || (cachedProfile.data && (cachedProfile.data.nameColor || cachedProfile.data.color)));
+          if (customColor) {
+            uColor = customColor;
+          } else {
+            uColor = isThemeLight ? '#111111' : '#ffffff';
           }
         }
 
@@ -2300,6 +2312,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (chatMode === "public") {
       const clientMsgId = "m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+      const replyData = replyTargetMsg ? {
+        id: replyTargetMsg.id || replyTargetMsg.messageId,
+        messageId: replyTargetMsg.messageId || replyTargetMsg.id,
+        sender: replyTargetMsg.sender || replyTargetMsg.senderId,
+        senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
+        text: replyTargetMsg.text
+      } : null;
+
       const msgObj = {
         id: clientMsgId,
         sender: window.confirmedNickname || currentUser,
@@ -2308,11 +2328,7 @@ document.addEventListener("DOMContentLoaded", () => {
         timestamp: Date.now(),
         isSystem: false,
         color: activeMessageColor || undefined,
-        replyTo: replyTargetMsg ? {
-          id: replyTargetMsg.id,
-          sender: replyTargetMsg.sender,
-          text: replyTargetMsg.text
-        } : null,
+        replyTo: replyData,
         reactions: {}
       };
 
@@ -2324,19 +2340,17 @@ document.addEventListener("DOMContentLoaded", () => {
         id: clientMsgId,
         text: text,
         color: activeMessageColor || undefined,
-        replyTo: replyTargetMsg ? {
-          id: replyTargetMsg.id,
-          sender: replyTargetMsg.sender,
-          text: replyTargetMsg.text
-        } : null
+        replyTo: replyData
       }));
       clearReplyTarget();
     } else {
       
       const msgId = "pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
       const replyData = replyTargetMsg ? {
-        id: replyTargetMsg.id,
-        sender: replyTargetMsg.sender,
+        id: replyTargetMsg.id || replyTargetMsg.messageId,
+        messageId: replyTargetMsg.messageId || replyTargetMsg.id,
+        sender: replyTargetMsg.sender || replyTargetMsg.senderId,
+        senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
         text: replyTargetMsg.text
       } : null;
 
@@ -2809,7 +2823,13 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function setReplyTarget(id, sender, text) {
-  replyTargetMsg = { id, sender, text };
+  replyTargetMsg = {
+    id: id,
+    messageId: id,
+    sender: sender,
+    senderId: sender,
+    text: text
+  };
   const bar = document.getElementById("reply-reference-bar");
   const referenceText = document.getElementById("reply-reference-text");
   const input = document.getElementById("message-input");
@@ -2826,6 +2846,15 @@ function clearReplyTarget() {
   const bar = document.getElementById("reply-reference-bar");
   if (bar) bar.classList.add("d-none");
 }
+
+window.setReplyTarget = setReplyTarget;
+window.clearReplyTarget = clearReplyTarget;
+
+window.addEventListener("papos_theme_change", () => {
+  if (typeof renderMembers === "function") {
+    renderMembers();
+  }
+});
 
 const EMOJI_CATEGORIES = {
   faces: [

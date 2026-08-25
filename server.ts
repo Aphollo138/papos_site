@@ -2313,9 +2313,11 @@ async function startServer() {
                 isDeleted: false,
                 color,
                 replyTo: payload.replyTo ? {
-                  id: payload.replyTo.id,
-                  sender: payload.replyTo.sender,
-                  text: payload.replyTo.text
+                  id: payload.replyTo.id || payload.replyTo.messageId,
+                  messageId: payload.replyTo.messageId || payload.replyTo.id,
+                  sender: payload.replyTo.sender || payload.replyTo.senderId || payload.replyTo.senderName,
+                  senderId: payload.replyTo.senderId || payload.replyTo.sender || payload.replyTo.senderName,
+                  text: payload.replyTo.text || payload.replyTo.content || ""
                 } : null,
                 reactions: {}
               };
@@ -2345,9 +2347,11 @@ async function startServer() {
                   isDeleted: false,
                   color,
                   replyTo: payload.replyTo ? {
-                    id: payload.replyTo.id,
-                    sender: payload.replyTo.sender,
-                    text: payload.replyTo.text
+                    id: payload.replyTo.id || payload.replyTo.messageId,
+                    messageId: payload.replyTo.messageId || payload.replyTo.id,
+                    sender: payload.replyTo.sender || payload.replyTo.senderId || payload.replyTo.senderName,
+                    senderId: payload.replyTo.senderId || payload.replyTo.sender || payload.replyTo.senderName,
+                    text: payload.replyTo.text || payload.replyTo.content || ""
                   } : null,
                   reactions: {}
                 };

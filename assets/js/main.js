@@ -309,6 +309,11 @@ const ChatEngine = {
     if (togglerCheckbox) {
       togglerCheckbox.checked = (theme === "dark");
     }
+
+    if (typeof window.renderMembers === "function") {
+      window.renderMembers();
+    }
+    window.dispatchEvent(new CustomEvent("papos_theme_change", { detail: { theme } }));
   },
 
   toggleTheme() {
@@ -345,11 +350,11 @@ const ChatEngine = {
     }
     
     if (photoUrl && photoUrl.trim() !== "" && !photoUrl.includes("undefined") && !photoUrl.includes("null")) {
-      return `<img src="${photoUrl}" class="avatar-circle ${sizeClass}" alt="${cleanName}" title="${cleanName}" referrerPolicy="no-referrer" style="object-fit: cover;" />`;
+      return `<img src="${photoUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" width="34" height="34" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover;" />`;
     }
     
     const bgColor = this.getAvatarColor(cleanName);
-    return `<div class="avatar-circle ${sizeClass}" style="background-color: ${bgColor}" title="${cleanName}">${initial}</div>`;
+    return `<div class="avatar-circle ${sizeClass}" style="background-color: ${bgColor}" title="${cleanName}" aria-label="Avatar de ${cleanName}" role="img">${initial}</div>`;
   },
 
   init() {

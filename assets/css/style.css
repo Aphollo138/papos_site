@@ -728,23 +728,57 @@
   color: #111111 !important;
 }
 
+/* Close buttons in Dark Mode (Default) */
+.offcanvas .btn-close,
+.modal .btn-close,
+#offcanvasMembers .btn-close,
+#offcanvasMobileMenu .btn-close,
+#offcanvasMobileDonate .btn-close,
+.desktop-nav-sidebar .btn-close,
+.members-close,
+[data-theme="dark"] #offcanvasMembers .btn-close,
+[data-theme="dark"] .members-close {
+  filter: invert(1) grayscale(100%) brightness(200%) !important;
+  opacity: 0.9 !important;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.offcanvas .btn-close:hover,
+.modal .btn-close:hover,
+#offcanvasMembers .btn-close:hover,
+#offcanvasMobileMenu .btn-close:hover,
+#offcanvasMobileDonate .btn-close:hover,
+.desktop-nav-sidebar .btn-close:hover,
+.members-close:hover,
+[data-theme="dark"] #offcanvasMembers .btn-close:hover,
+[data-theme="dark"] .members-close:hover {
+  opacity: 1 !important;
+  transform: scale(1.05);
+}
+
 [data-theme="light"] #offcanvasMembers .form-control::placeholder {
   color: #6B7280 !important;
 }
 
+[data-theme="light"] .offcanvas .btn-close,
+[data-theme="light"] .modal .btn-close,
 [data-theme="light"] #offcanvasMembers .btn-close,
 [data-theme="light"] #offcanvasMobileMenu .btn-close,
 [data-theme="light"] #offcanvasMobileDonate .btn-close,
-[data-theme="light"] .desktop-nav-sidebar .btn-close {
+[data-theme="light"] .desktop-nav-sidebar .btn-close,
+[data-theme="light"] .members-close {
   filter: none !important;
-  opacity: 0.7;
+  opacity: 0.75 !important;
 }
 
+[data-theme="light"] .offcanvas .btn-close:hover,
+[data-theme="light"] .modal .btn-close:hover,
 [data-theme="light"] #offcanvasMembers .btn-close:hover,
 [data-theme="light"] #offcanvasMobileMenu .btn-close:hover,
 [data-theme="light"] #offcanvasMobileDonate .btn-close:hover,
-[data-theme="light"] .desktop-nav-sidebar .btn-close:hover {
-  opacity: 1;
+[data-theme="light"] .desktop-nav-sidebar .btn-close:hover,
+[data-theme="light"] .members-close:hover {
+  opacity: 1 !important;
 }
 
 [data-theme="light"] .reply-reference-bar {
