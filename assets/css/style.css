@@ -2398,6 +2398,124 @@ body.chat-page i.bi {
   background-color: rgba(0, 0, 0, 0.6) !important;
 }
 
+/* ==========================================================================
+   Home WhatsApp Floating Support Button
+   ========================================================================== */
+.home-whatsapp-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  right: calc(20px + env(safe-area-inset-right, 0px));
+  z-index: 999;
+  width: 52px;
+  height: 52px;
+  background-color: #25D366 !important;
+  color: #FFFFFF !important;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25);
+  text-decoration: none !important;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, opacity 0.25s ease;
+  animation: whatsappFadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  outline: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-whatsapp-btn svg {
+  width: 28px;
+  height: 28px;
+  fill: #FFFFFF !important;
+  color: #FFFFFF !important;
+  transition: transform 0.2s ease;
+}
+
+.home-whatsapp-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 22px rgba(37, 211, 102, 0.55), 0 4px 10px rgba(0, 0, 0, 0.3);
+  color: #FFFFFF !important;
+}
+
+.home-whatsapp-btn:hover svg {
+  transform: scale(1.05);
+}
+
+.home-whatsapp-btn:active {
+  transform: scale(0.94);
+}
+
+.home-whatsapp-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.55), 0 4px 16px rgba(37, 211, 102, 0.4);
+}
+
+/* Tooltip on Desktop */
+.home-whatsapp-btn .whatsapp-tooltip {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  background-color: #111827;
+  color: #FFFFFF;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  user-select: none;
+}
+
+[data-theme="light"] .home-whatsapp-btn .whatsapp-tooltip {
+  background-color: #FFFFFF;
+  color: #111827;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.home-whatsapp-btn:hover .whatsapp-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+
+@media (max-width: 768px) {
+  .home-whatsapp-btn {
+    width: 50px;
+    height: 50px;
+    right: 16px;
+    bottom: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: calc(16px + env(safe-area-inset-right, 0px));
+  }
+  .home-whatsapp-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+  .home-whatsapp-btn .whatsapp-tooltip {
+    display: none !important;
+  }
+}
+
+@keyframes whatsappFadeScaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* Online Members Legibility & Badges */
 .member-item {
   color: #FFFFFF !important;
