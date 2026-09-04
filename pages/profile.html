@@ -81,22 +81,20 @@
       <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2" href="/" id="profile-logo-brand">
           <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;">
-              <g>
-                <mask id="logo-mask-profile">
-                  <rect x="0" y="0" width="100" height="100" fill="white" />
-                  <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
-                </mask>
-                <g mask="url(#logo-mask-profile)">
-                  <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
-                  <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" style="fill: var(--text-primary) !important;" />
-                </g>
-                <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" style="stroke: var(--text-primary) !important; fill: none;" />
-                <circle cx="78" cy="26" r="6" style="fill: var(--text-primary) !important;" />
+            <svg class="papo-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;" aria-hidden="true">
+              <mask id="logo-mask-profile">
+                <rect x="0" y="0" width="100" height="100" fill="white" />
+                <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+              </mask>
+              <g mask="url(#logo-mask-profile)">
+                <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="currentColor" />
+                <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="currentColor" />
               </g>
+              <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="currentColor" fill="none" />
+              <circle cx="78" cy="26" r="6" fill="currentColor" />
             </svg>
           </div>
-          <span class="font-display fw-extrabold fs-4 tracking-tight" style="color: var(--white) !important;">Papos</span>
+          <span class="font-display fw-extrabold fs-4 tracking-tight">Papos</span>
         </a>
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Alternar navegação" id="btn-profile-nav-toggle" style="filter: invert(1);">
           <span class="navbar-toggler-icon"></span>
@@ -151,10 +149,6 @@
                 </div>
                 <h1 class="h3 fw-extrabold text-white mt-3" id="username-display-name">Carregando...</h1>
                 <p class="text-secondary small">ID de Usuário Local: <span class="font-mono text-xs text-white-50" id="user-local-id">#local</span></p>
-              </div>
-
-              <div class="alert alert-light border border-white mb-4 d-none" id="success-toast" role="alert" style="background-color: var(--surface-secondary); color: var(--text-primary);">
-                <i class="bi bi-check-circle-fill me-2"></i> Alterações salvas com sucesso!
               </div>
 
               <form id="profile-form">
@@ -233,7 +227,7 @@
                 <h3 class="h6 fw-bold text-danger mb-2">Apagar todos os dados</h3>
                 <p class="text-secondary small">Deletar todas as suas preferências e histórico armazenado localmente no navegador. Esta ação é irreversível.</p>
                 <button class="btn btn-outline-danger btn-sm" id="btn-reset-all" type="button">
-                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Apagar Dados
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Apagar LocalStorage
                 </button>
               </div>
 
@@ -318,7 +312,6 @@
         const avatarContainer = document.getElementById("avatar-preview-container");
         const nameDisplay = document.getElementById("username-display-name");
         const profileForm = document.getElementById("profile-form");
-        const successToast = document.getElementById("success-toast");
         const btnResetAll = document.getElementById("btn-reset-all");
         const localIdEl = document.getElementById("user-local-id");
 
@@ -548,14 +541,10 @@
               window.ChatEngine.saveUser(newNick);
             }
 
-            // Exibir mensagem de sucesso sem atualizar a página (Sem F5 / reload)
-            if (successToast) {
-              successToast.classList.remove("d-none");
-              setTimeout(() => {
-                successToast.classList.add("d-none");
-              }, 3500);
-            } else if (typeof window.showToast === "function") {
-              window.showToast("Perfil atualizado com sucesso.", "success");
+            // Exibir mensagem de sucesso via toast verde existente
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn("Configurações do perfil salvas com sucesso!", "success");
             }
           } catch (err) {
             if (typeof window.showToast === "function") {
