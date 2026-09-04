@@ -325,7 +325,7 @@
               <div class="input-group flex-nowrap align-items-end">
                 <textarea class="form-control bg-dark border-secondary px-3 py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none;"></textarea>
                 
-                <div class="dropdown d-none d-md-block" style="align-self: flex-end;">
+                <div class="dropdown d-none d-md-block" id="dropdown-emoji-wrapper" style="align-self: flex-end;">
                   <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-emoji-picker" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Escolher emoji" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0; padding: 0; border-left: none; border-right: none;">
                     <i class="bi bi-emoji-smile" style="color: var(--text-primary); font-size: 1.15rem;"></i>
                   </button>
@@ -355,8 +355,8 @@
                   <i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>
                 </button>
 
-                <div class="dropdown d-block d-md-none" style="align-self: flex-end;">
-                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-mobile-actions" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Mais opções" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0; border-left: none;">
+                <div class="dropdown dropup d-block d-md-none" id="dropdown-actions-wrapper" style="align-self: flex-end;">
+                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-mobile-actions" data-bs-toggle="dropdown" data-bs-display="static" data-bs-auto-close="outside" aria-expanded="false" title="Mais opções" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0; border-left: none;">
                     <i class="bi bi-three-dots-vertical" style="font-size: 1rem; color: var(--text-secondary);"></i>
                   </button>
                   <div class="dropdown-menu dropdown-menu-end p-3 border-secondary shadow-lg" id="mobile-actions-dropdown" aria-labelledby="btn-mobile-actions" style="background-color: var(--surface); width: 320px; max-width: 90vw; z-index: 1060; border-radius: var(--radius-md);">
@@ -617,7 +617,7 @@
       <div class="bottom-sheet-handle-bar" aria-hidden="true"></div>
       <div class="offcanvas-header d-flex align-items-center justify-content-between px-3 pt-2 pb-2 border-bottom border-secondary">
         <div class="d-flex align-items-center gap-2">
-          <span class="fs-5" role="img" aria-label="Coração"></span>
+          <span class="fs-5" role="img" aria-label="Coração">❤️</span>
           <h5 class="h6 fw-bold text-white mb-0 font-display" id="offcanvasMobileDonateLabel">Apoie o Papo.net</h5>
         </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Fechar painel de doação"></button>
@@ -632,19 +632,19 @@
         <!-- 4 Blocos Informativos com Ícones -->
         <div class="d-flex flex-column gap-2">
           <div class="d-flex align-items-center gap-2.5 p-2.5 rounded-3 bg-dark border border-secondary">
-            <span class="fs-5 flex-shrink-0"></span>
+            <span class="fs-5 flex-shrink-0">🚀</span>
             <span class="fw-semibold small text-white" style="font-size: 0.84rem;">Mantém os servidores online</span>
           </div>
           <div class="d-flex align-items-center gap-2.5 p-2.5 rounded-3 bg-dark border border-secondary">
-            <span class="fs-5 flex-shrink-0"></span>
+            <span class="fs-5 flex-shrink-0">🔒</span>
             <span class="fw-semibold small text-white" style="font-size: 0.84rem;">Ajuda na segurança da plataforma</span>
           </div>
           <div class="d-flex align-items-center gap-2.5 p-2.5 rounded-3 bg-dark border border-secondary">
-            <span class="fs-5 flex-shrink-0"></span>
+            <span class="fs-5 flex-shrink-0">💬</span>
             <span class="fw-semibold small text-white" style="font-size: 0.84rem;">Financia novas funcionalidades</span>
           </div>
           <div class="d-flex align-items-center gap-2.5 p-2.5 rounded-3 bg-dark border border-secondary">
-            <span class="fs-5 flex-shrink-0"></span>
+            <span class="fs-5 flex-shrink-0">❤️</span>
             <span class="fw-semibold small text-white" style="font-size: 0.84rem;">Incentiva desenvolvedores brasileiros</span>
           </div>
         </div>
@@ -676,7 +676,7 @@
         <!-- Rodapé -->
         <div class="text-center pb-2">
           <p class="small mb-0 text-white-50" style="font-size: 0.8rem;">
-            Obrigado por acreditar no Papo.net 
+            Obrigado por acreditar no Papo.net ❤️
           </p>
         </div>
       </div>

@@ -2370,7 +2370,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     messageInput.value = "";
-    messageInput.style.height = "40px"; 
+    adjustMessageInputHeight();
     messageInput.focus();
 
     if (isCurrentlyTyping) {
@@ -2383,13 +2383,46 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  const adjustMessageInputHeight = () => {
+    if (!messageInput) return;
+    const minHeight = 40;
+    const maxHeight = 120;
+
+    if (!messageInput.value || messageInput.value.length === 0) {
+      messageInput.style.height = minHeight + "px";
+      messageInput.style.overflowY = "hidden";
+      messageInput.scrollTop = 0;
+      return;
+    }
+
+    messageInput.style.height = minHeight + "px";
+    const scrollH = messageInput.scrollHeight;
+
+    if (scrollH > maxHeight) {
+      messageInput.style.height = maxHeight + "px";
+      messageInput.style.overflowY = "auto";
+    } else if (scrollH > minHeight) {
+      messageInput.style.height = scrollH + "px";
+      messageInput.style.overflowY = "hidden";
+      messageInput.scrollTop = 0;
+    } else {
+      messageInput.style.height = minHeight + "px";
+      messageInput.style.overflowY = "hidden";
+      messageInput.scrollTop = 0;
+    }
+  };
+
   if (messageInput) {
+    adjustMessageInputHeight();
+
+    messageInput.addEventListener("focus", () => {
+      if (!messageInput.value || messageInput.value.length === 0) {
+        messageInput.scrollTop = 0;
+      }
+    });
+
     messageInput.addEventListener("input", () => {
-      
-      messageInput.style.height = "auto";
-      const scrollHeight = messageInput.scrollHeight;
-      const maxHeight = 120;
-      messageInput.style.height = Math.min(scrollHeight, maxHeight) + "px";
+      adjustMessageInputHeight();
 
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
