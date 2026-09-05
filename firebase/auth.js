@@ -686,7 +686,7 @@ const FirebaseService = {
     const bio = profileData.bio !== undefined ? String(profileData.bio).trim() : undefined;
     const age = profileData.age !== undefined && profileData.age !== null && profileData.age !== "" ? Number(profileData.age) : (profileData.age === null ? null : undefined);
     const gender = profileData.gender !== undefined ? String(profileData.gender).trim() : undefined;
-    const photoURL = profileData.photoURL !== undefined ? String(profileData.photoURL).trim() : undefined;
+    const photoURL = profileData.photoURL !== undefined ? String(profileData.photoURL).trim() : (profileData.profileImage !== undefined ? String(profileData.profileImage).trim() : undefined);
     const city = profileData.city !== undefined ? String(profileData.city).trim() : undefined;
     const country = profileData.country !== undefined ? String(profileData.country).trim() : undefined;
 
@@ -703,7 +703,10 @@ const FirebaseService = {
     if (bio !== undefined) updatePayload.bio = bio;
     if (age !== undefined) updatePayload.age = age;
     if (gender !== undefined) updatePayload.gender = gender;
-    if (photoURL !== undefined) updatePayload.photoURL = photoURL;
+    if (photoURL !== undefined) {
+      updatePayload.photoURL = photoURL;
+      updatePayload.profileImage = photoURL;
+    }
     if (city !== undefined) updatePayload.city = city;
     if (country !== undefined) updatePayload.country = country;
 
@@ -712,6 +715,14 @@ const FirebaseService = {
     }
 
     await setDoc(userDocRef, updatePayload, { merge: true });
+
+    if (photoURL !== undefined) {
+      try {
+        await updateProfile(user, { photoURL: photoURL || null });
+      } catch (e) {
+        console.error("Erro ao atualizar photoURL no auth:", e);
+      }
+    }
 
     if (nickname && nickname !== user.displayName) {
       try {

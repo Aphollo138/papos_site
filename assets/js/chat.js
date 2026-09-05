@@ -228,12 +228,24 @@ window.socket = null;
 document.addEventListener("DOMContentLoaded", () => {
   const ChatEngine = window.ChatEngine || {
     getUser: () => localStorage.getItem("papos_nickname") || null,
-    renderAvatar: (name, sizeClass = "") => {
+    renderAvatar: (name, sizeClass = "", customPhotoUrl = null) => {
+      if (window.ChatEngine && window.ChatEngine !== ChatEngine && typeof window.ChatEngine.renderAvatar === "function") {
+        return window.ChatEngine.renderAvatar(name, sizeClass, customPhotoUrl);
+      }
       if (window.ChatApp && typeof window.ChatApp.renderAvatar === "function") {
         return window.ChatApp.renderAvatar(name, sizeClass);
       }
       const cleanName = name ? name.trim() : "A";
       const initial = cleanName.charAt(0).toUpperCase();
+      let photoUrl = customPhotoUrl;
+      if (!photoUrl) {
+        const cUser = localStorage.getItem("papos_nickname");
+        photoUrl = (cleanName === cUser || cleanName === "Você") ? localStorage.getItem("papos_photo") : localStorage.getItem(`papos_photo_${cleanName}`);
+      }
+      if (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "" && !photoUrl.includes("undefined") && !photoUrl.includes("null")) {
+        const safeUrl = photoUrl.replace(/"/g, '&quot;');
+        return `<img src="${safeUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover; aspect-ratio: 1 / 1;" />`;
+      }
       return `<div class="avatar-circle ${sizeClass}" title="${cleanName}" aria-label="Avatar de ${cleanName}" role="img">${initial}</div>`;
     },
     connectSocket: () => {
@@ -1052,7 +1064,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     socket.onclose = () => {
       
-      appendSystemMessage("Conexão instável. Restabelecendo canal criptografado...");
+      appendSystemMessage("Conexão instável. Restabelecendo canal...");
       setTimeout(connect, 3000);
     };
 
@@ -1897,10 +1909,14 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
         }
 
+        if (msg.sender && msg.photoUrl) {
+          localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
+        }
+
         msgDiv.innerHTML = `
           ${actionsHtml}
           <button class="btn p-0 border-0 flex-shrink-0" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
-            ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm")}
+            ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", msg.photoUrl || null)}
           </button>
           <div class="msg-content">
             ${replyHtml}
@@ -2011,10 +2027,14 @@ document.addEventListener("DOMContentLoaded", () => {
       reactionsHtml += '</div>';
     }
 
+    if (msg.sender && msg.photoUrl) {
+      localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
+    }
+
     msgDiv.innerHTML = `
       ${actionsHtml}
       <button type="button" class="btn p-0 border-0 flex-shrink-0" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
-        ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm")}
+        ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", msg.photoUrl || null)}
       </button>
       <div class="msg-content">
         ${replyHtml}
@@ -3273,6 +3293,10 @@ document.addEventListener("DOMContentLoaded", () => {
       timestamp: Date.now()
     });
 
+    if (data.photoUrl) {
+      localStorage.setItem(`papos_photo_${data.nickname}`, data.photoUrl);
+    }
+
     const modalEl = document.getElementById("userProfileModal");
     if (modalEl && modalEl.classList.contains("show")) {
       displayUserProfileModal(data, isMe);
@@ -3295,7 +3319,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const actionBtn = document.getElementById("btn-modal-profile-action");
 
     if (avatarContainer) {
-      avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-lg mx-auto");
+      const pPhoto = profile.photoUrl || profile.photoURL || profile.profileImage || null;
+      avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-xl mx-auto", pPhoto);
     }
 
     if (onlineIndicator) {

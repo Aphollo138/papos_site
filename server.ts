@@ -8,6 +8,8 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ad
 import fs from "fs";
 import crypto from "crypto";
 import https from "https";
+import multer from "multer";
+import sharp from "sharp";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
 
 const firebaseConfig = {
@@ -542,8 +544,21 @@ function containsLink(str: string): boolean {
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
-  app.use(express.json());
+  app.use(express.json({ limit: "15mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "15mb" }));
   const PORT = Number(process.env.PORT) || 3000;
+
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }
+  });
+
+  // Servir arquivos estáticos de uploads se salvos localmente
+  const uploadsPublicDir = path.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(uploadsPublicDir)) {
+    fs.mkdirSync(uploadsPublicDir, { recursive: true });
+  }
+  app.use("/uploads", express.static(uploadsPublicDir));
 
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -563,8 +578,8 @@ async function startServer() {
         
       if (isAllowed) {
         res.setHeader("Access-Control-Allow-Origin", origin);
-        res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-uid");
       }
     }
     next();
@@ -792,6 +807,170 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  async function uploadToImgur(imageBuffer: Buffer): Promise<{ success: boolean; url?: string; error?: string }> {
+    const clientId = process.env.IMGUR_CLIENT_ID;
+    if (clientId && clientId.trim() !== "") {
+      try {
+        const base64Image = imageBuffer.toString("base64");
+        const response = await fetch("https://api.imgur.com/3/image", {
+          method: "POST",
+          headers: {
+            "Authorization": `Client-ID ${clientId.trim()}`,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            image: base64Image,
+            type: "base64",
+            title: "Papos Avatar",
+            description: "Foto de perfil Papos"
+          })
+        });
+
+        const data = await response.json() as any;
+        if (response.ok && data && data.success && data.data && data.data.link) {
+          return { success: true, url: data.data.link };
+        } else {
+          console.warn("[Imgur] Upload failed, status:", response.status, data);
+        }
+      } catch (e: any) {
+        console.error("[Imgur] Error contacting Imgur API:", e);
+      }
+    }
+
+    // Fallback: save to public/uploads/avatars so it always works seamlessly
+    try {
+      const avatarsDir = path.join(process.cwd(), "public", "uploads", "avatars");
+      if (!fs.existsSync(avatarsDir)) {
+        fs.mkdirSync(avatarsDir, { recursive: true });
+      }
+      const filename = `avatar-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
+      const filepath = path.join(avatarsDir, filename);
+      await fs.promises.writeFile(filepath, imageBuffer);
+      const localUrl = `/uploads/avatars/${filename}`;
+      return { success: true, url: localUrl };
+    } catch (err: any) {
+      console.error("[AvatarFallback] Error:", err);
+      return { success: false, error: "Erro ao salvar imagem localmente." };
+    }
+  }
+
+  async function handleProfilePhotoUpload(req: express.Request, res: express.Response) {
+    try {
+      let fileBuffer: Buffer | null = null;
+
+      if (req.file) {
+        fileBuffer = req.file.buffer;
+      } else if (req.body && (req.body.image || req.body.photo)) {
+        const imgStr = (req.body.image || req.body.photo) as string;
+        const matches = imgStr.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          fileBuffer = Buffer.from(matches[2], "base64");
+        } else {
+          fileBuffer = Buffer.from(imgStr, "base64");
+        }
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        res.status(400).json({ success: false, error: "Nenhuma imagem foi enviada." });
+        return;
+      }
+
+      // Validar tamanho máximo (5MB)
+      if (fileBuffer.length > 5 * 1024 * 1024) {
+        res.status(400).json({ success: false, error: "A imagem deve ter no máximo 5MB." });
+        return;
+      }
+
+      // Otimizar e redimensionar usando sharp (garante 1:1, max 400x400, formato JPEG e remove metadados)
+      let optimizedBuffer: Buffer;
+      try {
+        optimizedBuffer = await sharp(fileBuffer)
+          .resize(400, 400, { fit: "cover" })
+          .jpeg({ quality: 85 })
+          .toBuffer();
+      } catch (err) {
+        res.status(400).json({ success: false, error: "Arquivo inválido. Envie uma imagem válida (JPG, PNG ou WebP)." });
+        return;
+      }
+
+      const uploadResult = await uploadToImgur(optimizedBuffer);
+      if (!uploadResult.success || !uploadResult.url) {
+        res.status(500).json({ success: false, error: uploadResult.error || "Erro ao processar imagem." });
+        return;
+      }
+
+      const photoUrl = uploadResult.url;
+      const uid = (req.body.uid || req.headers["x-user-uid"]) as string;
+      const nickname = (req.body.nickname || "") as string;
+
+      // Se autenticado com UID, persistir no documento do usuário no Firestore
+      if (uid && typeof uid === "string") {
+        try {
+          const userRef = doc(db, "users", uid);
+          await setDoc(userRef, {
+            photoURL: photoUrl,
+            profileImage: photoUrl,
+            updatedAt: Date.now()
+          }, { merge: true });
+        } catch (e) {
+          console.error("[UploadPhoto] Erro ao sincronizar foto com Firestore:", e);
+        }
+      }
+
+      // Atualizar sessões ativas do usuário em tempo real
+      if (nickname) {
+        activeSessions.forEach((session) => {
+          if (session.nickname && session.nickname.toLowerCase() === nickname.toLowerCase()) {
+            session.photoUrl = photoUrl;
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        url: photoUrl,
+        link: photoUrl
+      });
+    } catch (err: any) {
+      console.error("[UploadPhoto] Erro inesperado:", err);
+      res.status(500).json({ success: false, error: "Erro interno no servidor ao fazer upload da foto." });
+    }
+  }
+
+  app.post("/api/profile/upload-photo", upload.single("image"), handleProfilePhotoUpload);
+  app.post("/api/profile/upload-image", upload.single("image"), handleProfilePhotoUpload);
+
+  app.post("/api/profile/remove-photo", async (req, res) => {
+    try {
+      const { uid, nickname } = req.body;
+      if (uid && typeof uid === "string") {
+        try {
+          const userRef = doc(db, "users", uid);
+          await setDoc(userRef, {
+            photoURL: "",
+            profileImage: "",
+            updatedAt: Date.now()
+          }, { merge: true });
+        } catch (e) {
+          console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", e);
+        }
+      }
+
+      if (nickname && typeof nickname === "string") {
+        activeSessions.forEach((session) => {
+          if (session.nickname && session.nickname.toLowerCase() === nickname.toLowerCase()) {
+            session.photoUrl = "";
+          }
+        });
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ success: false, error: "Erro ao remover foto de perfil." });
+    }
+  });
+
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (request, socket, head) => {
@@ -801,7 +980,7 @@ async function startServer() {
       const isAllowed = 
         origin.includes("localhost") || 
         origin.includes("127.0.0.1") || 
-        origin.includes("papo.net.br") ||
+        origin.includes("papos.net.br") ||
         origin.includes("onrender.com") ||
         origin.includes("run.app") ||
         origin.includes("vercel.app");
@@ -2245,6 +2424,7 @@ async function startServer() {
               timestamp: Date.now(),
               isSystem: false,
               color,
+              photoUrl: session.photoUrl || undefined,
               replyTo: payload.replyTo ? {
                 id: payload.replyTo.id,
                 sender: payload.replyTo.sender,
@@ -2305,6 +2485,7 @@ async function startServer() {
                 id: pmId,
                 senderId: session.nickname,
                 senderName: session.nickname,
+                senderPhotoUrl: session.photoUrl || undefined,
                 recipientId: toNick,
                 recipientName: toNick,
                 content: text,
@@ -2689,7 +2870,7 @@ async function startServer() {
             if (session.uid) {
               try {
                 const userRef = doc(db, "users", session.uid);
-                await setDoc(userRef, {
+                const updateData: any = {
                   nickname: session.nickname,
                   displayName: session.nickname,
                   name: session.nickname,
@@ -2697,7 +2878,12 @@ async function startServer() {
                   age: session.age,
                   gender: session.gender,
                   updatedAt: Date.now()
-                }, { merge: true });
+                };
+                if (session.photoUrl) {
+                  updateData.photoURL = session.photoUrl;
+                  updateData.profileImage = session.photoUrl;
+                }
+                await setDoc(userRef, updateData, { merge: true });
               } catch (e) {
                 console.error("[update_profile] Erro ao atualizar Firestore:", e);
               }

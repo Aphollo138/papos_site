@@ -336,21 +336,39 @@ const ChatEngine = {
     return colors[sum % colors.length];
   },
 
-  renderAvatar(name, sizeClass = "") {
+  createFallbackAvatarElement(name, sizeClass = "") {
+    const cleanName = (name && name.trim()) || "A";
+    const initial = cleanName.charAt(0).toUpperCase();
+    const bgColor = this.getAvatarColor(cleanName);
+    const div = document.createElement("div");
+    div.className = `avatar-circle ${sizeClass}`;
+    div.style.backgroundColor = bgColor;
+    div.title = cleanName;
+    div.setAttribute("aria-label", `Avatar de ${cleanName}`);
+    div.setAttribute("role", "img");
+    div.textContent = initial;
+    return div;
+  },
+
+  renderAvatar(name, sizeClass = "", customPhotoUrl = null) {
     if (!name || name.trim() === "") name = "A";
     const cleanName = name.trim();
     const initial = cleanName.charAt(0).toUpperCase();
     
-    let photoUrl = null;
-    const currentUser = localStorage.getItem("papos_nickname");
-    if (cleanName === currentUser || cleanName === "Você") {
-      photoUrl = localStorage.getItem("papos_photo");
-    } else {
-      photoUrl = localStorage.getItem(`papos_photo_${cleanName}`);
+    let photoUrl = customPhotoUrl;
+    if (!photoUrl) {
+      const currentUser = localStorage.getItem("papos_nickname");
+      if (cleanName === currentUser || cleanName === "Você") {
+        photoUrl = localStorage.getItem("papos_photo");
+      } else {
+        photoUrl = localStorage.getItem(`papos_photo_${cleanName}`);
+      }
     }
     
-    if (photoUrl && photoUrl.trim() !== "" && !photoUrl.includes("undefined") && !photoUrl.includes("null")) {
-      return `<img src="${photoUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" width="34" height="34" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover;" />`;
+    if (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "" && !photoUrl.includes("undefined") && !photoUrl.includes("null")) {
+      const safeUrl = photoUrl.replace(/"/g, '&quot;');
+      const safeName = cleanName.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+      return `<img src="${safeUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover; aspect-ratio: 1 / 1;" onerror="this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement){this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}'));}" />`;
     }
     
     const bgColor = this.getAvatarColor(cleanName);

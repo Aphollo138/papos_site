@@ -1075,6 +1075,10 @@ html {
   font-family: var(--font-mono);
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
+img.avatar-circle {
+  object-fit: cover;
+  aspect-ratio: 1 / 1;
+}
 .avatar-sm {
   width: 28px;
   height: 28px;
@@ -1085,6 +1089,31 @@ html {
   height: 56px;
   font-size: 1.3rem;
   border-width: 2px;
+}
+.avatar-xl {
+  width: 120px !important;
+  height: 120px !important;
+  min-width: 120px !important;
+  min-height: 120px !important;
+  font-size: 2.75rem !important;
+  border-width: 3.5px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28) !important;
+}
+@media (min-width: 768px) {
+  .avatar-xl {
+    width: 148px !important;
+    height: 148px !important;
+    min-width: 148px !important;
+    min-height: 148px !important;
+    font-size: 3.4rem !important;
+    border-width: 4px !important;
+  }
+}
+img.avatar-circle.avatar-xl {
+  object-fit: cover !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
 }
 .avatar-member {
   width: 24px;
@@ -2059,7 +2088,7 @@ body.chat-page i.bi {
   padding: 6px 16px !important;
   gap: 8px !important;
 }
-.avatar-circle {
+.msg-container .avatar-circle {
   width: 32px !important;
   height: 32px !important;
   font-size: 0.8rem !important;

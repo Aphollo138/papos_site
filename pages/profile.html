@@ -145,8 +145,24 @@
                   <div id="avatar-preview-container">
                     
                   </div>
-                  <span class="status-indicator status-online position-absolute" style="width: 14px; height: 14px; bottom: 2px; right: 2px; border: 2px solid var(--surface);"></span>
+                  <span class="status-indicator status-online position-absolute" style="width: 20px; height: 20px; bottom: 6px; right: 6px; border: 3px solid var(--surface);"></span>
                 </div>
+
+                <div class="mt-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
+                  <input type="file" id="profile-photo-input" accept="image/jpeg,image/png,image/webp,image/jpg" class="d-none" />
+                  <button type="button" class="btn btn-outline-light btn-sm rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5" id="btn-select-photo">
+                    <i class="bi bi-camera-fill text-success"></i> <span>Alterar Foto</span>
+                  </button>
+                  <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 d-none" id="btn-remove-photo">
+                    <i class="bi bi-trash-fill"></i> <span>Remover Foto</span>
+                  </button>
+                </div>
+                <div class="text-secondary small mt-1" style="font-size: 0.76rem;" id="photo-helper-text">Formatos: JPG, PNG ou WebP (máx. 5MB)</div>
+                <div id="photo-upload-loading" class="d-none mt-2 text-success small">
+                  <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando foto...
+                </div>
+                <div id="photo-upload-error" class="alert alert-danger d-none py-1.5 px-3 small mt-2 d-inline-block" style="font-size: 0.8rem; background-color: rgba(255, 77, 77, 0.1); color: #ff4d4d; border-color: #ff4d4d;"></div>
+
                 <h1 class="h3 fw-extrabold text-white mt-3" id="username-display-name">Carregando...</h1>
                 <p class="text-secondary small">ID de Usuário Local: <span class="font-mono text-xs text-white-50" id="user-local-id">#local</span></p>
               </div>
@@ -323,6 +339,13 @@
         const inputGender = document.getElementById("profile-gender");
         const genderErrorFeedback = document.getElementById("gender-error-feedback");
 
+        // Elementos de Foto de Perfil
+        const photoInput = document.getElementById("profile-photo-input");
+        const btnSelectPhoto = document.getElementById("btn-select-photo");
+        const btnRemovePhoto = document.getElementById("btn-remove-photo");
+        const photoLoading = document.getElementById("photo-upload-loading");
+        const photoError = document.getElementById("photo-upload-error");
+
         // Inicializar Valores
         inputNickname.value = currentUser;
         nameDisplay.textContent = currentUser;
@@ -354,13 +377,180 @@
         }
 
         // Função de Preview de Avatar em Tempo Real
-        function updateAvatarPreview(name) {
+        function updateAvatarPreview(name, customPhoto = null) {
           if (window.ChatEngine) {
-            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-lg mx-auto");
+            let photoToUse = customPhoto;
+            if (photoToUse === null) {
+              photoToUse = localStorage.getItem("papos_photo") || null;
+            }
+            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse);
+            
+            // Gerenciar botão Remover
+            if (photoToUse && typeof photoToUse === "string" && photoToUse.trim() !== "" && !photoToUse.includes("undefined") && !photoToUse.includes("null")) {
+              btnRemovePhoto.classList.remove("d-none");
+            } else {
+              btnRemovePhoto.classList.add("d-none");
+            }
           }
         }
 
         updateAvatarPreview(currentUser);
+
+        // Upload e Seleção de Foto de Perfil
+        btnSelectPhoto.addEventListener("click", () => {
+          photoError.classList.add("d-none");
+          photoError.textContent = "";
+          photoInput.click();
+        });
+
+        photoInput.addEventListener("change", async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+
+          const validTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+          if (!validTypes.includes(file.type)) {
+            photoError.textContent = "Formato de imagem não suportado. Utilize JPG, PNG ou WebP.";
+            photoError.classList.remove("d-none");
+            photoInput.value = "";
+            return;
+          }
+
+          if (file.size > 5 * 1024 * 1024) {
+            photoError.textContent = "A imagem selecionada é muito grande. O limite é de 5MB.";
+            photoError.classList.remove("d-none");
+            photoInput.value = "";
+            return;
+          }
+
+          photoError.classList.add("d-none");
+          photoLoading.classList.remove("d-none");
+          btnSelectPhoto.disabled = true;
+          btnRemovePhoto.disabled = true;
+
+          // Preview local instantâneo
+          const reader = new FileReader();
+          reader.onload = (re) => {
+            updateAvatarPreview(inputNickname.value.trim() || currentUser, re.target.result);
+          };
+          reader.readAsDataURL(file);
+
+          try {
+            const formData = new FormData();
+            formData.append("image", file);
+
+            const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
+            const currentNick = inputNickname.value.trim() || currentUser;
+
+            if (currentUid) {
+              formData.append("uid", currentUid);
+            }
+            formData.append("nickname", currentNick);
+
+            const res = await fetch("/api/profile/upload-photo", {
+              method: "POST",
+              headers: currentUid ? { "x-user-uid": currentUid } : {},
+              body: formData
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || "Falha ao enviar a foto para o servidor.");
+            }
+
+            const data = await res.json();
+            const finalUrl = data.url || data.link;
+
+            if (!finalUrl) {
+              throw new Error("URL da foto não recebida.");
+            }
+
+            // Armazenar URL no cache
+            localStorage.setItem("papos_photo", finalUrl);
+            localStorage.setItem(`papos_photo_${currentNick}`, finalUrl);
+
+            // Se autenticado no Firebase, salvar no perfil
+            if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
+              await window.FirebaseService.saveUserProfile({
+                photoURL: finalUrl,
+                profileImage: finalUrl
+              });
+            }
+
+            updateAvatarPreview(currentNick, finalUrl);
+
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn("Foto de perfil atualizada com sucesso!", "success");
+            }
+          } catch (err) {
+            console.error("Erro no upload da foto:", err);
+            photoError.textContent = err.message || "Erro ao processar envio da foto.";
+            photoError.classList.remove("d-none");
+            
+            // Reverter preview
+            const prevPhoto = localStorage.getItem("papos_photo") || null;
+            updateAvatarPreview(inputNickname.value.trim() || currentUser, prevPhoto);
+
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn(err.message || "Erro ao fazer upload da foto de perfil.", "error");
+            }
+          } finally {
+            photoLoading.classList.add("d-none");
+            btnSelectPhoto.disabled = false;
+            btnRemovePhoto.disabled = false;
+            photoInput.value = "";
+          }
+        });
+
+        // Remover Foto de Perfil
+        btnRemovePhoto.addEventListener("click", async () => {
+          if (!confirm("Tem certeza que deseja remover sua foto de perfil?")) return;
+
+          btnRemovePhoto.disabled = true;
+          btnSelectPhoto.disabled = true;
+          photoLoading.classList.remove("d-none");
+
+          try {
+            const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
+            const currentNick = inputNickname.value.trim() || currentUser;
+
+            await fetch("/api/profile/remove-photo", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ uid: currentUid, nickname: currentNick })
+            }).catch(() => {});
+
+            localStorage.removeItem("papos_photo");
+            localStorage.removeItem(`papos_photo_${currentNick}`);
+
+            if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
+              await window.FirebaseService.saveUserProfile({
+                photoURL: "",
+                profileImage: ""
+              }).catch(() => {});
+            }
+
+            updateAvatarPreview(currentNick, "");
+
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn("Foto de perfil removida com sucesso!", "success");
+            }
+          } catch (err) {
+            console.error("Erro ao remover foto:", err);
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn("Erro ao remover foto de perfil.", "error");
+            }
+          } finally {
+            photoLoading.classList.add("d-none");
+            btnSelectPhoto.disabled = false;
+            btnRemovePhoto.disabled = false;
+          }
+        });
 
         // Atualizar avatar ao digitação do usuário
         inputNickname.addEventListener("input", (e) => {
@@ -397,6 +587,7 @@
                     const age = profile.age !== undefined && profile.age !== null ? profile.age : "";
                     const gender = profile.gender || "";
                     const permId = profile.permanentId || profile.internalId || "USR-000000";
+                    const photo = profile.photoURL || profile.profileImage || "";
 
                     inputNickname.value = nick;
                     nameDisplay.textContent = nick;
@@ -413,7 +604,11 @@
                       }
                     }
 
-                    updateAvatarPreview(nick);
+                    if (photo) {
+                      localStorage.setItem("papos_photo", photo);
+                      localStorage.setItem(`papos_photo_${nick}`, photo);
+                    }
+                    updateAvatarPreview(nick, photo || null);
 
                     // Sincronizar Cache no LocalStorage
                     localStorage.setItem("papos_nickname", nick);
@@ -515,12 +710,15 @@
             }
 
             // Se autenticado, salvar diretamente no Firestore
+            const currentPhoto = localStorage.getItem("papos_photo") || "";
             if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
               await window.FirebaseService.saveUserProfile({
                 nickname: newNick,
                 bio: bioVal,
                 age: ageVal,
-                gender: genderVal
+                gender: genderVal,
+                photoURL: currentPhoto,
+                profileImage: currentPhoto
               });
             }
 
