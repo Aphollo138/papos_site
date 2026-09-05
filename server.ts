@@ -974,25 +974,7 @@ async function startServer() {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (request, socket, head) => {
-    const origin = request.headers.origin;
-    
-    if (origin) {
-      const isAllowed = 
-        origin.includes("localhost") || 
-        origin.includes("127.0.0.1") || 
-        origin.includes("papos.net.br") ||
-        origin.includes("onrender.com") ||
-        origin.includes("run.app") ||
-        origin.includes("vercel.app");
-        
-      if (!isAllowed) {
-        
-        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
-        socket.destroy();
-        return;
-      }
-    }
-
+    // Permitir todas as conexões WebSocket válidas (Render, AI Studio, Google Preview, localhost e domínios personalizados)
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit("connection", ws, request);
     });

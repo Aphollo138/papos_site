@@ -4,25 +4,33 @@ const CHAT_CONFIG = {
   productionServerUrl: "https://papos-site.onrender.com",
   
   getWebSocketUrl() {
-    const isLocalhost = window.location.hostname === "localhost" || 
-                        window.location.hostname === "127.0.0.1" || 
-                        window.location.hostname === "0.0.0.0" ||
-                        window.location.hostname.includes("ais-dev-") || 
-                        window.location.hostname.includes("ais-pre-") || 
-                        window.location.hostname.includes(".run.app");   
+    const hostname = (window.location && window.location.hostname) ? window.location.hostname : "";
     
-    if (isLocalhost) {
-      
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      return `${protocol}//${window.location.host}`;
-    } else {
-      
-      let cleanUrl = this.productionServerUrl.trim();
-      if (cleanUrl.endsWith("/")) {
-        cleanUrl = cleanUrl.slice(0, -1);
-      }
-      return cleanUrl.replace(/^http/, "ws");
+    // 1. Ambientes de desenvolvimento, preview, Google AI Studio e Cloud Run
+    const isLocalOrPreview = hostname === "localhost" || 
+                             hostname === "127.0.0.1" || 
+                             hostname === "0.0.0.0" ||
+                             hostname.includes("ais-dev-") || 
+                             hostname.includes("ais-pre-") || 
+                             hostname.includes(".run.app") ||
+                             hostname.includes("google") ||
+                             hostname.includes("applet") ||
+                             hostname.includes("usercontent") ||
+                             hostname.includes("ai.studio");
+    
+    // 2. Se a aplicação estiver sendo servida pelo próprio servidor (Render, domínio personalizado ou preview local):
+    if (isLocalOrPreview || hostname.includes("onrender.com") || hostname.includes("papos.net.br")) {
+      const protocol = (window.location && window.location.protocol === "https:") ? "wss:" : "ws:";
+      const host = (window.location && window.location.host) ? window.location.host : "papos-site.onrender.com";
+      return `${protocol}//${host}`;
     }
+    
+    // 3. Fallback para URL de produção configurada
+    let cleanUrl = this.productionServerUrl.trim();
+    if (cleanUrl.endsWith("/")) {
+      cleanUrl = cleanUrl.slice(0, -1);
+    }
+    return cleanUrl.replace(/^http/, "ws");
   }
 };
 
