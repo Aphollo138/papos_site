@@ -364,12 +364,12 @@ const ChatEngine = {
     const initial = cleanName.charAt(0).toUpperCase();
     
     let photoUrl = customPhotoUrl;
-    if (!photoUrl) {
+    if (photoUrl === null || photoUrl === undefined) {
       const currentUser = localStorage.getItem("papos_nickname");
       if (cleanName === currentUser || cleanName === "Você") {
         photoUrl = localStorage.getItem("papos_photo");
       } else {
-        photoUrl = localStorage.getItem(`papos_photo_${cleanName}`);
+        photoUrl = localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanName.toLowerCase()}`);
       }
     }
     

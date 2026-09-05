@@ -468,6 +468,18 @@
             // Armazenar URL no cache
             localStorage.setItem("papos_photo", finalUrl);
             localStorage.setItem(`papos_photo_${currentNick}`, finalUrl);
+            localStorage.setItem(`papos_photo_${currentNick.toLowerCase()}`, finalUrl);
+
+            try {
+              const syncChannel = new BroadcastChannel("papos_profile_sync");
+              syncChannel.postMessage({
+                type: "profile_updated",
+                nickname: currentNick,
+                photoUrl: finalUrl,
+                profileImage: finalUrl,
+                userId: currentUid
+              });
+            } catch (e) {}
 
             // Se autenticado no Firebase, salvar no perfil
             if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
@@ -525,6 +537,18 @@
 
             localStorage.removeItem("papos_photo");
             localStorage.removeItem(`papos_photo_${currentNick}`);
+            localStorage.removeItem(`papos_photo_${currentNick.toLowerCase()}`);
+
+            try {
+              const syncChannel = new BroadcastChannel("papos_profile_sync");
+              syncChannel.postMessage({
+                type: "profile_updated",
+                nickname: currentNick,
+                photoUrl: "",
+                profileImage: null,
+                userId: currentUid
+              });
+            } catch (e) {}
 
             if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
               await window.FirebaseService.saveUserProfile({

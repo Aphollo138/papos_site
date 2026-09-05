@@ -238,9 +238,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const cleanName = name ? name.trim() : "A";
       const initial = cleanName.charAt(0).toUpperCase();
       let photoUrl = customPhotoUrl;
-      if (!photoUrl) {
+      if (photoUrl === null || photoUrl === undefined) {
         const cUser = localStorage.getItem("papos_nickname");
-        photoUrl = (cleanName === cUser || cleanName === "Você") ? localStorage.getItem("papos_photo") : localStorage.getItem(`papos_photo_${cleanName}`);
+        photoUrl = (cleanName === cUser || cleanName === "Você") ? localStorage.getItem("papos_photo") : (localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanName.toLowerCase()}`));
       }
       if (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "" && !photoUrl.includes("undefined") && !photoUrl.includes("null")) {
         const safeUrl = photoUrl.replace(/"/g, '&quot;');
@@ -730,8 +730,19 @@ document.addEventListener("DOMContentLoaded", () => {
           case "room_members_update":
             if (data.onlineUsers) {
               onlineUsersList = data.onlineUsers;
-              renderMembers();
             }
+            if (data.userPhotos && typeof data.userPhotos === "object") {
+              Object.entries(data.userPhotos).forEach(([nick, photo]) => {
+                if (photo) {
+                  localStorage.setItem(`papos_photo_${nick}`, photo);
+                  localStorage.setItem(`papos_photo_${nick.toLowerCase()}`, photo);
+                } else {
+                  localStorage.removeItem(`papos_photo_${nick}`);
+                  localStorage.removeItem(`papos_photo_${nick.toLowerCase()}`);
+                }
+              });
+            }
+            renderMembers();
             break;
 
           case "room_state":
@@ -739,6 +750,18 @@ document.addEventListener("DOMContentLoaded", () => {
             window.confirmedNickname = data.nickname;
             publicRoomMessages = data.messages;
             onlineUsersList = data.onlineUsers;
+
+            if (data.userPhotos && typeof data.userPhotos === "object") {
+              Object.entries(data.userPhotos).forEach(([nick, photo]) => {
+                if (photo) {
+                  localStorage.setItem(`papos_photo_${nick}`, photo);
+                  localStorage.setItem(`papos_photo_${nick.toLowerCase()}`, photo);
+                } else {
+                  localStorage.removeItem(`papos_photo_${nick}`);
+                  localStorage.removeItem(`papos_photo_${nick.toLowerCase()}`);
+                }
+              });
+            }
             
             updateActiveHeader(data.roomName, data.roomDesc);
             renderMessages();
@@ -828,6 +851,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
           case "user_joined":
             onlineUsersList = data.onlineUsers;
+            if (data.nickname) {
+              if (data.photoUrl) {
+                localStorage.setItem(`papos_photo_${data.nickname}`, data.photoUrl);
+                localStorage.setItem(`papos_photo_${data.nickname.toLowerCase()}`, data.photoUrl);
+              } else {
+                localStorage.removeItem(`papos_photo_${data.nickname}`);
+                localStorage.removeItem(`papos_photo_${data.nickname.toLowerCase()}`);
+              }
+            }
             if (chatMode === "public") {
               appendSystemMessage(`${data.nickname} entrou na sala.`);
             }
@@ -882,6 +914,13 @@ document.addEventListener("DOMContentLoaded", () => {
           case "profile_data":
             if (window.handleProfileDataResponse) {
               window.handleProfileDataResponse(data);
+            }
+            break;
+
+          case "profile_updated":
+          case "profile_photo_updated":
+            if (typeof handleProfileUpdateEvent === "function") {
+              handleProfileUpdateEvent(data);
             }
             break;
 
@@ -1064,7 +1103,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     socket.onclose = () => {
       
-      appendSystemMessage("Conexão instável. Restabelecendo canal...");
+      appendSystemMessage("Conexão instável. Restabelecendo canal criptografado...");
       setTimeout(connect, 3000);
     };
 
@@ -1111,7 +1150,7 @@ document.addEventListener("DOMContentLoaded", () => {
         headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
         headerName.style.cursor = "default";
       }
-      if (headerDesc) headerDesc.textContent = "Chat privado";
+      if (headerDesc) headerDesc.textContent = "Chat privado.";
       if (btnBackToPublic) btnBackToPublic.classList.remove("d-none");
       
       if (headerAvatarContainer) {
@@ -1911,11 +1950,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (msg.sender && msg.photoUrl) {
           localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
+          localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
         }
 
+        msgDiv.setAttribute("data-sender", msg.sender);
         msgDiv.innerHTML = `
           ${actionsHtml}
-          <button class="btn p-0 border-0 flex-shrink-0" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+          <button class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
             ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", msg.photoUrl || null)}
           </button>
           <div class="msg-content">
@@ -1961,6 +2002,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const msgDiv = document.createElement("div");
     msgDiv.className = `msg-container ${isMe ? 'msg-me' : ''} ${isGrouped ? 'msg-grouped' : ''}`;
     msgDiv.id = `msg-id-${msg.id}`;
+    msgDiv.setAttribute("data-sender", msg.sender);
 
     let replyHtml = "";
     if (msg.replyTo) {
@@ -2029,11 +2071,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (msg.sender && msg.photoUrl) {
       localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
+      localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
     }
 
     msgDiv.innerHTML = `
       ${actionsHtml}
-      <button type="button" class="btn p-0 border-0 flex-shrink-0" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+      <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
         ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", msg.photoUrl || null)}
       </button>
       <div class="msg-content">
@@ -2059,6 +2102,179 @@ document.addEventListener("DOMContentLoaded", () => {
     chatMessagesContainer.appendChild(sysDiv);
     scrollToBottom();
   }
+
+  function updateAvatarsInDOM(nickname, newPhotoUrl) {
+    if (!nickname) return;
+    const targetNick = nickname.trim();
+    const targetLower = targetNick.toLowerCase();
+    const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
+    const isMe = targetLower === myNick.toLowerCase();
+
+    // 1. Atualizar todas as mensagens exibidas no container de mensagens
+    if (chatMessagesContainer) {
+      const msgContainers = chatMessagesContainer.querySelectorAll(".msg-container");
+      msgContainers.forEach(container => {
+        let sender = container.getAttribute("data-sender");
+        if (!sender) {
+          const usernameEl = container.querySelector(".msg-username");
+          if (usernameEl) {
+            const uText = usernameEl.textContent.trim();
+            if (uText === "Você" && isMe) {
+              sender = myNick;
+            } else if (uText.toLowerCase() === targetLower) {
+              sender = uText;
+            }
+          }
+        }
+
+        if (sender && sender.toLowerCase() === targetLower) {
+          const avatarBtn = container.querySelector(".msg-avatar-btn") || container.querySelector("button.btn.flex-shrink-0");
+          if (avatarBtn) {
+            avatarBtn.innerHTML = window.ChatEngine.renderAvatar(sender, "avatar-sm", newPhotoUrl ? newPhotoUrl : "");
+          }
+        }
+      });
+    }
+
+    // 2. Atualizar lista de membros online
+    if (typeof renderMembers === "function") {
+      renderMembers();
+    }
+
+    // 3. Atualizar sidebar de conversas privadas
+    if (typeof renderPrivateConversationsSidebar === "function") {
+      renderPrivateConversationsSidebar();
+    }
+
+    // 4. Se estiver em conversa privada ativa com o usuário, atualizar avatar do cabeçalho
+    if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === targetLower) {
+      const headerAvatarContainer = document.getElementById("active-chat-avatar-container");
+      if (headerAvatarContainer) {
+        headerAvatarContainer.innerHTML = `
+          <button class="btn p-0 border-0" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
+            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm", newPhotoUrl ? newPhotoUrl : "")}
+          </button>
+        `;
+      }
+    }
+
+    // 5. Se o modal de perfil de usuário estiver aberto exibindo este usuário, atualizar avatar
+    const modalEl = document.getElementById("userProfileModal");
+    if (modalEl && modalEl.classList.contains("show")) {
+      const modalNickEl = document.getElementById("modal-profile-nickname");
+      if (modalNickEl && modalNickEl.textContent.trim().toLowerCase() === targetLower) {
+        const modalAvatarContainer = document.getElementById("modal-profile-avatar-container");
+        if (modalAvatarContainer) {
+          modalAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(targetNick, "avatar-xl mx-auto", newPhotoUrl ? newPhotoUrl : "");
+        }
+      }
+    }
+
+    // 6. Se for o próprio usuário conectado, atualizar cards da interface
+    if (isMe) {
+      if (sidebarAvatarPlaceholder && window.ChatEngine) {
+        sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-lg mx-auto mb-2", newPhotoUrl ? newPhotoUrl : "");
+      }
+      const mobileAvatarContainer = document.getElementById("mobile-nav-user-avatar");
+      if (mobileAvatarContainer && window.ChatEngine) {
+        mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", newPhotoUrl ? newPhotoUrl : "");
+      }
+      const desktopAvatarContainer = document.getElementById("desktop-nav-user-avatar");
+      if (desktopAvatarContainer && window.ChatEngine) {
+        desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", newPhotoUrl ? newPhotoUrl : "");
+      }
+    }
+  }
+
+  function handleProfileUpdateEvent(data) {
+    if (!data || !data.nickname) return;
+    const targetNick = data.nickname.trim();
+    const targetLower = targetNick.toLowerCase();
+    const rawPhoto = data.photoUrl !== undefined ? data.photoUrl : (data.profileImage !== undefined ? data.profileImage : "");
+    const newPhotoUrl = (rawPhoto && typeof rawPhoto === "string" && rawPhoto.trim() !== "" && !rawPhoto.includes("null") && !rawPhoto.includes("undefined")) ? rawPhoto.trim() : "";
+    const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
+    const isMe = targetLower === myNick.toLowerCase();
+
+    // 1. Atualizar localStorage
+    if (newPhotoUrl) {
+      localStorage.setItem(`papos_photo_${targetNick}`, newPhotoUrl);
+      localStorage.setItem(`papos_photo_${targetLower}`, newPhotoUrl);
+      if (isMe) {
+        localStorage.setItem("papos_photo", newPhotoUrl);
+      }
+    } else {
+      localStorage.removeItem(`papos_photo_${targetNick}`);
+      localStorage.removeItem(`papos_photo_${targetLower}`);
+      if (isMe) {
+        localStorage.removeItem("papos_photo");
+      }
+    }
+
+    // 2. Atualizar ou invalidar profileCache em memória
+    const cache = window.profileCache || (typeof profileCache !== "undefined" ? profileCache : null);
+    if (cache) {
+      const cached = cache.get(targetLower);
+      if (cached && cached.data) {
+        cached.data.photoUrl = newPhotoUrl || "";
+        cached.data.photoURL = newPhotoUrl || "";
+        cached.data.profileImage = newPhotoUrl || null;
+      }
+    }
+
+    // 3. Atualizar mensagens públicas em memória
+    if (Array.isArray(publicRoomMessages)) {
+      publicRoomMessages.forEach(m => {
+        if (m.sender && m.sender.toLowerCase() === targetLower) {
+          m.photoUrl = newPhotoUrl || undefined;
+        }
+      });
+    }
+
+    // 4. Atualizar mensagens privadas em memória e no localStorage
+    if (typeof privateChats === "object" && privateChats) {
+      let pmChanged = false;
+      Object.keys(privateChats).forEach(partner => {
+        if (Array.isArray(privateChats[partner])) {
+          privateChats[partner].forEach(m => {
+            if (m.sender && m.sender.toLowerCase() === targetLower) {
+              m.photoUrl = newPhotoUrl || undefined;
+              pmChanged = true;
+            }
+          });
+        }
+      });
+      if (pmChanged && myNick) {
+        try {
+          localStorage.setItem(`papos_pms_${myNick}`, JSON.stringify(privateChats));
+        } catch (e) {}
+      }
+    }
+
+    // 5. Atualizar todo o DOM visualmente em tempo real
+    updateAvatarsInDOM(targetNick, newPhotoUrl);
+  }
+  window.handleProfileUpdateEvent = handleProfileUpdateEvent;
+  window.updateAvatarsInDOM = updateAvatarsInDOM;
+
+  try {
+    const syncChannel = new BroadcastChannel("papos_profile_sync");
+    syncChannel.onmessage = (event) => {
+      if (event && event.data && (event.data.type === "profile_updated" || event.data.type === "profile_photo_updated")) {
+        handleProfileUpdateEvent(event.data);
+      }
+    };
+  } catch (e) {}
+
+  window.addEventListener("storage", (e) => {
+    if (e.key === "papos_photo" || (e.key && e.key.startsWith("papos_photo_"))) {
+      const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
+      let nick = myNick;
+      if (e.key.startsWith("papos_photo_")) {
+        nick = e.key.replace("papos_photo_", "");
+      }
+      updateAvatarsInDOM(nick, e.newValue || "");
+    }
+  });
 
   const setupSearchToggle = (btn) => {
     if (!btn) return;
@@ -3319,8 +3535,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const actionBtn = document.getElementById("btn-modal-profile-action");
 
     if (avatarContainer) {
-      const pPhoto = profile.photoUrl || profile.photoURL || profile.profileImage || null;
-      avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-xl mx-auto", pPhoto);
+      const pPhoto = (profile.photoUrl || profile.photoURL || profile.profileImage || "");
+      avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-xl mx-auto", pPhoto ? pPhoto : "");
     }
 
     if (onlineIndicator) {

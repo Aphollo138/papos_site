@@ -416,6 +416,45 @@ interface ClientSession {
 
 const activeSessions = new Map<WebSocket, ClientSession>();
 
+function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?: string) {
+  if (!nickname) return;
+  const cleanNick = nickname.trim();
+  const cleanPhotoUrl = (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "") ? photoUrl.trim() : "";
+
+  // 1. Atualizar sessões ativas com o novo estado em tempo real
+  activeSessions.forEach((session) => {
+    if (session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase()) {
+      session.photoUrl = cleanPhotoUrl;
+    }
+  });
+
+  // 2. Atualizar mensagens em memória para que novos membros recebam o estado correto
+  Object.keys(messages).forEach((roomId) => {
+    if (Array.isArray(messages[roomId])) {
+      messages[roomId].forEach((msg) => {
+        if (msg.sender && msg.sender.toLowerCase() === cleanNick.toLowerCase()) {
+          msg.photoUrl = cleanPhotoUrl ? cleanPhotoUrl : undefined;
+        }
+      });
+    }
+  });
+
+  // 3. Notificar todos os clientes conectados via WebSocket em tempo real
+  const payload = {
+    type: "profile_updated",
+    nickname: cleanNick,
+    userId: uid || undefined,
+    photoUrl: cleanPhotoUrl || "",
+    profileImage: cleanPhotoUrl || null
+  };
+
+  activeSessions.forEach((session, ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+    }
+  });
+}
+
 function getOnlineGuestsList(): any[] {
   const guestsMap = new Map<string, any>();
   activeSessions.forEach((s) => {
@@ -911,6 +950,7 @@ async function startServer() {
           await setDoc(userRef, {
             photoURL: photoUrl,
             profileImage: photoUrl,
+            photoUrl: photoUrl,
             updatedAt: Date.now()
           }, { merge: true });
         } catch (e) {
@@ -918,13 +958,9 @@ async function startServer() {
         }
       }
 
-      // Atualizar sessões ativas do usuário em tempo real
+      // Atualizar sessões ativas, histórico de mensagens em memória e transmitir evento em tempo real a todos os clientes
       if (nickname) {
-        activeSessions.forEach((session) => {
-          if (session.nickname && session.nickname.toLowerCase() === nickname.toLowerCase()) {
-            session.photoUrl = photoUrl;
-          }
-        });
+        broadcastProfileUpdate(nickname, photoUrl, uid);
       }
 
       res.json({
@@ -950,19 +986,24 @@ async function startServer() {
           await setDoc(userRef, {
             photoURL: "",
             profileImage: "",
+            photoUrl: "",
             updatedAt: Date.now()
           }, { merge: true });
         } catch (e) {
           console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", e);
         }
+      } else if (nickname) {
+        try {
+          const q = query(collection(db, "users"), where("nickname", "==", nickname));
+          const snap = await getDocs(q);
+          snap.forEach(async (d) => {
+            await setDoc(doc(db, "users", d.id), { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
+          });
+        } catch (e) {}
       }
 
       if (nickname && typeof nickname === "string") {
-        activeSessions.forEach((session) => {
-          if (session.nickname && session.nickname.toLowerCase() === nickname.toLowerCase()) {
-            session.photoUrl = "";
-          }
-        });
+        broadcastProfileUpdate(nickname, "", uid);
       }
 
       res.json({ success: true });
@@ -1057,9 +1098,16 @@ async function startServer() {
     broadcastRoomsList();
     activeSessions.forEach((session, ws) => {
       if (ws.readyState === WebSocket.OPEN && session.roomId) {
+        const userPhotos: Record<string, string> = {};
+        activeSessions.forEach((s) => {
+          if (s.roomId === session.roomId && s.nickname) {
+            userPhotos[s.nickname] = s.photoUrl || "";
+          }
+        });
         sendToClient(ws, "room_members_update", {
           roomId: session.roomId,
           onlineUsers: getRoomOnlineUsers(session.roomId),
+          userPhotos,
           adminUsers: getAdminNicknames()
         });
       }
@@ -2174,11 +2222,19 @@ async function startServer() {
               messages[roomId] = [];
             }
 
+            const userPhotos: Record<string, string> = {};
+            activeSessions.forEach((s) => {
+              if (s.roomId === roomId && s.nickname) {
+                userPhotos[s.nickname] = s.photoUrl || "";
+              }
+            });
+
             sendToClient(ws, "room_state", {
               roomId,
               nickname: finalNickname,
               messages: messages[roomId],
               onlineUsers: getRoomOnlineUsers(roomId),
+              userPhotos,
               adminUsers: getAdminNicknames()
             });
 
@@ -2192,6 +2248,8 @@ async function startServer() {
 
             broadcastToRoom(roomId, "user_joined", {
               nickname: finalNickname,
+              photoUrl: session.photoUrl || "",
+              profileImage: session.photoUrl || null,
               time: getCurrentTime(),
               timestamp: Date.now(),
               onlineUsers: getRoomOnlineUsers(roomId),
@@ -2298,15 +2356,25 @@ async function startServer() {
               messages[roomId] = [];
             }
 
+            const switchUserPhotos: Record<string, string> = {};
+            activeSessions.forEach((s) => {
+              if (s.roomId === roomId && s.nickname) {
+                switchUserPhotos[s.nickname] = s.photoUrl || "";
+              }
+            });
+
             sendToClient(ws, "room_state", {
               roomId,
               nickname: session.nickname,
               messages: messages[roomId],
-              onlineUsers: getRoomOnlineUsers(roomId)
+              onlineUsers: getRoomOnlineUsers(roomId),
+              userPhotos: switchUserPhotos
             });
 
             broadcastToRoom(roomId, "user_joined", {
               nickname: session.nickname,
+              photoUrl: session.photoUrl || "",
+              profileImage: session.photoUrl || null,
               time: getCurrentTime(),
               timestamp: Date.now(),
               onlineUsers: getRoomOnlineUsers(roomId)
@@ -2787,21 +2855,35 @@ async function startServer() {
               gender = (foundSession as ClientSession).gender || "";
               photoUrl = (foundSession as ClientSession).photoUrl || "";
               permanentId = (foundSession as ClientSession).permanentId || "";
-            }
 
-            try {
-              const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
-              const snap = await getDocs(q);
-              if (!snap.empty) {
-                const userData = snap.docs[0].data();
-                if (!bio) bio = userData.bio || "";
-                if (!age) age = userData.age || null;
-                if (!gender) gender = userData.gender || "";
-                if (!photoUrl) photoUrl = userData.photoUrl || "";
-                if (!permanentId) permanentId = userData.permanentId || "";
+              if (!bio || age === null || !gender || !permanentId) {
+                try {
+                  const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
+                  const snap = await getDocs(q);
+                  if (!snap.empty) {
+                    const userData = snap.docs[0].data();
+                    if (!bio) bio = userData.bio || "";
+                    if (age === null) age = userData.age || null;
+                    if (!gender) gender = userData.gender || "";
+                    if (!permanentId) permanentId = userData.permanentId || "";
+                  }
+                } catch (err) {}
               }
-            } catch (err) {
-              console.error("[Firestore] Error fetching profile:", err);
+            } else {
+              try {
+                const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                  const userData = snap.docs[0].data();
+                  bio = userData.bio || "";
+                  age = userData.age || null;
+                  gender = userData.gender || "";
+                  photoUrl = userData.photoURL || userData.profileImage || userData.photoUrl || "";
+                  permanentId = userData.permanentId || "";
+                }
+              } catch (err) {
+                console.error("[Firestore] Error fetching profile:", err);
+              }
             }
 
             if (!permanentId) {
@@ -2815,12 +2897,34 @@ async function startServer() {
             sendToClient(ws, "profile_data", {
               nickname: foundSession ? (foundSession as ClientSession).nickname : requestedNickname,
               photoUrl,
+              profileImage: photoUrl || null,
               bio,
               age,
               gender,
               online: isOnline,
               permanentId
             });
+            break;
+          }
+
+          case "update_photo":
+          case "profile_updated": {
+            const newPhoto = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : (payload.profileImage !== undefined ? sanitizeHTML(payload.profileImage) : "");
+            session.photoUrl = newPhoto || "";
+            if (session.nickname) {
+              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+            }
+            if (session.uid) {
+              try {
+                const userRef = doc(db, "users", session.uid);
+                await setDoc(userRef, {
+                  photoURL: newPhoto || "",
+                  profileImage: newPhoto || "",
+                  photoUrl: newPhoto || "",
+                  updatedAt: Date.now()
+                }, { merge: true });
+              } catch (e) {}
+            }
             break;
           }
 
@@ -2847,7 +2951,12 @@ async function startServer() {
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
-            session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
+            
+            const photoProvided = payload.photoUrl !== undefined || payload.profileImage !== undefined;
+            if (photoProvided) {
+              const rawPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
+              session.photoUrl = rawPhoto ? sanitizeHTML(rawPhoto) : "";
+            }
 
             if (session.uid) {
               try {
@@ -2864,6 +2973,11 @@ async function startServer() {
                 if (session.photoUrl) {
                   updateData.photoURL = session.photoUrl;
                   updateData.profileImage = session.photoUrl;
+                  updateData.photoUrl = session.photoUrl;
+                } else {
+                  updateData.photoURL = "";
+                  updateData.profileImage = "";
+                  updateData.photoUrl = "";
                 }
                 await setDoc(userRef, updateData, { merge: true });
               } catch (e) {
@@ -2871,6 +2985,10 @@ async function startServer() {
               }
             } else {
               notifyAdminsGuestList();
+            }
+
+            if (photoProvided && session.nickname) {
+              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
             }
 
             if (session.roomId) {
