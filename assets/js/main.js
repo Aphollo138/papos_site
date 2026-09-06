@@ -279,6 +279,11 @@ const ChatEngine = {
       return false;
     }
     localStorage.setItem("papos_nickname", nick);
+    const existingPhoto = localStorage.getItem("papos_photo");
+    if (existingPhoto && existingPhoto.trim() !== "" && !existingPhoto.includes("null") && !existingPhoto.includes("undefined")) {
+      localStorage.setItem(`papos_photo_${nick}`, existingPhoto.trim());
+      localStorage.setItem(`papos_photo_${nick.toLowerCase()}`, existingPhoto.trim());
+    }
     return true;
   },
 
@@ -365,11 +370,21 @@ const ChatEngine = {
     
     let photoUrl = customPhotoUrl;
     if (photoUrl === null || photoUrl === undefined) {
-      const currentUser = localStorage.getItem("papos_nickname");
-      if (cleanName === currentUser || cleanName === "Você") {
-        photoUrl = localStorage.getItem("papos_photo");
+      if (typeof window.getUserCurrentPhoto === "function") {
+        photoUrl = window.getUserCurrentPhoto(cleanName);
       } else {
-        photoUrl = localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanName.toLowerCase()}`);
+        const currentUser = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
+        if (cleanName.toLowerCase() === currentUser.toLowerCase() || cleanName === "Você") {
+          photoUrl = localStorage.getItem("papos_photo");
+        } else {
+          const cache = window.profileCache;
+          const cached = cache && (cache.get(cleanName.toLowerCase()) || cache.get(cleanName));
+          if (cached && cached.data && (cached.data.photoUrl || cached.data.profileImage)) {
+            photoUrl = cached.data.photoUrl || cached.data.profileImage;
+          } else {
+            photoUrl = localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanName.toLowerCase()}`);
+          }
+        }
       }
     }
     

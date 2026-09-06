@@ -445,7 +445,8 @@ function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?:
     nickname: cleanNick,
     userId: uid || undefined,
     photoUrl: cleanPhotoUrl || "",
-    profileImage: cleanPhotoUrl || null
+    profileImage: cleanPhotoUrl || null,
+    action: cleanPhotoUrl ? "update_photo" : "remove_photo"
   };
 
   activeSessions.forEach((session, ws) => {
@@ -562,7 +563,7 @@ function containsLink(str: string): boolean {
     "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
     "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
     "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
-    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
+    "it", "nl", "es", "pt", "ar", "mx", "cl", "pe", "uy"
   ];
   const tldPattern = tldList.join("|");
 
@@ -2909,21 +2910,39 @@ async function startServer() {
 
           case "update_photo":
           case "profile_updated": {
-            const newPhoto = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : (payload.profileImage !== undefined ? sanitizeHTML(payload.profileImage) : "");
-            session.photoUrl = newPhoto || "";
-            if (session.nickname) {
-              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
-            }
-            if (session.uid) {
-              try {
-                const userRef = doc(db, "users", session.uid);
-                await setDoc(userRef, {
-                  photoURL: newPhoto || "",
-                  profileImage: newPhoto || "",
-                  photoUrl: newPhoto || "",
-                  updatedAt: Date.now()
-                }, { merge: true });
-              } catch (e) {}
+            const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
+            const hasPhoto = payload.photoUrl !== undefined || payload.profileImage !== undefined;
+
+            if (isExplicitRemove) {
+              session.photoUrl = "";
+              if (session.nickname) {
+                broadcastProfileUpdate(session.nickname, "", session.uid);
+              }
+              if (session.uid) {
+                try {
+                  const userRef = doc(db, "users", session.uid);
+                  await setDoc(userRef, { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
+                } catch (e) {}
+              }
+            } else if (hasPhoto) {
+              const raw = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
+              if (typeof raw === "string" && raw.trim() !== "" && !raw.includes("null") && !raw.includes("undefined")) {
+                session.photoUrl = sanitizeHTML(raw.trim());
+                if (session.nickname) {
+                  broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+                }
+                if (session.uid) {
+                  try {
+                    const userRef = doc(db, "users", session.uid);
+                    await setDoc(userRef, {
+                      photoURL: session.photoUrl,
+                      profileImage: session.photoUrl,
+                      photoUrl: session.photoUrl,
+                      updatedAt: Date.now()
+                    }, { merge: true });
+                  } catch (e) {}
+                }
+              }
             }
             break;
           }
@@ -2952,10 +2971,19 @@ async function startServer() {
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
             
+            const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
             const photoProvided = payload.photoUrl !== undefined || payload.profileImage !== undefined;
-            if (photoProvided) {
+            let photoChanged = false;
+
+            if (isExplicitRemove) {
+              session.photoUrl = "";
+              photoChanged = true;
+            } else if (photoProvided) {
               const rawPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
-              session.photoUrl = rawPhoto ? sanitizeHTML(rawPhoto) : "";
+              if (typeof rawPhoto === "string" && rawPhoto.trim() !== "" && !rawPhoto.includes("null") && !rawPhoto.includes("undefined")) {
+                session.photoUrl = sanitizeHTML(rawPhoto.trim());
+                photoChanged = true;
+              }
             }
 
             if (session.uid) {
@@ -2974,7 +3002,7 @@ async function startServer() {
                   updateData.photoURL = session.photoUrl;
                   updateData.profileImage = session.photoUrl;
                   updateData.photoUrl = session.photoUrl;
-                } else {
+                } else if (isExplicitRemove) {
                   updateData.photoURL = "";
                   updateData.profileImage = "";
                   updateData.photoUrl = "";
@@ -2987,7 +3015,7 @@ async function startServer() {
               notifyAdminsGuestList();
             }
 
-            if (photoProvided && session.nickname) {
+            if (photoChanged && session.nickname) {
               broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
             }
 

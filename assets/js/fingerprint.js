@@ -82,7 +82,7 @@
   }
 
   function getOrCreateGuestId() {
-    let guestId = localStorage.getItem("papo_guest_id");
+    let guestId = localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id");
     if (!guestId) {
       try {
         const randBytes = Array.from(crypto.getRandomValues(new Uint8Array(4)));
@@ -92,6 +92,9 @@
         guestId = "GST-" + Math.random().toString(36).substring(2, 10).toUpperCase();
       }
       localStorage.setItem("papo_guest_id", guestId);
+    }
+    if (!localStorage.getItem("papos_permanent_id")) {
+      localStorage.setItem("papos_permanent_id", guestId);
     }
     return guestId;
   }

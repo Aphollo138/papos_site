@@ -241,7 +241,7 @@
 
               <div class="mt-5 pt-4 border-top border-secondary">
                 <h3 class="h6 fw-bold text-danger mb-2">Apagar todos os dados</h3>
-                <p class="text-secondary small">Deletar todas as suas preferências e histórico armazenado. Esta ação é irreversível.</p>
+                <p class="text-secondary small">Deletar todas as suas preferências. Esta ação é irreversível.</p>
                 <button class="btn btn-outline-danger btn-sm" id="btn-reset-all" type="button">
                   <i class="bi bi-exclamation-triangle-fill me-1"></i> Apagar Dados
                 </button>
@@ -360,9 +360,9 @@
         inputAge.value = savedAge;
         inputGender.value = savedGender;
 
-        // Usar o ID Permanente real se autenticado, caso contrário gerar ID local temporário
-        const savedPermanentId = localStorage.getItem("papos_permanent_id");
-        if (savedPermanentId && savedPermanentId.startsWith("USR-")) {
+        // Usar o ID Permanente real se autenticado, caso contrário usar o ID persistente do usuário anônimo
+        const savedPermanentId = localStorage.getItem("papos_permanent_id") || localStorage.getItem("papo_guest_id");
+        if (savedPermanentId) {
           localIdEl.textContent = savedPermanentId;
           const labelEl = localIdEl.closest("p");
           if (labelEl) {
@@ -477,6 +477,7 @@
                 nickname: currentNick,
                 photoUrl: finalUrl,
                 profileImage: finalUrl,
+                action: "update_photo",
                 userId: currentUid
               });
             } catch (e) {}
@@ -546,6 +547,7 @@
                 nickname: currentNick,
                 photoUrl: "",
                 profileImage: null,
+                action: "remove_photo",
                 userId: currentUid
               });
             } catch (e) {}
