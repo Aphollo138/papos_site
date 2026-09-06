@@ -262,8 +262,15 @@ window.getUserCurrentPhoto = getUserCurrentPhoto;
 // Pré-popular cache com dados locais do usuário ativo
 (function() {
   const myCurrentNick = localStorage.getItem("papos_nickname");
-  const myCurrentPhoto = localStorage.getItem("papos_photo");
-  if (myCurrentNick && myCurrentPhoto && myCurrentPhoto.trim() !== "" && !myCurrentPhoto.includes("null") && !myCurrentPhoto.includes("undefined")) {
+  if (!myCurrentNick) return;
+  let myCurrentPhoto = localStorage.getItem("papos_photo");
+  if (!myCurrentPhoto || myCurrentPhoto.trim() === "" || myCurrentPhoto.includes("null") || myCurrentPhoto.includes("undefined")) {
+    myCurrentPhoto = localStorage.getItem(`papos_photo_${myCurrentNick}`) || localStorage.getItem(`papos_photo_${myCurrentNick.toLowerCase()}`);
+    if (myCurrentPhoto && myCurrentPhoto.trim() !== "" && !myCurrentPhoto.includes("null") && !myCurrentPhoto.includes("undefined")) {
+      localStorage.setItem("papos_photo", myCurrentPhoto.trim());
+    }
+  }
+  if (myCurrentPhoto && myCurrentPhoto.trim() !== "" && !myCurrentPhoto.includes("null") && !myCurrentPhoto.includes("undefined")) {
     const cleanP = myCurrentPhoto.trim();
     localStorage.setItem(`papos_photo_${myCurrentNick}`, cleanP);
     localStorage.setItem(`papos_photo_${myCurrentNick.toLowerCase()}`, cleanP);
@@ -271,6 +278,7 @@ window.getUserCurrentPhoto = getUserCurrentPhoto;
       data: {
         nickname: myCurrentNick,
         photoUrl: cleanP,
+        photoURL: cleanP,
         profileImage: cleanP,
         bio: localStorage.getItem("papos_bio") || "",
         age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
@@ -1604,12 +1612,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function sendPrivateMessage(text, msgId, replyTo) {
     if (!activePrivateRecipient || !socket || socket.readyState !== WebSocket.OPEN) return;
     
+    const myPhoto = getUserCurrentPhoto(window.confirmedNickname || currentUser) || undefined;
     socket.send(JSON.stringify({
       type: "private_message",
       id: msgId,
       to: activePrivateRecipient,
       text: text,
       color: activeMessageColor || undefined,
+      photoUrl: myPhoto,
       replyTo: replyTo ? {
         id: replyTo.id || replyTo.messageId,
         messageId: replyTo.messageId || replyTo.id,
@@ -2236,6 +2246,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const targetLower = targetNick.toLowerCase();
     const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
     const isMe = targetLower === myNick.toLowerCase();
+    const resolvedPhoto = (newPhotoUrl !== undefined) ? newPhotoUrl : getUserCurrentPhoto(targetNick);
 
     // 1. Atualizar todas as mensagens exibidas no container de mensagens
     if (chatMessagesContainer) {
@@ -2257,7 +2268,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (sender && sender.toLowerCase() === targetLower) {
           const avatarBtn = container.querySelector(".msg-avatar-btn") || container.querySelector("button.btn.flex-shrink-0");
           if (avatarBtn) {
-            avatarBtn.innerHTML = window.ChatEngine.renderAvatar(sender, "avatar-sm", newPhotoUrl ? newPhotoUrl : "");
+            avatarBtn.innerHTML = window.ChatEngine.renderAvatar(sender, "avatar-sm", resolvedPhoto);
           }
         }
       });
@@ -2279,7 +2290,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (headerAvatarContainer) {
         headerAvatarContainer.innerHTML = `
           <button class="btn p-0 border-0" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
-            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm", newPhotoUrl ? newPhotoUrl : "")}
+            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm", resolvedPhoto)}
           </button>
         `;
       }
@@ -2292,7 +2303,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (modalNickEl && modalNickEl.textContent.trim().toLowerCase() === targetLower) {
         const modalAvatarContainer = document.getElementById("modal-profile-avatar-container");
         if (modalAvatarContainer) {
-          modalAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(targetNick, "avatar-xl mx-auto", newPhotoUrl ? newPhotoUrl : "");
+          modalAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(targetNick, "avatar-xl mx-auto", resolvedPhoto);
         }
       }
     }
@@ -2300,15 +2311,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // 6. Se for o próprio usuário conectado, atualizar cards da interface
     if (isMe) {
       if (sidebarAvatarPlaceholder && window.ChatEngine) {
-        sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-lg mx-auto mb-2", newPhotoUrl ? newPhotoUrl : "");
+        sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-lg mx-auto mb-2", resolvedPhoto);
       }
       const mobileAvatarContainer = document.getElementById("mobile-nav-user-avatar");
       if (mobileAvatarContainer && window.ChatEngine) {
-        mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", newPhotoUrl ? newPhotoUrl : "");
+        mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", resolvedPhoto);
       }
       const desktopAvatarContainer = document.getElementById("desktop-nav-user-avatar");
       if (desktopAvatarContainer && window.ChatEngine) {
-        desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", newPhotoUrl ? newPhotoUrl : "");
+        desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", resolvedPhoto);
       }
     }
   }
@@ -2697,14 +2708,17 @@ document.addEventListener("DOMContentLoaded", () => {
         text: replyTargetMsg.text
       } : null;
 
+      const senderNick = window.confirmedNickname || currentUser;
+      const myPhoto = getUserCurrentPhoto(senderNick) || undefined;
       const msgObj = {
         id: clientMsgId,
-        sender: window.confirmedNickname || currentUser,
+        sender: senderNick,
         text: text,
         time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         timestamp: Date.now(),
         isSystem: false,
         color: activeMessageColor || undefined,
+        photoUrl: myPhoto,
         replyTo: replyData,
         reactions: {}
       };
@@ -2717,6 +2731,7 @@ document.addEventListener("DOMContentLoaded", () => {
         id: clientMsgId,
         text: text,
         color: activeMessageColor || undefined,
+        photoUrl: myPhoto,
         replyTo: replyData
       }));
       clearReplyTarget();

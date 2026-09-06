@@ -368,19 +368,22 @@ const ChatEngine = {
     const cleanName = name.trim();
     const initial = cleanName.charAt(0).toUpperCase();
     
-    let photoUrl = customPhotoUrl;
-    if (photoUrl === null || photoUrl === undefined) {
+    let photoUrl = (typeof customPhotoUrl === "string" && customPhotoUrl.trim() !== "" && !customPhotoUrl.includes("null") && !customPhotoUrl.includes("undefined"))
+      ? customPhotoUrl.trim()
+      : null;
+
+    if (!photoUrl) {
       if (typeof window.getUserCurrentPhoto === "function") {
         photoUrl = window.getUserCurrentPhoto(cleanName);
       } else {
         const currentUser = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
         if (cleanName.toLowerCase() === currentUser.toLowerCase() || cleanName === "Você") {
-          photoUrl = localStorage.getItem("papos_photo");
+          photoUrl = localStorage.getItem("papos_photo") || localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanName.toLowerCase()}`);
         } else {
           const cache = window.profileCache;
           const cached = cache && (cache.get(cleanName.toLowerCase()) || cache.get(cleanName));
-          if (cached && cached.data && (cached.data.photoUrl || cached.data.profileImage)) {
-            photoUrl = cached.data.photoUrl || cached.data.profileImage;
+          if (cached && cached.data && (cached.data.photoUrl || cached.data.photoURL || cached.data.profileImage)) {
+            photoUrl = cached.data.photoUrl || cached.data.photoURL || cached.data.profileImage;
           } else {
             photoUrl = localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanName.toLowerCase()}`);
           }

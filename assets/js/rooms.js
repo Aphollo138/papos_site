@@ -1,8 +1,17 @@
 
 document.addEventListener("DOMContentLoaded", () => {
-  const ChatEngine = window.ChatEngine || {
-    getUser: () => localStorage.getItem("papos_nickname") || null,
+  const ChatEngine = {
+    getUser: () => (window.ChatEngine && window.ChatEngine.getUser) ? window.ChatEngine.getUser() : (localStorage.getItem("papos_nickname") || null),
     renderAvatar: (name, sizeClass = "") => {
+      if (window.ChatEngine && typeof window.ChatEngine.renderAvatar === "function") {
+        return window.ChatEngine.renderAvatar(name, sizeClass);
+      }
+      const photo = localStorage.getItem("papos_photo") || localStorage.getItem(`papos_photo_${name}`) || localStorage.getItem(`papos_photo_${(name||"").toLowerCase()}`);
+      if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
+        const safeUrl = photo.replace(/"/g, '&quot;');
+        const safeName = (name || "A").replace(/"/g, '&quot;');
+        return `<img src="${safeUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${safeName}" title="${safeName}" style="object-fit: cover; aspect-ratio: 1 / 1;" />`;
+      }
       const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
       return `<div class="avatar-circle ${sizeClass}" title="${name}">${initial}</div>`;
     },

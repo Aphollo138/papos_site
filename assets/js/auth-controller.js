@@ -454,6 +454,18 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.setItem("papos_permanent_id", permId);
             localStorage.setItem("papos_is_admin", (profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") ? "true" : "false");
 
+            const photo = profile.photoURL || profile.profileImage || profile.photoUrl;
+            if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
+              const validPhoto = photo.trim();
+              localStorage.setItem("papos_photo", validPhoto);
+              localStorage.setItem(`papos_photo_${nick}`, validPhoto);
+              localStorage.setItem(`papos_photo_${nick.toLowerCase()}`, validPhoto);
+            } else if (profile.photoURL === null || profile.profileImage === null || profile.photoUrl === null) {
+              localStorage.removeItem("papos_photo");
+              localStorage.removeItem(`papos_photo_${nick}`);
+              localStorage.removeItem(`papos_photo_${nick.toLowerCase()}`);
+            }
+
             if (desktopUserName) desktopUserName.textContent = nick;
             if (desktopDropdownName) desktopDropdownName.textContent = nick;
             if (mobileDropdownName) mobileDropdownName.textContent = nick;
@@ -461,6 +473,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (mobileMenuUserNickEl) mobileMenuUserNickEl.textContent = `Olá, ${nick}`;
 
             const renderAvatar = (name, size) => {
+              if (window.ChatEngine && typeof window.ChatEngine.renderAvatar === "function") {
+                return window.ChatEngine.renderAvatar(name, size);
+              }
               const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
               return `<div class="avatar-circle ${size}" title="${name}">${initial}</div>`;
             };
@@ -532,6 +547,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (mobileDropdownEmail) mobileDropdownEmail.textContent = user.email;
 
         const renderAvatar = (name, size) => {
+          if (window.ChatEngine && typeof window.ChatEngine.renderAvatar === "function") {
+            return window.ChatEngine.renderAvatar(name, size);
+          }
           const initial = name ? name.trim().charAt(0).toUpperCase() : "A";
           return `<div class="avatar-circle ${size}" title="${name}">${initial}</div>`;
         };

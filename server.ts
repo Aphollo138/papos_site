@@ -563,7 +563,7 @@ function containsLink(str: string): boolean {
     "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
     "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
     "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
-    "it", "nl", "es", "pt", "ar", "mx", "cl", "pe", "uy"
+    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
   ];
   const tldPattern = tldList.join("|");
 
@@ -2202,7 +2202,16 @@ async function startServer() {
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
-            session.photoUrl = payload.photoUrl !== undefined ? sanitizeHTML(payload.photoUrl) : session.photoUrl;
+            
+            const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
+            if (isExplicitRemove) {
+              session.photoUrl = "";
+            } else {
+              const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
+              if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
+                session.photoUrl = sanitizeHTML(incomingPhoto.trim());
+              }
+            }
 
             if (!session.uid) {
               notifyAdminsGuestList();
@@ -2343,6 +2352,15 @@ async function startServer() {
 
             session.roomId = roomId;
 
+            if (payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null) {
+              session.photoUrl = "";
+            } else {
+              const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
+              if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
+                session.photoUrl = sanitizeHTML(incomingPhoto.trim());
+              }
+            }
+
             if (oldRoomId) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
               broadcastToRoom(oldRoomId, "user_left", {
@@ -2467,6 +2485,11 @@ async function startServer() {
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
             const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
+
+            if (!session.photoUrl && payload.photoUrl && typeof payload.photoUrl === "string" && payload.photoUrl.trim() !== "" && !payload.photoUrl.includes("null") && !payload.photoUrl.includes("undefined")) {
+              session.photoUrl = sanitizeHTML(payload.photoUrl.trim());
+            }
+
             const msgObj = {
               id: msgId,
               sender: session.nickname,
@@ -2518,6 +2541,10 @@ async function startServer() {
             if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
+
+            if (!session.photoUrl && payload.photoUrl && typeof payload.photoUrl === "string" && payload.photoUrl.trim() !== "" && !payload.photoUrl.includes("null") && !payload.photoUrl.includes("undefined")) {
+              session.photoUrl = sanitizeHTML(payload.photoUrl.trim());
+            }
 
             let targetWs: WebSocket | null = null;
             activeSessions.forEach((s, key) => {
