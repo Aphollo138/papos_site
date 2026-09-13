@@ -180,9 +180,56 @@
         "createdAt": { "type": "number" },
         "expiresAt": { "type": "number" }
       }
+    },
+    "anonymousPush": {
+      "title": "Anonymous Push Registration",
+      "description": "Stores push notification tokens linked to anonymous visitor guest IDs",
+      "type": "object",
+      "properties": {
+        "anonymousId": { "type": "string" },
+        "nickname": { "type": "string" },
+        "tokens": { "type": "array" },
+        "updatedAt": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["anonymousId", "tokens"]
+    },
+    "userPush": {
+      "title": "User Push Registration",
+      "description": "Stores push notification tokens linked to authenticated user UIDs",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "nickname": { "type": "string" },
+        "tokens": { "type": "array" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "tokens"]
+    },
+    "pushCooldown": {
+      "title": "Push Cooldown Record",
+      "description": "Stores cooldown timestamps for rooms and users to prevent notification spam",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "lastSentAt": { "type": "number" },
+        "category": { "type": "string" }
+      }
     }
   },
   "firestore": {
+    "/anonymous_push/{anonymousId}": {
+      "schema": "anonymousPush",
+      "description": "Collection storing push notification tokens for anonymous visitors"
+    },
+    "/user_push/{uid}": {
+      "schema": "userPush",
+      "description": "Collection storing push notification tokens for registered users"
+    },
+    "/push_cooldowns/{key}": {
+      "schema": "pushCooldown",
+      "description": "Collection storing push rate limiting and anti-spam timestamps"
+    },
     "/privateChats/{messageId}": {
       "schema": "privateMessage",
       "description": "Collection storing per-user private message history"
