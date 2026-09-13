@@ -1267,6 +1267,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const headerStatus = document.getElementById("active-chat-status");
     const desktopActions = document.getElementById("desktop-header-actions");
     const mobileMenuToggle = document.getElementById("btn-mobile-menu-toggle");
+    const mobileDonateToggle = document.getElementById("btn-mobile-donate-toggle");
+    const mobileHeaderActions = document.getElementById("mobile-header-actions");
     const privateActions = document.getElementById("private-header-actions");
 
     if (chatMode === "public") {
@@ -1296,13 +1298,20 @@ document.addEventListener("DOMContentLoaded", () => {
         desktopActions.classList.remove("d-none");
         desktopActions.classList.add("d-none", "d-md-flex");
       }
+      if (mobileHeaderActions) {
+        mobileHeaderActions.classList.remove("d-none");
+        mobileHeaderActions.classList.add("d-flex", "d-md-none");
+      }
+      if (mobileDonateToggle) {
+        mobileDonateToggle.classList.remove("d-none");
+      }
       if (mobileMenuToggle) {
         mobileMenuToggle.classList.remove("d-none");
         mobileMenuToggle.classList.add("d-flex", "d-md-none");
       }
     } else {
       if (headerName) {
-        headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
+        headerName.innerHTML = `<span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
         headerName.style.cursor = "default";
       }
       if (headerDesc) headerDesc.textContent = "Chat privado de ponta-a-ponta. Conversas salvas localmente.";
@@ -1321,6 +1330,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (desktopActions) {
         desktopActions.classList.add("d-none");
         desktopActions.classList.remove("d-md-flex");
+      }
+      if (mobileHeaderActions) {
+        mobileHeaderActions.classList.add("d-none");
+        mobileHeaderActions.classList.remove("d-flex");
+      }
+      if (mobileDonateToggle) {
+        mobileDonateToggle.classList.add("d-none");
       }
       if (mobileMenuToggle) {
         mobileMenuToggle.classList.add("d-none");
@@ -2271,6 +2287,7 @@ document.addEventListener("DOMContentLoaded", () => {
     chatMessagesContainer.appendChild(sysDiv);
     scrollToBottom();
   }
+  window.appendSystemMessage = appendSystemMessage;
 
   function updateAvatarsInDOM(nickname, newPhotoUrl) {
     if (!nickname) return;

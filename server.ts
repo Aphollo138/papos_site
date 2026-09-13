@@ -12,15 +12,51 @@ import multer from "multer";
 import sharp from "sharp";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
 
+let appletConfig: Record<string, any> = {};
+try {
+  const cfgPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(cfgPath)) {
+    appletConfig = JSON.parse(fs.readFileSync(cfgPath, "utf-8"));
+  }
+} catch (e) {
+  console.warn("[Firebase] Could not read firebase-applet-config.json:", e);
+}
+
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
+  apiKey: process.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || "",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || "",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || "",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || "",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || "",
+  appId: process.env.VITE_FIREBASE_APP_ID || appletConfig.appId || "",
+  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || appletConfig.firestoreDatabaseId || "(default)"
 };
+
+interface ClientSession {
+  ws: WebSocket;
+  nickname: string;
+  roomId: string;
+  lastMessageTime: number[]; 
+  bio?: string;
+  age?: number;
+  gender?: string;
+  photoUrl?: string;
+  uid?: string;
+  guestId?: string;
+  email?: string;
+  permanentId?: string;
+  internalId?: string;
+  joinTime?: number;
+  connectedAt?: number;
+  isAuthenticated?: boolean;
+  isAdmin?: boolean;
+  fingerprint?: string;
+  clientId?: string;
+  ip?: string;
+  blockCalls?: boolean;
+}
+
+const activeSessions = new Map<WebSocket, ClientSession>();
 
 const firebaseApp = initializeApp({
   apiKey: firebaseConfig.apiKey,
@@ -391,32 +427,6 @@ const BOT_MESSAGES: Record<string, string[]> = {
   ]
 };
 
-interface ClientSession {
-  ws: WebSocket;
-  nickname: string;
-  roomId: string;
-  lastMessageTime: number[]; 
-  bio?: string;
-  age?: number;
-  gender?: string;
-  photoUrl?: string;
-  uid?: string;
-  guestId?: string;
-  email?: string;
-  permanentId?: string;
-  internalId?: string;
-  joinTime?: number;
-  connectedAt?: number;
-  isAuthenticated?: boolean;
-  isAdmin?: boolean;
-  fingerprint?: string;
-  clientId?: string;
-  ip?: string;
-  blockCalls?: boolean;
-}
-
-const activeSessions = new Map<WebSocket, ClientSession>();
-
 interface ActiveCallSession {
   callId: string;
   caller: string;
@@ -618,7 +628,7 @@ async function startServer() {
   const server = http.createServer(app);
   app.use(express.json({ limit: "15mb" }));
   app.use(express.urlencoded({ extended: true, limit: "15mb" }));
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -2997,7 +3007,8 @@ async function startServer() {
 
             sendToClient(ws, "call:permitted", {
               partner: toNick,
-              to: toNick
+              to: toNick,
+              partnerPhotoUrl: targetSession ? targetSession.photoUrl : undefined
             });
             break;
           }
@@ -3113,6 +3124,7 @@ async function startServer() {
             if (targetWs) {
               sendToClient(targetWs, "call:answer", {
                 from: session.nickname,
+                calleePhotoUrl: session.photoUrl,
                 answer: payload.answer
               });
             }
@@ -3466,7 +3478,7 @@ async function startServer() {
     
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: "custom" 
     });
 

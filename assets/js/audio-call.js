@@ -3,9 +3,11 @@
 (function () {
   "use strict";
 
- 
+  // Estados internos
   let callState = "idle"; // 'idle' | 'requesting' | 'calling' | 'incoming' | 'connected' | 'ended'
   let currentPartner = null; // Nickname do usuário remoto
+  let savedPrivatePartner = null; // Nickname do privado que estava aberto antes da chamada
+  let activeCallPartnerPhoto = null; 
   let currentCallId = null;
   let localStream = null;
   let peerConnection = null;
@@ -21,11 +23,11 @@
   let pendingRemoteCandidates = [];
   let pendingIncomingData = null;
 
-  
+
   let ringAudioCtx = null;
   let ringInterval = null;
 
-  
+ 
   async function loadWebRTCConfig() {
     try {
       const resp = await fetch("/api/webrtc-config");
@@ -64,7 +66,7 @@
           gain.gain.setValueAtTime(0.16, now);
           gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
 
-          osc1.frequency.setValueAtTime(440, now); 
+          osc1.frequency.setValueAtTime(440, now); // A4
           osc1.frequency.setValueAtTime(554.37, now + 0.22); // C#5
           osc2.frequency.setValueAtTime(880, now + 0.22); // A5
 
@@ -114,7 +116,7 @@
     }
   }
 
-  // Obter socket ativo
+  
   function getSocket() {
     return window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
   }
@@ -166,35 +168,117 @@
     if (mobileTimer) mobileTimer.textContent = formatted;
   }
 
-  // Obter foto de um usuário
-  function resolveUserPhoto(nickname) {
-    if (!nickname) return null;
-    if (typeof window.getUserCurrentPhoto === "function") {
-      const p = window.getUserCurrentPhoto(nickname);
-      if (p) return p;
+  // Validação estrita de URL de foto para evitar "undefined", "null", etc.
+  function isValidPhoto(url) {
+    if (!url || typeof url !== "string") return false;
+    const trimmed = url.trim();
+    if (trimmed === "" || trimmed === "null" || trimmed === "undefined" || trimmed === "false" || trimmed === "true") return false;
+    if (trimmed.startsWith("null") || trimmed.startsWith("undefined")) return false;
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:image/") || trimmed.startsWith("/")) {
+      return true;
     }
-    const myNick = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim().toLowerCase();
-    if (nickname.toLowerCase() === myNick || nickname === "Você") {
-      return localStorage.getItem("papos_photo") || null;
-    }
-    if (window.profileCache) {
-      const cached = window.profileCache.get(nickname.toLowerCase()) || window.profileCache.get(nickname);
-      if (cached && cached.data && (cached.data.photoUrl || cached.data.profileImage)) {
-        return cached.data.photoUrl || cached.data.profileImage;
-      }
-    }
-    return localStorage.getItem(`papos_photo_${nickname}`) || localStorage.getItem(`papos_photo_${nickname.toLowerCase()}`) || null;
+    return false;
   }
 
-  // Renderizar avatar formatado
-  function renderCallAvatar(nickname, sizePx = 130) {
-    const photo = resolveUserPhoto(nickname);
-    if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
-      return `<img src="${photo}" alt="${nickname}" class="papos-call-avatar-img" style="width: ${sizePx}px; height: ${sizePx}px;" />`;
+  // Obter foto de um usuário de forma segura e sincronizada com o Papos
+  function resolveUserPhoto(nickname) {
+    if (!nickname) return null;
+    const cleanNick = nickname.trim();
+    const cleanLower = cleanNick.toLowerCase();
+
+    // 1. Foto do parceiro da chamada ativa (se informada e validada)
+    if (activeCallPartnerPhoto && currentPartner && currentPartner.toLowerCase() === cleanLower) {
+      if (isValidPhoto(activeCallPartnerPhoto)) {
+        return activeCallPartnerPhoto.trim();
+      }
     }
-    const initial = (nickname ? nickname.charAt(0) : "A").toUpperCase();
+
+    // 2. Se recebemos foto nos dados de chamada pendente
+    if (pendingIncomingData && pendingIncomingData.caller && pendingIncomingData.caller.toLowerCase() === cleanLower) {
+      if (isValidPhoto(pendingIncomingData.callerPhotoUrl)) {
+        return pendingIncomingData.callerPhotoUrl.trim();
+      }
+    }
+
+    // 3. Função oficial do Papos (mesma fonte usada pelo chat e sistema)
+    if (typeof window.getUserCurrentPhoto === "function") {
+      const p = window.getUserCurrentPhoto(cleanNick);
+      if (isValidPhoto(p)) return p.trim();
+    }
+
+    // 4. Usuário atual
+    const myNick = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim().toLowerCase();
+    if (cleanLower === myNick || cleanNick === "Você") {
+      const myPhoto = localStorage.getItem("papos_photo");
+      if (isValidPhoto(myPhoto)) return myPhoto.trim();
+      return null;
+    }
+
+    // 5. Cache oficial de perfis do Papos
+    const cache = window.profileCache;
+    if (cache) {
+      const cached = cache.get(cleanLower) || cache.get(cleanNick);
+      if (cached && cached.data) {
+        const p = cached.data.photoUrl || cached.data.photoURL || cached.data.profileImage;
+        if (isValidPhoto(p)) return p.trim();
+      }
+    }
+
+    // 6. LocalStorage salvo para o contato
+    const stored = localStorage.getItem(`papos_photo_${cleanNick}`) || localStorage.getItem(`papos_photo_${cleanLower}`);
+    if (isValidPhoto(stored)) return stored.trim();
+
+    return null;
+  }
+
+  // Obter cor do avatar genérico usando a mesma lógica do Papos (ChatEngine)
+  function getGenericAvatarColor(name) {
+    if (window.ChatEngine && typeof window.ChatEngine.getAvatarColor === "function") {
+      return window.ChatEngine.getAvatarColor(name);
+    }
+    const colors = [
+      "#f43f5e", "#ec4899", "#d946ef", "#a855f7", 
+      "#8b5cf6", "#6366f1", "#3b82f6", "#0ea5e9", 
+      "#06b6d4", "#14b8a6", "#10b981", "#22c55e"
+    ];
+    if (!name) return colors[0];
+    let sum = 0;
+    for (let i = 0; i < name.length; i++) {
+      sum += name.charCodeAt(i);
+    }
+    return colors[sum % colors.length];
+  }
+
+  // Criar elemento de avatar genérico fallback idêntico ao padrão do Papos
+  function createGenericAvatarElement(name, sizePx = 130) {
+    const cleanName = (name && name.trim()) || "A";
+    const initial = cleanName.charAt(0).toUpperCase();
+    const bgColor = getGenericAvatarColor(cleanName);
+    const div = document.createElement("div");
+    div.className = "papos-call-avatar-placeholder";
+    div.style.cssText = `width: ${sizePx}px; height: ${sizePx}px; font-size: ${Math.round(sizePx * 0.4)}px; background: ${bgColor};`;
+    div.setAttribute("title", cleanName);
+    div.setAttribute("aria-label", `Avatar de ${cleanName}`);
+    div.setAttribute("role", "img");
+    div.textContent = initial;
+    return div;
+  }
+
+  // Renderizar avatar formatado (Foto personalizada se existir; senão avatar genérico padrão)
+  function renderCallAvatar(nickname, sizePx = 130) {
+    const cleanName = (nickname && nickname.trim()) || "A";
+    const photo = resolveUserPhoto(cleanName);
+
+    if (isValidPhoto(photo)) {
+      const safeUrl = photo.replace(/"/g, '&quot;');
+      const safeName = cleanName.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+      return `<img src="${safeUrl}" alt="${safeName}" class="papos-call-avatar-img" style="width: ${sizePx}px; height: ${sizePx}px;" onerror="this.onerror=null;if(window.AudioCallManager&&window.AudioCallManager.createGenericAvatarElement){this.replaceWith(window.AudioCallManager.createGenericAvatarElement('${safeName}', ${sizePx}));}" />`;
+    }
+
+    const initial = cleanName.charAt(0).toUpperCase();
+    const bgColor = getGenericAvatarColor(cleanName);
     return `
-      <div class="papos-call-avatar-placeholder" style="width: ${sizePx}px; height: ${sizePx}px; font-size: ${Math.round(sizePx * 0.4)}px;">
+      <div class="papos-call-avatar-placeholder" style="width: ${sizePx}px; height: ${sizePx}px; font-size: ${Math.round(sizePx * 0.4)}px; background: ${bgColor};" title="${cleanName}" aria-label="Avatar de ${cleanName}" role="img">
         ${initial}
       </div>
     `;
@@ -384,8 +468,19 @@
   }
 
   // Exibir Chamada Recebida
-  function showIncomingCallModal(callerNickname, offer) {
-    pendingIncomingData = { caller: callerNickname, offer };
+  function showIncomingCallModal(callerNickname, offer, callerPhotoUrl = null) {
+    savedPrivatePartner = (window.activePrivateRecipient || callerNickname || "").trim();
+    pendingIncomingData = { caller: callerNickname, offer, callerPhotoUrl };
+    if (callerPhotoUrl && isValidPhoto(callerPhotoUrl)) {
+      activeCallPartnerPhoto = callerPhotoUrl.trim();
+      if (window.profileCache) {
+        const cached = window.profileCache.get(callerNickname.toLowerCase()) || { data: {} };
+        cached.data = cached.data || {};
+        cached.data.photoUrl = callerPhotoUrl.trim();
+        cached.data.profileImage = callerPhotoUrl.trim();
+        window.profileCache.set(callerNickname.toLowerCase(), cached);
+      }
+    }
     callState = "incoming";
     currentPartner = callerNickname;
     renderFullScreenCallUI("Chamada de áudio recebida...");
@@ -399,21 +494,57 @@
 
   // Recusar chamada recebida
   function rejectIncomingCall(reason = "declined") {
+    const callerName = (pendingIncomingData && pendingIncomingData.caller) || currentPartner || savedPrivatePartner;
+    const partnerToRestore = callerName || window.activePrivateRecipient;
+
     hideIncomingCallModal();
-    if (pendingIncomingData && pendingIncomingData.caller) {
+
+    if (callerName) {
       const sock = getSocket();
       if (sock && sock.readyState === WebSocket.OPEN) {
         sock.send(JSON.stringify({
           type: "call:reject",
-          to: pendingIncomingData.caller,
+          to: callerName,
           reason: reason
         }));
       }
     }
+
+    if (localStream) {
+      try { localStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+      localStream = null;
+    }
+    if (peerConnection) {
+      try {
+        peerConnection.ontrack = null;
+        peerConnection.onicecandidate = null;
+        peerConnection.onconnectionstatechange = null;
+        peerConnection.close();
+      } catch (e) {}
+      peerConnection = null;
+    }
+
+    const remoteAudio = document.getElementById("remote-call-audio");
+    if (remoteAudio) {
+      remoteAudio.srcObject = null;
+      try { remoteAudio.pause(); } catch (e) {}
+    }
+
     pendingIncomingData = null;
     callState = "idle";
     currentPartner = null;
+    activeCallPartnerPhoto = null;
+    savedPrivatePartner = null;
+    isMicMuted = false;
+    isSoundMuted = false;
+    pendingRemoteCandidates = [];
+
     updateHeaderCallButton();
+
+    // Retornar imediatamente ao chat privado sem reload nem deslogar
+    if (partnerToRestore && typeof window.openPrivateChat === "function") {
+      window.openPrivateChat(partnerToRestore);
+    }
   }
 
   // Aceitar chamada recebida
@@ -561,6 +692,7 @@
     }
 
     // 2. Consulta ao WebSocket/Backend ANTES de pedir permissão de microfone e antes de abrir a tela
+    savedPrivatePartner = (window.activePrivateRecipient || targetNickname || "").trim();
     callState = "requesting";
     currentPartner = targetNickname;
     updateHeaderCallButton();
@@ -573,6 +705,9 @@
 
   // Passo 2: Executar a chamada quando autorizada pelo servidor
   async function startOutgoingCall(targetNickname) {
+    if (!savedPrivatePartner) {
+      savedPrivatePartner = (window.activePrivateRecipient || targetNickname || "").trim();
+    }
     currentPartner = targetNickname;
     callState = "calling";
     pendingRemoteCandidates = [];
@@ -664,7 +799,9 @@
   }
 
   // Encerrar chamada ativa
-  function endCall(notifyServer = true) {
+  function endCall(notifyServer = true, reason = null) {
+    const partnerToRestore = currentPartner || savedPrivatePartner || (pendingIncomingData && pendingIncomingData.caller) || window.activePrivateRecipient;
+
     stopRingAudio();
     stopTimer();
     closeFullScreenCallUI();
@@ -688,6 +825,9 @@
 
     if (peerConnection) {
       try {
+        peerConnection.ontrack = null;
+        peerConnection.onicecandidate = null;
+        peerConnection.onconnectionstatechange = null;
         peerConnection.close();
       } catch (e) {}
       peerConnection = null;
@@ -702,6 +842,8 @@
     const hadActiveCall = (callState !== "idle");
     callState = "idle";
     currentPartner = null;
+    activeCallPartnerPhoto = null;
+    savedPrivatePartner = null;
     isMicMuted = false;
     isSoundMuted = false;
     pendingRemoteCandidates = [];
@@ -709,8 +851,13 @@
 
     updateHeaderCallButton();
 
-    if (hadActiveCall) {
+    if (hadActiveCall && reason !== "rejected") {
       showCallToast("Chamada finalizada.", "info");
+    }
+
+    // Retornar imediatamente ao chat privado sem reload nem deslogar
+    if (partnerToRestore && typeof window.openPrivateChat === "function") {
+      window.openPrivateChat(partnerToRestore);
     }
   }
 
@@ -720,16 +867,21 @@
 
     switch (data.type) {
       case "call:permitted": {
+        if (data.partnerPhotoUrl && isValidPhoto(data.partnerPhotoUrl)) {
+          activeCallPartnerPhoto = data.partnerPhotoUrl.trim();
+        }
         startOutgoingCall(data.partner || data.to);
         return true;
       }
 
       case "call:blocked": {
         stopRingAudio();
-        callState = "idle";
-        currentPartner = null;
-        updateHeaderCallButton();
+        const partnerToRestore = currentPartner || savedPrivatePartner || window.activePrivateRecipient;
+        endCall(false);
         showCallToast(data.message || "Esta pessoa não pode aceitar ligações no momento.", "warning");
+        if (partnerToRestore && typeof window.openPrivateChat === "function") {
+          window.openPrivateChat(partnerToRestore);
+        }
         return true;
       }
 
@@ -747,8 +899,12 @@
           return true;
         }
 
+        if (data.callerPhotoUrl && isValidPhoto(data.callerPhotoUrl)) {
+          activeCallPartnerPhoto = data.callerPhotoUrl.trim();
+        }
+
         // Exibir tela de chamada recebida 100% full screen
-        showIncomingCallModal(data.from, data.offer);
+        showIncomingCallModal(data.from, data.offer, data.callerPhotoUrl);
         return true;
       }
 
@@ -764,6 +920,9 @@
 
       case "call:answer": {
         stopRingAudio();
+        if (data.calleePhotoUrl && isValidPhoto(data.calleePhotoUrl)) {
+          activeCallPartnerPhoto = data.calleePhotoUrl.trim();
+        }
         if (peerConnection && data.answer) {
           try {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
@@ -800,31 +959,45 @@
 
       case "call:rejected": {
         stopRingAudio();
-        const reasonMsg = data.reason === "busy"
-          ? `${data.from || currentPartner} está em outra chamada.`
-          : `${data.from || currentPartner} recusou a chamada.`;
-        showCallToast(reasonMsg, "warning");
-        endCall(false);
+        const decliningPartner = data.from || currentPartner || savedPrivatePartner || window.activePrivateRecipient;
+        endCall(false, "rejected");
+
+        // Log de sistema na janela do chat privado
+        if (decliningPartner && typeof window.appendSystemMessage === "function") {
+          if (data.reason === "busy") {
+            window.appendSystemMessage(`${decliningPartner} está em outra chamada.`);
+          } else {
+            window.appendSystemMessage(`${decliningPartner} recusou a chamada.`);
+          }
+        }
         return true;
       }
 
       case "call:busy": {
         stopRingAudio();
-        showCallToast(data.message || "O usuário está em outra chamada.", "warning");
+        const targetNick = currentPartner || savedPrivatePartner || window.activePrivateRecipient;
         endCall(false);
+        if (targetNick && typeof window.appendSystemMessage === "function") {
+          window.appendSystemMessage(`${targetNick} está em outra chamada.`);
+        } else {
+          showCallToast(data.message || "O usuário está em outra chamada.", "warning");
+        }
         return true;
       }
 
       case "call:unavailable": {
         stopRingAudio();
-        showCallToast(data.message || "Usuário indisponível no momento.", "warning");
+        const targetNick = currentPartner || savedPrivatePartner || window.activePrivateRecipient;
         endCall(false);
+        showCallToast(data.message || "Usuário indisponível no momento.", "warning");
+        if (targetNick && typeof window.openPrivateChat === "function") {
+          window.openPrivateChat(targetNick);
+        }
         return true;
       }
 
       case "call:ended": {
         stopRingAudio();
-        showCallToast("A chamada foi finalizada.", "info");
         endCall(false);
         return true;
       }
@@ -887,6 +1060,7 @@
     toggleSound,
     handleSocketMessage,
     updateHeaderCallButton,
+    createGenericAvatarElement,
     getCallState: () => callState,
     getCurrentPartner: () => currentPartner,
     renderActiveCallUI: renderFullScreenCallUI
