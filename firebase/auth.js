@@ -184,6 +184,11 @@ const FirebaseService = {
           await updateDoc(userDocRef, updatePayload);
         }
 
+        if (data.blockCalls !== undefined) {
+          localStorage.setItem("papos_block_calls", String(Boolean(data.blockCalls)));
+          localStorage.setItem("papos_blockCalls", String(Boolean(data.blockCalls)));
+        }
+
         try {
           const supportSnap = await getDoc(doc(db, "supportNames", user.uid));
           if (supportSnap.exists() && supportSnap.data().enabled === true) {
@@ -690,6 +695,7 @@ const FirebaseService = {
     const photoURL = profileData.photoURL !== undefined ? String(profileData.photoURL).trim() : (profileData.profileImage !== undefined ? String(profileData.profileImage).trim() : undefined);
     const city = profileData.city !== undefined ? String(profileData.city).trim() : undefined;
     const country = profileData.country !== undefined ? String(profileData.country).trim() : undefined;
+    const blockCalls = profileData.blockCalls !== undefined ? Boolean(profileData.blockCalls) : undefined;
 
     const userDocRef = doc(db, "users", user.uid);
     const updatePayload = {
@@ -710,6 +716,7 @@ const FirebaseService = {
     }
     if (city !== undefined) updatePayload.city = city;
     if (country !== undefined) updatePayload.country = country;
+    if (blockCalls !== undefined) updatePayload.blockCalls = blockCalls;
 
     if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
       updatePayload.admin = true;

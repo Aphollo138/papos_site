@@ -286,7 +286,20 @@
                 <i class="bi bi-list fs-5" aria-hidden="true"></i>
               </button>
             </div>
+
+            <!-- Ações exclusivas do Chat Privado: Botão de Ligação por Áudio no canto superior direito -->
+            <div class="d-none align-items-center gap-2 flex-shrink-0 ms-auto" id="private-header-actions">
+              <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center justify-content-center position-relative" id="btn-start-audio-call" title="Iniciar chamada de áudio" aria-label="Iniciar chamada de áudio" role="button" style="border-radius: var(--radius-sm); width: 38px; height: 38px;">
+                <img width="22" height="22" src="https://img.icons8.com/ios/100/phone-disconnected.png" alt="phone-disconnected" class="phone-call-icon" />
+                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-light rounded-circle d-none" id="call-active-indicator" style="animation: pulse-call-btn 1.4s infinite;">
+                  <span class="visually-hidden">Chamada ativa</span>
+                </span>
+              </button>
+            </div>
           </header>
+
+          <!-- Container de Chamada de Áudio Ativa (Desktop & Mobile) -->
+          <div id="active-audio-call-container" class="d-none w-100"></div>
 
           <div class="bg-dark p-2 border-bottom border-secondary d-none" id="chat-search-bar-wrapper">
             <div class="input-group input-group-sm">
@@ -1169,6 +1182,12 @@
       <source src="/assets/audio/dragon-studio-new-notification-3-398649.mp3" type="audio/mpeg">
     </audio>
 
+    <!-- Tela Dedicada 100% Full-Screen de Chamada de Áudio -->
+    <div id="full-screen-audio-call-view" class="d-none" role="region" aria-label="Tela de Chamada de Áudio"></div>
+
+    <!-- Elemento Invisível de Áudio Remoto WebRTC -->
+    <audio id="remote-call-audio" autoplay playsinline style="display: none;"></audio>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     <script src="/assets/js/fingerprint.js"></script>
@@ -1182,6 +1201,8 @@
     <script src="/assets/js/monetization.js"></script>
 
     <script src="/assets/js/feedback-controller.js"></script>
+
+    <script src="/assets/js/audio-call.js"></script>
 
     <script src="/assets/js/chat.js"></script>
   </body>

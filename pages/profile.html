@@ -164,7 +164,7 @@
                 <div id="photo-upload-error" class="alert alert-danger d-none py-1.5 px-3 small mt-2 d-inline-block" style="font-size: 0.8rem; background-color: rgba(255, 77, 77, 0.1); color: #ff4d4d; border-color: #ff4d4d;"></div>
 
                 <h1 class="h3 fw-extrabold text-white mt-3" id="username-display-name">Carregando...</h1>
-                <p class="text-secondary small">ID de Usuário Local: <span class="font-mono text-xs text-white-50" id="user-local-id">#local</span></p>
+                <p class="text-secondary small mb-2">ID de Usuário Local: <span class="font-mono text-xs text-white-50" id="user-local-id">#local</span></p>
               </div>
 
               <form id="profile-form">
@@ -228,6 +228,24 @@
                   </div>
                 </div>
 
+                <!-- Configurações de Privacidade: Bloquear Ligações -->
+                <div class="mb-4 pt-3 border-top border-secondary" id="privacy-settings-section">
+                  <label class="form-label fw-bold small text-secondary mb-2">Configurações de privacidade</label>
+                  <div class="p-3 rounded border border-secondary" style="background-color: var(--surface-secondary, rgba(255, 255, 255, 0.03));">
+                    <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
+                      <div class="pe-3">
+                        <label class="form-check-label fw-bold text-white mb-1 d-block" for="profile-block-calls" style="cursor: pointer; font-size: 0.95rem;">
+                          Bloquear ligações
+                        </label>
+                        <span class="text-secondary small d-block" style="font-size: 0.82rem; line-height: 1.4;">
+                          Você não receberá chamadas de áudio de outros usuários.
+                        </span>
+                      </div>
+                      <input class="form-check-input ms-0 flex-shrink-0" type="checkbox" role="switch" id="profile-block-calls" style="width: 2.8em; height: 1.5em; cursor: pointer;">
+                    </div>
+                  </div>
+                </div>
+
                 <div class="d-flex flex-column flex-sm-row gap-3">
                   <button type="submit" class="btn btn-premium w-100 py-3 font-display fw-bold" id="btn-save-profile">
                     Salvar Alterações <i class="bi bi-save2 ms-2"></i>
@@ -239,11 +257,11 @@
 
               </form>
 
-              <div class="mt-5 pt-4 border-top border-secondary">
+              <div class="mt-4 pt-4 border-top border-secondary">
                 <h3 class="h6 fw-bold text-danger mb-2">Apagar todos os dados</h3>
-                <p class="text-secondary small">Deletar todas as suas preferências. Esta ação é irreversível.</p>
+                <p class="text-secondary small">Deletar todas as suas preferências e histórico armazenado localmente no navegador. Esta ação é irreversível.</p>
                 <button class="btn btn-outline-danger btn-sm" id="btn-reset-all" type="button">
-                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Apagar Dados
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Apagar LocalStorage
                 </button>
               </div>
 
@@ -338,6 +356,7 @@
         const ageErrorFeedback = document.getElementById("age-error-feedback");
         const inputGender = document.getElementById("profile-gender");
         const genderErrorFeedback = document.getElementById("gender-error-feedback");
+        const inputBlockCalls = document.getElementById("profile-block-calls");
 
         // Elementos de Foto de Perfil
         const photoInput = document.getElementById("profile-photo-input");
@@ -350,15 +369,19 @@
         inputNickname.value = currentUser;
         nameDisplay.textContent = currentUser;
         
-        // Carregar Biografia, Idade e Sexo do LocalStorage
+        // Carregar Biografia, Idade, Sexo e Configuração de Chamadas do LocalStorage
         const savedBio = localStorage.getItem("papos_bio") || "";
         const savedAge = localStorage.getItem("papos_age") || "";
         const savedGender = localStorage.getItem("papos_gender") || "";
+        const savedBlockCalls = localStorage.getItem("papos_block_calls") === "true" || localStorage.getItem("papos_blockCalls") === "true";
         
         inputBio.value = savedBio;
         bioCharCounter.textContent = `${savedBio.length}/400`;
         inputAge.value = savedAge;
         inputGender.value = savedGender;
+        if (inputBlockCalls) {
+          inputBlockCalls.checked = savedBlockCalls;
+        }
 
         // Usar o ID Permanente real se autenticado, caso contrário usar o ID persistente do usuário anônimo
         const savedPermanentId = localStorage.getItem("papos_permanent_id") || localStorage.getItem("papo_guest_id");
@@ -636,6 +659,12 @@
                     }
                     updateAvatarPreview(nick, photo || null);
 
+                    if (inputBlockCalls && profile.blockCalls !== undefined) {
+                      inputBlockCalls.checked = Boolean(profile.blockCalls);
+                      localStorage.setItem("papos_block_calls", String(Boolean(profile.blockCalls)));
+                      localStorage.setItem("papos_blockCalls", String(Boolean(profile.blockCalls)));
+                    }
+
                     // Sincronizar Cache no LocalStorage
                     localStorage.setItem("papos_nickname", nick);
                     localStorage.setItem("papos_bio", bio);
@@ -714,6 +743,8 @@
           }
           genderErrorFeedback.classList.add("d-none");
 
+          const blockCallsVal = inputBlockCalls ? Boolean(inputBlockCalls.checked) : false;
+
           try {
             // Validação no servidor
             const validateRes = await fetch("/api/profile/validate", {
@@ -726,7 +757,8 @@
                 age: ageVal,
                 gender: genderVal,
                 nickname: newNick,
-                uid: currentUid
+                uid: currentUid,
+                blockCalls: blockCallsVal
               })
             });
 
@@ -744,7 +776,8 @@
                 age: ageVal,
                 gender: genderVal,
                 photoURL: currentPhoto,
-                profileImage: currentPhoto
+                profileImage: currentPhoto,
+                blockCalls: blockCallsVal
               });
             }
 
@@ -760,6 +793,20 @@
             } else {
               localStorage.removeItem("papos_gender");
             }
+            localStorage.setItem("papos_block_calls", String(blockCallsVal));
+            localStorage.setItem("papos_blockCalls", String(blockCallsVal));
+
+            // Notificar abas ativas do chat sobre a alteração
+            try {
+              const syncChannel = new BroadcastChannel("papos_profile_sync");
+              syncChannel.postMessage({
+                type: "profile_updated",
+                nickname: newNick,
+                blockCalls: blockCallsVal,
+                action: "update_call_settings",
+                userId: currentUid
+              });
+            } catch (e) {}
 
             if (window.ChatEngine) {
               window.ChatEngine.saveUser(newNick);

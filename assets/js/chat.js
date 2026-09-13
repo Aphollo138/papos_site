@@ -56,7 +56,7 @@ function containsLink(str) {
     "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
     "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
     "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
-    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
+    "it", "nl", "es", "pt", "ar", "mx", "cl", "pe", "uy"
   ];
   const tldPattern = tldList.join("|");
 
@@ -771,7 +771,8 @@ document.addEventListener("DOMContentLoaded", () => {
       profileImage: myPhoto,
       clientId: clientId,
       guestId: guestId,
-      fingerprint: fingerprint
+      fingerprint: fingerprint,
+      blockCalls: localStorage.getItem("papos_block_calls") === "true"
     }));
   }
 
@@ -795,6 +796,12 @@ document.addEventListener("DOMContentLoaded", () => {
           data.adminUsers.forEach(a => {
             if (a) window.adminUsersSet.add(String(a).toLowerCase());
           });
+        }
+
+        // WebRTC 1-on-1 Audio Call signaling
+        if (data.type && data.type.startsWith("call:") && window.AudioCallManager) {
+          const handled = window.AudioCallManager.handleSocketMessage(data);
+          if (handled) return;
         }
 
         switch (data.type) {
@@ -1260,8 +1267,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const headerStatus = document.getElementById("active-chat-status");
     const desktopActions = document.getElementById("desktop-header-actions");
     const mobileMenuToggle = document.getElementById("btn-mobile-menu-toggle");
+    const privateActions = document.getElementById("private-header-actions");
 
     if (chatMode === "public") {
+      if (privateActions) {
+        privateActions.classList.add("d-none");
+        privateActions.classList.remove("d-flex");
+      }
       if (headerName) {
         headerName.textContent = name || "Canal Geral";
         headerName.removeAttribute("onclick");
@@ -1319,6 +1331,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (mobileMenuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
         const bsMenu = bootstrap.Offcanvas.getInstance(mobileMenuEl);
         if (bsMenu) bsMenu.hide();
+      }
+
+      if (privateActions) {
+        privateActions.classList.remove("d-none");
+        privateActions.classList.add("d-flex");
+      }
+      if (window.AudioCallManager && typeof window.AudioCallManager.updateHeaderCallButton === "function") {
+        window.AudioCallManager.updateHeaderCallButton();
       }
     }
   }
@@ -1656,6 +1676,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     chatMode = "private";
     activePrivateRecipient = partnerName;
+    window.activePrivateRecipient = partnerName;
 
     activeTypingUsers.clear();
     if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
@@ -1681,10 +1702,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (messageInput) messageInput.focus();
   };
 
+  window.openPrivateChat = window.startPrivateChat;
+
   if (btnBackToPublic) {
     btnBackToPublic.addEventListener("click", () => {
       chatMode = "public";
       activePrivateRecipient = null;
+      window.activePrivateRecipient = null;
       updateActiveHeader("Papos", "Buscando informações...");
       
       activeTypingUsers.clear();
@@ -2421,6 +2445,15 @@ document.addEventListener("DOMContentLoaded", () => {
     syncChannel.onmessage = (event) => {
       if (event && event.data && (event.data.type === "profile_updated" || event.data.type === "profile_photo_updated")) {
         handleProfileUpdateEvent(event.data);
+        if (event.data.blockCalls !== undefined) {
+          const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+          if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+            activeSocket.send(JSON.stringify({
+              type: "update_call_settings",
+              blockCalls: Boolean(event.data.blockCalls)
+            }));
+          }
+        }
       }
     };
   } catch (e) {}

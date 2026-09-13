@@ -412,9 +412,41 @@ interface ClientSession {
   fingerprint?: string;
   clientId?: string;
   ip?: string;
+  blockCalls?: boolean;
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
+
+interface ActiveCallSession {
+  callId: string;
+  caller: string;
+  callee: string;
+  status: "ringing" | "connected";
+  createdAt: number;
+}
+const activeCalls = new Map<string, ActiveCallSession>();
+
+function isUserInActiveCall(nickname: string): boolean {
+  if (!nickname) return false;
+  const lower = nickname.trim().toLowerCase();
+  for (const call of activeCalls.values()) {
+    if (call.caller.toLowerCase() === lower || call.callee.toLowerCase() === lower) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function findCallForUser(nickname: string): ActiveCallSession | undefined {
+  if (!nickname) return undefined;
+  const lower = nickname.trim().toLowerCase();
+  for (const call of activeCalls.values()) {
+    if (call.caller.toLowerCase() === lower || call.callee.toLowerCase() === lower) {
+      return call;
+    }
+  }
+  return undefined;
+}
 
 function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?: string) {
   if (!nickname) return;
@@ -629,6 +661,31 @@ async function startServer() {
     res.json({ status: "ok", activeConnections: activeSessions.size });
   });
 
+  app.get("/api/webrtc-config", (req, res) => {
+    const iceServers: any[] = [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+      { urls: "stun:stun3.l.google.com:19302" },
+      { urls: "stun:stun4.l.google.com:19302" }
+    ];
+
+    if (process.env.TURN_SERVER_URL) {
+      const turnConfig: any = {
+        urls: process.env.TURN_SERVER_URL
+      };
+      if (process.env.TURN_USERNAME) {
+        turnConfig.username = process.env.TURN_USERNAME;
+      }
+      if (process.env.TURN_CREDENTIAL) {
+        turnConfig.credential = process.env.TURN_CREDENTIAL;
+      }
+      iceServers.push(turnConfig);
+    }
+
+    res.json({ iceServers });
+  });
+
   async function checkAdsPermission(uid?: string): Promise<boolean> {
     if (systemSettings.adsEnabled === false) {
       return false;
@@ -786,7 +843,7 @@ async function startServer() {
   });
 
   app.post("/api/profile/validate", async (req, res) => {
-    const { bio, age, gender, nickname, uid, email } = req.body;
+    const { bio, age, gender, nickname, uid, email, blockCalls } = req.body;
     let authUid = uid;
 
     if (email && typeof email === "string" && !isAllowedEmailDomain(email)) {
@@ -842,6 +899,15 @@ async function startServer() {
         res.status(400).json({ error: "O sexo selecionado é inválido." });
         return;
       }
+    }
+
+    if (blockCalls !== undefined) {
+      const isBlocked = Boolean(blockCalls);
+      activeSessions.forEach((s) => {
+        if ((authUid && s.uid === authUid) || (nickname && s.nickname && s.nickname.toLowerCase() === String(nickname).toLowerCase())) {
+          s.blockCalls = isBlocked;
+        }
+      });
     }
     
     res.json({ success: true });
@@ -1230,6 +1296,9 @@ async function startServer() {
                 nickname = userData.nickname || nickname;
                 isAdminUser = userData.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2";
                 isAdsDisabled = userData.adsDisabled === true || isAdminUser;
+                if (userData.blockCalls !== undefined) {
+                  session.blockCalls = Boolean(userData.blockCalls);
+                }
 
                 if (isReservedNickname(nickname)) {
                   const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
@@ -2202,6 +2271,9 @@ async function startServer() {
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
+            if (payload.blockCalls !== undefined) {
+              session.blockCalls = Boolean(payload.blockCalls);
+            }
             
             const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
             if (isExplicitRemove) {
@@ -2856,6 +2928,265 @@ async function startServer() {
             break;
           }
 
+          case "update_call_settings": {
+            if (payload.blockCalls !== undefined) {
+              session.blockCalls = Boolean(payload.blockCalls);
+              if (session.uid) {
+                try {
+                  const userRef = doc(db, "users", session.uid);
+                  await setDoc(userRef, { blockCalls: session.blockCalls, updatedAt: Date.now() }, { merge: true });
+                } catch (e) {}
+              }
+            }
+            break;
+          }
+
+          case "call:request": {
+            if (!session.nickname) return;
+            const toNick = (payload.to || "").trim();
+            if (!toNick) return;
+
+            if (toNick.toLowerCase() === session.nickname.toLowerCase()) {
+              sendToClient(ws, "call:error", { message: "Você não pode ligar para si mesmo." });
+              return;
+            }
+
+            if (isUserInActiveCall(session.nickname)) {
+              sendToClient(ws, "call:busy", { partner: toNick, message: "Você já está em uma chamada." });
+              return;
+            }
+
+            let targetWs: WebSocket | null = null;
+            let targetSession: ClientSession | null = null;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                targetWs = key;
+                targetSession = s;
+              }
+            });
+
+            if (!targetWs || !targetSession) {
+              sendToClient(ws, "call:unavailable", { partner: toNick, message: "Usuário indisponível no momento." });
+              return;
+            }
+
+            if (isUserInActiveCall(toNick)) {
+              sendToClient(ws, "call:busy", { partner: toNick, message: "Usuário está em outra chamada." });
+              return;
+            }
+
+            // Validação de bloqueio de chamadas no servidor
+            let isTargetBlocked = targetSession.blockCalls === true;
+            if (!isTargetBlocked && targetSession.uid) {
+              try {
+                const targetDocSnap = await getDoc(doc(db, "users", targetSession.uid));
+                if (targetDocSnap.exists() && targetDocSnap.data().blockCalls === true) {
+                  isTargetBlocked = true;
+                  targetSession.blockCalls = true;
+                }
+              } catch (e) {}
+            }
+
+            if (isTargetBlocked) {
+              sendToClient(ws, "call:blocked", {
+                partner: toNick,
+                message: "Esta pessoa não pode aceitar ligações no momento."
+              });
+              return;
+            }
+
+            sendToClient(ws, "call:permitted", {
+              partner: toNick,
+              to: toNick
+            });
+            break;
+          }
+
+          case "call:initiate":
+          case "call:offer": {
+            if (!session.nickname) return;
+            const toNick = (payload.to || "").trim();
+            if (!toNick) return;
+
+            if (toNick.toLowerCase() === session.nickname.toLowerCase()) {
+              sendToClient(ws, "call:error", { message: "Você não pode ligar para si mesmo." });
+              return;
+            }
+
+            if (isUserInActiveCall(session.nickname)) {
+              sendToClient(ws, "call:busy", { partner: toNick, message: "Você já está em uma chamada." });
+              return;
+            }
+
+            let targetWs: WebSocket | null = null;
+            let targetSession: ClientSession | null = null;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                targetWs = key;
+                targetSession = s;
+              }
+            });
+
+            if (!targetWs || !targetSession) {
+              sendToClient(ws, "call:unavailable", { partner: toNick, message: "Usuário indisponível no momento." });
+              return;
+            }
+
+            if (isUserInActiveCall(toNick)) {
+              sendToClient(ws, "call:busy", { partner: toNick, message: "Usuário está em outra chamada." });
+              return;
+            }
+
+            // Validação de bloqueio de chamadas no servidor antes de criar chamada ou enviar incoming
+            let isTargetBlocked = targetSession.blockCalls === true;
+            if (!isTargetBlocked && targetSession.uid) {
+              try {
+                const targetDocSnap = await getDoc(doc(db, "users", targetSession.uid));
+                if (targetDocSnap.exists() && targetDocSnap.data().blockCalls === true) {
+                  isTargetBlocked = true;
+                  targetSession.blockCalls = true;
+                }
+              } catch (e) {}
+            }
+
+            if (isTargetBlocked) {
+              sendToClient(ws, "call:blocked", {
+                partner: toNick,
+                message: "Esta pessoa não pode aceitar ligações no momento."
+              });
+              return;
+            }
+
+            const callId = "call-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+            activeCalls.set(callId, {
+              callId,
+              caller: session.nickname,
+              callee: toNick,
+              status: "ringing",
+              createdAt: Date.now()
+            });
+
+            sendToClient(targetWs, "call:incoming", {
+              callId,
+              from: session.nickname,
+              callerPhotoUrl: session.photoUrl,
+              offer: payload.offer
+            });
+
+            sendToClient(ws, "call:calling", {
+              callId,
+              to: toNick
+            });
+            break;
+          }
+
+          case "call:ringing": {
+            if (!session.nickname) return;
+            const toNick = (payload.to || "").trim();
+            let targetWs: WebSocket | null = null;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                targetWs = key;
+              }
+            });
+            if (targetWs) {
+              sendToClient(targetWs, "call:ringing", { from: session.nickname });
+            }
+            break;
+          }
+
+          case "call:answer": {
+            if (!session.nickname) return;
+            const toNick = (payload.to || "").trim();
+            const ongoingCall = findCallForUser(session.nickname);
+            if (ongoingCall) {
+              ongoingCall.status = "connected";
+            }
+
+            let targetWs: WebSocket | null = null;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                targetWs = key;
+              }
+            });
+
+            if (targetWs) {
+              sendToClient(targetWs, "call:answer", {
+                from: session.nickname,
+                answer: payload.answer
+              });
+            }
+            break;
+          }
+
+          case "call:ice_candidate": {
+            if (!session.nickname) return;
+            const toNick = (payload.to || "").trim();
+            if (!toNick || !payload.candidate) return;
+
+            let targetWs: WebSocket | null = null;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                targetWs = key;
+              }
+            });
+
+            if (targetWs) {
+              sendToClient(targetWs, "call:ice_candidate", {
+                from: session.nickname,
+                candidate: payload.candidate
+              });
+            }
+            break;
+          }
+
+          case "call:reject": {
+            if (!session.nickname) return;
+            const ongoingCall = findCallForUser(session.nickname);
+            let partner = (payload.to || "").trim();
+            if (ongoingCall) {
+              activeCalls.delete(ongoingCall.callId);
+              if (!partner) {
+                partner = ongoingCall.caller.toLowerCase() === session.nickname.toLowerCase()
+                  ? ongoingCall.callee
+                  : ongoingCall.caller;
+              }
+            }
+
+            if (partner) {
+              activeSessions.forEach((s, key) => {
+                if (s.nickname && s.nickname.toLowerCase() === partner.toLowerCase()) {
+                  sendToClient(key, "call:rejected", { from: session.nickname, reason: payload.reason || "declined" });
+                }
+              });
+            }
+            break;
+          }
+
+          case "call:end": {
+            if (!session.nickname) return;
+            const ongoingCall = findCallForUser(session.nickname);
+            let partner = (payload.to || "").trim();
+            if (ongoingCall) {
+              activeCalls.delete(ongoingCall.callId);
+              if (!partner) {
+                partner = ongoingCall.caller.toLowerCase() === session.nickname.toLowerCase()
+                  ? ongoingCall.callee
+                  : ongoingCall.caller;
+              }
+            }
+
+            if (partner) {
+              activeSessions.forEach((s, key) => {
+                if (s.nickname && s.nickname.toLowerCase() === partner.toLowerCase()) {
+                  sendToClient(key, "call:ended", { from: session.nickname });
+                }
+              });
+            }
+            sendToClient(ws, "call:ended", { from: session.nickname });
+            break;
+          }
+
           case "get_profile": {
             const requestedNickname = payload.nickname;
             if (!requestedNickname || typeof requestedNickname !== "string") {
@@ -2997,6 +3328,9 @@ async function startServer() {
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
+            if (payload.blockCalls !== undefined) {
+              session.blockCalls = Boolean(payload.blockCalls);
+            }
             
             const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
             const photoProvided = payload.photoUrl !== undefined || payload.profileImage !== undefined;
@@ -3025,6 +3359,9 @@ async function startServer() {
                   gender: session.gender,
                   updatedAt: Date.now()
                 };
+                if (session.blockCalls !== undefined) {
+                  updateData.blockCalls = session.blockCalls;
+                }
                 if (session.photoUrl) {
                   updateData.photoURL = session.photoUrl;
                   updateData.profileImage = session.photoUrl;
@@ -3072,6 +3409,21 @@ async function startServer() {
       if (session) {
         const { nickname, roomId } = session;
         activeSessions.delete(ws);
+
+        if (nickname) {
+          const ongoingCall = findCallForUser(nickname);
+          if (ongoingCall) {
+            activeCalls.delete(ongoingCall.callId);
+            const partner = ongoingCall.caller.toLowerCase() === nickname.toLowerCase()
+              ? ongoingCall.callee
+              : ongoingCall.caller;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname && s.nickname.toLowerCase() === partner.toLowerCase()) {
+                sendToClient(key, "call:ended", { from: nickname, reason: "disconnected" });
+              }
+            });
+          }
+        }
 
         if (!session.uid) {
           notifyAdminsGuestList();

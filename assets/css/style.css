@@ -2934,5 +2934,340 @@ body.chat-page i.bi {
   color: #374151;
 }
 
+/* ==========================================================================
+   Papos WebRTC Audio Calling System
+   ========================================================================== */
+
+.phone-call-icon {
+  width: 22px;
+  height: 22px;
+  filter: brightness(0) invert(1);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+[data-theme="light"] .phone-call-icon {
+  filter: brightness(0.18);
+}
+
+#btn-start-audio-call:hover .phone-call-icon {
+  transform: scale(1.1);
+}
+
+#btn-start-audio-call.btn-warning-custom {
+  background-color: rgba(234, 179, 8, 0.15) !important;
+  border-color: rgba(234, 179, 8, 0.4) !important;
+}
+
+#btn-start-audio-call.btn-success-custom {
+  background-color: rgba(0, 230, 118, 0.15) !important;
+  border-color: rgba(0, 230, 118, 0.4) !important;
+}
+
+@keyframes pulse-call-btn {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.pulsing-call-ring {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 50%;
+  border: 2px solid #10b981;
+  animation: pulse-call-btn 1.6s infinite;
+  pointer-events: none;
+}
+
+.incoming-call-card {
+  transition: transform 0.2s ease;
+}
+
+[data-theme="light"] .papos-call-card {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+[data-theme="light"] .papos-call-card .text-white {
+  color: #111827 !important;
+}
+
+[data-theme="light"] .incoming-call-card {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+[data-theme="light"] .incoming-call-card .text-white {
+  color: #111827 !important;
+}
+
+/* ==========================================================================
+   Full-Screen Audio Call View (100vw x 100vh / 100dvh Tela Dedicada)
+   ========================================================================== */
+body.in-call-fullscreen {
+  overflow: hidden !important;
+  user-select: none;
+}
+
+.papos-call-fullscreen-view {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  z-index: 999999 !important;
+  background: radial-gradient(circle at center top, #182030 0%, #0a0d14 70%, #06080d 100%) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  padding: env(safe-area-inset-top, 24px) 20px env(safe-area-inset-bottom, 32px) 20px !important;
+  box-sizing: border-box !important;
+  animation: callFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes callFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.papos-call-header {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+.papos-call-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-grow: 1;
+  width: 100%;
+  max-width: 440px;
+  margin: auto 0;
+}
+
+.papos-call-avatar-wrapper {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.papos-call-avatar-img {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  display: block;
+}
+
+.papos-call-avatar-placeholder {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 52px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+.papos-call-wave {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  border-radius: 50%;
+  border: 2px solid rgba(16, 185, 129, 0.5);
+  animation: callWavePulse 2s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes callWavePulse {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.28);
+    opacity: 0;
+  }
+}
+
+.papos-call-name {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+  word-break: break-word;
+}
+
+.papos-call-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  font-size: 0.92rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.papos-call-status-badge.connected {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.papos-call-timer {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 4px 20px;
+  border-radius: 9999px;
+  margin-bottom: 12px;
+}
+
+.papos-call-controls {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 16px 0 24px 0;
+}
+
+.papos-call-btn-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.papos-call-btn-action:hover {
+  transform: translateY(-2px);
+}
+
+.papos-call-btn-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.papos-call-btn-circle.active-muted {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+}
+
+.papos-call-btn-circle.btn-hangup {
+  width: 68px;
+  height: 68px;
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  font-size: 1.6rem;
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.45);
+}
+
+.papos-call-btn-circle.btn-accept {
+  width: 68px;
+  height: 68px;
+  background: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #ffffff !important;
+  font-size: 1.6rem;
+  box-shadow: 0 8px 24px rgba(22, 163, 74, 0.45);
+  animation: pulse-call-btn 1.4s infinite;
+}
+
+.papos-call-btn-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+@media (max-width: 576px) {
+  .papos-call-avatar-img,
+  .papos-call-avatar-placeholder {
+    width: 110px;
+    height: 110px;
+    font-size: 44px;
+  }
+  .papos-call-name {
+    font-size: 1.45rem;
+  }
+  .papos-call-controls {
+    gap: 18px;
+  }
+  .papos-call-btn-circle {
+    width: 54px;
+    height: 54px;
+    font-size: 1.25rem;
+  }
+  .papos-call-btn-circle.btn-hangup,
+  .papos-call-btn-circle.btn-accept {
+    width: 62px;
+    height: 62px;
+    font-size: 1.45rem;
+  }
+}
+
 
 
