@@ -3276,24 +3276,42 @@ body.in-call-fullscreen {
    ========================================================================== */
 
 /* 1. Viewport e Estrutura Principal */
-html.ios-pwa,
-body.ios-pwa {
-  height: 100% !important;
-  height: var(--ios-pwa-height, 100dvh) !important;
-  max-height: var(--ios-pwa-height, 100dvh) !important;
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-  position: fixed !important;
-  width: 100% !important;
-  top: 0 !important;
-  left: 0 !important;
+html.ios-pwa {
+  -webkit-overflow-scrolling: touch;
 }
 
-html.ios-pwa main.container-fluid {
+/* Páginas normais (index, salas, perfil, novidades): scroll vertical livre e fluido */
+body.ios-pwa:not(.chat-page) {
+  min-height: 100% !important;
+  min-height: 100dvh !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  position: relative !important;
+  width: 100% !important;
+}
+
+/* Página do Chat (pages/chat.html): viewport ajustada para cabeçalho fixo, mensagens com scroll e input fixo */
+body.chat-page.ios-pwa {
   height: 100% !important;
   height: var(--ios-pwa-height, 100dvh) !important;
   max-height: var(--ios-pwa-height, 100dvh) !important;
   overflow: hidden !important;
+  position: relative !important;
+  width: 100% !important;
+}
+
+html.ios-pwa body.chat-page main.container-fluid {
+  height: 100% !important;
+  height: var(--ios-pwa-height, 100dvh) !important;
+  max-height: var(--ios-pwa-height, 100dvh) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 html.ios-pwa .chat-wrapper,
@@ -3301,6 +3319,8 @@ body.ios-pwa .chat-page .chat-wrapper {
   height: 100% !important;
   height: var(--ios-pwa-height, 100dvh) !important;
   max-height: var(--ios-pwa-height, 100dvh) !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
   overflow: hidden !important;
   display: flex !important;
   flex-direction: row !important;
@@ -3311,6 +3331,7 @@ html.ios-pwa .chat-area {
   height: 100% !important;
   height: var(--ios-pwa-height, 100dvh) !important;
   max-height: var(--ios-pwa-height, 100dvh) !important;
+  min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -3340,14 +3361,22 @@ body.ios-pwa .chat-page .chat-header {
   background-color: var(--surface) !important;
 }
 
-/* 3. Área de Mensagens do Chat */
-html.ios-pwa .chat-messages {
-  flex: 1 1 auto !important;
-  overflow-y: auto !important;
+/* 3. Área de Mensagens do Chat - Scroll vertical nativo e fluido com o dedo */
+html.ios-pwa .chat-messages,
+body.ios-pwa .chat-messages,
+html.ios-pwa #chat-messages-container,
+body.ios-pwa #chat-messages-container {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-y: scroll !important;
+  overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: contain !important;
   padding-left: env(safe-area-inset-left, 0px) !important;
   padding-right: env(safe-area-inset-right, 0px) !important;
-  min-height: 0 !important;
+  box-sizing: border-box !important;
 }
 
 /* 4. Campo de Digitação e Botões Inferiores (Protegido contra Home Indicator) */
@@ -3376,7 +3405,16 @@ html.ios-pwa .chat-sidebar {
   padding-left: env(safe-area-inset-left, 0px) !important;
   height: 100% !important;
   height: var(--ios-pwa-height, 100dvh) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
   box-sizing: border-box !important;
+}
+
+html.ios-pwa #members-list-container,
+html.ios-pwa #private-conversations-list {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
 }
 
 /* 6. Gavetas Offcanvas (Menu Principal, Doação, Membros Online) */
@@ -3389,6 +3427,12 @@ body.ios-pwa .offcanvas {
   box-sizing: border-box !important;
 }
 
+html.ios-pwa .offcanvas-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+}
+
 html.ios-pwa .offcanvas-bottom.mobile-donate-bottom-sheet {
   padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
 }
@@ -3399,11 +3443,19 @@ html.ios-pwa .modal {
   padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   padding-left: env(safe-area-inset-left, 0px) !important;
   padding-right: env(safe-area-inset-right, 0px) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 html.ios-pwa .modal-dialog {
   margin-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
   margin-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+html.ios-pwa .modal-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
 }
 
 /* 8. Barra de Pesquisa e Banners de Notificação */
@@ -3447,12 +3499,21 @@ html.ios-pwa .hero-section {
 /* 11. Fallback por Media Query PWA Standalone WebKit */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
+    body:not(.chat-page) {
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
     .chat-header {
       height: calc(56px + env(safe-area-inset-top, 0px)) !important;
       min-height: calc(56px + env(safe-area-inset-top, 0px)) !important;
       padding-top: env(safe-area-inset-top, 0px) !important;
       padding-bottom: 0 !important;
       box-sizing: border-box !important;
+    }
+    .chat-messages {
+      overflow-y: scroll !important;
+      -webkit-overflow-scrolling: touch !important;
+      touch-action: pan-y !important;
     }
     .chat-input-area {
       padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;

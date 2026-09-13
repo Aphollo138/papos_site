@@ -6,7 +6,7 @@ const CHAT_CONFIG = {
   getWebSocketUrl() {
     const hostname = (window.location && window.location.hostname) ? window.location.hostname : "";
     
-   
+    
     const isLocalOrPreview = hostname === "localhost" || 
                              hostname === "127.0.0.1" || 
                              hostname === "0.0.0.0" ||
@@ -25,7 +25,7 @@ const CHAT_CONFIG = {
       return `${protocol}//${host}`;
     }
     
-    // 3. Fallback para URL de produção configurada
+    
     let cleanUrl = this.productionServerUrl.trim();
     if (cleanUrl.endsWith("/")) {
       cleanUrl = cleanUrl.slice(0, -1);
@@ -36,7 +36,7 @@ const CHAT_CONFIG = {
 
 window.CHAT_CONFIG = CHAT_CONFIG;
 
-
+// Limpeza de chaves legadas de progresso/gamificação
 try {
   localStorage.removeItem("papos_social_progress");
   localStorage.removeItem("papos_social_progress_v2");
@@ -647,17 +647,9 @@ window.ChatEngineInitialized = true;
     const updateViewportHeight = () => {
       const vh = window.visualViewport.height;
       document.documentElement.style.setProperty("--ios-pwa-height", `${vh}px`);
-      if (window.scrollY !== 0) {
-        window.scrollTo(0, 0);
-      }
     };
 
     window.visualViewport.addEventListener("resize", updateViewportHeight);
-    window.visualViewport.addEventListener("scroll", () => {
-      if (window.scrollY !== 0) {
-        window.scrollTo(0, 0);
-      }
-    });
 
     window.addEventListener("orientationchange", () => {
       setTimeout(updateViewportHeight, 100);
@@ -667,25 +659,16 @@ window.ChatEngineInitialized = true;
     updateViewportHeight();
   }
 
-  // Prevenir rolagem involuntária da página no iOS ao focar no campo de mensagem
+  // Quando o teclado virtual abre no chat, rolar mensagens para o final sem travar o scroll da página
   document.addEventListener("DOMContentLoaded", () => {
     const messageInput = document.getElementById("message-input");
     const messagesContainer = document.getElementById("chat-messages-container");
 
-    if (messageInput) {
+    if (messageInput && messagesContainer) {
       messageInput.addEventListener("focus", () => {
         setTimeout(() => {
-          window.scrollTo(0, 0);
-          if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          }
-        }, 150);
-      });
-
-      messageInput.addEventListener("blur", () => {
-        setTimeout(() => {
-          window.scrollTo(0, 0);
-        }, 100);
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 200);
       });
     }
   });
