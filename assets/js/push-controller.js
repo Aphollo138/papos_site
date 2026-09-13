@@ -21,18 +21,18 @@ class PushNotificationManager {
     if (this.initialized) return;
     this.initialized = true;
 
-    // Detectar ambiente iOS (iPhone / iPad)
+    
     this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-    // Detectar se está rodando como Web App / PWA instalado na Tela de Início
+   
     this.isStandalone = window.matchMedia("(display-mode: standalone)").matches || 
       Boolean(navigator.standalone);
 
-    // Conectar eventos do Card no DOM imediatamente
+   
     this.bindCardEvents();
 
-    
+   
     if (this.isIOS && !this.isStandalone) {
       if (!this.isDismissed()) {
         setTimeout(() => {
@@ -44,7 +44,7 @@ class PushNotificationManager {
       return;
     }
 
-    // Verificar se o navegador suporta notificações e Service Worker
+    
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
       console.log("[Push] Navegador não suporta Push Notifications.");
       return;
@@ -62,22 +62,21 @@ class PushNotificationManager {
       this.isSupported = true;
       this.initMessaging();
 
-      // Registrar Service Worker em segundo plano para que já esteja pronto
+     
       await this.initServiceWorker();
 
-      // Escutar mensagens em primeiro plano (quando o site já está aberto)
+      
       this.setupForegroundListener();
 
-      // Configurar escuta de mensagens enviadas pelo Service Worker (ex: cliques)
+      
       this.setupServiceWorkerMessageListener();
 
-      // Verificar estado da permissão
+      
       if (Notification.permission === "granted") {
-        // Se a permissão já foi concedida, NÃO mostrar o banner
-        // Sincronizar o token FCM silenciosamente
+       
         await this.syncToken();
       } else if (Notification.permission === "default") {
-        // Permissão padrão: mostrar o banner após 1.5 segundos se não foi dispensado
+       
         if (!this.isDismissed()) {
           setTimeout(() => {
             if (Notification.permission === "default" && !this.isDismissed()) {
@@ -86,11 +85,11 @@ class PushNotificationManager {
           }, 1500);
         }
       } else if (Notification.permission === "denied") {
-        // Permissão bloqueada pelo usuário: não exibir o banner automaticamente
+        
         console.log("[Push] Notificações foram bloqueadas pelo usuário nas configurações do navegador.");
       }
 
-      // Verificar parâmetro na URL para abrir sala ou privado (caso tenha clicado na notificação)
+      
       this.checkUrlForNotificationAction();
     } catch (err) {
       console.warn("[Push] Erro ao inicializar:", err);
@@ -307,7 +306,7 @@ class PushNotificationManager {
         }
       } else if (permission === "denied") {
         this.hideCard();
-        this.dismiss(7);
+        this.dismiss(1);
         console.warn("[Push] O usuário bloqueou as notificações.");
         if (window.showAdminToast) {
           window.showAdminToast("As notificações estão bloqueadas no navegador. Ative-as nas configurações do navegador para receber avisos do Papos.", "warning");

@@ -3398,6 +3398,15 @@ html.ios-pwa .chat-input-area #btn-mobile-actions {
   -webkit-tap-highlight-color: transparent !important;
 }
 
+/* Quando o teclado virtual está aberto no iPhone PWA:
+   O teclado já cobre a barra inferior do iPhone (home indicator).
+   Removemos o excesso de padding-bottom para que o input fique imediatamente
+   acima do teclado sem nenhum espaço preto ou vão artificial */
+html.ios-pwa body.ios-keyboard-open .chat-input-area,
+body.ios-keyboard-open.ios-pwa .chat-input-area {
+  padding-bottom: 8px !important;
+}
+
 /* 5. Menu Lateral / Sidebar no iPhone PWA */
 html.ios-pwa .chat-sidebar {
   padding-top: env(safe-area-inset-top, 0px) !important;

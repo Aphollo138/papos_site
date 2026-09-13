@@ -6,7 +6,7 @@ const CHAT_CONFIG = {
   getWebSocketUrl() {
     const hostname = (window.location && window.location.hostname) ? window.location.hostname : "";
     
-    
+   
     const isLocalOrPreview = hostname === "localhost" || 
                              hostname === "127.0.0.1" || 
                              hostname === "0.0.0.0" ||
@@ -18,7 +18,7 @@ const CHAT_CONFIG = {
                              hostname.includes("usercontent") ||
                              hostname.includes("ai.studio");
     
-    
+   
     if (isLocalOrPreview || hostname.includes("onrender.com") || hostname.includes("papos.net.br")) {
       const protocol = (window.location && window.location.protocol === "https:") ? "wss:" : "ws:";
       const host = (window.location && window.location.host) ? window.location.host : "papos-site.onrender.com";
@@ -36,7 +36,7 @@ const CHAT_CONFIG = {
 
 window.CHAT_CONFIG = CHAT_CONFIG;
 
-// Limpeza de chaves legadas de progresso/gamificação
+
 try {
   localStorage.removeItem("papos_social_progress");
   localStorage.removeItem("papos_social_progress_v2");
@@ -643,10 +643,31 @@ window.ChatEngineInitialized = true;
   }
 
   // Gerenciamento dinâmico da viewport no iPhone PWA (inclusive com teclado virtual)
+  let isKeyboardOpen = false;
+
   if (window.visualViewport) {
     const updateViewportHeight = () => {
       const vh = window.visualViewport.height;
       document.documentElement.style.setProperty("--ios-pwa-height", `${vh}px`);
+
+      // Detectar se o teclado virtual abriu no iPhone (queda substancial na altura da viewport visual)
+      const keyboardOpen = (window.innerHeight - vh) > 80;
+      if (keyboardOpen !== isKeyboardOpen) {
+        isKeyboardOpen = keyboardOpen;
+        if (isKeyboardOpen) {
+          if (document.body) document.body.classList.add("ios-keyboard-open");
+          if (window.scrollY !== 0) window.scrollTo(0, 0);
+          const messagesContainer = document.getElementById("chat-messages-container");
+          if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+        } else {
+          if (document.body) document.body.classList.remove("ios-keyboard-open");
+          if (window.scrollY !== 0) window.scrollTo(0, 0);
+        }
+      } else if (isKeyboardOpen) {
+        if (window.scrollY !== 0) window.scrollTo(0, 0);
+      }
     };
 
     window.visualViewport.addEventListener("resize", updateViewportHeight);
@@ -659,16 +680,41 @@ window.ChatEngineInitialized = true;
     updateViewportHeight();
   }
 
-  // Quando o teclado virtual abre no chat, rolar mensagens para o final sem travar o scroll da página
+  // Quando o teclado virtual abre no chat, impedir que o WebKit desloque a janela inteira e crie o vão preto
   document.addEventListener("DOMContentLoaded", () => {
     const messageInput = document.getElementById("message-input");
     const messagesContainer = document.getElementById("chat-messages-container");
 
-    if (messageInput && messagesContainer) {
+    if (messageInput) {
+      const lockWindowToTop = () => {
+        if (window.scrollY !== 0) {
+          window.scrollTo(0, 0);
+        }
+      };
+
       messageInput.addEventListener("focus", () => {
+        // Ao focar, neutraliza o deslocamento da janela feito pelo WebKit no iOS
+        lockWindowToTop();
+        [50, 150, 250, 400].forEach((delay) => {
+          setTimeout(() => {
+            lockWindowToTop();
+            if (messagesContainer) {
+              messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+          }, delay);
+        });
+      });
+
+      messageInput.addEventListener("blur", () => {
         setTimeout(() => {
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }, 200);
+          lockWindowToTop();
+        }, 100);
+      });
+
+      messageInput.addEventListener("input", () => {
+        if (isKeyboardOpen && window.scrollY !== 0) {
+          lockWindowToTop();
+        }
       });
     }
   });
