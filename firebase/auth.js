@@ -26,7 +26,8 @@ import {
   onSnapshot, 
   updateDoc, 
   deleteDoc,
-  writeBatch
+  writeBatch,
+  arrayUnion
 } from "firebase/firestore";
 
 const activeFirestoreUnsubs = new Set();
@@ -862,6 +863,117 @@ const FirebaseService = {
     await deleteDoc(docRef);
   },
 
+  async createNews(newsData) {
+    const user = auth.currentUser;
+    const title = String(newsData.title || "").trim();
+    const content = String(newsData.content || "").trim();
+    const days = Math.max(1, parseInt(newsData.days, 10) || 7);
+
+    if (!title) throw new Error("Título da novidade é obrigatório");
+    if (!content) throw new Error("Conteúdo da novidade é obrigatório");
+
+    const now = Date.now();
+    const expiresAt = now + days * 24 * 60 * 60 * 1000;
+
+    const payload = {
+      title,
+      content,
+      days,
+      createdAt: now,
+      expiresAt,
+      authorUid: user ? user.uid : null,
+      updatedAt: now
+    };
+
+    const docRef = await addDoc(collection(db, "news"), payload);
+    return { id: docRef.id, ...payload };
+  },
+
+  async updateNews(newsId, newsData) {
+    if (!newsId) throw new Error("ID da novidade inválido");
+    const title = String(newsData.title || "").trim();
+    const content = String(newsData.content || "").trim();
+    const days = Math.max(1, parseInt(newsData.days, 10) || 7);
+
+    if (!title) throw new Error("Título da novidade é obrigatório");
+    if (!content) throw new Error("Conteúdo da novidade é obrigatório");
+
+    const now = Date.now();
+    let expiresAt;
+    if (newsData.createdAt) {
+      expiresAt = Number(newsData.createdAt) + days * 24 * 60 * 60 * 1000;
+    } else {
+      expiresAt = now + days * 24 * 60 * 60 * 1000;
+    }
+
+    const payload = {
+      title,
+      content,
+      days,
+      expiresAt,
+      updatedAt: now
+    };
+
+    const docRef = doc(db, "news", newsId);
+    await updateDoc(docRef, payload);
+    return { id: newsId, ...payload };
+  },
+
+  async deleteNews(newsId) {
+    if (!newsId) return;
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const docRef = doc(db, "news", newsId);
+    await deleteDoc(docRef);
+  },
+
+  subscribeToNews(callback) {
+    if (typeof callback === "function") {
+      newsCallbacks.add(callback);
+      if (cachedNews !== null) {
+        callback(cachedNews);
+      }
+    }
+    if (!isNewsListening) {
+      initNewsListener();
+    }
+    return () => {
+      newsCallbacks.delete(callback);
+    };
+  },
+
+  async getActiveNews() {
+    if (cachedNews !== null) {
+      const now = Date.now();
+      return cachedNews.filter(n => (n.expiresAt || 0) > now);
+    }
+    try {
+      const snap = await getDocs(collection(db, "news"));
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cachedNews = list;
+      const now = Date.now();
+      return list.filter(n => (n.expiresAt || 0) > now);
+    } catch (e) {
+      console.error("Erro ao buscar novidades ativas:", e);
+      return [];
+    }
+  },
+
+  async dismissNewsForUser(uid, newsId) {
+    if (!uid || !newsId) return;
+    try {
+      const userRef = doc(db, "users", uid);
+      await updateDoc(userRef, {
+        dismissedNews: arrayUnion(newsId)
+      });
+    } catch (e) {
+      console.warn("Não foi possível salvar novidade dispensada no Firebase:", e);
+    }
+  },
+
   subscribeToGuestSessions(callback) {
     if (typeof callback === "function") {
       callback([]);
@@ -1052,6 +1164,36 @@ function initFeedbacksListener() {
     });
   } catch (err) {
     console.error("Erro ao inicializar listener de feedbacks:", err);
+  }
+}
+
+let cachedNews = null;
+const newsCallbacks = new Set();
+let isNewsListening = false;
+
+function initNewsListener() {
+  if (isNewsListening) return;
+  isNewsListening = true;
+
+  try {
+    const newsCol = collection(db, "news");
+    const unsub = onSnapshot(newsCol, (snapshot) => {
+      const list = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cachedNews = list;
+
+      newsCallbacks.forEach((cb) => {
+        try { cb(cachedNews); } catch (e) {}
+      });
+    }, (err) => {
+      console.error("Erro no listener de novidades:", err);
+    });
+    registerFirestoreUnsub(unsub);
+  } catch (err) {
+    console.error("Erro ao inicializar listener de novidades:", err);
   }
 }
 

@@ -334,6 +334,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   let activeRoomId = urlParams.get("room") || "room-1";
+  let activeRoomName = "Canal Geral";
+  let activeRoomDesc = "Bate-papo público livre.";
 
   const chatMessagesContainer = document.getElementById("chat-messages-container");
   const messageInput = document.getElementById("message-input");
@@ -884,7 +886,9 @@ document.addEventListener("DOMContentLoaded", () => {
               });
             }
             
-            updateActiveHeader(data.roomName, data.roomDesc);
+            activeRoomName = data.roomName || "Canal Geral";
+            activeRoomDesc = data.roomDesc || "Bate-papo público livre.";
+            updateActiveHeader(activeRoomName, activeRoomDesc);
             renderMessages();
             renderMembers();
             break;
@@ -997,6 +1001,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (chatMode === "public") {
               appendSystemMessage(`${data.nickname} entrou na sala.`);
+              updateActiveHeader(activeRoomName, activeRoomDesc);
             }
             renderMembers();
             break;
@@ -1005,6 +1010,7 @@ document.addEventListener("DOMContentLoaded", () => {
             onlineUsersList = data.onlineUsers;
             if (chatMode === "public") {
               appendSystemMessage(`${data.nickname} saiu da sala.`);
+              updateActiveHeader(activeRoomName, activeRoomDesc);
             }
             renderMembers();
             break;
@@ -1264,7 +1270,9 @@ document.addEventListener("DOMContentLoaded", () => {
         headerName.style.cursor = "default";
         headerName.className = "h6 fw-bold mb-0 text-white text-truncate";
       }
-      if (headerDesc) headerDesc.textContent = desc || "Bate-papo público livre.";
+      if (headerDesc) {
+        headerDesc.textContent = desc || "Bate-papo público livre.";
+      }
       if (btnBackToPublic) btnBackToPublic.classList.add("d-none");
       if (headerAvatarContainer) {
         headerAvatarContainer.classList.add("d-none");
@@ -1285,7 +1293,7 @@ document.addEventListener("DOMContentLoaded", () => {
         headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
         headerName.style.cursor = "default";
       }
-      if (headerDesc) headerDesc.textContent = "Chat privado";
+      if (headerDesc) headerDesc.textContent = "Chat privado de ponta-a-ponta. Conversas salvas localmente.";
       if (btnBackToPublic) btnBackToPublic.classList.remove("d-none");
       
       if (headerAvatarContainer) {
@@ -2480,20 +2488,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     filtered.forEach(room => {
       const isCurrent = room.id === activeRoomId && chatMode === "public";
+      const count = room.count || 0;
       const col = document.createElement("div");
       col.className = "col-md-6";
       
+      const countLabel = count === 1 ? "1 pessoa" : `${count} pessoas`;
+      const countBadge = `<span class="badge bg-dark border border-secondary text-secondary rounded-pill d-block mb-2 small" style="font-size: 0.65rem;">${countLabel}</span>`;
+
       col.innerHTML = `
         <div class="card p-3 h-100 d-flex flex-row align-items-center justify-content-between ${isCurrent ? 'border-success' : ''}" style="background-color: var(--surface-secondary) !important;">
-          <div class="text-start text-truncate me-2">
+          <div class="text-start text-truncate me-2" style="flex: 1; min-width: 0;">
             <h6 class="text-white fw-bold mb-1 text-truncate">${room.name}</h6>
             <p class="text-secondary mb-0 small text-truncate" style="font-size: 0.72rem; max-width: 220px;">${room.desc}</p>
           </div>
-          <div class="text-end flex-shrink-0">
-            <span class="badge bg-dark text-secondary rounded-pill d-block mb-2 small" style="font-size: 0.65rem;">${room.count} ativos</span>
+          <div class="text-end flex-shrink-0 ms-2">
+            ${countBadge}
             ${isCurrent ? 
-              `<span class="badge bg-success text-black py-1.5 px-2.5 rounded">Atual</span>` : 
-              `<button class="btn btn-secondary-custom btn-sm py-1 px-3" onclick="switchPublicRoom('${room.id}')" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">Entrar</button>`
+              `<span class="badge bg-success text-black py-1.5 px-2.5 rounded d-block" style="font-size: 0.72rem;">Atual</span>` : 
+              `<button class="btn btn-secondary-custom btn-sm py-1 px-3 d-block" onclick="switchPublicRoom('${room.id}')" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">Entrar</button>`
             }
           </div>
         </div>
@@ -2537,91 +2549,80 @@ document.addEventListener("DOMContentLoaded", () => {
       return u.toLowerCase().includes(filterText.toLowerCase());
     });
 
-    let html = "";
-    const count = filteredUsers.length;
-
-    html += `<div class="member-group-title bg-dark">Pessoas na sala (${count})</div>`;
-
     if (filteredUsers.length === 0) {
-      html += `<div class="text-center py-4 text-secondary small">Nenhum membro ativo encontrado.</div>`;
-    } else {
-      filteredUsers.forEach(u => {
-        const isMe = u === (window.confirmedNickname || currentUser);
-        const isAdmin = window.isAdminUser ? window.isAdminUser(u) : (u.toLowerCase().includes("admin") || u.toLowerCase().includes("mod") || u === "Sistema");
-        const isMod = !isAdmin && (u.toLowerCase().includes("mod") || u === "Sistema");
-        
-        const avatarHtml = window.ChatEngine ? window.ChatEngine.renderAvatar(u, "avatar-member") : `<div class="avatar-member bg-secondary">P</div>`;
-        const statusHtml = `<span class="status-indicator status-online ms-1.5" style="width: 8px; height: 8px; flex-shrink: 0; position: static; display: inline-block; ${(isAdmin || isMod) ? 'background-color: #f5c542 !important;' : ''}"></span>`;
-        
-        const isThemeLight = document.documentElement.getAttribute("data-theme") === "light";
-        let uColor = isThemeLight ? '#111111' : '#ffffff';
-        if (isAdmin) {
-          uColor = '#ff3b30';
-        } else if (isMe) {
-          const cachedProfile = window.profileCache && (window.profileCache.get(u.toLowerCase()) || window.profileCache.get(u));
-          const customColor = (cachedProfile && (cachedProfile.nameColor || cachedProfile.color || (cachedProfile.data && (cachedProfile.data.nameColor || cachedProfile.data.color)))) || localStorage.getItem("papos_name_color");
-          if (customColor) {
-            uColor = customColor;
-          } else {
-            uColor = isThemeLight ? '#111111' : '#ffffff';
-          }
-        } else {
-          const cachedProfile = window.profileCache && (window.profileCache.get(u.toLowerCase()) || window.profileCache.get(u));
-          const customColor = cachedProfile && (cachedProfile.nameColor || cachedProfile.color || (cachedProfile.data && (cachedProfile.data.nameColor || cachedProfile.data.color)));
-          if (customColor) {
-            uColor = customColor;
-          } else {
-            uColor = isThemeLight ? '#111111' : '#ffffff';
-          }
-        }
-
-        const nameColorStyle = isAdmin 
-          ? 'color: #ff3b30 !important; font-weight: 700 !important;' 
-          : (isMe ? `color: ${uColor} !important; font-weight: 700 !important;` : `color: ${uColor} !important; font-weight: 600 !important;`);
-        const adminIconSvg = `<span class="admin-logo-badge me-1" title="Administrador do Papo.net" aria-label="Administrador do Papo.net"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><mask id="logo-mask-admin-member-${u.replace(/[^a-zA-Z0-9_-]/g, '_')}"><rect x="0" y="0" width="100" height="100" fill="white" /><line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" /></mask><g mask="url(#logo-mask-admin-member-${u.replace(/[^a-zA-Z0-9_-]/g, '_')})"><path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="#ffffff" /><path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="#ffffff" /></g><line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="#ffffff" fill="none" /><circle cx="78" cy="26" r="6" fill="#ffffff" /></g></svg></span>`;
-        const adminBadgeHtml = isAdmin ? `
-          <img
-            src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADXklEQVR4nO2Zy0tVURTGf4mTO4zUBvkg7SEhETXJqNQ7apQRDa7/gL0cWQP9DwqkIBokmWhaUEQ1Kwt6gGavYUXmxIpeDmoSSlDd2PBt2Ni95557POeeY/nBAblnr7XX59mP9a0Fy/g/0AoMAtPAvJ5p/dbCEkAtcAfIFnjGgBoSis3AZyfYe0An0KanU7/Z95+AJhKGSuC9AvyipZUPrRpjxr4FKogBK4BtwHHgNNAHdAE3FNg3oN6Hn3qNNTbX5cP4Mj6PaQ4zVyTYB7wssPY7ivCXKeDrBdAeJoFut4B454A3w3Xw4/1vC3c0xJpE24lzZ4R2xSXVpMIn5A344d5o3OsbzXpMKnN4p9c4qHqIChE1yVRUfCR4031d2R5qS3M/o4C783/i+XwY1O34d0wE3vI/X/T7o2K/m5T6s8M351O25tC3uS9yE1C2S9S3/y6vA85x/02S1/7c2s0/R1m/c60c8eNfXjX4/oG3fA=="
-            alt="Administrador Verificado"
-            aria-label="Administrador Verificado"
-            class="verified-admin-badge"
-            loading="lazy"
-            decoding="async"
-            width="16"
-            height="16"
-            style="width: 16px; height: 16px; vertical-align: middle; flex-shrink: 0; display: inline-block; margin-left: 3px;"
-          >
-        ` : '';
-
-        html += `
-          <div class="member-item d-flex align-items-center justify-content-between py-1.5 px-3">
-            <button class="btn p-0 border-0 d-flex align-items-center gap-2 text-truncate text-start" onclick="window.openUserProfile('${u}')" style="cursor: pointer; background: transparent; color: inherit; min-width: 0; flex: 1;" tabindex="0" aria-label="Ver perfil de ${u}">
-              ${avatarHtml}
-              <span class="small text-truncate d-inline-flex align-items-center gap-1.5" title="${u}" style="min-width: 0; pointer-events: none; white-space: nowrap;">
-                ${isAdmin ? adminIconSvg : ''}
-                <span class="text-truncate" style="${nameColorStyle}">${u} ${isMe ? '(Você)' : ''}</span>
-                ${adminBadgeHtml}
-                ${isMod ? '<span class="badge bg-danger-subtle text-danger flex-shrink-0" style="font-size:0.55rem; padding: 2px 4px;">MOD</span>' : ''}
-                ${statusHtml}
-              </span>
-            </button>
-            
-            ${!isMe ? `
-              <div class="d-flex gap-1 flex-shrink-0">
-                <button class="btn btn-sm btn-secondary-custom p-1" onclick="startPrivateChat('${u}')" title="Conversar Privado" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">
-                  <i class="bi bi-chat-left-text-fill"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-danger p-1" onclick="toggleBlockUser('${u}')" title="Bloquear" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">
-                  <i class="bi bi-shield-slash-fill"></i>
-                </button>
-              </div>
-            ` : ''}
-          </div>
-        `;
-      });
+      membersListContainer.innerHTML = `
+        <div class="text-center py-4 text-secondary small">
+          Nenhum membro encontrado.
+        </div>
+      `;
+      return;
     }
 
-    membersListContainer.innerHTML = html;
+    filteredUsers.forEach(u => {
+      const isMe = u === (window.confirmedNickname || currentUser);
+      const isAdmin = window.isAdminUser ? window.isAdminUser(u) : (u.toLowerCase().includes("admin") || u.toLowerCase().includes("mod") || u === "Sistema");
+      const isMod = !isAdmin && (u.toLowerCase().includes("mod") || u === "Sistema");
+      
+      const avatarHtml = window.ChatEngine ? window.ChatEngine.renderAvatar(u, "avatar-member") : `<div class="avatar-member bg-secondary">P</div>`;
+      
+      const isThemeLight = document.documentElement.getAttribute("data-theme") === "light";
+      let uColor = isThemeLight ? '#111111' : '#ffffff';
+      if (isAdmin) {
+        uColor = '#ff3b30';
+      } else if (isMe) {
+        const cachedProfile = window.profileCache && (window.profileCache.get(u.toLowerCase()) || window.profileCache.get(u));
+        const customColor = (cachedProfile && (cachedProfile.nameColor || cachedProfile.color || (cachedProfile.data && (cachedProfile.data.nameColor || cachedProfile.data.color)))) || localStorage.getItem("papos_name_color");
+        uColor = customColor || (isThemeLight ? '#111111' : '#ffffff');
+      } else {
+        const cachedProfile = window.profileCache && (window.profileCache.get(u.toLowerCase()) || window.profileCache.get(u));
+        const customColor = cachedProfile && (cachedProfile.nameColor || cachedProfile.color || (cachedProfile.data && (cachedProfile.data.nameColor || cachedProfile.data.color)));
+        uColor = customColor || (isThemeLight ? '#111111' : '#ffffff');
+      }
+
+      const nameColorStyle = isAdmin 
+        ? 'color: #ff3b30 !important; font-weight: 700 !important;' 
+        : (isMe ? `color: ${uColor} !important; font-weight: 700 !important;` : `color: ${uColor} !important; font-weight: 600 !important;`);
+      const adminIconSvg = `<span class="admin-logo-badge me-1" title="Administrador do Papo.net" aria-label="Administrador do Papo.net"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><mask id="logo-mask-admin-member-${u.replace(/[^a-zA-Z0-9_-]/g, '_')}"><rect x="0" y="0" width="100" height="100" fill="white" /><line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" /></mask><g mask="url(#logo-mask-admin-member-${u.replace(/[^a-zA-Z0-9_-]/g, '_')})"><path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="#ffffff" /><path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="#ffffff" /></g><line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="#ffffff" fill="none" /><circle cx="78" cy="26" r="6" fill="#ffffff" /></g></svg></span>`;
+      const adminBadgeHtml = isAdmin ? `
+        <img
+          src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADXklEQVR4nO2Zy0tVURTGf4mTO4zUBvkg7SEhETXJqNQ7apQRDa7/gL0cWQP9DwqkIBokmWhaUEQ1Kwt6gGavYUXmxIpeDmoSSlDd2PBt2Ni95557POeeY/nBAblnr7XX59mP9a0Fy/g/0AoMAtPAvJ5p/dbCEkAtcAfIFnjGgBoSis3AZyfYe0An0KanU7/Z95+AJhKGSuC9AvyipZUPrRpjxr4FKogBK4BtwHHgNNAHdAE3FNg3oN6Hn3qNNTbX5cP4Mj6PaQ4zVyTYB7wssPY7ivCXKeDrBdAeJoFut4B454A3w3Xw4/1vC3c0xJpE24lzZ4R2xSXVpMIn5A344d5o3OsbzXpMKnN4p9c4qHqIChE1yVRUfCR4031d2R5qS3M/o4C783/i+XwY1O34d0wE3vI/X/T7o2K/m5T6s8M351O25tC3uS9yE1C2S9S3/y6vA85x/02S1/7c2s0/R1m/c60c8eNfXjX4/oG3fA=="
+          alt="Administrador Verificado"
+          aria-label="Administrador Verificado"
+          class="verified-admin-badge"
+          loading="lazy"
+          decoding="async"
+          width="16"
+          height="16"
+          style="width: 16px; height: 16px; vertical-align: middle; flex-shrink: 0; display: inline-block; margin-left: 3px;"
+        >
+      ` : '';
+
+      const memberEl = document.createElement("div");
+      memberEl.className = "member-item d-flex align-items-center justify-content-between p-2 rounded-2";
+      memberEl.innerHTML = `
+        <button class="btn p-0 border-0 d-flex align-items-center gap-2 text-truncate text-start" onclick="window.openUserProfile('${u}')" style="cursor: pointer; background: transparent; color: inherit; min-width: 0; flex: 1;" tabindex="0" aria-label="Ver perfil de ${u}">
+          ${avatarHtml}
+          <span class="small text-truncate d-inline-flex align-items-center gap-1.5" title="${u}" style="min-width: 0; pointer-events: none; white-space: nowrap;">
+            ${isAdmin ? adminIconSvg : ''}
+            <span class="text-truncate" style="${nameColorStyle}">${u}</span>
+            ${adminBadgeHtml}
+            ${isMod ? '<span class="badge bg-danger-subtle text-danger flex-shrink-0" style="font-size:0.55rem; padding: 2px 4px;">MOD</span>' : ''}
+          </span>
+        </button>
+        
+        ${!isMe ? `
+          <div class="d-flex gap-1 flex-shrink-0 ms-2">
+            <button class="btn btn-sm btn-secondary-custom p-1" onclick="startPrivateChat('${u}')" title="Conversar Privado" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">
+              <i class="bi bi-chat-left-text text-white"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger p-1" onclick="toggleBlockUser('${u}')" title="Bloquear" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">
+              <i class="bi bi-shield-slash-fill"></i>
+            </button>
+          </div>
+        ` : ''}
+      `;
+      membersListContainer.appendChild(memberEl);
+    });
   }
   window.renderMembers = renderMembers;
 

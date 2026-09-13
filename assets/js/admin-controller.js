@@ -12,6 +12,9 @@
   let isSupportNamesSubscribed = false;
   let feedbacksList = [];
   let isFeedbacksSubscribed = false;
+  let newsList = [];
+  let isNewsSubscribed = false;
+  let editingNewsId = null;
 
   function escapeHtml(str) {
     if (!str) return "";
@@ -125,6 +128,168 @@
         }
       });
     });
+  }
+
+  function initNewsListener() {
+    if (isNewsSubscribed) return;
+    if (window.FirebaseService && typeof window.FirebaseService.subscribeToNews === "function") {
+      isNewsSubscribed = true;
+      window.FirebaseService.subscribeToNews((list) => {
+        newsList = list || [];
+        renderNewsTable();
+      });
+    }
+  }
+
+  function renderNewsTable() {
+    const tbody = document.getElementById("admin-news-table-body");
+    const badge = document.getElementById("admin-news-count-badge");
+    if (!tbody) return;
+
+    const now = Date.now();
+    const activeCount = newsList.filter((n) => (n.expiresAt || 0) > now).length;
+
+    if (badge) {
+      badge.textContent = `${activeCount} ${activeCount === 1 ? "ativa" : "ativas"} (${newsList.length} total)`;
+    }
+
+    tbody.innerHTML = "";
+
+    if (newsList.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="text-center text-secondary py-4">Nenhuma novidade publicada até o momento.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    newsList.forEach((item) => {
+      const isExpired = (item.expiresAt || 0) <= now;
+      const statusBadge = !isExpired
+        ? `<span class="badge bg-success px-2.5 py-1 fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Ativa</span>`
+        : `<span class="badge bg-secondary px-2.5 py-1 fw-semibold"><i class="bi bi-clock-history me-1"></i>Expirada</span>`;
+
+      let createdDate = "N/A";
+      if (item.createdAt) {
+        try {
+          createdDate = new Date(item.createdAt).toLocaleString("pt-BR");
+        } catch (e) {
+          createdDate = String(item.createdAt);
+        }
+      }
+
+      let expiresDate = "N/A";
+      if (item.expiresAt) {
+        try {
+          expiresDate = new Date(item.expiresAt).toLocaleString("pt-BR");
+        } catch (e) {
+          expiresDate = String(item.expiresAt);
+        }
+      }
+
+      const daysLabel = item.days ? `${item.days} ${item.days === 1 ? 'dia' : 'dias'}` : "N/D";
+
+      const tr = document.createElement("tr");
+      tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.08)";
+      tr.innerHTML = `
+        <td class="ps-3 py-3">
+          <div class="fw-bold text-white mb-1">${escapeHtml(item.title)}</div>
+          <div class="small text-secondary" style="max-width: 340px; white-space: normal; line-height: 1.4;">${escapeHtml(item.content)}</div>
+        </td>
+        <td class="py-3 text-white-50"><span class="badge bg-dark border border-secondary text-white font-monospace">${daysLabel}</span></td>
+        <td class="py-3" style="white-space: nowrap;"><span style="color: #9f9f9f; font-size: 0.8rem;">${createdDate}</span></td>
+        <td class="py-3" style="white-space: nowrap;"><span style="color: ${isExpired ? '#f87171' : '#4ade80'}; font-size: 0.8rem;">${expiresDate}</span></td>
+        <td class="py-3">${statusBadge}</td>
+        <td class="pe-3 py-3 text-end" style="white-space: nowrap;">
+          <button class="btn btn-outline-info btn-sm py-1 px-2.5 me-1 btn-admin-edit-news" data-id="${item.id}" style="font-size: 0.78rem; border-radius: 8px;" title="Editar esta novidade">
+            <i class="bi bi-pencil-fill me-1"></i>Editar
+          </button>
+          <button class="btn btn-outline-danger btn-sm py-1 px-2.5 btn-admin-delete-news" data-id="${item.id}" style="font-size: 0.78rem; border-radius: 8px;" title="Excluir esta novidade">
+            <i class="bi bi-trash-fill me-1"></i>Excluir
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const editBtns = tbody.querySelectorAll(".btn-admin-edit-news");
+    editBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const found = newsList.find((n) => n.id === id);
+        if (found) {
+          startEditNews(found);
+        }
+      });
+    });
+
+    const deleteBtns = tbody.querySelectorAll(".btn-admin-delete-news");
+    deleteBtns.forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        if (!id) return;
+        if (confirm("Deseja realmente excluir esta novidade? Ela será removida da Home imediatamente.")) {
+          try {
+            if (window.FirebaseService && typeof window.FirebaseService.deleteNews === "function") {
+              await window.FirebaseService.deleteNews(id);
+              window.showAdminToast("Novidade excluída com sucesso.", "success");
+              if (editingNewsId === id) {
+                cancelEditNews();
+              }
+            }
+          } catch (err) {
+            console.error("Erro ao excluir novidade:", err);
+            window.showAdminToast("Erro ao excluir novidade: " + (err.message || err), "error");
+          }
+        }
+      });
+    });
+  }
+
+  function startEditNews(news) {
+    editingNewsId = news.id;
+    const titleInput = document.getElementById("admin-news-title");
+    const contentInput = document.getElementById("admin-news-content");
+    const daysInput = document.getElementById("admin-news-days");
+    const formTitle = document.getElementById("admin-news-form-title");
+    const saveBtn = document.getElementById("btn-admin-save-news");
+    const cancelBtn = document.getElementById("btn-admin-cancel-edit-news");
+
+    if (titleInput) titleInput.value = news.title || "";
+    if (contentInput) contentInput.value = news.content || "";
+    if (daysInput) daysInput.value = news.days || 7;
+    if (formTitle) formTitle.textContent = "Editar Novidade";
+    if (saveBtn) {
+      saveBtn.innerHTML = `<i class="bi bi-check2-circle me-1"></i> Salvar Alterações`;
+      saveBtn.className = "btn btn-primary px-4 py-2 fw-semibold";
+    }
+    if (cancelBtn) cancelBtn.classList.remove("d-none");
+
+    const formCard = document.getElementById("admin-news-form-card");
+    if (formCard) {
+      formCard.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+
+  function cancelEditNews() {
+    editingNewsId = null;
+    const titleInput = document.getElementById("admin-news-title");
+    const contentInput = document.getElementById("admin-news-content");
+    const daysInput = document.getElementById("admin-news-days");
+    const formTitle = document.getElementById("admin-news-form-title");
+    const saveBtn = document.getElementById("btn-admin-save-news");
+    const cancelBtn = document.getElementById("btn-admin-cancel-edit-news");
+
+    if (titleInput) titleInput.value = "";
+    if (contentInput) contentInput.value = "";
+    if (daysInput) daysInput.value = "7";
+    if (formTitle) formTitle.textContent = "Publicar Nova Atualização";
+    if (saveBtn) {
+      saveBtn.innerHTML = `<i class="bi bi-send-fill me-1"></i> Publicar Novidade`;
+      saveBtn.className = "btn btn-info text-white px-4 py-2 fw-semibold";
+    }
+    if (cancelBtn) cancelBtn.classList.add("d-none");
   }
 
   function initSupportNamesListener() {
@@ -551,6 +716,12 @@
                   </button>
                 </li>
                 <li class="nav-item w-100" role="presentation">
+                  <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-news" data-tab="news" type="button" role="tab">
+                    <i class="bi bi-newspaper fs-5 flex-shrink-0 text-info"></i>
+                    <span class="fw-medium sidebar-text">Novidades</span>
+                  </button>
+                </li>
+                <li class="nav-item w-100" role="presentation">
                   <button class="nav-link btn-admin-tab text-start w-100 border-0 d-flex align-items-center gap-3" id="tab-btn-maintenance" data-tab="maintenance" type="button" role="tab">
                     <i class="bi bi-tools fs-5 flex-shrink-0 text-warning"></i>
                     <span class="fw-medium sidebar-text">Manutenção</span>
@@ -842,6 +1013,86 @@
                 </div>
               </div>
 
+              <!-- TAB: NOVIDADES (Página Inicial) -->
+              <div class="admin-tab-content d-none flex-column h-100" id="admin-content-news">
+                <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between mb-4">
+                  <div>
+                    <h5 class="text-white fw-bold mb-1" style="font-size: 1.25rem;">Novidades (Página Inicial)</h5>
+                    <p class="small mb-0" style="color: #9f9f9f;">Publique comunicados oficiais para os usuários com expiração automática programada.</p>
+                  </div>
+                  <div>
+                    <span class="badge bg-info text-dark px-3 py-2 fw-semibold" id="admin-news-count-badge" style="font-size: 0.85rem;">0 ativas</span>
+                  </div>
+                </div>
+
+                <!-- Formulário de Publicação / Edição -->
+                <div class="card border-0 mb-4 shadow-sm" id="admin-news-form-card" style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.08) !important; border-radius: 14px;">
+                  <div class="card-body p-4">
+                    <h6 class="fw-bold text-white mb-3 d-flex align-items-center gap-2">
+                      <i class="bi bi-megaphone-fill text-info"></i>
+                      <span id="admin-news-form-title">Publicar Nova Atualização</span>
+                    </h6>
+                    <form id="admin-news-form" onsubmit="return false;">
+                      <div class="row g-3">
+                        <div class="col-md-8">
+                          <label for="admin-news-title" class="form-label text-white-50 small fw-medium mb-1">Título da Novidade *</label>
+                          <input type="text" class="form-control" id="admin-news-title" placeholder="Ex: Nova atualização do Papos — melhorias de conexão" maxlength="100" style="background-color: #111; color: #fff; border-color: rgba(255,255,255,0.12); border-radius: 10px;" required>
+                        </div>
+                        <div class="col-md-4">
+                          <label for="admin-news-days" class="form-label text-white-50 small fw-medium mb-1">Duração da Novidade *</label>
+                          <div class="input-group">
+                            <input type="number" class="form-control" id="admin-news-days" value="7" min="1" max="365" style="background-color: #111; color: #fff; border-color: rgba(255,255,255,0.12); border-radius: 10px;" required>
+                            <span class="input-group-text border-0 text-white-50" style="background-color: #242424;">dias</span>
+                          </div>
+                          <div class="form-text text-secondary" style="font-size: 0.72rem;">A expiração será calculada automaticamente.</div>
+                        </div>
+                        <div class="col-12">
+                          <label for="admin-news-content" class="form-label text-white-50 small fw-medium mb-1">Conteúdo da Mensagem *</label>
+                          <textarea class="form-control" id="admin-news-content" rows="3" placeholder="Escreva a mensagem oficial que será comunicada aos usuários na Home..." maxlength="1000" style="background-color: #111; color: #fff; border-color: rgba(255,255,255,0.12); border-radius: 10px;" required></textarea>
+                          <div class="form-text text-secondary" style="font-size: 0.72rem;">A mensagem aparecerá na Home acompanhada da logo oficial do Papos.</div>
+                        </div>
+                        <div class="col-12 d-flex align-items-center gap-2 pt-2">
+                          <button type="button" class="btn btn-info text-white px-4 py-2 fw-semibold d-inline-flex align-items-center gap-1.5" id="btn-admin-save-news" style="border-radius: 10px;">
+                            <i class="bi bi-send-fill"></i>
+                            <span>Publicar Novidade</span>
+                          </button>
+                          <button type="button" class="btn btn-outline-secondary px-4 py-2 fw-medium d-none" id="btn-admin-cancel-edit-news" style="border-radius: 10px;">
+                            Cancelar Edição
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Tabela de Novidades -->
+                <div class="card border-0 shadow-sm flex-grow-1" style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.08) !important; border-radius: 14px;">
+                  <div class="card-header bg-transparent border-0 px-4 pt-4 pb-2">
+                    <h6 class="fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                      <i class="bi bi-journal-text text-info"></i>
+                      <span>Histórico de Novidades Cadastradas</span>
+                    </h6>
+                  </div>
+                  <div class="table-responsive p-3 flex-grow-1">
+                    <table class="table align-middle mb-0" id="admin-news-table" style="font-size: 0.85rem;">
+                      <thead>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                          <th class="ps-3 py-3 text-white-50">Título & Mensagem</th>
+                          <th class="py-3 text-white-50">Duração</th>
+                          <th class="py-3 text-white-50">Publicado em</th>
+                          <th class="py-3 text-white-50">Expira em</th>
+                          <th class="py-3 text-white-50">Status</th>
+                          <th class="pe-3 py-3 text-end text-white-50">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody id="admin-news-table-body">
+                        <!-- Filled dynamically -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
               <!-- TAB: GUESTS (Convidados) -->
               <div class="admin-tab-content d-none flex-column h-100" id="admin-content-guests">
                 <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between mb-4">
@@ -1011,6 +1262,7 @@
       initFirestoreUsersListener();
       initSupportNamesListener();
       initFeedbacksListener();
+      initNewsListener();
       initGuestListeners();
       refreshAdminData();
     });
@@ -1267,6 +1519,74 @@
           console.error("Erro ao autorizar UID:", err);
           window.showAdminToast("Erro ao autorizar UID.", "error");
         }
+      });
+    }
+
+    const btnSaveNews = document.getElementById("btn-admin-save-news");
+    if (btnSaveNews) {
+      btnSaveNews.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const titleInput = document.getElementById("admin-news-title");
+        const contentInput = document.getElementById("admin-news-content");
+        const daysInput = document.getElementById("admin-news-days");
+
+        const title = titleInput ? titleInput.value.trim() : "";
+        const content = contentInput ? contentInput.value.trim() : "";
+        const days = Math.max(1, parseInt(daysInput ? daysInput.value : "7", 10) || 7);
+
+        if (!title) {
+          window.showAdminToast("Por favor, informe o título da novidade.", "error");
+          if (titleInput) titleInput.focus();
+          return;
+        }
+
+        if (!content) {
+          window.showAdminToast("Por favor, escreva o conteúdo da mensagem.", "error");
+          if (contentInput) contentInput.focus();
+          return;
+        }
+
+        if (days < 1) {
+          window.showAdminToast("A quantidade de dias deve ser no mínimo 1.", "error");
+          if (daysInput) daysInput.focus();
+          return;
+        }
+
+        try {
+          if (window.showAdminLoading) window.showAdminLoading(true);
+          if (editingNewsId) {
+            const existing = newsList.find(n => n.id === editingNewsId);
+            await window.FirebaseService.updateNews(editingNewsId, {
+              title,
+              content,
+              days,
+              createdAt: existing ? existing.createdAt : Date.now()
+            });
+            window.showAdminToast("Novidade atualizada com sucesso.", "success");
+            cancelEditNews();
+          } else {
+            await window.FirebaseService.createNews({
+              title,
+              content,
+              days
+            });
+            window.showAdminToast("Novidade publicada com sucesso na Home!", "success");
+            cancelEditNews();
+          }
+        } catch (err) {
+          console.error("Erro ao salvar novidade:", err);
+          window.showAdminToast("Erro ao salvar novidade: " + (err.message || err), "error");
+        } finally {
+          if (window.showAdminLoading) window.showAdminLoading(false);
+        }
+      });
+    }
+
+    const btnCancelEditNews = document.getElementById("btn-admin-cancel-edit-news");
+    if (btnCancelEditNews) {
+      btnCancelEditNews.addEventListener("click", (e) => {
+        e.preventDefault();
+        cancelEditNews();
       });
     }
 
@@ -1913,6 +2233,10 @@
     if (activeTab === "feedback") {
       initFeedbacksListener();
       renderFeedbacksTable();
+    }
+    if (activeTab === "news") {
+      initNewsListener();
+      renderNewsTable();
     }
     if (activeTab === "guests") {
       initGuestListeners();
