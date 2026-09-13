@@ -1,7 +1,7 @@
 import { adminDb, adminMessaging, isFirebaseAdminConfigured } from "./firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
-
+// In-memory cooldown caches
 const roomCooldowns = new Map<string, number>();
 const recipientCooldowns = new Map<string, number>();
 
@@ -61,7 +61,7 @@ export class PushNotificationService {
     const cleanAnonId = (anonymousId || "").trim();
 
     try {
-      
+      // 1. Visitante Anônimo
       if (cleanAnonId) {
         const anonRef = adminDb.collection("anonymous_push").doc(cleanAnonId);
         await anonRef.set({
@@ -74,7 +74,7 @@ export class PushNotificationService {
         }, { merge: true });
       }
 
-      
+      // 2. Usuário Autenticado
       if (uid && typeof uid === "string" && uid.trim()) {
         const cleanUid = uid.trim();
         const userRef = adminDb.collection("user_push").doc(cleanUid);
@@ -97,7 +97,7 @@ export class PushNotificationService {
   public static async removeInvalidToken(token: string) {
     if (!token) return;
     try {
-      
+      // Remover de anonymous_push
       const anonSnaps = await adminDb.collection("anonymous_push")
         .where("tokens", "array-contains", token)
         .get();
@@ -110,7 +110,7 @@ export class PushNotificationService {
         });
       });
 
-     
+      // Remover de user_push
       const userSnaps = await adminDb.collection("user_push")
         .where("tokens", "array-contains", token)
         .get();
@@ -129,7 +129,10 @@ export class PushNotificationService {
     }
   }
 
-  
+  /**
+   * Gatilho principal de Push:
+   * Disparado EXCLUSIVAMENTE quando uma nova mensagem é enviada em uma sala.
+   */
   public static async onRoomMessage(params: {
     roomId: string;
     senderSession: {
@@ -154,12 +157,12 @@ export class PushNotificationService {
 
     if (!roomId) return;
 
-    
+    // Se a chave não estiver configurada no backend, push desativado com segurança
     if (!isFirebaseAdminConfigured) {
       return;
     }
 
-    
+    // 1. Anti-Flood / Cooldown por sala (10 minutos)
     if (!this.canSendRoomPush(roomId)) {
       return;
     }
@@ -169,10 +172,10 @@ export class PushNotificationService {
     const senderAnonId = (senderSession.anonymousId || "").trim();
     const senderPermId = (senderSession.permanentId || "").trim();
 
-    const eligibleTokenMap = new Map<string, string>(); 
+    const eligibleTokenMap = new Map<string, string>(); // token -> recipientKey
 
     try {
-      
+      // 2. Buscar inscritos em anonymous_push
       const anonSnaps = await adminDb.collection("anonymous_push").get();
       anonSnaps.forEach((docSnap) => {
         const data = docSnap.data();
@@ -180,7 +183,7 @@ export class PushNotificationService {
         const nickLower = (data.nicknameLower || "").toLowerCase();
         const permId = data.permanentId || "";
 
-        
+        // Ignorar se for o próprio remetente
         if (
           (senderAnonId && docId === senderAnonId) ||
           (senderPermId && permId === senderPermId) ||
@@ -189,7 +192,7 @@ export class PushNotificationService {
           return;
         }
 
-       
+        // Ignorar se estiver ONLINE no site agora
         if (
           onlineAnonIds.has(docId) ||
           (permId && onlinePermanentIds.has(permId)) ||
@@ -199,12 +202,12 @@ export class PushNotificationService {
           return;
         }
 
-       
+        // Ignorar se o usuário estiver no cooldown individual (5 minutos)
         if (this.isRecipientInCooldown(docId) || (nickLower && this.isRecipientInCooldown(nickLower))) {
           return;
         }
 
-        
+        // Adicionar tokens elegíveis
         if (Array.isArray(data.tokens)) {
           data.tokens.forEach((tok: string) => {
             if (tok && typeof tok === "string" && !this.isRecipientInCooldown(tok)) {
@@ -214,14 +217,14 @@ export class PushNotificationService {
         }
       });
 
-      
+      // 3. Buscar inscritos em user_push
       const userSnaps = await adminDb.collection("user_push").get();
       userSnaps.forEach((docSnap) => {
         const data = docSnap.data();
         const docUid = docSnap.id;
         const nickLower = (data.nicknameLower || "").toLowerCase();
 
-       
+        // Ignorar se for o próprio remetente
         if (
           (senderUid && docUid === senderUid) ||
           (senderNickLower && nickLower === senderNickLower)
@@ -229,7 +232,7 @@ export class PushNotificationService {
           return;
         }
 
-        
+        // Ignorar se estiver ONLINE no site agora
         if (
           onlineUids.has(docUid) ||
           (nickLower && onlineNicknames.has(nickLower))
@@ -238,12 +241,12 @@ export class PushNotificationService {
           return;
         }
 
-        
+        // Ignorar se o usuário estiver no cooldown individual (5 minutos)
         if (this.isRecipientInCooldown(docUid) || (nickLower && this.isRecipientInCooldown(nickLower))) {
           return;
         }
 
-        
+        // Adicionar tokens elegíveis
         if (Array.isArray(data.tokens)) {
           data.tokens.forEach((tok: string) => {
             if (tok && typeof tok === "string" && !this.isRecipientInCooldown(tok)) {
@@ -262,7 +265,7 @@ export class PushNotificationService {
       return;
     }
 
-    
+    // URL exata exigida: https://papo.net.br/chat?room=ROOM_ID
     const targetUrl = `https://papo.net.br/chat?room=${encodeURIComponent(roomId)}`;
 
     const notificationPayload = {
@@ -277,18 +280,26 @@ export class PushNotificationService {
         url: targetUrl,
         roomId: roomId,
         icon: "/favicon-32x32.png"
+      },
+      webpush: {
+        fcmOptions: {
+          link: targetUrl
+        },
+        headers: {
+          Urgency: "high"
+        }
       }
     };
 
     try {
       const response = await adminMessaging.sendEachForMulticast(notificationPayload);
 
-      
+      // Se pelo menos uma notificação foi enviada com sucesso, aplicamos os cooldowns
       if (response.successCount > 0) {
         this.markRoomPushSent(roomId);
         console.log(`[FCM] Push disparado para a sala: ${roomId} (destinatários: ${response.successCount})`);
 
-        
+        // Marcar cooldown para os destinatários que receberam com sucesso
         response.responses.forEach((resp, idx) => {
           const tok = tokens[idx];
           const recipientId = eligibleTokenMap.get(tok);
@@ -301,7 +312,7 @@ export class PushNotificationService {
         });
       }
 
-      
+      // Tratar tokens inválidos e removê-los do Firestore sem apagar contas
       if (response.failureCount > 0) {
         response.responses.forEach((resp, idx) => {
           if (!resp.success) {

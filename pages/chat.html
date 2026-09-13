@@ -26,6 +26,7 @@
     <meta name="theme-color" content="#111111">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Papos">
 
     <meta property="og:title" content="Chat Online e Mensagens Privadas - Papo.net.br" />
     <meta property="og:description" content="Converse ao vivo em salas públicas ou envie mensagens privadas em tempo real." />
@@ -311,21 +312,21 @@
 
           <!-- Banner / Card Discreto de Notificações Push -->
           <div id="push-notification-card" class="push-notification-card d-none px-3 py-2 border-bottom border-secondary" style="background: linear-gradient(135deg, rgba(24, 29, 39, 0.98), rgba(15, 23, 42, 0.98)); z-index: 25;">
-            <div class="d-flex align-items-center justify-content-between gap-3 p-2.5 rounded-3 border border-secondary" style="background-color: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1) !important;">
+            <div class="d-flex align-items-center justify-content-between gap-3 p-2.5 rounded-3 border border-secondary flex-wrap" style="background-color: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1) !important;">
               <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
                 <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.3);">
                   <i class="bi bi-bell-fill text-warning fs-6"></i>
                 </div>
                 <div class="min-w-0">
-                  <div class="fw-bold text-white text-truncate" style="font-size: 0.85rem;">🔔 Não perca novas mensagens</div>
-                  <div class="text-secondary small text-truncate" style="font-size: 0.76rem;">Ative as notificações para ser avisado quando te responderem!</div>
+                  <div class="fw-bold text-white" style="font-size: 0.85rem;" id="push-card-title">🔔 Não perca novas mensagens</div>
+                  <div class="text-secondary small" style="font-size: 0.76rem;" id="push-card-desc">Ative as notificações para ser avisado quando te responderem!</div>
                 </div>
               </div>
-              <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                <button type="button" class="btn btn-sm btn-success fw-semibold px-2.5 py-1" id="btn-push-card-enable" style="font-size: 0.8rem; border-radius: var(--radius-sm);">
-                  Ativar
+              <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto" id="push-card-actions">
+                <button type="button" class="btn btn-sm btn-success fw-semibold px-2.5 py-1 text-nowrap" id="btn-push-card-enable" style="font-size: 0.8rem; border-radius: var(--radius-sm);">
+                  Quero ser avisado
                 </button>
-                <button type="button" class="btn btn-sm btn-secondary-custom px-2.5 py-1" id="btn-push-card-dismiss" style="font-size: 0.8rem; border-radius: var(--radius-sm);">
+                <button type="button" class="btn btn-sm btn-secondary-custom px-2.5 py-1 text-nowrap" id="btn-push-card-dismiss" style="font-size: 0.8rem; border-radius: var(--radius-sm);">
                   Agora não
                 </button>
                 <button type="button" class="btn-close btn-close-white ms-1" id="btn-push-card-close" aria-label="Fechar"></button>

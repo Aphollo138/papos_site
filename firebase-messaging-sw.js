@@ -1,4 +1,4 @@
-
+// Scripts for Firebase App and Messaging in Service Worker
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
@@ -24,6 +24,7 @@ self.addEventListener('activate', (event) => {
 
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Mensagem recebida em segundo plano:', payload);
+  console.log('[Push] Notificação processada');
 
   const title = payload.notification?.title || payload.data?.title || 'Papos';
   const body = payload.notification?.body || payload.data?.body || 'Tem gente conversando na sala.';

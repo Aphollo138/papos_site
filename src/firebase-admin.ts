@@ -6,7 +6,7 @@ import { getMessaging } from "firebase-admin/messaging";
 export const isFirebaseAdminConfigured = Boolean(process.env.FIREBASE_PRIVATE_KEY);
 
 if (!getApps().length) {
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || "papo-net";
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || "hale-palisade-2pthm";
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
   let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
 
