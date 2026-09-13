@@ -1760,6 +1760,7 @@
         }
       });
     }
+
   }
 
   let guestSessionsList = [];

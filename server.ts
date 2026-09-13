@@ -11,6 +11,7 @@ import https from "https";
 import multer from "multer";
 import sharp from "sharp";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
+import { PushNotificationService } from "./src/push-service";
 
 let appletConfig: Record<string, any> = {};
 try {
@@ -54,6 +55,8 @@ interface ClientSession {
   clientId?: string;
   ip?: string;
   blockCalls?: boolean;
+  pushToken?: string;
+  userAgent?: string;
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
@@ -623,12 +626,47 @@ function containsLink(str: string): boolean {
   return false;
 }
 
+function triggerRoomPushNotification(roomId: string, senderSession: ClientSession) {
+  if (!roomId || !senderSession) return;
+
+  const onlineNicknames = new Set<string>();
+  const onlineUids = new Set<string>();
+  const onlineAnonIds = new Set<string>();
+  const onlinePermanentIds = new Set<string>();
+
+  activeSessions.forEach((s) => {
+    if (s.nickname) onlineNicknames.add(s.nickname.toLowerCase());
+    if (s.uid) onlineUids.add(s.uid);
+    if (s.guestId) onlineAnonIds.add(s.guestId);
+    if (s.permanentId) onlinePermanentIds.add(s.permanentId);
+  });
+
+  PushNotificationService.onRoomMessage({
+    roomId,
+    senderSession: {
+      nickname: senderSession.nickname,
+      uid: senderSession.uid,
+      permanentId: senderSession.permanentId,
+      anonymousId: senderSession.guestId
+    },
+    onlineNicknames,
+    onlineUids,
+    onlineAnonIds,
+    onlinePermanentIds
+  }).catch((err) => {
+    console.error("[FCM] Erro ao processar push de sala:", err);
+  });
+}
+
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
   app.use(express.json({ limit: "15mb" }));
   app.use(express.urlencoded({ extended: true, limit: "15mb" }));
   const PORT = 3000;
+
+  // Inicializar Serviço de Notificações Push FCM
+  PushNotificationService.init();
 
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -669,6 +707,30 @@ async function startServer() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
+  });
+
+  // Servir Service Worker para FCM
+  app.get("/firebase-messaging-sw.js", (req, res) => {
+    res.setHeader("Content-Type", "application/javascript");
+    res.setHeader("Service-Worker-Allowed", "/");
+    res.sendFile(path.join(process.cwd(), "firebase-messaging-sw.js"));
+  });
+
+  // Endpoints para Push Notifications (FCM)
+  app.post("/api/push/register", async (req, res) => {
+    try {
+      const { token, anonymousId, uid, nickname, userAgent } = req.body || {};
+      const result = await PushNotificationService.registerToken({
+        token,
+        anonymousId,
+        uid,
+        nickname,
+        userAgent
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   app.get("/api/webrtc-config", (req, res) => {
@@ -1236,6 +1298,24 @@ async function startServer() {
         }
 
         switch (payload.type) {
+          case "register_push_token": {
+            const pushTok = payload.token;
+            const anonId = payload.anonymousId || session.guestId || session.permanentId;
+            const userUid = payload.uid || session.uid;
+            const nick = payload.nickname || session.nickname;
+            if (pushTok && typeof pushTok === "string") {
+              session.pushToken = pushTok;
+              await PushNotificationService.registerToken({
+                token: pushTok,
+                anonymousId: anonId,
+                uid: userUid,
+                nickname: nick,
+                userAgent: session.userAgent
+              });
+            }
+            break;
+          }
+
           case "authenticate":
           case "sync_auth":
           case "admin_auth": {
@@ -2599,6 +2679,7 @@ async function startServer() {
             }
 
             broadcastToRoom(session.roomId, "message", { message: msgObj });
+            triggerRoomPushNotification(session.roomId, session);
             break;
           }
 

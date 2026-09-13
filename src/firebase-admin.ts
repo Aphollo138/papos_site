@@ -1,36 +1,41 @@
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 
-// Ensure Firebase Admin SDK is initialized only once
+export const isFirebaseAdminConfigured = Boolean(process.env.FIREBASE_PRIVATE_KEY);
+
 if (!getApps().length) {
   const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || "papo-net";
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@papo-net.iam.gserviceaccount.com";
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
   let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
 
-  if (!projectId || !clientEmail || !privateKey) {
-    throw new Error("Firebase Admin SDK não configurado. Verifique as variáveis de ambiente.");
-}
-
-  // Sanitize line breaks in private key if passed as escaped string
-  privateKey = privateKey.replace(/\\n/g, "\n");
-
-  initializeApp({
-    credential: cert({
-      projectId,
-      clientEmail,
-      privateKey
-    })
-  });
+  if (privateKey) {
+    privateKey = privateKey.replace(/\\n/g, "\n");
+    try {
+      initializeApp({
+        credential: cert({
+          projectId,
+          clientEmail,
+          privateKey
+        })
+      });
+      console.log("[FCM] Firebase Admin SDK inicializado com sucesso usando FIREBASE_PRIVATE_KEY.");
+    } catch (err: any) {
+      console.error("[FirebaseAdmin] Erro ao inicializar com FIREBASE_PRIVATE_KEY:", err?.message || err);
+    }
+  } else {
+    try {
+      initializeApp({ projectId });
+    } catch (err: any) {}
+    console.warn("[FCM] Push está desativado por ausência da variável de ambiente FIREBASE_PRIVATE_KEY.");
+  }
 }
 
 export const adminAuth = getAuth();
 export const adminDb = getFirestore();
+export const adminMessaging = getMessaging();
 
-
-/**
- * Validates an ID Token sent by the frontend using Firebase Admin SDK
- */
 export async function verifyIdToken(idToken: string) {
   try {
     if (!idToken) return null;
@@ -42,9 +47,6 @@ export async function verifyIdToken(idToken: string) {
   }
 }
 
-/**
- * Checks if the user is explicitly flagged as admin in Firestore (users/{uid}.admin == true)
- */
 export async function checkAdminByUid(uid: string): Promise<boolean> {
   if (!uid) return false;
   try {
@@ -60,9 +62,6 @@ export async function checkAdminByUid(uid: string): Promise<boolean> {
   }
 }
 
-/**
- * Middleware for Express administrative endpoints
- */
 export async function authenticateAdmin(req: any, res: any, next: any) {
   try {
     const authHeader = req.headers.authorization;
