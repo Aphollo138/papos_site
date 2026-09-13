@@ -6,7 +6,7 @@ const CHAT_CONFIG = {
   getWebSocketUrl() {
     const hostname = (window.location && window.location.hostname) ? window.location.hostname : "";
     
-    // 1. Ambientes de desenvolvimento, preview, Google AI Studio e Cloud Run
+   
     const isLocalOrPreview = hostname === "localhost" || 
                              hostname === "127.0.0.1" || 
                              hostname === "0.0.0.0" ||
@@ -18,7 +18,7 @@ const CHAT_CONFIG = {
                              hostname.includes("usercontent") ||
                              hostname.includes("ai.studio");
     
-    // 2. Se a aplicação estiver sendo servida pelo próprio servidor (Render, domínio personalizado ou preview local):
+    
     if (isLocalOrPreview || hostname.includes("onrender.com") || hostname.includes("papos.net.br")) {
       const protocol = (window.location && window.location.protocol === "https:") ? "wss:" : "ws:";
       const host = (window.location && window.location.host) ? window.location.host : "papos-site.onrender.com";
@@ -35,6 +35,13 @@ const CHAT_CONFIG = {
 };
 
 window.CHAT_CONFIG = CHAT_CONFIG;
+
+
+try {
+  localStorage.removeItem("papos_social_progress");
+  localStorage.removeItem("papos_social_progress_v2");
+  localStorage.removeItem("papos_social_progress_pending_sync");
+} catch (e) {}
 
 function isReservedNickname(nickname) {
   if (!nickname || typeof nickname !== "string") return false;
@@ -607,3 +614,79 @@ document.addEventListener("DOMContentLoaded", () => {
 
 window.ChatEngine = ChatEngine;
 window.ChatEngineInitialized = true;
+
+// ==========================================================================
+// iOS Standalone PWA Safe Area & Viewport Manager
+// Ativado estritamente quando rodando como Web App instalado no iOS (iPhone/iPad)
+// Não afeta Safari normal, Chrome, Android ou Desktop
+// ==========================================================================
+(function initIOSPWAManager() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return;
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isStandalone = (window.navigator.standalone === true) || 
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+
+  if (!isIOS || !isStandalone) {
+    return; // Em Safari normal, Chrome, Android, Desktop: não faz nada!
+  }
+
+  // Adicionar classe aos elementos raiz
+  document.documentElement.classList.add("ios-pwa");
+  if (document.body) {
+    document.body.classList.add("ios-pwa");
+  } else {
+    document.addEventListener("DOMContentLoaded", () => {
+      if (document.body) document.body.classList.add("ios-pwa");
+    });
+  }
+
+  // Gerenciamento dinâmico da viewport no iPhone PWA (inclusive com teclado virtual)
+  if (window.visualViewport) {
+    const updateViewportHeight = () => {
+      const vh = window.visualViewport.height;
+      document.documentElement.style.setProperty("--ios-pwa-height", `${vh}px`);
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    window.visualViewport.addEventListener("resize", updateViewportHeight);
+    window.visualViewport.addEventListener("scroll", () => {
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    });
+
+    window.addEventListener("orientationchange", () => {
+      setTimeout(updateViewportHeight, 100);
+      setTimeout(updateViewportHeight, 300);
+    });
+
+    updateViewportHeight();
+  }
+
+  // Prevenir rolagem involuntária da página no iOS ao focar no campo de mensagem
+  document.addEventListener("DOMContentLoaded", () => {
+    const messageInput = document.getElementById("message-input");
+    const messagesContainer = document.getElementById("chat-messages-container");
+
+    if (messageInput) {
+      messageInput.addEventListener("focus", () => {
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+        }, 150);
+      });
+
+      messageInput.addEventListener("blur", () => {
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+        }, 100);
+      });
+    }
+  });
+})();
