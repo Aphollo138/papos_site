@@ -1,11 +1,12 @@
-
+/**
+ * Papos Push Notification Controller
+ * Integrado com Firebase Cloud Messaging (FCM) e Service Worker
+ */
 import { app, auth, db } from "/firebase/firebase.js";
 import { doc, setDoc, arrayUnion } from "firebase/firestore";
 import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "firebase/messaging";
 
 const VAPID_KEY = "BA3N8_2cx65vzUqBzGtlIjblc8ocugABMJjQBxUZaxJ_bAR96s8IvzcbCbnkxSckb8G-GrQqnGX2d1MMD56wWlA";
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
 class PushNotificationManager {
   constructor() {
     this.messaging = null;
@@ -15,6 +16,7 @@ class PushNotificationManager {
     this.initialized = false;
     this.isIOS = false;
     this.isStandalone = false;
+    this.dismissedThisSession = false;
   }
 
   async init() {
@@ -22,16 +24,22 @@ class PushNotificationManager {
     this.initialized = true;
 
     
+    try {
+      localStorage.removeItem("papos_push_dismissed_until");
+    } catch (e) {}
+
+    
     this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-   
+    
     this.isStandalone = window.matchMedia("(display-mode: standalone)").matches || 
       Boolean(navigator.standalone);
 
-   
+    
     this.bindCardEvents();
 
+    
    
     if (this.isIOS && !this.isStandalone) {
       if (!this.isDismissed()) {
@@ -44,7 +52,7 @@ class PushNotificationManager {
       return;
     }
 
-    
+   
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
       console.log("[Push] Navegador não suporta Push Notifications.");
       return;
@@ -62,7 +70,7 @@ class PushNotificationManager {
       this.isSupported = true;
       this.initMessaging();
 
-     
+      
       await this.initServiceWorker();
 
       
@@ -73,7 +81,7 @@ class PushNotificationManager {
 
       
       if (Notification.permission === "granted") {
-       
+        
         await this.syncToken();
       } else if (Notification.permission === "default") {
        
@@ -133,13 +141,13 @@ class PushNotificationManager {
         const title = payload.notification?.title || payload.data?.title || "Papos";
         const body = payload.notification?.body || payload.data?.body || "Nova mensagem na sala.";
 
-        // Se o usuário está com a aba ativa e na conversa com o remetente, evitar toast redundante
+        
         const privateNick = payload.data?.privateNick;
         if (privateNick && window.activePrivateRecipient && window.activePrivateRecipient.toLowerCase() === privateNick.toLowerCase()) {
           return;
         }
 
-        // Exibir toast discreto na tela
+        
         if (window.showAdminToast) {
           window.showAdminToast(`${title}: ${body}`, "info");
         } else if (window.appendSystemMessage) {
@@ -182,13 +190,7 @@ class PushNotificationManager {
   }
 
   isDismissed() {
-    try {
-      const dismissedUntil = localStorage.getItem("papos_push_dismissed_until");
-      if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
-        return true;
-      }
-    } catch (e) {}
-    return false;
+    return Boolean(this.dismissedThisSession);
   }
 
   showCard() {
@@ -213,7 +215,7 @@ class PushNotificationManager {
       if (btnEnable) {
         btnEnable.textContent = "Entendi";
         btnEnable.onclick = () => {
-          this.dismiss(1);
+          this.dismiss();
         };
       }
       if (btnDismiss) {
@@ -231,11 +233,11 @@ class PushNotificationManager {
     }
   }
 
-  dismiss(days = 1) {
+  dismiss() {
+    this.dismissedThisSession = true;
     this.hideCard();
     try {
-      const until = Date.now() + (days * ONE_DAY_MS);
-      localStorage.setItem("papos_push_dismissed_until", String(until));
+      localStorage.removeItem("papos_push_dismissed_until");
     } catch (e) {}
   }
 
@@ -246,9 +248,9 @@ class PushNotificationManager {
 
     if (btnEnable) {
       btnEnable.addEventListener("click", async () => {
-        // Se estiver no fluxo iOS de orientação, o clique apenas fecha
+       
         if (this.isIOS && !this.isStandalone) {
-          this.dismiss(1);
+          this.dismiss();
           return;
         }
 
@@ -263,13 +265,13 @@ class PushNotificationManager {
 
     if (btnDismiss) {
       btnDismiss.addEventListener("click", () => {
-        this.dismiss(1);
+        this.dismiss();
       });
     }
 
     if (btnClose) {
       btnClose.addEventListener("click", () => {
-        this.dismiss(1);
+        this.dismiss();
       });
     }
   }
@@ -282,7 +284,7 @@ class PushNotificationManager {
     }
 
     try {
-      // Solicitar permissão apenas após o clique explícito do usuário
+     
       const permission = await Notification.requestPermission();
       console.log("[Push] Permission:", permission);
 
@@ -296,7 +298,7 @@ class PushNotificationManager {
         this.setupForegroundListener();
         this.setupServiceWorkerMessageListener();
 
-        // Obter e salvar o token
+        
         await this.syncToken();
 
         if (window.showAdminToast) {
@@ -306,15 +308,15 @@ class PushNotificationManager {
         }
       } else if (permission === "denied") {
         this.hideCard();
-        this.dismiss(1);
+        this.dismiss();
         console.warn("[Push] O usuário bloqueou as notificações.");
         if (window.showAdminToast) {
           window.showAdminToast("As notificações estão bloqueadas no navegador. Ative-as nas configurações do navegador para receber avisos do Papos.", "warning");
         }
       } else {
-        // Usuário dispensou a caixa do navegador sem responder
+        
         this.hideCard();
-        this.dismiss(1);
+        this.dismiss();
       }
     } catch (err) {
       console.error("[Push] Erro técnico ao solicitar permissão:", err?.message || err);
@@ -362,7 +364,7 @@ class PushNotificationManager {
   async saveTokenToBackendAndFirestore(token) {
     const { anonymousId, uid, nickname } = this.getIdentity();
 
-    // 1. Salvar no Firestore diretamente (client-side)
+    
     try {
       if (anonymousId) {
         const anonDocRef = doc(db, "anonymous_push", anonymousId);
@@ -390,7 +392,7 @@ class PushNotificationManager {
       console.warn("[Push] Aviso ao salvar no Firestore client-side:", fsErr?.message || fsErr);
     }
 
-    // 2. Notificar o backend via API POST
+    
     try {
       await fetch("/api/push/register", {
         method: "POST",
@@ -407,7 +409,7 @@ class PushNotificationManager {
       console.warn("[Push] Aviso ao registrar token via API:", apiErr?.message || apiErr);
     }
 
-    // 3. Notificar via WebSocket se estiver conectado
+    
     try {
       if (window.ChatEngine && window.ChatEngine.socket && window.ChatEngine.socket.readyState === WebSocket.OPEN) {
         window.ChatEngine.socket.send(JSON.stringify({
