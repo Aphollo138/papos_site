@@ -1,7 +1,3 @@
-/**
- * Papos — Sistema de Novidades (Página Inicial)
- * Exibição oficial de comunicados com expiração programada e controle de dispensa.
- */
 
 (function () {
   let currentActiveNews = null;
@@ -15,6 +11,72 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  }
+
+  function parseTimestampToMillis(val) {
+    if (!val && val !== 0) return 0;
+    if (typeof val === "number") {
+      if (val > 0 && val < 1e11) return val * 1000;
+      return val;
+    }
+    if (typeof val === "object" && val !== null) {
+      if (typeof val.toMillis === "function") {
+        try { return val.toMillis(); } catch (e) {}
+      }
+      if (typeof val.toDate === "function") {
+        try { return val.toDate().getTime(); } catch (e) {}
+      }
+      if (val instanceof Date) return val.getTime();
+      if (typeof val.seconds === "number") {
+        return val.seconds * 1000 + (val.nanoseconds ? Math.floor(val.nanoseconds / 1000000) : 0);
+      }
+      if (typeof val._seconds === "number") {
+        return val._seconds * 1000 + (val._nanoseconds ? Math.floor(val._nanoseconds / 1000000) : 0);
+      }
+    }
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (/^\d+$/.test(trimmed)) {
+        const num = Number(trimmed);
+        if (!isNaN(num) && num > 0) return num < 1e11 ? num * 1000 : num;
+      }
+      const parsed = Date.parse(trimmed);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 0;
+  }
+
+  function normalizeNews(item) {
+    if (!item || typeof item !== "object") return null;
+
+    const id = String(item.id || item._id || "").trim();
+    if (!id) return null;
+
+    const title = String(item.title || item.titulo || "").trim();
+    const content = String(item.content || item.mensagem || item.message || item.texto || item.body || "").trim();
+
+    if (!title && !content) return null;
+
+    const createdAt = parseTimestampToMillis(item.createdAt || item.criadoEm || item.date || item.timestamp) || Date.now();
+    const days = Math.max(1, parseInt(item.days || item.dias, 10) || 7);
+    
+    let expiresAt = parseTimestampToMillis(item.expiresAt || item.expiraEm || item.expires);
+    if (!expiresAt || expiresAt <= 0) {
+      expiresAt = createdAt + days * 24 * 60 * 60 * 1000;
+    }
+
+    const isExplicitlyInactive = item.active === false || item.ativa === false || item.status === "inactive" || item.status === "expired";
+
+    return {
+      ...item,
+      id,
+      title,
+      content,
+      days,
+      createdAt,
+      expiresAt,
+      isExplicitlyInactive
+    };
   }
 
   function getUserKey() {
@@ -33,14 +95,14 @@
   function isNewsDismissed(newsId) {
     if (!newsId) return true;
 
-    // Verificação de sessão (fechamento temporário)
+    // 1. Verificação de sessão (fechamento temporário)
     try {
       if (sessionStorage.getItem("papos_dismissed_session_" + newsId) === "true") {
         return true;
       }
     } catch (e) {}
 
-    // Verificação permanente ("Não mostrar novamente")
+    
     try {
       const userKey = getUserKey();
       const rawDismissed = localStorage.getItem("papos_dismissed_news_" + userKey);
@@ -52,7 +114,17 @@
       }
     } catch (e) {}
 
-    // Verificação no perfil do usuário logado se disponível
+    try {
+      const rawGlobal = localStorage.getItem("papos_dismissed_news_global");
+      if (rawGlobal) {
+        const globalList = JSON.parse(rawGlobal);
+        if (Array.isArray(globalList) && globalList.includes(newsId)) {
+          return true;
+        }
+      }
+    } catch (e) {}
+
+   
     try {
       if (window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function") {
         const user = window.FirebaseService.getCurrentUser();
@@ -82,7 +154,21 @@
           localStorage.setItem("papos_dismissed_news_" + userKey, JSON.stringify(list));
         }
 
-        // Se logado, persiste também no Firebase
+      
+        try {
+          const rawGlobal = localStorage.getItem("papos_dismissed_news_global");
+          let globalList = [];
+          if (rawGlobal) {
+            try { globalList = JSON.parse(rawGlobal); } catch (e) {}
+          }
+          if (!Array.isArray(globalList)) globalList = [];
+          if (!globalList.includes(newsId)) {
+            globalList.push(newsId);
+            localStorage.setItem("papos_dismissed_news_global", JSON.stringify(globalList));
+          }
+        } catch (e) {}
+
+       
         if (window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function") {
           const user = window.FirebaseService.getCurrentUser();
           if (user && user.uid && typeof window.FirebaseService.dismissNewsForUser === "function") {
@@ -93,7 +179,7 @@
         console.warn("Erro ao salvar dispensa permanente da novidade:", e);
       }
     } else {
-      // Dispensa apenas nesta sessão
+      
       try {
         sessionStorage.setItem("papos_dismissed_session_" + newsId, "true");
       } catch (e) {}
@@ -103,6 +189,7 @@
   }
 
   function hideNewsCard() {
+    currentActiveNews = null;
     const container = document.getElementById("papos-home-news-container");
     if (!container) return;
     const card = container.querySelector(".papos-home-news-card");
@@ -187,7 +274,7 @@
 
     container.classList.remove("d-none");
 
-    // Eventos de fechamento
+    
     const closeBtns = container.querySelectorAll(".btn-papos-news-close");
     const ackBtn = container.querySelector("#btn-papos-news-ack");
     const checkbox = container.querySelector("#papos-news-dont-show-checkbox");
@@ -208,26 +295,37 @@
     }
 
     const now = Date.now();
-    // Filtra apenas ativas (expiração futura)
-    const activeList = list.filter((item) => (item.expiresAt || 0) > now);
+
+    
+    const normalizedList = list
+      .map(normalizeNews)
+      .filter(Boolean);
+
+    
+    const activeList = normalizedList.filter((item) => {
+      if (item.isExplicitlyInactive) return false;
+      return (item.expiresAt || 0) > now;
+    });
 
     if (activeList.length === 0) {
       hideNewsCard();
       return;
     }
 
-    // Ordena da mais recente para a mais antiga
+    
     activeList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     const latestNews = activeList[0];
 
-    // Verifica se o usuário dispensou essa novidade
+    
     if (isNewsDismissed(latestNews.id)) {
       hideNewsCard();
       return;
     }
 
-    // Se já está exibindo essa mesma novidade e nada mudou, apenas retorna
+   
+    const existingCard = document.getElementById("papos-active-news-card");
     if (
+      existingCard &&
       currentActiveNews &&
       currentActiveNews.id === latestNews.id &&
       currentActiveNews.title === latestNews.title &&
@@ -245,16 +343,49 @@
     if (window.FirebaseService && typeof window.FirebaseService.subscribeToNews === "function") {
       isSubscribed = true;
       window.FirebaseService.subscribeToNews(handleNewsUpdate);
+
+      
+      if (typeof window.FirebaseService.getActiveNews === "function") {
+        window.FirebaseService.getActiveNews().then((activeList) => {
+          if (Array.isArray(activeList) && activeList.length > 0) {
+            handleNewsUpdate(activeList);
+          }
+        }).catch(() => {});
+      }
     } else {
-      // Tenta novamente caso o script Firebase ainda esteja carregando
-      setTimeout(startNewsWatcher, 300);
+     
+      setTimeout(startNewsWatcher, 200);
     }
   }
 
-  // Inicialização quando DOM estiver pronto
+  
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", startNewsWatcher);
   } else {
     startNewsWatcher();
   }
+
+  
+  window.addEventListener("focus", () => {
+    if (window.FirebaseService && typeof window.FirebaseService.getActiveNews === "function") {
+      window.FirebaseService.getActiveNews().then((activeList) => {
+        if (Array.isArray(activeList)) {
+          handleNewsUpdate(activeList);
+        }
+      }).catch(() => {});
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      if (window.FirebaseService && typeof window.FirebaseService.getActiveNews === "function") {
+        window.FirebaseService.getActiveNews().then((activeList) => {
+          if (Array.isArray(activeList)) {
+            handleNewsUpdate(activeList);
+          }
+        }).catch(() => {});
+      }
+    }
+  });
 })();
+

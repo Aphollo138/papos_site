@@ -907,8 +907,9 @@ const FirebaseService = {
 
     const now = Date.now();
     let expiresAt;
-    if (newsData.createdAt) {
-      expiresAt = Number(newsData.createdAt) + days * 24 * 60 * 60 * 1000;
+    const createdMillis = parseTimestampToMillis(newsData.createdAt);
+    if (createdMillis && createdMillis > 0) {
+      expiresAt = createdMillis + days * 24 * 60 * 60 * 1000;
     } else {
       expiresAt = now + days * 24 * 60 * 60 * 1000;
     }
@@ -951,18 +952,17 @@ const FirebaseService = {
   },
 
   async getActiveNews() {
+    const now = Date.now();
     if (cachedNews !== null) {
-      const now = Date.now();
-      return cachedNews.filter(n => (n.expiresAt || 0) > now);
+      return cachedNews.filter(n => (parseTimestampToMillis(n.expiresAt) || 0) > now);
     }
     try {
       const snap = await getDocs(collection(db, "news"));
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      list.sort((a, b) => (parseTimestampToMillis(b.createdAt) || 0) - (parseTimestampToMillis(a.createdAt) || 0));
       cachedNews = list;
-      const now = Date.now();
-      return list.filter(n => (n.expiresAt || 0) > now);
+      return list.filter(n => (parseTimestampToMillis(n.expiresAt) || 0) > now);
     } catch (e) {
       console.error("Erro ao buscar novidades ativas:", e);
       return [];
@@ -1178,18 +1178,70 @@ let cachedNews = null;
 const newsCallbacks = new Set();
 let isNewsListening = false;
 
+function parseTimestampToMillis(val) {
+  if (!val && val !== 0) return 0;
+  if (typeof val === "number") {
+    if (val > 0 && val < 1e11) return val * 1000;
+    return val;
+  }
+  if (typeof val === "object" && val !== null) {
+    if (typeof val.toMillis === "function") {
+      try { return val.toMillis(); } catch (e) {}
+    }
+    if (typeof val.toDate === "function") {
+      try { return val.toDate().getTime(); } catch (e) {}
+    }
+    if (val instanceof Date) return val.getTime();
+    if (typeof val.seconds === "number") {
+      return val.seconds * 1000 + (val.nanoseconds ? Math.floor(val.nanoseconds / 1000000) : 0);
+    }
+    if (typeof val._seconds === "number") {
+      return val._seconds * 1000 + (val._nanoseconds ? Math.floor(val._nanoseconds / 1000000) : 0);
+    }
+  }
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const num = Number(trimmed);
+      if (!isNaN(num) && num > 0) return num < 1e11 ? num * 1000 : num;
+    }
+    const parsed = Date.parse(trimmed);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return 0;
+}
+
 function initNewsListener() {
   if (isNewsListening) return;
   isNewsListening = true;
 
   try {
     const newsCol = collection(db, "news");
-    const unsub = onSnapshot(newsCol, (snapshot) => {
+
+    // Consulta imediata para carregamento instantâneo no Home
+    getDocs(newsCol).then((snapshot) => {
+      if (snapshot && !snapshot.empty) {
+        const list = [];
+        snapshot.forEach((docSnap) => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        list.sort((a, b) => (parseTimestampToMillis(b.createdAt) || 0) - (parseTimestampToMillis(a.createdAt) || 0));
+        cachedNews = list;
+
+        newsCallbacks.forEach((cb) => {
+          try { cb(cachedNews); } catch (e) {}
+        });
+      }
+    }).catch((err) => {
+      console.warn("Aviso ao carregar novidades iniciais:", err);
+    });
+
+    onSnapshot(newsCol, (snapshot) => {
       const list = [];
       snapshot.forEach((docSnap) => {
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
-      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      list.sort((a, b) => (parseTimestampToMillis(b.createdAt) || 0) - (parseTimestampToMillis(a.createdAt) || 0));
       cachedNews = list;
 
       newsCallbacks.forEach((cb) => {
@@ -1197,10 +1249,11 @@ function initNewsListener() {
       });
     }, (err) => {
       console.error("Erro no listener de novidades:", err);
+      isNewsListening = false;
     });
-    registerFirestoreUnsub(unsub);
   } catch (err) {
     console.error("Erro ao inicializar listener de novidades:", err);
+    isNewsListening = false;
   }
 }
 

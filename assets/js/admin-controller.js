@@ -141,13 +141,46 @@
     }
   }
 
+  function parseTimestampToMillis(val) {
+    if (!val && val !== 0) return 0;
+    if (typeof val === "number") {
+      if (val > 0 && val < 1e11) return val * 1000;
+      return val;
+    }
+    if (typeof val === "object" && val !== null) {
+      if (typeof val.toMillis === "function") {
+        try { return val.toMillis(); } catch (e) {}
+      }
+      if (typeof val.toDate === "function") {
+        try { return val.toDate().getTime(); } catch (e) {}
+      }
+      if (val instanceof Date) return val.getTime();
+      if (typeof val.seconds === "number") {
+        return val.seconds * 1000 + (val.nanoseconds ? Math.floor(val.nanoseconds / 1000000) : 0);
+      }
+      if (typeof val._seconds === "number") {
+        return val._seconds * 1000 + (val._nanoseconds ? Math.floor(val._nanoseconds / 1000000) : 0);
+      }
+    }
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (/^\d+$/.test(trimmed)) {
+        const num = Number(trimmed);
+        if (!isNaN(num) && num > 0) return num < 1e11 ? num * 1000 : num;
+      }
+      const parsed = Date.parse(trimmed);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 0;
+  }
+
   function renderNewsTable() {
     const tbody = document.getElementById("admin-news-table-body");
     const badge = document.getElementById("admin-news-count-badge");
     if (!tbody) return;
 
     const now = Date.now();
-    const activeCount = newsList.filter((n) => (n.expiresAt || 0) > now).length;
+    const activeCount = newsList.filter((n) => (parseTimestampToMillis(n.expiresAt) || 0) > now).length;
 
     if (badge) {
       badge.textContent = `${activeCount} ${activeCount === 1 ? "ativa" : "ativas"} (${newsList.length} total)`;
@@ -165,26 +198,28 @@
     }
 
     newsList.forEach((item) => {
-      const isExpired = (item.expiresAt || 0) <= now;
+      const expMillis = parseTimestampToMillis(item.expiresAt);
+      const isExpired = (expMillis || 0) <= now;
       const statusBadge = !isExpired
         ? `<span class="badge bg-success px-2.5 py-1 fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Ativa</span>`
         : `<span class="badge bg-secondary px-2.5 py-1 fw-semibold"><i class="bi bi-clock-history me-1"></i>Expirada</span>`;
 
+      const createdMillis = parseTimestampToMillis(item.createdAt);
       let createdDate = "N/A";
-      if (item.createdAt) {
+      if (createdMillis) {
         try {
-          createdDate = new Date(item.createdAt).toLocaleString("pt-BR");
+          createdDate = new Date(createdMillis).toLocaleString("pt-BR");
         } catch (e) {
-          createdDate = String(item.createdAt);
+          createdDate = String(createdMillis);
         }
       }
 
       let expiresDate = "N/A";
-      if (item.expiresAt) {
+      if (expMillis) {
         try {
-          expiresDate = new Date(item.expiresAt).toLocaleString("pt-BR");
+          expiresDate = new Date(expMillis).toLocaleString("pt-BR");
         } catch (e) {
-          expiresDate = String(item.expiresAt);
+          expiresDate = String(expMillis);
         }
       }
 
