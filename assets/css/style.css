@@ -3467,8 +3467,7 @@ html.ios-pwa .modal-body {
   touch-action: pan-y !important;
 }
 
-/* 8. Barra de Pesquisa e Banners de Notificação */
-html.ios-pwa #push-notification-card,
+/* 8. Barra de Pesquisa */
 html.ios-pwa #chat-search-bar-wrapper {
   padding-left: calc(12px + env(safe-area-inset-left, 0px)) !important;
   padding-right: calc(12px + env(safe-area-inset-right, 0px)) !important;
@@ -3538,6 +3537,315 @@ html.ios-pwa .hero-section {
     }
   }
 }
+
+/* ==========================================================================
+   Push Notification Fullscreen Experience (100% Viewport, 40s Progress Bar)
+   ========================================================================== */
+#push-notification-card.push-notification-card {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  width: 100% !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  z-index: 1080 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: #070b12 !important;
+  background: radial-gradient(circle at 50% 18%, rgba(0, 230, 118, 0.09) 0%, rgba(11, 15, 25, 0.98) 60%, #05080f 100%) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-sizing: border-box !important;
+  animation: pushInviteFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+#push-notification-card.d-none {
+  display: none !important;
+}
+
+@keyframes pushInviteFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.push-invite-scrollable {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding-top: calc(20px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  padding-left: calc(18px + env(safe-area-inset-left, 0px));
+  padding-right: calc(18px + env(safe-area-inset-right, 0px));
+}
+
+.push-invite-inner {
+  margin: auto;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 8px 24px 8px;
+  box-sizing: border-box;
+}
+
+.push-invite-header-bar {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.push-invite-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.25rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.push-invite-close-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.push-invite-brand-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.push-invite-brand-icon {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00e676;
+}
+
+.push-invite-brand-text {
+  font-family: var(--font-display, inherit);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.push-invite-icon-orb {
+  position: relative;
+  margin-bottom: 22px;
+}
+
+.push-invite-bell-bg {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: rgba(0, 230, 118, 0.1);
+  border: 1.5px solid rgba(0, 230, 118, 0.32);
+  box-shadow: 0 0 35px rgba(0, 230, 118, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.push-invite-bell-icon {
+  font-size: 2.25rem;
+  color: #00e676;
+  filter: drop-shadow(0 2px 8px rgba(0, 230, 118, 0.45));
+  animation: bellSubtleSway 3.2s ease-in-out infinite;
+}
+
+@keyframes bellSubtleSway {
+  0%, 100% { transform: rotate(0deg); }
+  8% { transform: rotate(10deg); }
+  16% { transform: rotate(-8deg); }
+  24% { transform: rotate(6deg); }
+  32% { transform: rotate(-4deg); }
+  40% { transform: rotate(0deg); }
+}
+
+.push-invite-bell-badge {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 12px;
+  height: 12px;
+  background-color: #00e676;
+  border: 2px solid #070b12;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #00e676;
+}
+
+.push-invite-heading {
+  font-family: var(--font-display, inherit);
+  font-size: 1.62rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #ffffff;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+
+.push-invite-description {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #94a3b8;
+  margin-bottom: 22px;
+  max-width: 390px;
+}
+
+.push-invite-benefits {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 26px;
+  text-align: left;
+}
+
+.push-invite-benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  font-size: 0.86rem;
+  color: #e2e8f0;
+}
+
+.push-invite-benefit-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 230, 118, 0.15);
+  color: #00e676;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.push-invite-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.push-invite-btn-primary {
+  width: 100%;
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #041209;
+  background: #00e676;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 230, 118, 0.35);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.push-invite-btn-primary:hover {
+  background: #00ff84;
+  box-shadow: 0 6px 20px rgba(0, 230, 118, 0.5);
+  transform: translateY(-1px);
+}
+
+.push-invite-btn-primary:active {
+  transform: translateY(1px);
+}
+
+.push-invite-btn-secondary {
+  width: 100%;
+  padding: 12px 24px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.push-invite-btn-secondary:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.push-invite-footnote {
+  font-size: 0.74rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.4;
+}
+
+.push-invite-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.push-invite-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #00e676;
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.8), 0 0 4px #00e676;
+  pointer-events: none;
+}
+
 
 
 

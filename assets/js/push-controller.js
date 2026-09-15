@@ -1,7 +1,4 @@
-/**
- * Papos Push Notification Controller
- * Integrado com Firebase Cloud Messaging (FCM) e Service Worker
- */
+
 import { app, auth, db } from "/firebase/firebase.js";
 import { doc, setDoc, arrayUnion } from "firebase/firestore";
 import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "firebase/messaging";
@@ -17,6 +14,7 @@ class PushNotificationManager {
     this.isIOS = false;
     this.isStandalone = false;
     this.dismissedThisSession = false;
+    this.progressTimer = null;
   }
 
   async init() {
@@ -40,7 +38,6 @@ class PushNotificationManager {
     this.bindCardEvents();
 
     
-   
     if (this.isIOS && !this.isStandalone) {
       if (!this.isDismissed()) {
         setTimeout(() => {
@@ -52,7 +49,7 @@ class PushNotificationManager {
       return;
     }
 
-   
+    
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
       console.log("[Push] Navegador não suporta Push Notifications.");
       return;
@@ -79,9 +76,9 @@ class PushNotificationManager {
       
       this.setupServiceWorkerMessageListener();
 
-      
+     
       if (Notification.permission === "granted") {
-        
+       
         await this.syncToken();
       } else if (Notification.permission === "default") {
        
@@ -93,7 +90,7 @@ class PushNotificationManager {
           }, 1500);
         }
       } else if (Notification.permission === "denied") {
-        
+       
         console.log("[Push] Notificações foram bloqueadas pelo usuário nas configurações do navegador.");
       }
 
@@ -141,13 +138,13 @@ class PushNotificationManager {
         const title = payload.notification?.title || payload.data?.title || "Papos";
         const body = payload.notification?.body || payload.data?.body || "Nova mensagem na sala.";
 
-        
+        // Se o usuário está com a aba ativa e na conversa com o remetente, evitar toast redundante
         const privateNick = payload.data?.privateNick;
         if (privateNick && window.activePrivateRecipient && window.activePrivateRecipient.toLowerCase() === privateNick.toLowerCase()) {
           return;
         }
 
-        
+       
         if (window.showAdminToast) {
           window.showAdminToast(`${title}: ${body}`, "info");
         } else if (window.appendSystemMessage) {
@@ -193,12 +190,43 @@ class PushNotificationManager {
     return Boolean(this.dismissedThisSession);
   }
 
+  startReadingProgress(durationMs = 40000) {
+    this.stopReadingProgress();
+
+    const progressBar = document.getElementById("push-card-progress-bar");
+    if (progressBar) {
+      progressBar.style.transition = "none";
+      progressBar.style.width = "0%";
+      void progressBar.offsetWidth; // Forçar reflow para reiniciar do zero
+      progressBar.style.transition = `width ${durationMs}ms linear`;
+      progressBar.style.width = "100%";
+    }
+
+    this.progressTimer = setTimeout(() => {
+      console.log("[Push] Período de 40s concluído, fechando convite.");
+      this.dismiss();
+    }, durationMs);
+  }
+
+  stopReadingProgress() {
+    if (this.progressTimer) {
+      clearTimeout(this.progressTimer);
+      this.progressTimer = null;
+    }
+    const progressBar = document.getElementById("push-card-progress-bar");
+    if (progressBar) {
+      progressBar.style.transition = "none";
+      progressBar.style.width = "0%";
+    }
+  }
+
   showCard() {
     if (Notification.permission !== "default") return;
     const card = document.getElementById("push-notification-card");
     if (card) {
       card.classList.remove("d-none");
-      console.log("[Push] Banner exibido");
+      console.log("[Push] Tela de convite 100% exibida");
+      this.startReadingProgress(40000);
     }
   }
 
@@ -208,12 +236,29 @@ class PushNotificationManager {
     const descEl = document.getElementById("push-card-desc");
     const btnEnable = document.getElementById("btn-push-card-enable");
     const btnDismiss = document.getElementById("btn-push-card-dismiss");
+    const benefitsEl = card ? card.querySelector(".push-invite-benefits") : null;
 
     if (card) {
-      if (titleEl) titleEl.textContent = "🔔 Notificações no iPhone";
-      if (descEl) descEl.textContent = "Para receber notificações no iPhone, adicione o Papos à Tela de Início e abra o Papos pelo ícone instalado.";
+      if (titleEl) titleEl.textContent = "Notificações no iPhone";
+      if (descEl) descEl.textContent = "Para receber notificações no iPhone, adicione o Papos à Tela de Início e abra o app pelo ícone instalado.";
+      if (benefitsEl) {
+        benefitsEl.innerHTML = `
+          <div class="push-invite-benefit-item">
+            <div class="push-invite-benefit-check"><i class="bi bi-box-arrow-up" aria-hidden="true"></i></div>
+            <span>Toque no botão Compartilhar no Safari</span>
+          </div>
+          <div class="push-invite-benefit-item">
+            <div class="push-invite-benefit-check"><i class="bi bi-plus-square" aria-hidden="true"></i></div>
+            <span>Selecione "Adicionar à Tela de Início"</span>
+          </div>
+          <div class="push-invite-benefit-item">
+            <div class="push-invite-benefit-check"><i class="bi bi-app-indicator" aria-hidden="true"></i></div>
+            <span>Abra o Papos pelo ícone na tela inicial</span>
+          </div>
+        `;
+      }
       if (btnEnable) {
-        btnEnable.textContent = "Entendi";
+        btnEnable.innerHTML = `Entendi`;
         btnEnable.onclick = () => {
           this.dismiss();
         };
@@ -222,11 +267,13 @@ class PushNotificationManager {
         btnDismiss.style.display = "none";
       }
       card.classList.remove("d-none");
-      console.log("[Push] Banner exibido");
+      console.log("[Push] Tela de orientação iOS exibida");
+      this.startReadingProgress(40000);
     }
   }
 
   hideCard() {
+    this.stopReadingProgress();
     const card = document.getElementById("push-notification-card");
     if (card) {
       card.classList.add("d-none");
@@ -248,18 +295,19 @@ class PushNotificationManager {
 
     if (btnEnable) {
       btnEnable.addEventListener("click", async () => {
-       
+        
         if (this.isIOS && !this.isStandalone) {
           this.dismiss();
           return;
         }
 
         console.log("[Push] Usuário clicou para ativar");
+        this.stopReadingProgress();
         btnEnable.disabled = true;
-        btnEnable.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span> Ativando...`;
+        btnEnable.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> Ativando...`;
         await this.requestPermissionAndSubscribe();
         btnEnable.disabled = false;
-        btnEnable.textContent = "Quero ser avisado";
+        btnEnable.innerHTML = `<i class="bi bi-bell me-2" aria-hidden="true"></i>Ativar notificações`;
       });
     }
 
@@ -284,7 +332,7 @@ class PushNotificationManager {
     }
 
     try {
-     
+      
       const permission = await Notification.requestPermission();
       console.log("[Push] Permission:", permission);
 
@@ -292,7 +340,7 @@ class PushNotificationManager {
         this.hideCard();
         localStorage.setItem("papos_push_enabled", "true");
 
-        // Inicializar SW e Messaging
+        
         await this.initServiceWorker();
         this.initMessaging();
         this.setupForegroundListener();
@@ -409,7 +457,7 @@ class PushNotificationManager {
       console.warn("[Push] Aviso ao registrar token via API:", apiErr?.message || apiErr);
     }
 
-    
+    // 3. Notificar via WebSocket se estiver conectado
     try {
       if (window.ChatEngine && window.ChatEngine.socket && window.ChatEngine.socket.readyState === WebSocket.OPEN) {
         window.ChatEngine.socket.send(JSON.stringify({

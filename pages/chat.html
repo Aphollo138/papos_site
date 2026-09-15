@@ -184,6 +184,92 @@
   </head>
   <body class="chat-page">
 
+    <!-- Modal / Tela Completa de Ativação de Notificações Push -->
+    <div id="push-notification-card" class="push-notification-card d-none" role="dialog" aria-modal="true" aria-labelledby="push-card-title">
+      <!-- Conteúdo com Scroll Vertical seguro e Safe Area -->
+      <div class="push-invite-scrollable">
+        <div class="push-invite-inner">
+          
+          <!-- Botão Fechar discreto no topo -->
+          <div class="push-invite-header-bar">
+            <button type="button" class="push-invite-close-btn" id="btn-push-card-close" aria-label="Fechar convite" title="Fechar">
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <!-- Logo Oficial do Papos -->
+          <div class="push-invite-brand-wrapper">
+            <div class="push-invite-brand-icon">
+              <svg class="papo-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 38px; height: 38px;" aria-hidden="true">
+                <mask id="logo-mask-push-invite">
+                  <rect x="0" y="0" width="100" height="100" fill="white" />
+                  <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+                </mask>
+                <g mask="url(#logo-mask-push-invite)">
+                  <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="currentColor" />
+                  <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="currentColor" />
+                </g>
+                <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="currentColor" fill="none" />
+                <circle cx="78" cy="26" r="6" fill="currentColor" />
+              </svg>
+            </div>
+            <span class="push-invite-brand-text">Papos</span>
+          </div>
+
+          <!-- Ícone Ilustrativo de Notificação com Glow Suave -->
+          <div class="push-invite-icon-orb">
+            <div class="push-invite-bell-bg">
+              <i class="bi bi-bell-fill push-invite-bell-icon" id="push-card-icon" aria-hidden="true"></i>
+              <span class="push-invite-bell-badge" aria-hidden="true"></span>
+            </div>
+          </div>
+
+          <!-- Título e Mensagem Curta e Convincente -->
+          <h2 class="push-invite-heading" id="push-card-title">Não perca nenhuma mensagem</h2>
+          <p class="push-invite-description" id="push-card-desc">
+            Ative as notificações para ser avisado quando alguém enviar uma mensagem para você, mesmo quando você estiver fora do Papos.
+          </p>
+
+          <!-- Benefícios Reais e Transparentes -->
+          <div class="push-invite-benefits">
+            <div class="push-invite-benefit-item">
+              <div class="push-invite-benefit-check"><i class="bi bi-check-lg" aria-hidden="true"></i></div>
+              <span>Avisos de novas mensagens em tempo real</span>
+            </div>
+            <div class="push-invite-benefit-item">
+              <div class="push-invite-benefit-check"><i class="bi bi-check-lg" aria-hidden="true"></i></div>
+              <span>Saiba na hora quando te responderem no chat</span>
+            </div>
+            <div class="push-invite-benefit-item">
+              <div class="push-invite-benefit-check"><i class="bi bi-check-lg" aria-hidden="true"></i></div>
+              <span>Sem spam: você só é avisado do que importa</span>
+            </div>
+          </div>
+
+          <!-- Botões de Ação -->
+          <div class="push-invite-actions" id="push-card-actions">
+            <button type="button" class="push-invite-btn-primary" id="btn-push-card-enable">
+              <i class="bi bi-bell me-2" aria-hidden="true"></i>Ativar notificações
+            </button>
+            <button type="button" class="push-invite-btn-secondary" id="btn-push-card-dismiss">
+              Agora não
+            </button>
+          </div>
+
+          <!-- Nota de Privacidade e Autonomia do Usuário -->
+          <div class="push-invite-footnote">
+            <i class="bi bi-shield-check me-1" aria-hidden="true"></i> Você pode alterar ou desativar as permissões a qualquer momento.
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Indicador Visual de Leitura Verde na Base (40 segundos) -->
+      <div class="push-invite-progress-track" aria-hidden="true">
+        <div id="push-card-progress-bar" class="push-invite-progress-bar"></div>
+      </div>
+    </div>
+
     <main class="container-fluid p-0">
       <section class="chat-wrapper">
         
@@ -318,30 +404,6 @@
               <span class="input-group-text bg-transparent border-secondary text-secondary"><i class="bi bi-funnel"></i></span>
               <input type="text" class="form-control bg-transparent text-white border-secondary" id="chat-search-messages-input" placeholder="Filtrar mensagens na tela atual...">
               <button class="btn btn-sm btn-secondary-custom px-2" type="button" id="btn-close-search" title="Fechar pesquisa"><i class="bi bi-x-lg"></i></button>
-            </div>
-          </div>
-
-          <!-- Banner / Card Discreto de Notificações Push -->
-          <div id="push-notification-card" class="push-notification-card d-none px-3 py-2 border-bottom border-secondary" style="background: linear-gradient(135deg, rgba(24, 29, 39, 0.98), rgba(15, 23, 42, 0.98)); z-index: 25;">
-            <div class="d-flex align-items-center justify-content-between gap-3 p-2.5 rounded-3 border border-secondary flex-wrap" style="background-color: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1) !important;">
-              <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
-                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.3);">
-                  <i class="bi bi-bell-fill text-warning fs-6"></i>
-                </div>
-                <div class="min-w-0">
-                  <div class="fw-bold text-white" style="font-size: 0.85rem;" id="push-card-title">🔔 Não perca novas mensagens</div>
-                  <div class="text-secondary small" style="font-size: 0.76rem;" id="push-card-desc">Ative as notificações para ser avisado quando te responderem!</div>
-                </div>
-              </div>
-              <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto" id="push-card-actions">
-                <button type="button" class="btn btn-sm btn-success fw-semibold px-2.5 py-1 text-nowrap" id="btn-push-card-enable" style="font-size: 0.8rem; border-radius: var(--radius-sm);">
-                  Quero ser avisado
-                </button>
-                <button type="button" class="btn btn-sm btn-secondary-custom px-2.5 py-1 text-nowrap" id="btn-push-card-dismiss" style="font-size: 0.8rem; border-radius: var(--radius-sm);">
-                  Agora não
-                </button>
-                <button type="button" class="btn-close btn-close-white ms-1" id="btn-push-card-close" aria-label="Fechar"></button>
-              </div>
             </div>
           </div>
 
