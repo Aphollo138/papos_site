@@ -675,8 +675,12 @@ async function startServer() {
 
   // Servir arquivos estáticos de uploads se salvos localmente
   const uploadsPublicDir = path.join(process.cwd(), "public", "uploads");
+  const audioUploadsDir = path.join(uploadsPublicDir, "audio");
   if (!fs.existsSync(uploadsPublicDir)) {
     fs.mkdirSync(uploadsPublicDir, { recursive: true });
+  }
+  if (!fs.existsSync(audioUploadsDir)) {
+    fs.mkdirSync(audioUploadsDir, { recursive: true });
   }
   app.use("/uploads", express.static(uploadsPublicDir));
 
@@ -1115,6 +1119,64 @@ async function startServer() {
 
   app.post("/api/profile/upload-photo", upload.single("image"), handleProfilePhotoUpload);
   app.post("/api/profile/upload-image", upload.single("image"), handleProfilePhotoUpload);
+
+  app.post("/api/audio/upload", upload.single("audio"), async (req, res) => {
+    try {
+      let fileBuffer: Buffer | null = null;
+      let ext = "webm";
+
+      if (req.file) {
+        fileBuffer = req.file.buffer;
+        const mime = req.file.mimetype || "";
+        if (mime.includes("ogg")) ext = "ogg";
+        else if (mime.includes("mp4") || mime.includes("aac")) ext = "mp4";
+        else if (mime.includes("wav")) ext = "wav";
+        else if (mime.includes("webm")) ext = "webm";
+      } else if (req.body && (req.body.audio || req.body.audioBase64)) {
+        const audioStr = (req.body.audio || req.body.audioBase64) as string;
+        const matches = audioStr.match(/^data:audio\/([A-Za-z0-9-+]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          ext = matches[1].includes("ogg") ? "ogg" : (matches[1].includes("mp4") ? "mp4" : "webm");
+          fileBuffer = Buffer.from(matches[2], "base64");
+        } else {
+          fileBuffer = Buffer.from(audioStr, "base64");
+        }
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        res.status(400).json({ success: false, error: "Nenhum áudio foi enviado." });
+        return;
+      }
+
+      // Limite máximo de segurança: 25MB
+      if (fileBuffer.length > 25 * 1024 * 1024) {
+        res.status(400).json({ success: false, error: "O áudio excede o limite máximo permitido." });
+        return;
+      }
+
+      const audioDir = path.join(process.cwd(), "public", "uploads", "audio");
+      if (!fs.existsSync(audioDir)) {
+        fs.mkdirSync(audioDir, { recursive: true });
+      }
+
+      const filename = `audio-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${ext}`;
+      const filepath = path.join(audioDir, filename);
+      await fs.promises.writeFile(filepath, fileBuffer);
+
+      const audioUrl = `/uploads/audio/${filename}`;
+      const duration = Number(req.body.duration) || 0;
+
+      res.json({
+        success: true,
+        url: audioUrl,
+        filename,
+        duration
+      });
+    } catch (err: any) {
+      console.error("[AudioUpload] Erro ao salvar arquivo de áudio:", err);
+      res.status(500).json({ success: false, error: "Erro interno no servidor ao processar o áudio." });
+    }
+  });
 
   app.post("/api/profile/remove-photo", async (req, res) => {
     try {
@@ -2636,14 +2698,15 @@ async function startServer() {
             }
             session.lastMessageTime.push(now);
 
-            const rawText = payload.text || "";
+            const isAudioMsg = payload.type === "audio" || payload.messageType === "audio" || Boolean(payload.audioUrl);
+            const rawText = payload.text || (isAudioMsg ? "🎤 Mensagem de áudio" : "");
             if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
             }
 
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
-            if (!text) return;
+            if (!text && !isAudioMsg) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
             const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
@@ -2656,6 +2719,10 @@ async function startServer() {
               id: msgId,
               sender: session.nickname,
               text,
+              type: isAudioMsg ? "audio" : "text",
+              messageType: isAudioMsg ? "audio" : "text",
+              audioUrl: payload.audioUrl || undefined,
+              audioDuration: typeof payload.audioDuration === "number" ? payload.audioDuration : (Number(payload.audioDuration) || undefined),
               time: getCurrentTime(),
               timestamp: Date.now(),
               isSystem: false,
@@ -2691,9 +2758,10 @@ async function startServer() {
 
             if (!session.nickname) return;
             const toNick = payload.to?.trim();
-            const rawText = payload.text || "";
+            const isAudioPm = payload.type === "audio" || payload.messageType === "audio" || Boolean(payload.audioUrl);
+            const rawText = payload.text || payload.content || (isAudioPm ? "🎤 Mensagem de áudio" : "");
 
-            if (!toNick || !rawText) return;
+            if (!toNick || (!rawText && !isAudioPm)) return;
 
             if (containsLink(rawText)) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
@@ -2701,7 +2769,7 @@ async function startServer() {
             }
 
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
-            if (!text) return;
+            if (!text && !isAudioPm) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 
@@ -2730,6 +2798,9 @@ async function startServer() {
                 recipientId: toNick,
                 recipientName: toNick,
                 content: text,
+                messageType: isAudioPm ? "audio" : "text",
+                audioUrl: payload.audioUrl || undefined,
+                audioDuration: typeof payload.audioDuration === "number" ? payload.audioDuration : (Number(payload.audioDuration) || undefined),
                 timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
@@ -2764,6 +2835,9 @@ async function startServer() {
                   recipientId: toNick,
                   recipientName: toNick,
                   content: text,
+                  messageType: isAudioPm ? "audio" : "text",
+                  audioUrl: payload.audioUrl || undefined,
+                  audioDuration: typeof payload.audioDuration === "number" ? payload.audioDuration : (Number(payload.audioDuration) || undefined),
                   timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,
@@ -2798,12 +2872,19 @@ async function startServer() {
 
                   let botReplies = [];
                   if (toNick.toLowerCase() === "bot_papos") {
-                    botReplies = [
-                      "Olá! Como assistente do Papos, posso te ajudar. Lembra que você pode ver todas as salas públicas clicando em **Salas** no menu superior!",
-                      "Quer mudar a cor da sua mensagem? Basta clicar no ícone da **Paleta de Cores** no campo de envio (no celular, clique no ícone de três pontos para abrir as opções!).",
-                      "Dica: Se quiser iniciar um chat privado com qualquer outra pessoa, basta clicar sobre o nome dela na lista de usuários online à esquerda!",
-                      "Sinta-se à vontade para me perguntar qualquer dúvida sobre o funcionamento do chat! Estou sempre por aqui de olho para garantir a melhor experiência."
-                    ];
+                    if (isAudioPm) {
+                      botReplies = [
+                        "Recebi seu áudio com sucesso! 🎧 Sou um assistente virtual do Papos. Você pode gravar e enviar áudios livremente tanto nas salas públicas quanto em conversas privadas com qualquer usuário!",
+                        "Áudio recebido! Ficou ótimo! 🎙️ Lembre-se que você pode pausar, ouvir e acelerar áudios em 1x, 1.5x e 2x diretamente no player do chat."
+                      ];
+                    } else {
+                      botReplies = [
+                        "Olá! Como assistente do Papos, posso te ajudar. Lembra que você pode ver todas as salas públicas clicando em **Salas** no menu superior!",
+                        "Quer mudar a cor da sua mensagem? Basta clicar no ícone da **Paleta de Cores** no campo de envio (no celular, clique no ícone de três pontos para abrir as opções!).",
+                        "Dica: Se quiser iniciar um chat privado com qualquer outra pessoa, basta clicar sobre o nome dela na lista de usuários online à esquerda!",
+                        "Sinta-se à vontade para me perguntar qualquer dúvida sobre o funcionamento do chat! Estou sempre por aqui de olho para garantir a melhor experiência."
+                      ];
+                    }
                   } else {
                     botReplies = [
                       "Opa! Tudo bem? Estou meio ocupado(a) lendo as novidades nos canais públicos agora, mas depois a gente se fala!",

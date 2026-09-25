@@ -184,6 +184,9 @@
   </head>
   <body class="chat-page">
 
+    <!-- Contêiner de Notificações Internas para Mensagens Privadas -->
+    <div id="in-app-private-notification-container" class="in-app-private-notif-container" aria-live="polite" aria-atomic="true"></div>
+
     <!-- Modal / Tela Completa de Ativação de Notificações Push -->
     <div id="push-notification-card" class="push-notification-card d-none" role="dialog" aria-modal="true" aria-labelledby="push-card-title">
       <!-- Conteúdo com Scroll Vertical seguro e Safe Area -->
@@ -432,6 +435,36 @@
               </button>
             </div>
 
+            <!-- Barra de Gravação de Áudio (Modo Gravação) -->
+            <div id="audio-recording-bar" class="d-none align-items-center justify-content-between p-2 rounded-2 audio-recording-bar" style="background-color: var(--surface); border: 1px solid var(--border); min-height: 42px; width: 100%;">
+              <div class="d-flex align-items-center gap-2 flex-grow-1 overflow-hidden me-2">
+                <span class="recording-pulse-dot" id="recording-status-dot"></span>
+                <span class="small fw-bold text-danger" id="recording-status-label" style="font-size: 0.85rem;">Gravando</span>
+                <span id="audio-recording-timer" class="font-monospace fw-bold text-white small px-2 py-0.5 rounded bg-dark border border-secondary" style="font-size: 0.85rem;">00:00</span>
+                <div class="audio-recording-waves d-none d-sm-flex align-items-center gap-1 ms-1" id="recording-wave-visualizer">
+                  <span class="wave-bar"></span>
+                  <span class="wave-bar"></span>
+                  <span class="wave-bar"></span>
+                  <span class="wave-bar"></span>
+                  <span class="wave-bar"></span>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 px-2.5 py-1.5 rounded-2" id="btn-cancel-audio" title="Cancelar gravação" aria-label="Cancelar gravação">
+                  <i class="bi bi-trash-fill"></i>
+                  <span class="d-none d-sm-inline small">Cancelar</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1 px-2.5 py-1.5 rounded-2 text-white border-secondary" id="btn-pause-audio" title="Pausar gravação" aria-label="Pausar gravação">
+                  <i class="bi bi-pause-fill" id="audio-pause-icon"></i>
+                  <span id="audio-pause-text" class="d-none d-sm-inline small">Pausar</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-premium d-flex align-items-center gap-1 px-3 py-1.5 rounded-2" id="btn-send-audio" title="Enviar áudio" aria-label="Enviar áudio">
+                  <i class="bi bi-send-fill"></i>
+                  <span class="d-none d-sm-inline small fw-semibold">Enviar</span>
+                </button>
+              </div>
+            </div>
+
             <form id="message-form" class="m-0" onsubmit="return false;">
               <div class="input-group flex-nowrap align-items-end">
                 <textarea class="form-control bg-dark border-secondary px-3 py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none;"></textarea>
@@ -462,8 +495,9 @@
                   </div>
                 </div>
 
-                <button class="btn btn-premium d-flex align-items-center justify-content-center" type="submit" id="btn-send" title="Enviar mensagem" aria-label="Enviar" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; align-self: flex-end; border-radius: 0; border-right: none; padding: 0;">
-                  <i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>
+                <!-- Botão de Ação: Microfone (input vazio) / Enviar (ao digitar) -->
+                <button class="btn btn-premium d-flex align-items-center justify-content-center" type="button" id="btn-send" title="Gravar áudio" aria-label="Gravar áudio" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; align-self: flex-end; border-radius: 0; border-right: none; padding: 0;">
+                  <i class="bi bi-mic-fill" style="font-size: 1.05rem;"></i>
                 </button>
 
                 <div class="dropdown dropup d-block d-md-none" id="dropdown-actions-wrapper" style="align-self: flex-end;">
