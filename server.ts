@@ -647,16 +647,18 @@ async function startServer() {
       res.setHeader("Strict-Transport-Security", "max-age=31536000");
     }
 
-    
+    // Content-Security-Policy estrita e autorizada para integrações legítimas (Monetag, Google Analytics, Firebase, Bootstrap, WebSockets, WebRTC)
     const cspDirectives = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://apis.google.com https://accounts.google.com",
+      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://apis.google.com https://accounts.google.com https://www.googletagmanager.com https://nap5k.com https://n6wxm.com",
+      "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://apis.google.com https://accounts.google.com https://www.googletagmanager.com https://nap5k.com https://n6wxm.com",
       "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+      "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
       "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https: http:",
       "media-src 'self' blob: data:",
-      "connect-src 'self' wss: ws: https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://api.imgur.com https://zenithe.net.br",
-      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
+      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
       "object-src 'none'",
       "base-uri 'self'",
       "frame-ancestors 'self'"
@@ -667,7 +669,7 @@ async function startServer() {
     next();
   });
 
-  
+  // CORS restritivo com suporte adequado a preflight OPTIONS e cabeçalhos autorizados
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     const allowedOrigins = [
@@ -3049,7 +3051,7 @@ async function startServer() {
               return;
             }
 
-            // Validação de bloqueio de chamadas no servidor
+            
             let isTargetBlocked = targetSession.blockCalls === true;
             if (!isTargetBlocked && targetSession.uid) {
               try {

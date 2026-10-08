@@ -6,6 +6,8 @@
 (function () {
   'use strict';
 
+  let lastFocusedElement = null;
+
   function getOverlay() {
     return document.getElementById('zenitheModalOverlay');
   }
@@ -19,11 +21,16 @@
     const overlay = getOverlay();
     if (!overlay) return;
 
+    // Salvar elemento ativo antes de abrir o modal para devolver o foco após fechamento
+    if (document.activeElement && typeof document.activeElement.focus === 'function') {
+      lastFocusedElement = document.activeElement;
+    }
+
+    overlay.removeAttribute('aria-hidden');
     overlay.classList.remove('d-none');
     // Forçar reflow para acionar transição CSS suave
     void overlay.offsetWidth;
     overlay.classList.add('zenithe-visible');
-    overlay.setAttribute('aria-hidden', 'false');
 
     // Focar no botão CTA principal para acessibilidade
     const ctaBtn = overlay.querySelector('#btnZenitheCta');
@@ -38,11 +45,21 @@
     const overlay = getOverlay();
     if (!overlay) return;
 
+    // Se o foco ainda estiver dentro do modal, devolvê-lo antes de ocultar
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      try { lastFocusedElement.focus(); } catch (e) {}
+    } else {
+      const msgInput = document.getElementById('message-input');
+      if (msgInput && typeof msgInput.focus === 'function') {
+        try { msgInput.focus(); } catch (e) {}
+      }
+    }
+
     overlay.classList.remove('zenithe-visible');
-    overlay.setAttribute('aria-hidden', 'true');
     setTimeout(() => {
       if (!overlay.classList.contains('zenithe-visible')) {
         overlay.classList.add('d-none');
+        overlay.setAttribute('aria-hidden', 'true');
       }
     }, 280);
   }
@@ -58,6 +75,28 @@
       }
     });
 
+    // Armadilha de foco (Focus Trap acessível) quando modal estiver aberto
+    overlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        const focusableElements = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusableElements.length === 0) return;
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
+    });
+
     // Botão Fechar (X)
     const closeBtn = document.getElementById('btnZenitheClose');
     if (closeBtn) {
@@ -67,7 +106,7 @@
       });
     }
 
-    // Botão Secundário ("Continuar no Papo.net")
+    
     const dismissBtn = document.getElementById('btnZenitheDismiss');
     if (dismissBtn) {
       dismissBtn.addEventListener('click', (e) => {
@@ -76,25 +115,25 @@
       });
     }
 
-    // Botão CTA ("Acessar o Zenithe Agora")
+    
     const ctaBtn = document.getElementById('btnZenitheCta');
     if (ctaBtn) {
       ctaBtn.addEventListener('click', () => {
-        // Permitir navegação natural para https://zenithe.net.br em nova aba
+        
         setTimeout(() => {
           closeZenitheCard();
         }, 150);
       });
     }
 
-    // Tecla ESC para fechar
+    
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && overlay.classList.contains('zenithe-visible')) {
         closeZenitheCard();
       }
     });
 
-    // Gatilhos adicionais na interface (Desktop e Mobile)
+    
     const btnDesktop = document.getElementById('btn-desktop-zenithe');
     if (btnDesktop) {
       btnDesktop.addEventListener('click', (e) => {
@@ -115,7 +154,7 @@
     if (btnMobileMenu) {
       btnMobileMenu.addEventListener('click', (e) => {
         e.preventDefault();
-        // Fechar offcanvas se o bootstrap estiver presente
+        
         const offcanvasEl = document.getElementById('offcanvasMobileMenu');
         if (offcanvasEl && window.bootstrap && window.bootstrap.Offcanvas) {
           const bsOffcanvas = window.bootstrap.Offcanvas.getInstance(offcanvasEl);
@@ -134,25 +173,24 @@
     bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
 
-  // Inicializar quando o documento carregar
+  
   function init() {
     setupZenitheEvents();
 
-    // Requisito: ao entrar no chat, o card deve aparecer toda vez que entrar
-    // Aguardamos 650ms para garantir que os elementos do chat e nickname foram verificados
+    
     setTimeout(() => {
-      // Verificar se o usuário está logado no chat antes de exibir o card
+      
       const currentUser = localStorage.getItem('papos_nickname');
       if (currentUser && currentUser.trim() !== '') {
         showZenitheCard();
       } else {
-        // Se a página não redirecionou, exibe mesmo assim após conferência
+      
         showZenitheCard();
       }
     }, 650);
   }
 
-  // Exportar funções globais
+  
   window.showZenitheCard = showZenitheCard;
   window.closeZenitheCard = closeZenitheCard;
 
