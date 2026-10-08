@@ -1,40 +1,33 @@
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { getMessaging } from "firebase-admin/messaging";
-
-export const isFirebaseAdminConfigured = Boolean(process.env.FIREBASE_PRIVATE_KEY);
 
 if (!getApps().length) {
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || "hale-palisade-2pthm";
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || "papo-net";
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@papo-net.iam.gserviceaccount.com";
   let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
 
   if (privateKey) {
     privateKey = privateKey.replace(/\\n/g, "\n");
-    try {
-      initializeApp({
-        credential: cert({
-          projectId,
-          clientEmail,
-          privateKey
-        })
-      });
-      console.log("[FCM] Firebase Admin SDK inicializado com sucesso usando FIREBASE_PRIVATE_KEY.");
-    } catch (err: any) {
-      console.error("[FirebaseAdmin] Erro ao inicializar com FIREBASE_PRIVATE_KEY:", err?.message || err);
-    }
+    initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey
+      })
+    });
   } else {
+    // Em produção ou sem chave privada explicita, inicializa com credenciais padrão do ambiente GCP / Firebase
     try {
       initializeApp({ projectId });
-    } catch (err: any) {}
-    console.warn("[FCM] Push está desativado por ausência da variável de ambiente FIREBASE_PRIVATE_KEY.");
+    } catch (e) {
+      console.warn("[FirebaseAdmin] Inicializado sem credencial explícita. Configure FIREBASE_PRIVATE_KEY no painel de ambiente.");
+    }
   }
 }
 
 export const adminAuth = getAuth();
 export const adminDb = getFirestore();
-export const adminMessaging = getMessaging();
 
 export async function verifyIdToken(idToken: string) {
   try {

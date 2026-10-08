@@ -11,55 +11,16 @@ import https from "https";
 import multer from "multer";
 import sharp from "sharp";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
-import { PushNotificationService } from "./src/push-service";
-
-let appletConfig: Record<string, any> = {};
-try {
-  const cfgPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-  if (fs.existsSync(cfgPath)) {
-    appletConfig = JSON.parse(fs.readFileSync(cfgPath, "utf-8"));
-  }
-} catch (e) {
-  console.warn("[Firebase] Could not read firebase-applet-config.json:", e);
-}
 
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || appletConfig.appId || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || appletConfig.firestoreDatabaseId || "(default)"
+  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.VITE_FIREBASE_APP_ID || "",
+  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
 };
-
-interface ClientSession {
-  ws: WebSocket;
-  nickname: string;
-  roomId: string;
-  lastMessageTime: number[]; 
-  bio?: string;
-  age?: number;
-  gender?: string;
-  photoUrl?: string;
-  uid?: string;
-  guestId?: string;
-  email?: string;
-  permanentId?: string;
-  internalId?: string;
-  joinTime?: number;
-  connectedAt?: number;
-  isAuthenticated?: boolean;
-  isAdmin?: boolean;
-  fingerprint?: string;
-  clientId?: string;
-  ip?: string;
-  blockCalls?: boolean;
-  pushToken?: string;
-  userAgent?: string;
-}
-
-const activeSessions = new Map<WebSocket, ClientSession>();
 
 const firebaseApp = initializeApp({
   apiKey: firebaseConfig.apiKey,
@@ -154,19 +115,9 @@ try {
 }
 
 async function verifyFirebaseIdToken(token: string, projectId: string): Promise<any | null> {
+  // Verificação estrita e segura da assinatura e validade através do Firebase Admin SDK
   const decoded = await verifyIdToken(token);
   if (decoded) return decoded;
-  
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const [headerB64, payloadB64] = parts;
-    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
-    const nowInSeconds = Math.floor(Date.now() / 1000);
-    if (payload.exp > nowInSeconds && payload.uid) {
-      return payload;
-    }
-  } catch (e) {}
   return null;
 }
 
@@ -430,6 +381,32 @@ const BOT_MESSAGES: Record<string, string[]> = {
   ]
 };
 
+interface ClientSession {
+  ws: WebSocket;
+  nickname: string;
+  roomId: string;
+  lastMessageTime: number[]; 
+  bio?: string;
+  age?: number;
+  gender?: string;
+  photoUrl?: string;
+  uid?: string;
+  guestId?: string;
+  email?: string;
+  permanentId?: string;
+  internalId?: string;
+  joinTime?: number;
+  connectedAt?: number;
+  isAuthenticated?: boolean;
+  isAdmin?: boolean;
+  fingerprint?: string;
+  clientId?: string;
+  ip?: string;
+  blockCalls?: boolean;
+}
+
+const activeSessions = new Map<WebSocket, ClientSession>();
+
 interface ActiveCallSession {
   callId: string;
   caller: string;
@@ -626,47 +603,12 @@ function containsLink(str: string): boolean {
   return false;
 }
 
-function triggerRoomPushNotification(roomId: string, senderSession: ClientSession) {
-  if (!roomId || !senderSession) return;
-
-  const onlineNicknames = new Set<string>();
-  const onlineUids = new Set<string>();
-  const onlineAnonIds = new Set<string>();
-  const onlinePermanentIds = new Set<string>();
-
-  activeSessions.forEach((s) => {
-    if (s.nickname) onlineNicknames.add(s.nickname.toLowerCase());
-    if (s.uid) onlineUids.add(s.uid);
-    if (s.guestId) onlineAnonIds.add(s.guestId);
-    if (s.permanentId) onlinePermanentIds.add(s.permanentId);
-  });
-
-  PushNotificationService.onRoomMessage({
-    roomId,
-    senderSession: {
-      nickname: senderSession.nickname,
-      uid: senderSession.uid,
-      permanentId: senderSession.permanentId,
-      anonymousId: senderSession.guestId
-    },
-    onlineNicknames,
-    onlineUids,
-    onlineAnonIds,
-    onlinePermanentIds
-  }).catch((err) => {
-    console.error("[FCM] Erro ao processar push de sala:", err);
-  });
-}
-
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
   app.use(express.json({ limit: "15mb" }));
   app.use(express.urlencoded({ extended: true, limit: "15mb" }));
-  const PORT = 3000;
-
-  // Inicializar Serviço de Notificações Push FCM
-  PushNotificationService.init();
+  const PORT = Number(process.env.PORT) || 3000;
 
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -675,15 +617,57 @@ async function startServer() {
 
   // Servir arquivos estáticos de uploads se salvos localmente
   const uploadsPublicDir = path.join(process.cwd(), "public", "uploads");
-  const audioUploadsDir = path.join(uploadsPublicDir, "audio");
   if (!fs.existsSync(uploadsPublicDir)) {
     fs.mkdirSync(uploadsPublicDir, { recursive: true });
   }
-  if (!fs.existsSync(audioUploadsDir)) {
-    fs.mkdirSync(audioUploadsDir, { recursive: true });
-  }
   app.use("/uploads", express.static(uploadsPublicDir));
 
+  // Desativar identificação do servidor para dificultar reconhecimento de versão/tecnologia
+  app.disable("x-powered-by");
+
+  // Injetar Security Headers de alta segurança (OWASP / Mozilla Observatory / SecurityHeaders A+)
+  app.use((req, res, next) => {
+    // Content-Type Sniffing Protection
+    res.setHeader("X-Content-Type-Options", "nosniff");
+
+    // Clickjacking Protection (frame-ancestors na CSP e X-Frame-Options para compatibilidade)
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+
+    // Controle de Referrer
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+    // Permissions-Policy: permite microfone para áudio WebRTC legítimo, bloqueia recursos invasivos não utilizados
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), display-capture=()"
+    );
+
+    // HSTS (HTTP Strict Transport Security): 1 ano, sem risco de quebrar subdomínios não suportados
+    if (req.secure || req.headers["x-forwarded-proto"] === "https") {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000");
+    }
+
+    
+    const cspDirectives = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://apis.google.com https://accounts.google.com",
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+      "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:",
+      "img-src 'self' data: blob: https: http:",
+      "media-src 'self' blob: data:",
+      "connect-src 'self' wss: ws: https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://api.imgur.com https://zenithe.net.br",
+      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'self'"
+    ].join("; ");
+
+    res.setHeader("Content-Security-Policy", cspDirectives);
+
+    next();
+  });
+
+  
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     const allowedOrigins = [
@@ -704,37 +688,20 @@ async function startServer() {
         res.setHeader("Access-Control-Allow-Origin", origin);
         res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
         res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-uid");
+        res.setHeader("Access-Control-Max-Age", "86400");
       }
     }
+
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+
     next();
   });
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
-  });
-
-  // Servir Service Worker para FCM
-  app.get("/firebase-messaging-sw.js", (req, res) => {
-    res.setHeader("Content-Type", "application/javascript");
-    res.setHeader("Service-Worker-Allowed", "/");
-    res.sendFile(path.join(process.cwd(), "firebase-messaging-sw.js"));
-  });
-
-  // Endpoints para Push Notifications (FCM)
-  app.post("/api/push/register", async (req, res) => {
-    try {
-      const { token, anonymousId, uid, nickname, userAgent } = req.body || {};
-      const result = await PushNotificationService.registerToken({
-        token,
-        anonymousId,
-        uid,
-        nickname,
-        userAgent
-      });
-      res.json(result);
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
   });
 
   app.get("/api/webrtc-config", (req, res) => {
@@ -1083,8 +1050,19 @@ async function startServer() {
       }
 
       const photoUrl = uploadResult.url;
-      const uid = (req.body.uid || req.headers["x-user-uid"]) as string;
+      let uid = (req.body.uid || req.headers["x-user-uid"]) as string;
       const nickname = (req.body.nickname || "") as string;
+
+      // Se houver Authorization Bearer token, valida e extrai UID verificado com segurança
+      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+        const token = req.headers.authorization.split("Bearer ")[1];
+        try {
+          const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+          if (decoded && decoded.uid) {
+            uid = decoded.uid;
+          }
+        } catch (e) {}
+      }
 
       // Se autenticado com UID, persistir no documento do usuário no Firestore
       if (uid && typeof uid === "string") {
@@ -1120,67 +1098,20 @@ async function startServer() {
   app.post("/api/profile/upload-photo", upload.single("image"), handleProfilePhotoUpload);
   app.post("/api/profile/upload-image", upload.single("image"), handleProfilePhotoUpload);
 
-  app.post("/api/audio/upload", upload.single("audio"), async (req, res) => {
-    try {
-      let fileBuffer: Buffer | null = null;
-      let ext = "webm";
-
-      if (req.file) {
-        fileBuffer = req.file.buffer;
-        const mime = req.file.mimetype || "";
-        if (mime.includes("ogg")) ext = "ogg";
-        else if (mime.includes("mp4") || mime.includes("aac")) ext = "mp4";
-        else if (mime.includes("wav")) ext = "wav";
-        else if (mime.includes("webm")) ext = "webm";
-      } else if (req.body && (req.body.audio || req.body.audioBase64)) {
-        const audioStr = (req.body.audio || req.body.audioBase64) as string;
-        const matches = audioStr.match(/^data:audio\/([A-Za-z0-9-+]+);base64,(.+)$/);
-        if (matches && matches.length === 3) {
-          ext = matches[1].includes("ogg") ? "ogg" : (matches[1].includes("mp4") ? "mp4" : "webm");
-          fileBuffer = Buffer.from(matches[2], "base64");
-        } else {
-          fileBuffer = Buffer.from(audioStr, "base64");
-        }
-      }
-
-      if (!fileBuffer || fileBuffer.length === 0) {
-        res.status(400).json({ success: false, error: "Nenhum áudio foi enviado." });
-        return;
-      }
-
-      // Limite máximo de segurança: 25MB
-      if (fileBuffer.length > 25 * 1024 * 1024) {
-        res.status(400).json({ success: false, error: "O áudio excede o limite máximo permitido." });
-        return;
-      }
-
-      const audioDir = path.join(process.cwd(), "public", "uploads", "audio");
-      if (!fs.existsSync(audioDir)) {
-        fs.mkdirSync(audioDir, { recursive: true });
-      }
-
-      const filename = `audio-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${ext}`;
-      const filepath = path.join(audioDir, filename);
-      await fs.promises.writeFile(filepath, fileBuffer);
-
-      const audioUrl = `/uploads/audio/${filename}`;
-      const duration = Number(req.body.duration) || 0;
-
-      res.json({
-        success: true,
-        url: audioUrl,
-        filename,
-        duration
-      });
-    } catch (err: any) {
-      console.error("[AudioUpload] Erro ao salvar arquivo de áudio:", err);
-      res.status(500).json({ success: false, error: "Erro interno no servidor ao processar o áudio." });
-    }
-  });
-
   app.post("/api/profile/remove-photo", async (req, res) => {
     try {
-      const { uid, nickname } = req.body;
+      let { uid, nickname } = req.body;
+
+      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+        const token = req.headers.authorization.split("Bearer ")[1];
+        try {
+          const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+          if (decoded && decoded.uid) {
+            uid = decoded.uid;
+          }
+        } catch (e) {}
+      }
+
       if (uid && typeof uid === "string") {
         try {
           const userRef = doc(db, "users", uid);
@@ -1360,24 +1291,6 @@ async function startServer() {
         }
 
         switch (payload.type) {
-          case "register_push_token": {
-            const pushTok = payload.token;
-            const anonId = payload.anonymousId || session.guestId || session.permanentId;
-            const userUid = payload.uid || session.uid;
-            const nick = payload.nickname || session.nickname;
-            if (pushTok && typeof pushTok === "string") {
-              session.pushToken = pushTok;
-              await PushNotificationService.registerToken({
-                token: pushTok,
-                anonymousId: anonId,
-                uid: userUid,
-                nickname: nick,
-                userAgent: session.userAgent
-              });
-            }
-            break;
-          }
-
           case "authenticate":
           case "sync_auth":
           case "admin_auth": {
@@ -2698,15 +2611,14 @@ async function startServer() {
             }
             session.lastMessageTime.push(now);
 
-            const isAudioMsg = payload.type === "audio" || payload.messageType === "audio" || Boolean(payload.audioUrl);
-            const rawText = payload.text || (isAudioMsg ? "🎤 Mensagem de áudio" : "");
+            const rawText = payload.text || "";
             if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
             }
 
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
-            if (!text && !isAudioMsg) return;
+            if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
             const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
@@ -2719,10 +2631,6 @@ async function startServer() {
               id: msgId,
               sender: session.nickname,
               text,
-              type: isAudioMsg ? "audio" : "text",
-              messageType: isAudioMsg ? "audio" : "text",
-              audioUrl: payload.audioUrl || undefined,
-              audioDuration: typeof payload.audioDuration === "number" ? payload.audioDuration : (Number(payload.audioDuration) || undefined),
               time: getCurrentTime(),
               timestamp: Date.now(),
               isSystem: false,
@@ -2746,7 +2654,6 @@ async function startServer() {
             }
 
             broadcastToRoom(session.roomId, "message", { message: msgObj });
-            triggerRoomPushNotification(session.roomId, session);
             break;
           }
 
@@ -2758,10 +2665,18 @@ async function startServer() {
 
             if (!session.nickname) return;
             const toNick = payload.to?.trim();
-            const isAudioPm = payload.type === "audio" || payload.messageType === "audio" || Boolean(payload.audioUrl);
-            const rawText = payload.text || payload.content || (isAudioPm ? "🎤 Mensagem de áudio" : "");
+            const rawText = payload.text || "";
 
-            if (!toNick || (!rawText && !isAudioPm)) return;
+            if (!toNick || !rawText) return;
+
+            // Proteção contra flood de mensagens privadas (máximo 5 mensagens a cada 4 segundos)
+            const now = Date.now();
+            session.lastMessageTime = (session.lastMessageTime || []).filter(t => now - t < 4000);
+            if (session.lastMessageTime.length >= 5) {
+              sendToClient(ws, "error", { message: "Você está enviando mensagens rápido demais. Aguarde um instante." });
+              return;
+            }
+            session.lastMessageTime.push(now);
 
             if (containsLink(rawText)) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
@@ -2769,7 +2684,7 @@ async function startServer() {
             }
 
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
-            if (!text && !isAudioPm) return;
+            if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 
@@ -2798,9 +2713,6 @@ async function startServer() {
                 recipientId: toNick,
                 recipientName: toNick,
                 content: text,
-                messageType: isAudioPm ? "audio" : "text",
-                audioUrl: payload.audioUrl || undefined,
-                audioDuration: typeof payload.audioDuration === "number" ? payload.audioDuration : (Number(payload.audioDuration) || undefined),
                 timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
@@ -2835,9 +2747,6 @@ async function startServer() {
                   recipientId: toNick,
                   recipientName: toNick,
                   content: text,
-                  messageType: isAudioPm ? "audio" : "text",
-                  audioUrl: payload.audioUrl || undefined,
-                  audioDuration: typeof payload.audioDuration === "number" ? payload.audioDuration : (Number(payload.audioDuration) || undefined),
                   timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,
@@ -2872,19 +2781,12 @@ async function startServer() {
 
                   let botReplies = [];
                   if (toNick.toLowerCase() === "bot_papos") {
-                    if (isAudioPm) {
-                      botReplies = [
-                        "Recebi seu áudio com sucesso! 🎧 Sou um assistente virtual do Papos. Você pode gravar e enviar áudios livremente tanto nas salas públicas quanto em conversas privadas com qualquer usuário!",
-                        "Áudio recebido! Ficou ótimo! 🎙️ Lembre-se que você pode pausar, ouvir e acelerar áudios em 1x, 1.5x e 2x diretamente no player do chat."
-                      ];
-                    } else {
-                      botReplies = [
-                        "Olá! Como assistente do Papos, posso te ajudar. Lembra que você pode ver todas as salas públicas clicando em **Salas** no menu superior!",
-                        "Quer mudar a cor da sua mensagem? Basta clicar no ícone da **Paleta de Cores** no campo de envio (no celular, clique no ícone de três pontos para abrir as opções!).",
-                        "Dica: Se quiser iniciar um chat privado com qualquer outra pessoa, basta clicar sobre o nome dela na lista de usuários online à esquerda!",
-                        "Sinta-se à vontade para me perguntar qualquer dúvida sobre o funcionamento do chat! Estou sempre por aqui de olho para garantir a melhor experiência."
-                      ];
-                    }
+                    botReplies = [
+                      "Olá! Como assistente do Papos, posso te ajudar. Lembra que você pode ver todas as salas públicas clicando em **Salas** no menu superior!",
+                      "Quer mudar a cor da sua mensagem? Basta clicar no ícone da **Paleta de Cores** no campo de envio (no celular, clique no ícone de três pontos para abrir as opções!).",
+                      "Dica: Se quiser iniciar um chat privado com qualquer outra pessoa, basta clicar sobre o nome dela na lista de usuários online à esquerda!",
+                      "Sinta-se à vontade para me perguntar qualquer dúvida sobre o funcionamento do chat! Estou sempre por aqui de olho para garantir a melhor experiência."
+                    ];
                   } else {
                     botReplies = [
                       "Opa! Tudo bem? Estou meio ocupado(a) lendo as novidades nos canais públicos agora, mas depois a gente se fala!",
@@ -3169,8 +3071,7 @@ async function startServer() {
 
             sendToClient(ws, "call:permitted", {
               partner: toNick,
-              to: toNick,
-              partnerPhotoUrl: targetSession ? targetSession.photoUrl : undefined
+              to: toNick
             });
             break;
           }
@@ -3286,7 +3187,6 @@ async function startServer() {
             if (targetWs) {
               sendToClient(targetWs, "call:answer", {
                 from: session.nickname,
-                calleePhotoUrl: session.photoUrl,
                 answer: payload.answer
               });
             }
@@ -3640,7 +3540,7 @@ async function startServer() {
     
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
+      server: { middlewareMode: true },
       appType: "custom" 
     });
 
