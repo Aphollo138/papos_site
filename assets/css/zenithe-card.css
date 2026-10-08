@@ -1,0 +1,434 @@
+/* ==========================================================================
+   Zenithe Promo Card & Modal Overlay
+   Apresentação visual elegante e chamativa do Zenithe (zenithe.net.br)
+   ========================================================================== */
+
+.zenithe-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100dvh !important;
+  z-index: 99990 !important;
+  background: rgba(5, 7, 13, 0.82) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.zenithe-overlay.zenithe-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.zenithe-card {
+  position: relative;
+  width: 100%;
+  max-width: 470px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  border-radius: 24px;
+  padding: 30px 26px 24px;
+  background: 
+    linear-gradient(180deg, #131826 0%, #0c0f18 100%) padding-box,
+    linear-gradient(135deg, rgba(0, 230, 118, 0.7) 0%, rgba(56, 189, 248, 0.5) 50%, rgba(139, 92, 246, 0.4) 100%) border-box;
+  border: 1.5px solid transparent;
+  box-shadow: 
+    0 25px 65px -12px rgba(0, 0, 0, 0.9),
+    0 0 50px -10px rgba(0, 230, 118, 0.16);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: auto;
+  transform: scale(0.92) translateY(12px);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.zenithe-overlay.zenithe-visible .zenithe-card {
+  transform: scale(1) translateY(0);
+}
+
+/* Scrollbar sutil para mobile se necessário */
+.zenithe-card::-webkit-scrollbar {
+  width: 4px;
+}
+.zenithe-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+.zenithe-card::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+/* Botão Fechar */
+.zenithe-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 2;
+  padding: 0;
+  outline: none;
+}
+.zenithe-close-btn:hover,
+.zenithe-close-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+/* Halo e Logo Zenithe */
+.zenithe-logo-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zenithe-logo-glow {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 230, 118, 0.38) 0%, rgba(56, 189, 248, 0.2) 60%, transparent 80%);
+  filter: blur(18px);
+  pointer-events: none;
+  animation: zenitheGlowPulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes zenitheGlowPulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  100% { transform: scale(1.15); opacity: 1; }
+}
+
+.zenithe-logo-img {
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
+  object-fit: contain;
+  background: #0f1420;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.7);
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+/* Badge no topo */
+.zenithe-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 13px;
+  border-radius: 100px;
+  background: rgba(0, 230, 118, 0.1);
+  border: 1px solid rgba(0, 230, 118, 0.28);
+  color: #34d399;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.zenithe-kicker-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #00e676;
+  box-shadow: 0 0 8px #00e676;
+  animation: zenitheDotPulse 1.5s infinite;
+}
+
+@keyframes zenitheDotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.5; }
+}
+
+/* Título e Descrição */
+.zenithe-heading {
+  font-family: var(--font-display, 'Outfit', -apple-system, sans-serif);
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.025em;
+  margin-bottom: 8px;
+  line-height: 1.22;
+  text-wrap: balance;
+}
+
+.zenithe-heading-gradient {
+  background: linear-gradient(135deg, #ffffff 30%, #a7f3d0 70%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.zenithe-subheading {
+  font-size: 0.88rem;
+  color: #94a3b8;
+  line-height: 1.52;
+  margin-bottom: 20px;
+  max-width: 400px;
+  text-wrap: balance;
+}
+
+/* Grid de Diferenciais */
+.zenithe-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  margin-bottom: 22px;
+  text-align: left;
+}
+
+.zenithe-feature-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.zenithe-feature-card:hover {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(0, 230, 118, 0.25);
+}
+
+.zenithe-feature-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.zenithe-icon-emerald {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.zenithe-icon-cyan {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.28);
+}
+
+.zenithe-icon-purple {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.28);
+}
+
+.zenithe-feature-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.zenithe-feature-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 2px;
+}
+
+.zenithe-feature-desc {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  line-height: 1.35;
+  margin: 0;
+}
+
+/* Botões de Ação */
+.zenithe-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.zenithe-btn-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #00e676 0%, #00c070 50%, #0284c7 100%);
+  color: #031508;
+  font-weight: 800;
+  font-size: 0.96rem;
+  letter-spacing: -0.01em;
+  text-decoration: none !important;
+  box-shadow: 
+    0 12px 28px -6px rgba(0, 230, 118, 0.45),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.zenithe-btn-cta:hover,
+.zenithe-btn-cta:focus-visible {
+  color: #000000;
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 
+    0 16px 36px -6px rgba(0, 230, 118, 0.6),
+    0 6px 14px rgba(0, 0, 0, 0.4);
+}
+
+.zenithe-btn-cta:active {
+  transform: translateY(0);
+}
+
+.zenithe-btn-cta .bi-arrow-right {
+  transition: transform 0.2s ease;
+  font-size: 1.15rem;
+  font-weight: bold;
+}
+
+.zenithe-btn-cta:hover .bi-arrow-right {
+  transform: translateX(4px);
+}
+
+.zenithe-btn-dismiss {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  text-decoration: none;
+}
+
+.zenithe-btn-dismiss:hover {
+  color: #ffffff;
+}
+
+/* Botão fixo no Header do chat (Desktop) */
+.zenithe-nav-cta {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.15) 0%, rgba(56, 189, 248, 0.12) 100%) !important;
+  border: 1px solid rgba(0, 230, 118, 0.35) !important;
+  color: #34d399 !important;
+  border-radius: var(--radius-sm, 8px) !important;
+  transition: all 0.2s ease !important;
+  text-decoration: none !important;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.zenithe-nav-cta:hover {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.25) 0%, rgba(56, 189, 248, 0.22) 100%) !important;
+  border-color: rgba(0, 230, 118, 0.6) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 230, 118, 0.25);
+}
+
+.zenithe-nav-badge {
+  background: #00e676 !important;
+  color: #061a0e !important;
+  font-size: 0.65rem !important;
+  font-weight: 800 !important;
+  padding: 2px 6px !important;
+  letter-spacing: 0.02em;
+}
+
+/* Botão do Header para Mobile */
+.zenithe-header-badge-mobile {
+  background: rgba(0, 230, 118, 0.12) !important;
+  border: 1px solid rgba(0, 230, 118, 0.3) !important;
+  color: #34d399 !important;
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  font-size: 0.74rem !important;
+  white-space: nowrap;
+}
+
+.zenithe-header-badge-mobile:hover {
+  background: rgba(0, 230, 118, 0.22) !important;
+  color: #ffffff !important;
+}
+
+/* Responsividade Mobile */
+@media (max-width: 576px) {
+  .zenithe-card {
+    padding: 26px 18px 20px;
+    border-radius: 20px;
+  }
+  .zenithe-heading {
+    font-size: 1.35rem;
+  }
+  .zenithe-subheading {
+    font-size: 0.82rem;
+    margin-bottom: 16px;
+  }
+  .zenithe-logo-img {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+  .zenithe-logo-glow {
+    width: 80px;
+    height: 80px;
+  }
+  .zenithe-feature-card {
+    padding: 8px 12px;
+    gap: 10px;
+  }
+  .zenithe-feature-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 0.95rem;
+  }
+  .zenithe-feature-title {
+    font-size: 0.8rem;
+  }
+  .zenithe-feature-desc {
+    font-size: 0.71rem;
+  }
+  .zenithe-btn-cta {
+    padding: 12px 16px;
+    font-size: 0.9rem;
+  }
+}

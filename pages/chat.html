@@ -2,18 +2,7 @@
 <html lang="pt-BR">
   <head>
     
-    <script>
-      document.documentElement.classList.add('js-enabled');
-      try {
-        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        var isStandalone = (window.navigator.standalone === true) || 
-          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-        if (isIOS && isStandalone) {
-          document.documentElement.classList.add('ios-pwa');
-        }
-      } catch(e) {}
-    </script>
+    <script>document.documentElement.classList.add('js-enabled');</script>
     
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -37,7 +26,6 @@
     <meta name="theme-color" content="#111111">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Papos">
 
     <meta property="og:title" content="Chat Online e Mensagens Privadas - Papo.net.br" />
     <meta property="og:description" content="Converse ao vivo em salas públicas ou envie mensagens privadas em tempo real." />
@@ -84,6 +72,7 @@
     
     <link rel="stylesheet" href="/assets/css/style.css" />
     <link rel="stylesheet" href="/assets/css/remove-ads.css" />
+    <link rel="stylesheet" href="/assets/css/zenithe-card.css" />
     <style>
       /* Force all message containers and contents to align strictly to the left */
       #chat-messages-container,
@@ -184,95 +173,6 @@
   </head>
   <body class="chat-page">
 
-    <!-- Contêiner de Notificações Internas para Mensagens Privadas -->
-    <div id="in-app-private-notification-container" class="in-app-private-notif-container" aria-live="polite" aria-atomic="true"></div>
-
-    <!-- Modal / Tela Completa de Ativação de Notificações Push -->
-    <div id="push-notification-card" class="push-notification-card d-none" role="dialog" aria-modal="true" aria-labelledby="push-card-title">
-      <!-- Conteúdo com Scroll Vertical seguro e Safe Area -->
-      <div class="push-invite-scrollable">
-        <div class="push-invite-inner">
-          
-          <!-- Botão Fechar discreto no topo -->
-          <div class="push-invite-header-bar">
-            <button type="button" class="push-invite-close-btn" id="btn-push-card-close" aria-label="Fechar convite" title="Fechar">
-              <i class="bi bi-x-lg" aria-hidden="true"></i>
-            </button>
-          </div>
-
-          <!-- Logo Oficial do Papos -->
-          <div class="push-invite-brand-wrapper">
-            <div class="push-invite-brand-icon">
-              <svg class="papo-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 38px; height: 38px;" aria-hidden="true">
-                <mask id="logo-mask-push-invite">
-                  <rect x="0" y="0" width="100" height="100" fill="white" />
-                  <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
-                </mask>
-                <g mask="url(#logo-mask-push-invite)">
-                  <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="currentColor" />
-                  <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="currentColor" />
-                </g>
-                <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="currentColor" fill="none" />
-                <circle cx="78" cy="26" r="6" fill="currentColor" />
-              </svg>
-            </div>
-            <span class="push-invite-brand-text">Papos</span>
-          </div>
-
-          <!-- Ícone Ilustrativo de Notificação com Glow Suave -->
-          <div class="push-invite-icon-orb">
-            <div class="push-invite-bell-bg">
-              <i class="bi bi-bell-fill push-invite-bell-icon" id="push-card-icon" aria-hidden="true"></i>
-              <span class="push-invite-bell-badge" aria-hidden="true"></span>
-            </div>
-          </div>
-
-          <!-- Título e Mensagem Curta e Convincente -->
-          <h2 class="push-invite-heading" id="push-card-title">Não perca nenhuma mensagem</h2>
-          <p class="push-invite-description" id="push-card-desc">
-            Ative as notificações para ser avisado quando alguém enviar uma mensagem para você, mesmo quando você estiver fora do Papos.
-          </p>
-
-          <!-- Benefícios Reais e Transparentes -->
-          <div class="push-invite-benefits">
-            <div class="push-invite-benefit-item">
-              <div class="push-invite-benefit-check"><i class="bi bi-check-lg" aria-hidden="true"></i></div>
-              <span>Avisos de novas mensagens em tempo real</span>
-            </div>
-            <div class="push-invite-benefit-item">
-              <div class="push-invite-benefit-check"><i class="bi bi-check-lg" aria-hidden="true"></i></div>
-              <span>Saiba na hora quando te responderem no chat</span>
-            </div>
-            <div class="push-invite-benefit-item">
-              <div class="push-invite-benefit-check"><i class="bi bi-check-lg" aria-hidden="true"></i></div>
-              <span>Sem spam: você só é avisado do que importa</span>
-            </div>
-          </div>
-
-          <!-- Botões de Ação -->
-          <div class="push-invite-actions" id="push-card-actions">
-            <button type="button" class="push-invite-btn-primary" id="btn-push-card-enable">
-              <i class="bi bi-bell me-2" aria-hidden="true"></i>Ativar notificações
-            </button>
-            <button type="button" class="push-invite-btn-secondary" id="btn-push-card-dismiss">
-              Agora não
-            </button>
-          </div>
-
-          <!-- Nota de Privacidade e Autonomia do Usuário -->
-          <div class="push-invite-footnote">
-            <i class="bi bi-shield-check me-1" aria-hidden="true"></i> Você pode alterar ou desativar as permissões a qualquer momento.
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Indicador Visual de Leitura Verde na Base (40 segundos) -->
-      <div class="push-invite-progress-track" aria-hidden="true">
-        <div id="push-card-progress-bar" class="push-invite-progress-bar"></div>
-      </div>
-    </div>
-
     <main class="container-fluid p-0">
       <section class="chat-wrapper">
         
@@ -346,7 +246,19 @@
               </div>
             </div>
 
+            <div class="d-flex d-md-none align-items-center gap-1.5 flex-shrink-0 ms-auto">
+              <button class="btn btn-sm py-1 px-2 d-flex align-items-center gap-1 zenithe-header-badge-mobile" id="btn-mobile-zenithe" title="Conheça o Zenithe" aria-label="Conheça o Zenithe">
+                <span class="zenithe-kicker-dot" style="width: 5px; height: 5px;"></span>
+                <span style="font-size: 0.76rem; font-weight: 700;">Zenithe</span>
+              </button>
+            </div>
+
             <div class="d-none d-md-flex align-items-center gap-2 flex-shrink-0" id="desktop-header-actions">
+              <button class="btn btn-sm py-1.5 px-3 d-flex align-items-center gap-2 zenithe-nav-cta" id="btn-desktop-zenithe" title="Conheça o Zenithe.net.br" aria-label="Conheça o Zenithe" role="button">
+                <span class="zenithe-kicker-dot"></span>
+                <span class="fw-semibold">Zenithe</span>
+                <span class="badge rounded-pill zenithe-nav-badge">Novo</span>
+              </button>
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-3 d-flex align-items-center gap-2" id="btn-desktop-donate-toggle" title="Fazer uma doação" aria-label="Apoiar o Papo.net" role="button" style="border-radius: var(--radius-sm); font-size: 0.88rem;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-danger" aria-hidden="true">
                   <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
@@ -375,7 +287,7 @@
             </div>
 
             <!-- Mobile Header Actions: Left = Doação, Right = Menu Hambúrguer -->
-            <div class="d-flex align-items-center gap-1.5 d-md-none flex-shrink-0" id="mobile-header-actions">
+            <div class="d-flex align-items-center gap-1.5 d-md-none flex-shrink-0">
               <button class="btn btn-secondary-custom btn-sm py-1.5 px-2.5 d-flex align-items-center justify-content-center flex-shrink-0" id="btn-mobile-donate-toggle" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMobileDonate" aria-controls="offcanvasMobileDonate" title="Fazer uma doação" aria-label="Apoiar o Papo.net" role="button" style="border-radius: var(--radius-sm); font-size: 0.9rem;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" fill-opacity="0.18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger flex-shrink-0" aria-hidden="true">
                   <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
@@ -435,36 +347,6 @@
               </button>
             </div>
 
-            <!-- Barra de Gravação de Áudio (Modo Gravação) -->
-            <div id="audio-recording-bar" class="d-none align-items-center justify-content-between p-2 rounded-2 audio-recording-bar" style="background-color: var(--surface); border: 1px solid var(--border); min-height: 42px; width: 100%;">
-              <div class="d-flex align-items-center gap-2 flex-grow-1 overflow-hidden me-2">
-                <span class="recording-pulse-dot" id="recording-status-dot"></span>
-                <span class="small fw-bold text-danger" id="recording-status-label" style="font-size: 0.85rem;">Gravando</span>
-                <span id="audio-recording-timer" class="font-monospace fw-bold text-white small px-2 py-0.5 rounded bg-dark border border-secondary" style="font-size: 0.85rem;">00:00</span>
-                <div class="audio-recording-waves d-none d-sm-flex align-items-center gap-1 ms-1" id="recording-wave-visualizer">
-                  <span class="wave-bar"></span>
-                  <span class="wave-bar"></span>
-                  <span class="wave-bar"></span>
-                  <span class="wave-bar"></span>
-                  <span class="wave-bar"></span>
-                </div>
-              </div>
-              <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 px-2.5 py-1.5 rounded-2" id="btn-cancel-audio" title="Cancelar gravação" aria-label="Cancelar gravação">
-                  <i class="bi bi-trash-fill"></i>
-                  <span class="d-none d-sm-inline small">Cancelar</span>
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1 px-2.5 py-1.5 rounded-2 text-white border-secondary" id="btn-pause-audio" title="Pausar gravação" aria-label="Pausar gravação">
-                  <i class="bi bi-pause-fill" id="audio-pause-icon"></i>
-                  <span id="audio-pause-text" class="d-none d-sm-inline small">Pausar</span>
-                </button>
-                <button type="button" class="btn btn-sm btn-premium d-flex align-items-center gap-1 px-3 py-1.5 rounded-2" id="btn-send-audio" title="Enviar áudio" aria-label="Enviar áudio">
-                  <i class="bi bi-send-fill"></i>
-                  <span class="d-none d-sm-inline small fw-semibold">Enviar</span>
-                </button>
-              </div>
-            </div>
-
             <form id="message-form" class="m-0" onsubmit="return false;">
               <div class="input-group flex-nowrap align-items-end">
                 <textarea class="form-control bg-dark border-secondary px-3 py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none;"></textarea>
@@ -495,9 +377,8 @@
                   </div>
                 </div>
 
-                <!-- Botão de Ação: Microfone (input vazio) / Enviar (ao digitar) -->
-                <button class="btn btn-premium d-flex align-items-center justify-content-center" type="button" id="btn-send" title="Gravar áudio" aria-label="Gravar áudio" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; align-self: flex-end; border-radius: 0; border-right: none; padding: 0;">
-                  <i class="bi bi-mic-fill" style="font-size: 1.05rem;"></i>
+                <button class="btn btn-premium d-flex align-items-center justify-content-center" type="submit" id="btn-send" title="Enviar mensagem" aria-label="Enviar" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; align-self: flex-end; border-radius: 0; border-right: none; padding: 0;">
+                  <i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>
                 </button>
 
                 <div class="dropdown dropup d-block d-md-none" id="dropdown-actions-wrapper" style="align-self: flex-end;">
@@ -688,6 +569,14 @@
       </div>
       <div class="offcanvas-body p-3 d-flex flex-column gap-2 overflow-y-auto">
         
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center justify-content-between py-2.5 px-3 mb-1 border-0" id="mobile-menu-zenithe" aria-label="Conhecer o Zenithe" title="Conhecer o Zenithe" role="button" style="border-radius: var(--radius-sm); background: linear-gradient(135deg, rgba(0, 230, 118, 0.16) 0%, rgba(56, 189, 248, 0.14) 100%); border: 1px solid rgba(0, 230, 118, 0.3) !important;">
+          <div class="d-flex align-items-center gap-2.5">
+            <img src="/assets/img/zenithe-logo.png" alt="Zenithe" width="22" height="22" style="border-radius: 6px; object-fit: contain;">
+            <span class="fw-bold text-white" style="font-size: 0.88rem;">Conhecer o Zenithe</span>
+          </div>
+          <span class="badge rounded-pill bg-success text-dark fw-bold px-2 py-0.5" style="font-size: 0.65rem;">NOVO</span>
+        </button>
+
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-rooms" data-bs-toggle="modal" data-bs-target="#roomsModal" data-bs-dismiss="offcanvas" aria-label="Salas de Bate-Papo" title="Salas de Bate-Papo" role="button" style="border-radius: var(--radius-sm);">
           <i class="bi bi-grid-fill text-primary" aria-hidden="true"></i>
           <span>Salas</span>
@@ -1320,6 +1209,85 @@
     <!-- Elemento Invisível de Áudio Remoto WebRTC -->
     <audio id="remote-call-audio" autoplay playsinline style="display: none;"></audio>
 
+    <!-- Card Modal Chamativo Zenithe (zenithe.net.br) -->
+    <div id="zenitheModalOverlay" class="zenithe-overlay d-none" role="dialog" aria-modal="true" aria-labelledby="zenitheCardTitle" aria-hidden="true">
+      <div class="zenithe-card" role="document">
+        
+        <!-- Botão Fechar -->
+        <button type="button" class="zenithe-close-btn" id="btnZenitheClose" aria-label="Fechar card do Zenithe" title="Fechar">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+
+        <!-- Halo com Logo Oficial -->
+        <div class="zenithe-logo-wrapper">
+          <div class="zenithe-logo-glow" aria-hidden="true"></div>
+          <img src="/assets/img/zenithe-logo.png" alt="Logo Zenithe" class="zenithe-logo-img" width="76" height="76" loading="eager" onerror="this.onerror=null; this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+          <div class="zenithe-logo-fallback" style="display: none; width: 76px; height: 76px; border-radius: 20px; background: linear-gradient(135deg, #10b981 0%, #0284c7 100%); align-items: center; justify-content: center; font-size: 38px; font-weight: 800; color: #ffffff; box-shadow: 0 10px 28px -4px rgba(0,0,0,0.7); position: relative; z-index: 1;">Z</div>
+        </div>
+
+        <!-- Kicker / Badge -->
+        <div class="zenithe-kicker">
+          <span class="zenithe-kicker-dot" aria-hidden="true"></span>
+          <span>NOVA PLATAFORMA · EM TEMPO REAL</span>
+        </div>
+
+        <!-- Título -->
+        <h2 id="zenitheCardTitle" class="zenithe-heading">
+          Conheça o <span class="zenithe-heading-gradient">Zenithe</span>
+        </h2>
+
+        <!-- Descrição -->
+        <p class="zenithe-subheading">
+          Conexões reais e conversas em tempo real com uma experiência moderna, sofisticada e humana. Descubra uma nova era para conversar online!
+        </p>
+
+        <!-- Lista de Diferenciais -->
+        <div class="zenithe-features-list">
+          <div class="zenithe-feature-card">
+            <div class="zenithe-feature-icon zenithe-icon-emerald">
+              <i class="bi bi-lightning-charge-fill"></i>
+            </div>
+            <div class="zenithe-feature-text">
+              <div class="zenithe-feature-title">Design Fluido & Ultrarrápido</div>
+              <p class="zenithe-feature-desc">Interface limpa, moderna e pensada nos mínimos detalhes para sua navegação.</p>
+            </div>
+          </div>
+
+          <div class="zenithe-feature-card">
+            <div class="zenithe-feature-icon zenithe-icon-cyan">
+              <i class="bi bi-mic-fill"></i>
+            </div>
+            <div class="zenithe-feature-text">
+              <div class="zenithe-feature-title">Salas Vivas & Áudio Cristalino</div>
+              <p class="zenithe-feature-desc">Interaja por voz e mensagens em tempo real com qualidade superior.</p>
+            </div>
+          </div>
+
+          <div class="zenithe-feature-card">
+            <div class="zenithe-feature-icon zenithe-icon-purple">
+              <i class="bi bi-shield-check"></i>
+            </div>
+            <div class="zenithe-feature-text">
+              <div class="zenithe-feature-title">100% Gratuito & Seguro</div>
+              <p class="zenithe-feature-desc">Sem complicações: entre agora e faça novas amizades imediatamente.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ações do Card -->
+        <div class="zenithe-actions">
+          <a href="https://zenithe.net.br" target="_blank" rel="noopener noreferrer" class="zenithe-btn-cta" id="btnZenitheCta">
+            <span>Acessar zenithe.net.br Agora</span>
+            <i class="bi bi-arrow-right" aria-hidden="true"></i>
+          </a>
+          <button type="button" class="zenithe-btn-dismiss" id="btnZenitheDismiss">
+            Continuar no Papo.net
+          </button>
+        </div>
+
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     <script src="/assets/js/fingerprint.js"></script>
@@ -1337,6 +1305,6 @@
     <script src="/assets/js/audio-call.js"></script>
 
     <script src="/assets/js/chat.js"></script>
-    <script type="module" src="/assets/js/push-controller.js"></script>
+    <script src="/assets/js/zenithe-card.js"></script>
   </body>
 </html>
