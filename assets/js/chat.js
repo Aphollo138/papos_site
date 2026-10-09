@@ -56,7 +56,7 @@ function containsLink(str) {
     "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
     "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
     "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
-    "it", "nl", "es", "pt", "ar", "mx", "cl", "pe", "uy"
+    "it", "nl", "es",  "pt", "ar", "mx", "cl", "pe", "uy"
   ];
   const tldPattern = tldList.join("|");
 
@@ -367,42 +367,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const typingIndicatorBar = document.getElementById("typing-indicator-bar");
   
   const btnBackToPublic = document.getElementById("btn-back-to-public");
-
-  const audioRecordingBar = document.getElementById("audio-recording-bar");
-  const btnCancelAudio = document.getElementById("btn-cancel-audio");
-  const btnPauseAudio = document.getElementById("btn-pause-audio");
-  const btnSendAudio = document.getElementById("btn-send-audio");
-  const audioRecordingTimer = document.getElementById("audio-recording-timer");
-  const recordingStatusDot = document.getElementById("recording-status-dot");
-  const recordingStatusLabel = document.getElementById("recording-status-label");
-  const recordingWaveVisualizer = document.getElementById("recording-wave-visualizer");
-  const audioPauseIcon = document.getElementById("audio-pause-icon");
-  const audioPauseText = document.getElementById("audio-pause-text");
-  const messageForm = document.getElementById("message-form");
-
-  let audioStream = null;
-  let mediaRecorder = null;
-  let audioChunks = [];
-  let isRecordingAudio = false;
-  let isAudioPaused = false;
-  let totalRecordingElapsed = 0;
-  let recordingIntervalId = null;
-
-  function updateComposerButtons() {
-    const sendBtn = document.getElementById("btn-send");
-    if (!sendBtn || !messageInput) return;
-    const hasText = Boolean(messageInput.value && messageInput.value.trim().length > 0);
-
-    if (hasText) {
-      sendBtn.setAttribute("title", "Enviar mensagem");
-      sendBtn.setAttribute("aria-label", "Enviar mensagem");
-      sendBtn.innerHTML = '<i class="bi bi-send-fill"></i>';
-    } else {
-      sendBtn.setAttribute("title", "Gravar áudio");
-      sendBtn.setAttribute("aria-label", "Gravar áudio");
-      sendBtn.innerHTML = '<i class="bi bi-mic-fill"></i>';
-    }
-  }
 
   let typingTimeout = null;
   let isCurrentlyTyping = false;
@@ -793,6 +757,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
     const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id") || "");
+    const guestToken = window.SecurityIdentity && window.SecurityIdentity.getGuestToken ? window.SecurityIdentity.getGuestToken() : (localStorage.getItem("papo_guest_token") || "");
     const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
     const myPhoto = localStorage.getItem("papos_photo") || "";
 
@@ -807,6 +772,7 @@ document.addEventListener("DOMContentLoaded", () => {
       profileImage: myPhoto,
       clientId: clientId,
       guestId: guestId,
+      guestToken: guestToken,
       fingerprint: fingerprint,
       blockCalls: localStorage.getItem("papos_block_calls") === "true"
     }));
@@ -818,7 +784,6 @@ document.addEventListener("DOMContentLoaded", () => {
     window.socket = socket;
 
     socket.onopen = () => {
-      
       sendJoinRoom(activeRoomId);
     };
 
@@ -841,42 +806,31 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         switch (data.type) {
+          case "session_init":
+            if (data.guestToken && window.SecurityIdentity && typeof window.SecurityIdentity.setGuestToken === "function") {
+              window.SecurityIdentity.setGuestToken(data.guestToken, data.guestId);
+            }
+            break;
+
           case "room_members_update":
             if (data.onlineUsers) {
               onlineUsersList = data.onlineUsers;
             }
             if (data.userPhotos && typeof data.userPhotos === "object") {
-              const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim().toLowerCase();
               Object.entries(data.userPhotos).forEach(([nick, photo]) => {
                 if (!nick) return;
                 const cleanNick = nick.trim();
                 const cleanLower = cleanNick.toLowerCase();
-                const isMe = cleanLower === myNick;
 
                 if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
                   const validPhoto = photo.trim();
-                  localStorage.setItem(`papos_photo_${cleanNick}`, validPhoto);
-                  localStorage.setItem(`papos_photo_${cleanLower}`, validPhoto);
-                  if (isMe) {
-                    localStorage.setItem("papos_photo", validPhoto);
-                  }
                   if (profileCache) {
-                    const cached = profileCache.get(cleanLower);
-                    if (cached && cached.data) {
+                    let cached = profileCache.get(cleanLower);
+                    if (!cached) {
+                      profileCache.set(cleanLower, { data: { nickname: cleanNick, photoUrl: validPhoto, profileImage: validPhoto }, timestamp: Date.now() });
+                    } else if (cached.data) {
                       cached.data.photoUrl = validPhoto;
                       cached.data.profileImage = validPhoto;
-                    }
-                  }
-                } else if (isMe) {
-                  const mySavedPhoto = localStorage.getItem("papos_photo");
-                  if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
-                    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
-                    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-                      activeSocket.send(JSON.stringify({
-                        type: "update_photo",
-                        photoUrl: mySavedPhoto.trim(),
-                        profileImage: mySavedPhoto.trim()
-                      }));
                     }
                   }
                 }
@@ -892,37 +846,20 @@ document.addEventListener("DOMContentLoaded", () => {
             onlineUsersList = data.onlineUsers;
 
             if (data.userPhotos && typeof data.userPhotos === "object") {
-              const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim().toLowerCase();
               Object.entries(data.userPhotos).forEach(([nick, photo]) => {
                 if (!nick) return;
                 const cleanNick = nick.trim();
                 const cleanLower = cleanNick.toLowerCase();
-                const isMe = cleanLower === myNick;
 
                 if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
                   const validPhoto = photo.trim();
-                  localStorage.setItem(`papos_photo_${cleanNick}`, validPhoto);
-                  localStorage.setItem(`papos_photo_${cleanLower}`, validPhoto);
-                  if (isMe) {
-                    localStorage.setItem("papos_photo", validPhoto);
-                  }
                   if (profileCache) {
-                    const cached = profileCache.get(cleanLower);
-                    if (cached && cached.data) {
+                    let cached = profileCache.get(cleanLower);
+                    if (!cached) {
+                      profileCache.set(cleanLower, { data: { nickname: cleanNick, photoUrl: validPhoto, profileImage: validPhoto }, timestamp: Date.now() });
+                    } else if (cached.data) {
                       cached.data.photoUrl = validPhoto;
                       cached.data.profileImage = validPhoto;
-                    }
-                  }
-                } else if (isMe) {
-                  const mySavedPhoto = localStorage.getItem("papos_photo");
-                  if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
-                    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
-                    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-                      activeSocket.send(JSON.stringify({
-                        type: "update_photo",
-                        photoUrl: mySavedPhoto.trim(),
-                        profileImage: mySavedPhoto.trim()
-                      }));
                     }
                   }
                 }
@@ -1084,7 +1021,13 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "error":
-            if (data.message && data.message.includes("Links não são permitidos")) {
+            if (data.code === "NICKNAME_TAKEN" || (data.message && data.message.includes("já está sendo utilizado por outro usuário nesta sala"))) {
+              appendSystemMessage(`⚠️ ${data.message || "Este nome já está sendo utilizado por outro usuário nesta sala. Escolha outro nome para continuar."}`);
+              if (typeof window.showToast === "function") {
+                window.showToast(data.message, "warning");
+              }
+              showNicknameConflictModal(data.message);
+            } else if (data.message && data.message.includes("Links não são permitidos")) {
               if (typeof window.showToast === "function") {
                 window.showToast("Links não são permitidos nas conversas.", "warning");
               } else {
@@ -1303,8 +1246,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const headerStatus = document.getElementById("active-chat-status");
     const desktopActions = document.getElementById("desktop-header-actions");
     const mobileMenuToggle = document.getElementById("btn-mobile-menu-toggle");
-    const mobileDonateToggle = document.getElementById("btn-mobile-donate-toggle");
-    const mobileHeaderActions = document.getElementById("mobile-header-actions");
     const privateActions = document.getElementById("private-header-actions");
 
     if (chatMode === "public") {
@@ -1334,20 +1275,13 @@ document.addEventListener("DOMContentLoaded", () => {
         desktopActions.classList.remove("d-none");
         desktopActions.classList.add("d-none", "d-md-flex");
       }
-      if (mobileHeaderActions) {
-        mobileHeaderActions.classList.remove("d-none");
-        mobileHeaderActions.classList.add("d-flex", "d-md-none");
-      }
-      if (mobileDonateToggle) {
-        mobileDonateToggle.classList.remove("d-none");
-      }
       if (mobileMenuToggle) {
         mobileMenuToggle.classList.remove("d-none");
         mobileMenuToggle.classList.add("d-flex", "d-md-none");
       }
     } else {
       if (headerName) {
-        headerName.innerHTML = `<span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
+        headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
         headerName.style.cursor = "default";
       }
       if (headerDesc) headerDesc.textContent = "Chat privado de ponta-a-ponta. Conversas salvas localmente.";
@@ -1366,13 +1300,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (desktopActions) {
         desktopActions.classList.add("d-none");
         desktopActions.classList.remove("d-md-flex");
-      }
-      if (mobileHeaderActions) {
-        mobileHeaderActions.classList.add("d-none");
-        mobileHeaderActions.classList.remove("d-flex");
-      }
-      if (mobileDonateToggle) {
-        mobileDonateToggle.classList.add("d-none");
       }
       if (mobileMenuToggle) {
         mobileMenuToggle.classList.add("d-none");
@@ -1600,228 +1527,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initDesktopSidebarInteractions();
 
-  const activeInAppNotifications = new Map();
-
-  function escapeHtml(str) {
-    if (!str) return "";
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function dismissInAppPrivateNotification(partner) {
-    if (!partner) {
-      activeInAppNotifications.forEach((data, p) => dismissInAppPrivateNotification(p));
-      return;
-    }
-    const notifData = activeInAppNotifications.get(partner);
-    if (!notifData) return;
-
-    if (notifData.timer) clearTimeout(notifData.timer);
-    if (notifData.animFrame) cancelAnimationFrame(notifData.animFrame);
-
-    const toastEl = notifData.element;
-    if (toastEl) {
-      toastEl.classList.add("dismissing");
-      setTimeout(() => {
-        try { toastEl.remove(); } catch (e) {}
-      }, 260);
-    }
-    activeInAppNotifications.delete(partner);
-  }
-
-  function showInAppPrivateNotification({ id, partner, sender, content, timestamp, photoUrl }) {
-    // A notificação interna de MP só deve aparecer se o usuário NÃO estiver visualizando essa conversa
-    if (chatMode === "private" && activePrivateRecipient === partner) {
-      return;
-    }
-
-    let container = document.getElementById("in-app-private-notification-container");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "in-app-private-notification-container";
-      container.className = "in-app-private-notif-container";
-      container.setAttribute("aria-live", "polite");
-      container.setAttribute("aria-atomic", "true");
-      document.body.appendChild(container);
-    }
-
-    const DURATION_MS = 6000;
-    const timeFormatted = (typeof formatMessageTime === "function" ? formatMessageTime({ timestamp: typeof timestamp === "number" ? timestamp : Date.now() }) : "") || "Agora";
-
-    const rawText = String(content || "").trim();
-    const previewText = rawText.length > 80 ? rawText.substring(0, 77) + "..." : rawText || "Enviou uma mensagem privada";
-
-    // Se já houver um card ativo para esse parceiro, atualizar o conteúdo e reiniciar o timer
-    const existing = activeInAppNotifications.get(partner);
-    if (existing && existing.element && container.contains(existing.element)) {
-      if (existing.timer) clearTimeout(existing.timer);
-      if (existing.animFrame) cancelAnimationFrame(existing.animFrame);
-
-      const toast = existing.element;
-      const previewEl = toast.querySelector(".in-app-notif-preview");
-      const timeEl = toast.querySelector(".in-app-notif-time");
-      const progressFill = toast.querySelector(".in-app-notif-progress-fill");
-
-      if (previewEl) previewEl.textContent = previewText;
-      if (timeEl) timeEl.textContent = timeFormatted;
-
-      toast.classList.remove("updated-pulse");
-      void toast.offsetWidth;
-      toast.classList.add("updated-pulse");
-
-      let startTime = Date.now();
-      let isPaused = false;
-      let pauseStart = 0;
-      let totalPaused = 0;
-
-      function updateProgress() {
-        if (!isPaused) {
-          const elapsed = (Date.now() - startTime) - totalPaused;
-          const pct = Math.max(0, 1 - (elapsed / DURATION_MS));
-          if (progressFill) {
-            progressFill.style.transform = `scaleX(${pct})`;
-          }
-          if (elapsed >= DURATION_MS) {
-            dismissInAppPrivateNotification(partner);
-            return;
-          }
-        }
-        existing.animFrame = requestAnimationFrame(updateProgress);
-      }
-
-      toast.onmouseenter = () => {
-        if (!isPaused) {
-          isPaused = true;
-          pauseStart = Date.now();
-        }
-      };
-
-      toast.onmouseleave = () => {
-        if (isPaused) {
-          isPaused = false;
-          totalPaused += (Date.now() - pauseStart);
-        }
-      };
-
-      existing.animFrame = requestAnimationFrame(updateProgress);
-      existing.timer = setTimeout(() => {
-        dismissInAppPrivateNotification(partner);
-      }, DURATION_MS);
-
-      return;
-    }
-
-    const toast = document.createElement("div");
-    toast.className = "in-app-private-notif-toast";
-    toast.setAttribute("role", "alert");
-    toast.setAttribute("tabindex", "0");
-    toast.dataset.partner = partner;
-
-    const userPhoto = photoUrl || (typeof getUserCurrentPhoto === "function" ? getUserCurrentPhoto(sender) : null);
-    const avatarHtml = (window.ChatEngine && typeof window.ChatEngine.renderAvatar === "function")
-      ? window.ChatEngine.renderAvatar(sender, "avatar-circle", userPhoto)
-      : `<div class="avatar-circle">${escapeHtml(sender.charAt(0).toUpperCase())}</div>`;
-
-    toast.innerHTML = `
-      <div class="in-app-notif-header">
-        <div class="in-app-notif-badge">
-          <i class="bi bi-chat-dots-fill"></i>
-          <span>Mensagem Privada</span>
-        </div>
-        <div class="in-app-notif-right">
-          <span class="in-app-notif-time">${escapeHtml(timeFormatted)}</span>
-          <button type="button" class="in-app-notif-close-btn" aria-label="Fechar notificação" title="Fechar">
-            <i class="bi bi-x-lg"></i>
-          </button>
-        </div>
-      </div>
-      <div class="in-app-notif-body">
-        <div class="in-app-notif-avatar">
-          ${avatarHtml}
-        </div>
-        <div class="in-app-notif-content">
-          <div class="in-app-notif-sender">${escapeHtml(sender)}</div>
-          <div class="in-app-notif-preview">${escapeHtml(previewText)}</div>
-        </div>
-        <div class="in-app-notif-action-icon" title="Responder">
-          <i class="bi bi-chevron-right"></i>
-        </div>
-      </div>
-      <div class="in-app-notif-progress-bar">
-        <div class="in-app-notif-progress-fill"></div>
-      </div>
-    `;
-
-    const closeBtn = toast.querySelector(".in-app-notif-close-btn");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        dismissInAppPrivateNotification(partner);
-      });
-    }
-
-    toast.addEventListener("click", (e) => {
-      if (e.target.closest(".in-app-notif-close-btn")) return;
-      dismissInAppPrivateNotification(partner);
-      if (typeof window.startPrivateChat === "function") {
-        window.startPrivateChat(partner);
-      }
-    });
-
-    const progressFill = toast.querySelector(".in-app-notif-progress-fill");
-    let startTime = Date.now();
-    let isPaused = false;
-    let pauseStart = 0;
-    let totalPaused = 0;
-
-    const notifRecord = {
-      element: toast,
-      timer: null,
-      animFrame: null
-    };
-
-    function runProgress() {
-      if (!isPaused) {
-        const elapsed = (Date.now() - startTime) - totalPaused;
-        const pct = Math.max(0, 1 - (elapsed / DURATION_MS));
-        if (progressFill) {
-          progressFill.style.transform = `scaleX(${pct})`;
-        }
-        if (elapsed >= DURATION_MS) {
-          dismissInAppPrivateNotification(partner);
-          return;
-        }
-      }
-      notifRecord.animFrame = requestAnimationFrame(runProgress);
-    }
-
-    toast.onmouseenter = () => {
-      if (!isPaused) {
-        isPaused = true;
-        pauseStart = Date.now();
-      }
-    };
-
-    toast.onmouseleave = () => {
-      if (isPaused) {
-        isPaused = false;
-        totalPaused += (Date.now() - pauseStart);
-      }
-    };
-
-    notifRecord.animFrame = requestAnimationFrame(runProgress);
-    notifRecord.timer = setTimeout(() => {
-      dismissInAppPrivateNotification(partner);
-    }, DURATION_MS);
-
-    activeInAppNotifications.set(partner, notifRecord);
-    container.appendChild(toast);
-  }
-
   function handleIncomingPrivateMessage(pm) {
     if (!pm) return;
 
@@ -1833,9 +1538,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const color = pm.color || "";
     const replyTo = pm.replyTo || null;
     const reactions = pm.reactions || {};
-    const isAudio = pm.type === "audio" || pm.messageType === "audio" || Boolean(pm.audioUrl);
-    const audioUrl = pm.audioUrl || undefined;
-    const audioDuration = typeof pm.audioDuration === "number" ? pm.audioDuration : (Number(pm.audioDuration) || undefined);
 
     if (!sender || !recipient) return;
 
@@ -1851,9 +1553,6 @@ document.addEventListener("DOMContentLoaded", () => {
         id: id,
         sender: sender,
         text: content,
-        type: isAudio ? "audio" : "text",
-        audioUrl: audioUrl,
-        audioDuration: audioDuration,
         time: timestamp,
         color: color,
         replyTo: replyTo,
@@ -1865,25 +1564,11 @@ document.addEventListener("DOMContentLoaded", () => {
       isNew = true;
 
       const isFromOther = (sender !== currentUser);
-      const isViewingThisConversation = (chatMode === "private" && activePrivateRecipient === partner);
-
       if (isFromOther && !notifiedPrivateMessageIds.has(id)) {
         notifiedPrivateMessageIds.add(id);
         if (isInitialSyncDone) {
-          if (!isViewingThisConversation) {
-            playPrivateNotificationSound();
-            showInAppPrivateNotification({
-              id: id,
-              partner: partner,
-              sender: sender,
-              content: isAudio ? "🎤 Mensagem de áudio" : content,
-              timestamp: timestamp,
-              photoUrl: pm.photoUrl || pm.photo || null
-            });
-            updatePrivateUnreadBadge(true);
-          } else {
-            updatePrivateUnreadBadge(false);
-          }
+          playPrivateNotificationSound();
+          updatePrivateUnreadBadge(true);
         } else {
           updatePrivateUnreadBadge(false);
         }
@@ -1904,9 +1589,6 @@ document.addEventListener("DOMContentLoaded", () => {
           sender: sender,
           recipient: recipient,
           text: content,
-          type: isAudio ? "audio" : "text",
-          audioUrl: audioUrl || null,
-          audioDuration: audioDuration || null,
           timestamp: typeof timestamp === "number" ? timestamp : Date.now(),
           time: formatMessageTime({ timestamp: typeof timestamp === "number" ? timestamp : Date.now() }),
           unread: (partner !== activePrivateRecipient),
@@ -1924,9 +1606,6 @@ document.addEventListener("DOMContentLoaded", () => {
         id: id,
         sender: sender,
         text: content,
-        type: isAudio ? "audio" : "text",
-        audioUrl: audioUrl,
-        audioDuration: audioDuration,
         time: timestamp,
         color: color,
         replyTo: replyTo,
@@ -1962,17 +1641,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (partnerName === currentUser) {
       alert("Você não pode iniciar um chat privado com você mesmo!");
       return;
-    }
-
-    if (typeof dismissInAppPrivateNotification === "function") {
-      dismissInAppPrivateNotification(partnerName);
-    }
-
-    if (window.PaposAudioManager) {
-      window.PaposAudioManager.stopCurrent();
-    }
-    if (typeof cleanupAudioRecording === "function") {
-      cleanupAudioRecording();
     }
 
     const offcanvasEl = document.getElementById("offcanvasMembers");
@@ -2017,12 +1685,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnBackToPublic) {
     btnBackToPublic.addEventListener("click", () => {
-      if (window.PaposAudioManager) {
-        window.PaposAudioManager.stopCurrent();
-      }
-      if (typeof cleanupAudioRecording === "function") {
-        cleanupAudioRecording();
-      }
       chatMode = "public";
       activePrivateRecipient = null;
       window.activePrivateRecipient = null;
@@ -2064,8 +1726,7 @@ document.addEventListener("DOMContentLoaded", () => {
       threadDiv.className = `private-chat-item ${isActive ? 'active' : ''} d-flex align-items-center justify-content-between p-2`;
       threadDiv.onclick = () => window.startPrivateChat(partner);
 
-            const lastMsgPreview = (lastMsg.type === "audio" || lastMsg.audioUrl) ? "🎤 Mensagem de áudio" : lastMsg.text;
-            threadDiv.innerHTML = `
+      threadDiv.innerHTML = `
         <div class="d-flex align-items-center gap-2 text-truncate flex-grow-1" style="min-width: 0;">
           ${window.ChatEngine.renderAvatar(partner, "avatar-sm")}
           <div class="text-start text-truncate flex-grow-1" style="min-width: 0;">
@@ -2073,7 +1734,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="fw-bold text-white small text-truncate me-1">${partner}</span>
               <span class="text-secondary font-mono" style="font-size: 0.65rem;">${formatMessageTime(lastMsg)}</span>
             </div>
-            <p class="mb-0 text-secondary text-truncate small" style="font-size: 0.78rem;">${lastMsgPreview}</p>
+            <p class="mb-0 text-secondary text-truncate small" style="font-size: 0.78rem;">${lastMsg.text}</p>
           </div>
         </div>
         <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
@@ -2330,221 +1991,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function formatAudioDuration(totalSeconds) {
-    if (!totalSeconds || isNaN(totalSeconds) || totalSeconds <= 0) {
-      return "0:00";
-    }
-    const sec = Math.round(totalSeconds);
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  }
-
-  function renderAudioPlayerHtml(msg) {
-    const safeAudioUrl = (msg.audioUrl || "").replace(/"/g, '&quot;');
-    const duration = typeof msg.audioDuration === "number" ? msg.audioDuration : (Number(msg.audioDuration) || 0);
-    const durFormatted = formatAudioDuration(duration);
-    return `
-      <div class="papos-audio-player" id="audio-player-${msg.id}" data-audio-url="${safeAudioUrl}" data-duration="${duration}">
-        <button type="button" class="audio-play-btn" onclick="event.stopPropagation(); window.PaposAudioManager.togglePlay('${msg.id}')" aria-label="Reproduzir áudio" title="Reproduzir áudio">
-          <i class="bi bi-play-fill" id="audio-icon-${msg.id}"></i>
-        </button>
-        <div class="audio-player-body">
-          <div class="audio-timeline-wrapper" onclick="event.stopPropagation(); window.PaposAudioManager.seek('${msg.id}', event)" title="Avançar / Retroceder">
-            <div class="audio-timeline-track" id="audio-track-${msg.id}">
-              <div class="audio-timeline-progress" id="audio-progress-${msg.id}"></div>
-              <div class="audio-timeline-thumb" id="audio-thumb-${msg.id}"></div>
-            </div>
-          </div>
-          <div class="audio-meta-row">
-            <span class="audio-time-label" id="audio-time-${msg.id}">${durFormatted}</span>
-            <button type="button" class="audio-speed-btn" onclick="event.stopPropagation(); window.PaposAudioManager.toggleSpeed('${msg.id}')" title="Velocidade de reprodução">
-              <span id="audio-speed-${msg.id}">1x</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  window.PaposAudioManager = {
-    activeMsgId: null,
-    activeAudio: null,
-    currentSpeed: 1,
-
-    stopCurrent: function() {
-      if (this.activeAudio) {
-        try {
-          this.activeAudio.pause();
-        } catch (e) {}
-        this.activeAudio = null;
-      }
-      if (this.activeMsgId) {
-        const oldId = this.activeMsgId;
-        const oldPlayer = document.getElementById(`audio-player-${oldId}`);
-        const oldIcon = document.getElementById(`audio-icon-${oldId}`);
-        const oldProgress = document.getElementById(`audio-progress-${oldId}`);
-        const oldThumb = document.getElementById(`audio-thumb-${oldId}`);
-        const oldTime = document.getElementById(`audio-time-${oldId}`);
-
-        if (oldPlayer) oldPlayer.classList.remove("playing");
-        if (oldIcon) {
-          oldIcon.className = "bi bi-play-fill";
-        }
-        if (oldProgress) oldProgress.style.width = "0%";
-        if (oldThumb) oldThumb.style.left = "0%";
-        if (oldTime && oldPlayer) {
-          const origDur = Number(oldPlayer.getAttribute("data-duration")) || 0;
-          oldTime.textContent = formatAudioDuration(origDur);
-        }
-        this.activeMsgId = null;
-      }
-    },
-
-    togglePlay: function(msgId) {
-      const playerEl = document.getElementById(`audio-player-${msgId}`);
-      if (!playerEl) return;
-
-      const audioUrl = playerEl.getAttribute("data-audio-url");
-      if (!audioUrl) return;
-
-      const iconEl = document.getElementById(`audio-icon-${msgId}`);
-      const progressEl = document.getElementById(`audio-progress-${msgId}`);
-      const thumbEl = document.getElementById(`audio-thumb-${msgId}`);
-      const timeEl = document.getElementById(`audio-time-${msgId}`);
-      const speedSpan = document.getElementById(`audio-speed-${msgId}`);
-
-      // Se já estiver tocando ESTE áudio:
-      if (this.activeMsgId === msgId && this.activeAudio) {
-        if (!this.activeAudio.paused) {
-          this.activeAudio.pause();
-          if (iconEl) iconEl.className = "bi bi-play-fill";
-          playerEl.classList.remove("playing");
-        } else {
-          this.activeAudio.play().then(() => {
-            if (iconEl) iconEl.className = "bi bi-pause-fill";
-            playerEl.classList.add("playing");
-          }).catch(err => {
-            console.error("Erro ao retomar áudio:", err);
-          });
-        }
-        return;
-      }
-
-      // Se outro áudio estiver tocando, pausar e resetar o anterior (regra: apenas 1 áudio por vez)
-      this.stopCurrent();
-
-      // Criar nova instância de Audio HTML5
-      const audio = new Audio(audioUrl);
-      audio.preload = "auto";
-      audio.playbackRate = this.currentSpeed;
-      if (speedSpan) speedSpan.textContent = `${this.currentSpeed}x`;
-
-      this.activeMsgId = msgId;
-      this.activeAudio = audio;
-
-      let knownDuration = Number(playerEl.getAttribute("data-duration")) || 0;
-
-      audio.addEventListener("loadedmetadata", () => {
-        if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
-          knownDuration = audio.duration;
-          playerEl.setAttribute("data-duration", String(knownDuration));
-          if (timeEl && audio.paused) {
-            timeEl.textContent = formatAudioDuration(knownDuration);
-          }
-        }
-      });
-
-      audio.addEventListener("timeupdate", () => {
-        const cur = audio.currentTime || 0;
-        const dur = (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) ? audio.duration : knownDuration;
-        if (dur > 0) {
-          const pct = Math.min(100, Math.max(0, (cur / dur) * 100));
-          if (progressEl) progressEl.style.width = `${pct}%`;
-          if (thumbEl) thumbEl.style.left = `${pct}%`;
-          if (timeEl) {
-            timeEl.textContent = `${formatAudioDuration(cur)} / ${formatAudioDuration(dur)}`;
-          }
-        }
-      });
-
-      audio.addEventListener("ended", () => {
-        if (iconEl) iconEl.className = "bi bi-play-fill";
-        playerEl.classList.remove("playing");
-        if (progressEl) progressEl.style.width = "0%";
-        if (thumbEl) thumbEl.style.left = "0%";
-        if (timeEl) timeEl.textContent = formatAudioDuration(knownDuration);
-        this.activeAudio = null;
-        this.activeMsgId = null;
-      });
-
-      audio.addEventListener("error", (e) => {
-        console.error("Erro ao carregar ou reproduzir áudio:", e);
-        if (iconEl) iconEl.className = "bi bi-play-fill";
-        playerEl.classList.remove("playing");
-        if (typeof window.showToast === "function") {
-          window.showToast("Não foi possível reproduzir este áudio.", "warning");
-        }
-        this.stopCurrent();
-      });
-
-      audio.play().then(() => {
-        if (iconEl) iconEl.className = "bi bi-pause-fill";
-        playerEl.classList.add("playing");
-      }).catch(err => {
-        console.error("Erro ao iniciar áudio:", err);
-        if (iconEl) iconEl.className = "bi bi-play-fill";
-        playerEl.classList.remove("playing");
-      });
-    },
-
-    seek: function(msgId, event) {
-      const playerEl = document.getElementById(`audio-player-${msgId}`);
-      if (!playerEl) return;
-
-      const track = event.currentTarget.querySelector(".audio-timeline-track") || event.currentTarget;
-      const rect = track.getBoundingClientRect();
-      const clickX = event.clientX - rect.left;
-      const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-
-      if (this.activeMsgId === msgId && this.activeAudio) {
-        const dur = this.activeAudio.duration || Number(playerEl.getAttribute("data-duration")) || 0;
-        if (dur > 0) {
-          this.activeAudio.currentTime = ratio * dur;
-          const progressEl = document.getElementById(`audio-progress-${msgId}`);
-          const thumbEl = document.getElementById(`audio-thumb-${msgId}`);
-          if (progressEl) progressEl.style.width = `${ratio * 100}%`;
-          if (thumbEl) thumbEl.style.left = `${ratio * 100}%`;
-        }
-      } else {
-        this.togglePlay(msgId);
-        setTimeout(() => {
-          if (this.activeAudio && this.activeMsgId === msgId) {
-            const dur = this.activeAudio.duration || Number(playerEl.getAttribute("data-duration")) || 0;
-            if (dur > 0) {
-              this.activeAudio.currentTime = ratio * dur;
-            }
-          }
-        }, 150);
-      }
-    },
-
-    toggleSpeed: function(msgId) {
-      const speeds = [1, 1.5, 2];
-      const curIdx = speeds.indexOf(this.currentSpeed);
-      const nextIdx = (curIdx + 1) % speeds.length;
-      this.currentSpeed = speeds[nextIdx];
-
-      if (this.activeAudio) {
-        this.activeAudio.playbackRate = this.currentSpeed;
-      }
-
-      document.querySelectorAll(".audio-speed-btn span").forEach(s => {
-        s.textContent = `${this.currentSpeed}x`;
-      });
-    }
-  };
-
   function renderMessages(filterText = "") {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.innerHTML = "";
@@ -2556,9 +2002,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const isBlocked = blockedUsers.includes(msg.sender);
       if (isBlocked) return false;
       if (filterText.trim() === "") return true;
-      if (msg.type === "audio" || msg.audioUrl) {
-        return "áudio audio".includes(filterText.toLowerCase()) || msg.sender.toLowerCase().includes(filterText.toLowerCase());
-      }
       return msg.text.toLowerCase().includes(filterText.toLowerCase());
     });
 
@@ -2658,9 +2101,6 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
         }
 
-        const isAudio = msg.type === "audio" || msg.messageType === "audio" || Boolean(msg.audioUrl);
-        const bubbleContent = isAudio ? renderAudioPlayerHtml(msg) : msg.text;
-
         msgDiv.setAttribute("data-sender", msg.sender);
         msgDiv.innerHTML = `
           ${actionsHtml}
@@ -2673,7 +2113,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
               <span class="msg-meta">${formatMessageTime(msg)}</span>
             </div>
-            <div class="msg-bubble ${isAudio ? 'msg-bubble-audio p-0 border-0 bg-transparent' : ''}" style="${msg.color && !isAudio ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${bubbleContent}</div>
+            <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
             ${reactionsHtml}
           </div>
         `;
@@ -2782,9 +2222,6 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
     }
 
-    const isAudio = msg.type === "audio" || msg.messageType === "audio" || Boolean(msg.audioUrl);
-    const bubbleContent = isAudio ? renderAudioPlayerHtml(msg) : msg.text;
-
     msgDiv.innerHTML = `
       ${actionsHtml}
       <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
@@ -2796,7 +2233,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
           <span class="msg-meta">${formatMessageTime(msg)}</span>
         </div>
-        <div class="msg-bubble ${isAudio ? 'msg-bubble-audio p-0 border-0 bg-transparent' : ''}" style="${msg.color && !isAudio ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${bubbleContent}</div>
+        <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
         ${reactionsHtml}
       </div>
     `;
@@ -2813,7 +2250,6 @@ document.addEventListener("DOMContentLoaded", () => {
     chatMessagesContainer.appendChild(sysDiv);
     scrollToBottom();
   }
-  window.appendSystemMessage = appendSystemMessage;
 
   function updateAvatarsInDOM(nickname, newPhotoUrl) {
     if (!nickname) return;
@@ -2899,12 +2335,98 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function showNicknameConflictModal(message) {
+    const errorMsg = message || "Este nome já está sendo utilizado por outro usuário nesta sala. Escolha outro nome para continuar.";
+    let modalEl = document.getElementById("nicknameConflictModal");
+    if (!modalEl) {
+      modalEl = document.createElement("div");
+      modalEl.id = "nicknameConflictModal";
+      modalEl.className = "modal fade";
+      modalEl.tabIndex = -1;
+      modalEl.setAttribute("data-bs-backdrop", "static");
+      modalEl.setAttribute("data-bs-keyboard", "false");
+      modalEl.style.zIndex = "12000";
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content text-white" style="background-color: #1a1a1a; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.7);">
+            <div class="modal-header border-bottom py-3 px-4" style="border-color: rgba(255, 255, 255, 0.1) !important;">
+              <h5 class="modal-title fw-bold fs-6 d-flex align-items-center gap-2 text-warning">
+                <i class="bi bi-exclamation-triangle-fill"></i> Nome em Uso
+              </h5>
+            </div>
+            <div class="modal-body p-4">
+              <p class="mb-3 text-white" id="nicknameConflictText" style="font-size: 0.95rem; line-height: 1.5;">${errorMsg}</p>
+              <div class="mb-3">
+                <label for="newNicknameInput" class="form-label text-secondary small fw-bold">Escolha outro apelido:</label>
+                <input type="text" class="form-control text-white bg-dark border-secondary" id="newNicknameInput" placeholder="Ex: Visitante_${Math.floor(100 + Math.random() * 900)}" maxlength="15" autofocus />
+                <div id="newNicknameError" class="text-danger small mt-1 d-none"></div>
+              </div>
+            </div>
+            <div class="modal-footer border-top py-2.5 px-4 d-flex justify-content-between" style="border-color: rgba(255, 255, 255, 0.1) !important;">
+              <a href="/" class="btn btn-sm btn-outline-secondary px-3">Voltar ao Início</a>
+              <button type="button" class="btn btn-sm btn-success px-4 fw-bold" id="btnSubmitNewNickname">Continuar</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalEl);
+
+      const btnSubmit = document.getElementById("btnSubmitNewNickname");
+      const input = document.getElementById("newNicknameInput");
+      const errEl = document.getElementById("newNicknameError");
+
+      const handleConfirm = () => {
+        const val = input.value.trim();
+        if (!val || val.length < 2) {
+          errEl.textContent = "Digite um nome com pelo menos 2 caracteres.";
+          errEl.classList.remove("d-none");
+          return;
+        }
+        errEl.classList.add("d-none");
+        currentUser = val;
+        localStorage.setItem("papos_nickname", val);
+        window.confirmedNickname = val;
+
+        if (window.bootstrap && window.bootstrap.Modal) {
+          const inst = window.bootstrap.Modal.getInstance(modalEl);
+          if (inst) inst.hide();
+        }
+
+        sendJoinRoom(activeRoomId);
+      };
+
+      if (btnSubmit) btnSubmit.addEventListener("click", handleConfirm);
+      if (input) {
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            handleConfirm();
+          }
+        });
+      }
+    } else {
+      const textEl = document.getElementById("nicknameConflictText");
+      if (textEl) textEl.textContent = errorMsg;
+    }
+
+    if (window.bootstrap && window.bootstrap.Modal) {
+      const bsModal = window.bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: "static", keyboard: false });
+      bsModal.show();
+    }
+  }
+
   function handleProfileUpdateEvent(data) {
     if (!data || !data.nickname) return;
     const targetNick = data.nickname.trim();
     const targetLower = targetNick.toLowerCase();
-    const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
-    const isMe = targetLower === myNick.toLowerCase();
+    
+    // Obter identificador único da sessão local
+    const myUid = (window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" && window.FirebaseService.getCurrentUser()?.uid) || localStorage.getItem("papos_uid") || "";
+    const myGuestId = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function" && window.SecurityIdentity.getGuestId()) || localStorage.getItem("papo_guest_id") || "";
+    const myUserId = myUid || myGuestId;
+
+    // isMe é estritamente validado pelo identificador único (userId), nunca apenas pelo apelido!
+    const isMe = Boolean(data.userId && myUserId && data.userId === myUserId);
 
     const isExplicitRemove = data.action === "remove_photo" || data.photoUrl === null || data.profileImage === null;
     const rawPhoto = data.photoUrl !== undefined ? data.photoUrl : (data.profileImage !== undefined ? data.profileImage : "");
@@ -2912,31 +2434,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let effectivePhoto = null;
 
-    // 1. Atualizar localStorage de forma segura
+    // 1. Atualizar localStorage SOMENTE se for o próprio proprietário comprovado pelo userId
     if (isExplicitRemove) {
       effectivePhoto = "";
-      localStorage.removeItem(`papos_photo_${targetNick}`);
-      localStorage.removeItem(`papos_photo_${targetLower}`);
       if (isMe) {
         localStorage.removeItem("papos_photo");
       }
     } else if (isValidPhotoString) {
       effectivePhoto = rawPhoto.trim();
-      localStorage.setItem(`papos_photo_${targetNick}`, effectivePhoto);
-      localStorage.setItem(`papos_photo_${targetLower}`, effectivePhoto);
       if (isMe) {
         localStorage.setItem("papos_photo", effectivePhoto);
       }
     } else {
-      // Preservar foto existente do usuário
-      effectivePhoto = getUserCurrentPhoto(targetNick);
+      effectivePhoto = isMe ? (localStorage.getItem("papos_photo") || "") : "";
     }
 
-    // 2. Atualizar ou invalidar profileCache em memória
+    // 2. Atualizar ou invalidar profileCache em memória (para renderização de outros membros)
     const cache = window.profileCache || (typeof profileCache !== "undefined" ? profileCache : null);
     if (cache) {
-      const cached = cache.get(targetLower);
-      if (cached && cached.data) {
+      let cached = cache.get(targetLower);
+      if (!cached) {
+        cached = { data: { nickname: targetNick, photoUrl: effectivePhoto || "", profileImage: effectivePhoto || null }, timestamp: Date.now() };
+        cache.set(targetLower, cached);
+      } else if (cached.data) {
         if (effectivePhoto !== null) {
           cached.data.photoUrl = effectivePhoto || "";
           cached.data.photoURL = effectivePhoto || "";
@@ -3340,7 +2860,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     messageInput.value = "";
     adjustMessageInputHeight();
-    updateComposerButtons();
     messageInput.focus();
 
     if (isCurrentlyTyping) {
@@ -3350,372 +2869,6 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         socket.send(JSON.stringify({ type: "private_typing", to: activePrivateRecipient, isTyping: false }));
       }
-    }
-  }
-
-  function formatRecordingTimer(ms) {
-    const totalSec = Math.floor(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
-  }
-
-  async function startAudioRecording() {
-    if (isRecordingAudio) return;
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert("Seu navegador não oferece suporte para gravação de áudio nativa.");
-      return;
-    }
-
-    try {
-      audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
-    } catch (err) {
-      console.warn("Erro ao acessar microfone:", err);
-      const msg = (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
-        ? "Permissão de microfone negada. Permita o acesso ao microfone nas configurações do navegador para gravar áudios."
-        : "Não foi possível acessar seu microfone.";
-      if (typeof window.showToast === "function") {
-        window.showToast(msg, "warning");
-      } else {
-        alert(msg);
-      }
-      return;
-    }
-
-    let mimeType = "";
-    const candidateMimes = [
-      "audio/webm;codecs=opus",
-      "audio/webm",
-      "audio/ogg;codecs=opus",
-      "audio/ogg",
-      "audio/mp4",
-      "audio/aac"
-    ];
-    for (const m of candidateMimes) {
-      if (MediaRecorder.isTypeSupported(m)) {
-        mimeType = m;
-        break;
-      }
-    }
-
-    try {
-      mediaRecorder = mimeType ? new MediaRecorder(audioStream, { mimeType }) : new MediaRecorder(audioStream);
-    } catch (e) {
-      try {
-        mediaRecorder = new MediaRecorder(audioStream);
-      } catch (e2) {
-        console.error("Falha ao inicializar MediaRecorder:", e2);
-        alert("Não foi possível iniciar o gravador de áudio no seu dispositivo.");
-        cleanupAudioRecording();
-        return;
-      }
-    }
-
-    audioChunks = [];
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) {
-        audioChunks.push(e.data);
-      }
-    };
-
-    mediaRecorder.start(200);
-    isRecordingAudio = true;
-    isAudioPaused = false;
-    totalRecordingElapsed = 0;
-
-    const formEl = document.getElementById("message-form");
-    const recBar = document.getElementById("audio-recording-bar");
-    const timerEl = document.getElementById("audio-recording-timer");
-    const statusDot = document.getElementById("recording-status-dot");
-    const statusLabel = document.getElementById("recording-status-label");
-    const waveEl = document.getElementById("recording-wave-visualizer");
-    const pauseIcon = document.getElementById("audio-pause-icon");
-    const pauseText = document.getElementById("audio-pause-text");
-
-    if (formEl) formEl.classList.add("d-none");
-    if (recBar) {
-      recBar.classList.remove("d-none");
-      recBar.classList.add("d-flex");
-    }
-    if (timerEl) timerEl.textContent = "00:00";
-    if (statusDot) statusDot.classList.remove("paused");
-    if (statusLabel) {
-      statusLabel.textContent = "Gravando";
-      statusLabel.className = "small fw-bold text-danger";
-    }
-    if (waveEl) waveEl.classList.remove("paused");
-    if (pauseIcon) pauseIcon.className = "bi bi-pause-fill";
-    if (pauseText) pauseText.textContent = "Pausar";
-
-    recordingIntervalId = setInterval(() => {
-      if (!isAudioPaused) {
-        totalRecordingElapsed += 200;
-        if (timerEl) {
-          timerEl.textContent = formatRecordingTimer(totalRecordingElapsed);
-        }
-      }
-    }, 200);
-  }
-
-  function pauseOrResumeAudioRecording() {
-    if (!isRecordingAudio || !mediaRecorder) return;
-
-    const statusDot = document.getElementById("recording-status-dot");
-    const statusLabel = document.getElementById("recording-status-label");
-    const waveEl = document.getElementById("recording-wave-visualizer");
-    const pauseIcon = document.getElementById("audio-pause-icon");
-    const pauseText = document.getElementById("audio-pause-text");
-
-    if (!isAudioPaused) {
-      try {
-        if (mediaRecorder.state === "recording") {
-          mediaRecorder.pause();
-        }
-      } catch (e) {}
-      isAudioPaused = true;
-
-      if (statusDot) statusDot.classList.add("paused");
-      if (statusLabel) {
-        statusLabel.textContent = "Pausado";
-        statusLabel.className = "small fw-bold text-warning";
-      }
-      if (waveEl) waveEl.classList.add("paused");
-      if (pauseIcon) pauseIcon.className = "bi bi-play-fill";
-      if (pauseText) pauseText.textContent = "Continuar";
-    } else {
-      try {
-        if (mediaRecorder.state === "paused") {
-          mediaRecorder.resume();
-        }
-      } catch (e) {}
-      isAudioPaused = false;
-
-      if (statusDot) statusDot.classList.remove("paused");
-      if (statusLabel) {
-        statusLabel.textContent = "Gravando";
-        statusLabel.className = "small fw-bold text-danger";
-      }
-      if (waveEl) waveEl.classList.remove("paused");
-      if (pauseIcon) pauseIcon.className = "bi bi-pause-fill";
-      if (pauseText) pauseText.textContent = "Pausar";
-    }
-  }
-
-  function cancelAudioRecording() {
-    cleanupAudioRecording();
-  }
-
-  function cleanupAudioRecording() {
-    if (recordingIntervalId) {
-      clearInterval(recordingIntervalId);
-      recordingIntervalId = null;
-    }
-
-    if (mediaRecorder) {
-      try {
-        if (mediaRecorder.state !== "inactive") {
-          mediaRecorder.stop();
-        }
-      } catch (e) {}
-      mediaRecorder = null;
-    }
-
-    if (audioStream) {
-      try {
-        audioStream.getTracks().forEach(track => track.stop());
-      } catch (e) {}
-      audioStream = null;
-    }
-
-    audioChunks = [];
-    isRecordingAudio = false;
-    isAudioPaused = false;
-    totalRecordingElapsed = 0;
-
-    const formEl = document.getElementById("message-form");
-    const recBar = document.getElementById("audio-recording-bar");
-    if (recBar) {
-      recBar.classList.add("d-none");
-      recBar.classList.remove("d-flex");
-    }
-    if (formEl) formEl.classList.remove("d-none");
-    updateComposerButtons();
-  }
-
-  async function sendAudioRecording() {
-    if (!isRecordingAudio || !mediaRecorder) return;
-
-    if (recordingIntervalId) {
-      clearInterval(recordingIntervalId);
-      recordingIntervalId = null;
-    }
-
-    const durationSeconds = Math.max(1, Math.round(totalRecordingElapsed / 1000));
-
-    mediaRecorder.onstop = async () => {
-      if (audioStream) {
-        try {
-          audioStream.getTracks().forEach(t => t.stop());
-        } catch (e) {}
-        audioStream = null;
-      }
-
-      const mimeType = (mediaRecorder && mediaRecorder.mimeType) || "audio/webm";
-      const audioBlob = new Blob(audioChunks, { type: mimeType });
-
-      if (audioBlob.size === 0) {
-        cleanupAudioRecording();
-        return;
-      }
-
-      let finalAudioUrl = "";
-      try {
-        const formData = new FormData();
-        const ext = mimeType.includes("ogg") ? "ogg" : (mimeType.includes("mp4") ? "mp4" : "webm");
-        formData.append("audio", audioBlob, `audio_${Date.now()}.${ext}`);
-        formData.append("duration", String(durationSeconds));
-        formData.append("nickname", window.confirmedNickname || currentUser);
-
-        const res = await fetch("/api/audio/upload", {
-          method: "POST",
-          body: formData
-        });
-
-        if (res.ok) {
-          const json = await res.json();
-          if (json && json.success && json.url) {
-            finalAudioUrl = json.url;
-          }
-        }
-      } catch (err) {
-        console.warn("Upload falhou via multipart, tentando fallback base64:", err);
-      }
-
-      if (!finalAudioUrl) {
-        try {
-          finalAudioUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(audioBlob);
-          });
-        } catch (err) {
-          console.error("Falha ao gerar URL de áudio:", err);
-          alert("Não foi possível enviar o áudio gravado.");
-          cleanupAudioRecording();
-          return;
-        }
-      }
-
-      dispatchAudioMessage(finalAudioUrl, durationSeconds);
-      cleanupAudioRecording();
-    };
-
-    try {
-      mediaRecorder.stop();
-    } catch (e) {
-      cleanupAudioRecording();
-    }
-  }
-
-  function dispatchAudioMessage(audioUrl, duration) {
-    if (!audioUrl || !socket || socket.readyState !== WebSocket.OPEN) {
-      alert("Não foi possível enviar o áudio: conexão offline.");
-      return;
-    }
-
-    const replyData = replyTargetMsg ? {
-      id: replyTargetMsg.id || replyTargetMsg.messageId,
-      messageId: replyTargetMsg.messageId || replyTargetMsg.id,
-      sender: replyTargetMsg.sender || replyTargetMsg.senderId,
-      senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
-      text: replyTargetMsg.text
-    } : null;
-
-    if (chatMode === "public") {
-      const clientMsgId = "m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
-      const senderNick = window.confirmedNickname || currentUser;
-      const myPhoto = getUserCurrentPhoto(senderNick) || undefined;
-      const msgObj = {
-        id: clientMsgId,
-        sender: senderNick,
-        text: "🎤 Mensagem de áudio",
-        type: "audio",
-        messageType: "audio",
-        audioUrl: audioUrl,
-        audioDuration: duration,
-        time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-        timestamp: Date.now(),
-        isSystem: false,
-        color: activeMessageColor || undefined,
-        photoUrl: myPhoto,
-        replyTo: replyData,
-        reactions: {}
-      };
-
-      publicRoomMessages.push(msgObj);
-      appendSingleMessage(msgObj);
-
-      socket.send(JSON.stringify({
-        type: "message",
-        id: clientMsgId,
-        text: "🎤 Mensagem de áudio",
-        messageType: "audio",
-        audioUrl: audioUrl,
-        audioDuration: duration,
-        color: activeMessageColor || undefined,
-        photoUrl: myPhoto,
-        replyTo: replyData
-      }));
-      clearReplyTarget();
-    } else {
-      const msgId = "pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
-      const senderNick = window.confirmedNickname || currentUser;
-      const myPhoto = getUserCurrentPhoto(senderNick) || undefined;
-
-      socket.send(JSON.stringify({
-        type: "private_message",
-        id: msgId,
-        to: activePrivateRecipient,
-        text: "🎤 Mensagem de áudio",
-        content: "🎤 Mensagem de áudio",
-        messageType: "audio",
-        type: "audio",
-        audioUrl: audioUrl,
-        audioDuration: duration,
-        color: activeMessageColor || undefined,
-        photoUrl: myPhoto,
-        replyTo: replyData ? {
-          id: replyData.id || replyData.messageId,
-          messageId: replyData.messageId || replyData.id,
-          sender: replyData.sender || replyData.senderId,
-          senderId: replyData.senderId || replyData.sender,
-          text: replyData.text
-        } : undefined
-      }));
-
-      handleIncomingPrivateMessage({
-        id: msgId,
-        senderName: senderNick,
-        recipientName: activePrivateRecipient,
-        content: "🎤 Mensagem de áudio",
-        type: "audio",
-        messageType: "audio",
-        audioUrl: audioUrl,
-        audioDuration: duration,
-        color: activeMessageColor || undefined,
-        timestamp: Date.now(),
-        replyTo: replyData,
-        reactions: {}
-      });
-      clearReplyTarget();
     }
   }
 
@@ -3759,7 +2912,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     messageInput.addEventListener("input", () => {
       adjustMessageInputHeight();
-      updateComposerButtons();
 
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
@@ -3783,10 +2935,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 1500);
     });
 
-    messageInput.addEventListener("keyup", updateComposerButtons);
-    messageInput.addEventListener("paste", () => setTimeout(updateComposerButtons, 20));
-    messageInput.addEventListener("change", updateComposerButtons);
-
     messageInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         const isMobile = window.innerWidth <= 768;
@@ -3801,30 +2949,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (sendButton) {
-    sendButton.addEventListener("click", (e) => {
-      e.preventDefault();
-      const hasText = Boolean(messageInput && messageInput.value.trim().length > 0);
-      if (hasText) {
-        handleSendMessage();
-      } else {
-        startAudioRecording();
-      }
-    });
+    sendButton.addEventListener("click", handleSendMessage);
   }
-
-  if (btnCancelAudio) {
-    btnCancelAudio.addEventListener("click", cancelAudioRecording);
-  }
-
-  if (btnPauseAudio) {
-    btnPauseAudio.addEventListener("click", pauseOrResumeAudioRecording);
-  }
-
-  if (btnSendAudio) {
-    btnSendAudio.addEventListener("click", sendAudioRecording);
-  }
-
-  updateComposerButtons();
 
   if (btnToggleSidebar && chatSidebar) {
     btnToggleSidebar.addEventListener("click", (e) => {

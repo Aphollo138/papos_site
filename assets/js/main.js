@@ -18,7 +18,7 @@ const CHAT_CONFIG = {
                              hostname.includes("usercontent") ||
                              hostname.includes("ai.studio");
     
-   
+
     if (isLocalOrPreview || hostname.includes("onrender.com") || hostname.includes("papos.net.br")) {
       const protocol = (window.location && window.location.protocol === "https:") ? "wss:" : "ws:";
       const host = (window.location && window.location.host) ? window.location.host : "papos-site.onrender.com";
@@ -286,11 +286,6 @@ const ChatEngine = {
       return false;
     }
     localStorage.setItem("papos_nickname", nick);
-    const existingPhoto = localStorage.getItem("papos_photo");
-    if (existingPhoto && existingPhoto.trim() !== "" && !existingPhoto.includes("null") && !existingPhoto.includes("undefined")) {
-      localStorage.setItem(`papos_photo_${nick}`, existingPhoto.trim());
-      localStorage.setItem(`papos_photo_${nick.toLowerCase()}`, existingPhoto.trim());
-    }
     return true;
   },
 
@@ -385,14 +380,12 @@ const ChatEngine = {
       } else {
         const currentUser = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
         if (cleanName.toLowerCase() === currentUser.toLowerCase() || cleanName === "Você") {
-          photoUrl = localStorage.getItem("papos_photo") || localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanName.toLowerCase()}`);
+          photoUrl = localStorage.getItem("papos_photo");
         } else {
           const cache = window.profileCache;
           const cached = cache && (cache.get(cleanName.toLowerCase()) || cache.get(cleanName));
           if (cached && cached.data && (cached.data.photoUrl || cached.data.photoURL || cached.data.profileImage)) {
             photoUrl = cached.data.photoUrl || cached.data.photoURL || cached.data.profileImage;
-          } else {
-            photoUrl = localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanName.toLowerCase()}`);
           }
         }
       }
@@ -614,108 +607,3 @@ document.addEventListener("DOMContentLoaded", () => {
 
 window.ChatEngine = ChatEngine;
 window.ChatEngineInitialized = true;
-
-// ==========================================================================
-// iOS Standalone PWA Safe Area & Viewport Manager
-// Ativado estritamente quando rodando como Web App instalado no iOS (iPhone/iPad)
-// Não afeta Safari normal, Chrome, Android ou Desktop
-// ==========================================================================
-(function initIOSPWAManager() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return;
-
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isStandalone = (window.navigator.standalone === true) || 
-    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
-
-  if (!isIOS || !isStandalone) {
-    return; // Em Safari normal, Chrome, Android, Desktop: não faz nada!
-  }
-
-  // Adicionar classe aos elementos raiz
-  document.documentElement.classList.add("ios-pwa");
-  if (document.body) {
-    document.body.classList.add("ios-pwa");
-  } else {
-    document.addEventListener("DOMContentLoaded", () => {
-      if (document.body) document.body.classList.add("ios-pwa");
-    });
-  }
-
-  // Gerenciamento dinâmico da viewport no iPhone PWA (inclusive com teclado virtual)
-  let isKeyboardOpen = false;
-
-  if (window.visualViewport) {
-    const updateViewportHeight = () => {
-      const vh = window.visualViewport.height;
-      document.documentElement.style.setProperty("--ios-pwa-height", `${vh}px`);
-
-      // Detectar se o teclado virtual abriu no iPhone (queda substancial na altura da viewport visual)
-      const keyboardOpen = (window.innerHeight - vh) > 80;
-      if (keyboardOpen !== isKeyboardOpen) {
-        isKeyboardOpen = keyboardOpen;
-        if (isKeyboardOpen) {
-          if (document.body) document.body.classList.add("ios-keyboard-open");
-          if (window.scrollY !== 0) window.scrollTo(0, 0);
-          const messagesContainer = document.getElementById("chat-messages-container");
-          if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          }
-        } else {
-          if (document.body) document.body.classList.remove("ios-keyboard-open");
-          if (window.scrollY !== 0) window.scrollTo(0, 0);
-        }
-      } else if (isKeyboardOpen) {
-        if (window.scrollY !== 0) window.scrollTo(0, 0);
-      }
-    };
-
-    window.visualViewport.addEventListener("resize", updateViewportHeight);
-
-    window.addEventListener("orientationchange", () => {
-      setTimeout(updateViewportHeight, 100);
-      setTimeout(updateViewportHeight, 300);
-    });
-
-    updateViewportHeight();
-  }
-
-  // Quando o teclado virtual abre no chat, impedir que o WebKit desloque a janela inteira e crie o vão preto
-  document.addEventListener("DOMContentLoaded", () => {
-    const messageInput = document.getElementById("message-input");
-    const messagesContainer = document.getElementById("chat-messages-container");
-
-    if (messageInput) {
-      const lockWindowToTop = () => {
-        if (window.scrollY !== 0) {
-          window.scrollTo(0, 0);
-        }
-      };
-
-      messageInput.addEventListener("focus", () => {
-        // Ao focar, neutraliza o deslocamento da janela feito pelo WebKit no iOS
-        lockWindowToTop();
-        [50, 150, 250, 400].forEach((delay) => {
-          setTimeout(() => {
-            lockWindowToTop();
-            if (messagesContainer) {
-              messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-          }, delay);
-        });
-      });
-
-      messageInput.addEventListener("blur", () => {
-        setTimeout(() => {
-          lockWindowToTop();
-        }, 100);
-      });
-
-      messageInput.addEventListener("input", () => {
-        if (isKeyboardOpen && window.scrollY !== 0) {
-          lockWindowToTop();
-        }
-      });
-    }
-  });
-})();

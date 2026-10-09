@@ -381,9 +381,115 @@ const BOT_MESSAGES: Record<string, string[]> = {
   ]
 };
 
+const GUEST_SECRET = process.env.GUEST_SECRET || ("papos_sec_" + crypto.randomBytes(32).toString("hex"));
+
+function signGuestToken(guestId: string): string {
+  const sig = crypto.createHmac("sha256", GUEST_SECRET).update(guestId).digest("hex");
+  return `${guestId}.${sig}`;
+}
+
+function verifyGuestToken(token: string | undefined | null): { valid: boolean; guestId?: string } {
+  if (!token || typeof token !== "string") return { valid: false };
+  const parts = token.split(".");
+  if (parts.length !== 2) return { valid: false };
+  const [guestId, sig] = parts;
+  if (!guestId || !sig || !guestId.startsWith("GST-")) return { valid: false };
+  const expectedSig = crypto.createHmac("sha256", GUEST_SECRET).update(guestId).digest("hex");
+  if (sig.length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expectedSig, "hex"))) {
+    return { valid: true, guestId };
+  }
+  return { valid: false };
+}
+
+function canonicalizeNickname(name: string): string {
+  if (!name || typeof name !== "string") return "";
+  return name
+    .normalize("NFKC")
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+interface RoomNickReservation {
+  ws: WebSocket;
+  sessionId: string;
+  userId: string;
+  nickname: string;
+  reservedAt: number;
+}
+const roomNickReservations = new Map<string, Map<string, RoomNickReservation>>();
+
+function isNicknameTakenInRoom(roomId: string, canonicalNick: string, excludeWs?: WebSocket, excludeUserId?: string): boolean {
+  if (!roomId || !canonicalNick) return false;
+
+  // 1. Verificar bots
+  if (BOTS.some(b => b.rooms.includes(roomId) && canonicalizeNickname(b.nickname) === canonicalNick)) {
+    return true;
+  }
+
+  // 2. Verificar reservas ativas
+  const roomMap = roomNickReservations.get(roomId);
+  if (roomMap && roomMap.has(canonicalNick)) {
+    const res = roomMap.get(canonicalNick)!;
+    if (res.ws !== excludeWs && activeSessions.has(res.ws)) {
+      if (!excludeUserId || res.userId !== excludeUserId) {
+        return true;
+      }
+    }
+  }
+
+  // 3. Verificar sessões ativas na sala
+  for (const [otherWs, otherSession] of activeSessions.entries()) {
+    if (otherWs !== excludeWs && otherSession.roomId === roomId && otherSession.normalizedNickname === canonicalNick) {
+      if (!excludeUserId || otherSession.userId !== excludeUserId) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function reserveNicknameInRoom(roomId: string, canonicalNick: string, originalNick: string, ws: WebSocket, sessionId: string, userId: string): boolean {
+  if (isNicknameTakenInRoom(roomId, canonicalNick, ws, userId)) {
+    return false;
+  }
+  if (!roomNickReservations.has(roomId)) {
+    roomNickReservations.set(roomId, new Map());
+  }
+  roomNickReservations.get(roomId)!.set(canonicalNick, {
+    ws,
+    sessionId,
+    userId,
+    nickname: originalNick,
+    reservedAt: Date.now()
+  });
+  return true;
+}
+
+function releaseNicknameInRoom(roomId: string, canonicalNick: string, ws?: WebSocket) {
+  if (!roomId || !canonicalNick) return;
+  const roomMap = roomNickReservations.get(roomId);
+  if (roomMap) {
+    if (ws) {
+      const res = roomMap.get(canonicalNick);
+      if (res && res.ws === ws) {
+        roomMap.delete(canonicalNick);
+      }
+    } else {
+      roomMap.delete(canonicalNick);
+    }
+  }
+}
+
 interface ClientSession {
   ws: WebSocket;
+  sessionId: string;
+  userId: string;
+  isGuest: boolean;
   nickname: string;
+  normalizedNickname: string;
   roomId: string;
   lastMessageTime: number[]; 
   bio?: string;
@@ -392,6 +498,7 @@ interface ClientSession {
   photoUrl?: string;
   uid?: string;
   guestId?: string;
+  guestToken?: string;
   email?: string;
   permanentId?: string;
   internalId?: string;
@@ -438,34 +545,36 @@ function findCallForUser(nickname: string): ActiveCallSession | undefined {
   return undefined;
 }
 
-function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?: string) {
-  if (!nickname) return;
-  const cleanNick = nickname.trim();
+function broadcastProfileUpdate(userId: string, nickname: string, photoUrl: string | null, isAuth: boolean) {
+  if (!userId && !nickname) return;
+  const cleanNick = (nickname || "").trim();
   const cleanPhotoUrl = (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "") ? photoUrl.trim() : "";
 
-  // 1. Atualizar sessões ativas com o novo estado em tempo real
+  // 1. Atualizar estritamente a sessão correspondente pelo identificador único (userId), NUNCA sobrepondo o perfil de terceiros
   activeSessions.forEach((session) => {
-    if (session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase()) {
+    const matchesUser = session.userId === userId || (isAuth && session.uid === userId) || (!isAuth && session.guestId === userId);
+    if (matchesUser) {
       session.photoUrl = cleanPhotoUrl;
     }
   });
 
-  // 2. Atualizar mensagens em memória para que novos membros recebam o estado correto
+  // 2. Atualizar mensagens em memória enviadas por este usuário específico
   Object.keys(messages).forEach((roomId) => {
     if (Array.isArray(messages[roomId])) {
       messages[roomId].forEach((msg) => {
-        if (msg.sender && msg.sender.toLowerCase() === cleanNick.toLowerCase()) {
+        if (msg.senderUserId === userId) {
           msg.photoUrl = cleanPhotoUrl ? cleanPhotoUrl : undefined;
         }
       });
     }
   });
 
-  // 3. Notificar todos os clientes conectados via WebSocket em tempo real
+  // 3. Notificar todos os clientes conectados com o userId único
   const payload = {
     type: "profile_updated",
+    userId,
+    isGuest: !isAuth,
     nickname: cleanNick,
-    userId: uid || undefined,
     photoUrl: cleanPhotoUrl || "",
     profileImage: cleanPhotoUrl || null,
     action: cleanPhotoUrl ? "update_photo" : "remove_photo"
@@ -675,7 +784,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -887,9 +996,74 @@ async function startServer() {
     res.json({ valid: true });
   });
 
+  app.get("/api/session/guest-token", (req, res) => {
+    const existing = (req.query.token as string) || (req.headers["x-guest-token"] as string);
+    const verified = verifyGuestToken(existing);
+    if (verified.valid && verified.guestId) {
+      res.json({ success: true, guestId: verified.guestId, guestToken: existing });
+      return;
+    }
+    const newGuestId = "GST-" + crypto.randomBytes(5).toString("hex").toUpperCase();
+    const newToken = signGuestToken(newGuestId);
+    res.json({ success: true, guestId: newGuestId, guestToken: newToken });
+  });
+
+  app.post("/api/session/guest-token", (req, res) => {
+    const existing = (req.body && req.body.guestToken) || (req.headers["x-guest-token"] as string);
+    const verified = verifyGuestToken(existing);
+    if (verified.valid && verified.guestId) {
+      res.json({ success: true, guestId: verified.guestId, guestToken: existing });
+      return;
+    }
+    const newGuestId = "GST-" + crypto.randomBytes(5).toString("hex").toUpperCase();
+    const newToken = signGuestToken(newGuestId);
+    res.json({ success: true, guestId: newGuestId, guestToken: newToken });
+  });
+
+  interface RequestIdentity {
+    isAuth: boolean;
+    uid?: string;
+    email?: string;
+    guestId?: string;
+    userId: string;
+  }
+
+  async function resolveRequestIdentity(req: express.Request): Promise<RequestIdentity | null> {
+    // 1. Verificar Authorization Bearer token do Firebase Auth
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      const token = req.headers.authorization.split("Bearer ")[1].trim();
+      try {
+        const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+        if (decoded && decoded.uid) {
+          return {
+            isAuth: true,
+            uid: decoded.uid,
+            email: decoded.email,
+            userId: decoded.uid
+          };
+        }
+      } catch (err) {}
+    }
+
+    // 2. Verificar token de visitante assinado
+    const guestToken = (req.headers["x-guest-token"] as string) || (req.body && req.body.guestToken) || "";
+    if (guestToken) {
+      const verified = verifyGuestToken(guestToken);
+      if (verified.valid && verified.guestId) {
+        return {
+          isAuth: false,
+          guestId: verified.guestId,
+          userId: verified.guestId
+        };
+      }
+    }
+
+    return null;
+  }
+
   app.post("/api/profile/validate", async (req, res) => {
-    const { bio, age, gender, nickname, uid, email, blockCalls } = req.body;
-    let authUid = uid;
+    const { bio, age, gender, nickname, email, blockCalls } = req.body;
+    let authUid: string | undefined = undefined;
 
     if (email && typeof email === "string" && !isAllowedEmailDomain(email)) {
       res.status(400).json({ error: "Utilize um e-mail Gmail, Outlook ou UOL." });
@@ -946,10 +1120,10 @@ async function startServer() {
       }
     }
 
-    if (blockCalls !== undefined) {
+    if (blockCalls !== undefined && authUid) {
       const isBlocked = Boolean(blockCalls);
       activeSessions.forEach((s) => {
-        if ((authUid && s.uid === authUid) || (nickname && s.nickname && s.nickname.toLowerCase() === String(nickname).toLowerCase())) {
+        if (s.uid === authUid) {
           s.blockCalls = isBlocked;
         }
       });
@@ -1008,6 +1182,22 @@ async function startServer() {
 
   async function handleProfilePhotoUpload(req: express.Request, res: express.Response) {
     try {
+      const identity = await resolveRequestIdentity(req);
+      if (!identity) {
+        res.status(401).json({ success: false, error: "401 Unauthorized: Identificação necessária para alterar foto de perfil." });
+        return;
+      }
+
+      // Validação estrita de autorização: nunca aceitar UIDs arbitrários no corpo da requisição
+      if (req.body.uid && identity.isAuth && req.body.uid !== identity.uid) {
+        res.status(403).json({ success: false, error: "403 Forbidden: Permissão negada. Você não pode alterar a foto de outro usuário." });
+        return;
+      }
+      if (req.body.uid && !identity.isAuth) {
+        res.status(403).json({ success: false, error: "403 Forbidden: Permissão negada. Visitantes não podem alterar contas cadastradas." });
+        return;
+      }
+
       let fileBuffer: Buffer | null = null;
 
       if (req.file) {
@@ -1052,24 +1242,11 @@ async function startServer() {
       }
 
       const photoUrl = uploadResult.url;
-      let uid = (req.body.uid || req.headers["x-user-uid"]) as string;
-      const nickname = (req.body.nickname || "") as string;
 
-      // Se houver Authorization Bearer token, valida e extrai UID verificado com segurança
-      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-        const token = req.headers.authorization.split("Bearer ")[1];
+      // Se autenticado com UID verificado, persistir no documento do usuário no Firestore
+      if (identity.isAuth && identity.uid) {
         try {
-          const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
-          if (decoded && decoded.uid) {
-            uid = decoded.uid;
-          }
-        } catch (e) {}
-      }
-
-      // Se autenticado com UID, persistir no documento do usuário no Firestore
-      if (uid && typeof uid === "string") {
-        try {
-          const userRef = doc(db, "users", uid);
+          const userRef = doc(db, "users", identity.uid);
           await setDoc(userRef, {
             photoURL: photoUrl,
             profileImage: photoUrl,
@@ -1081,10 +1258,17 @@ async function startServer() {
         }
       }
 
-      // Atualizar sessões ativas, histórico de mensagens em memória e transmitir evento em tempo real a todos os clientes
-      if (nickname) {
-        broadcastProfileUpdate(nickname, photoUrl, uid);
-      }
+      // Atualizar sessões ativas do usuário e transmitir evento em tempo real pelo userId único
+      let nicknameToBroadcast = (req.body.nickname || "") as string;
+      activeSessions.forEach((session) => {
+        const matches = (identity.isAuth && session.uid === identity.uid) || (!identity.isAuth && (session.guestId === identity.guestId || session.userId === identity.userId));
+        if (matches) {
+          session.photoUrl = photoUrl;
+          if (session.nickname) nicknameToBroadcast = session.nickname;
+        }
+      });
+
+      broadcastProfileUpdate(identity.userId, nicknameToBroadcast, photoUrl, identity.isAuth);
 
       res.json({
         success: true,
@@ -1102,21 +1286,24 @@ async function startServer() {
 
   app.post("/api/profile/remove-photo", async (req, res) => {
     try {
-      let { uid, nickname } = req.body;
-
-      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-        const token = req.headers.authorization.split("Bearer ")[1];
-        try {
-          const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
-          if (decoded && decoded.uid) {
-            uid = decoded.uid;
-          }
-        } catch (e) {}
+      const identity = await resolveRequestIdentity(req);
+      if (!identity) {
+        res.status(401).json({ success: false, error: "401 Unauthorized: Identificação necessária para remover foto de perfil." });
+        return;
       }
 
-      if (uid && typeof uid === "string") {
+      if (req.body.uid && identity.isAuth && req.body.uid !== identity.uid) {
+        res.status(403).json({ success: false, error: "403 Forbidden: Permissão negada. Você não pode alterar o perfil de outro usuário." });
+        return;
+      }
+      if (req.body.uid && !identity.isAuth) {
+        res.status(403).json({ success: false, error: "403 Forbidden: Permissão negada. Visitantes não podem alterar contas cadastradas." });
+        return;
+      }
+
+      if (identity.isAuth && identity.uid) {
         try {
-          const userRef = doc(db, "users", uid);
+          const userRef = doc(db, "users", identity.uid);
           await setDoc(userRef, {
             photoURL: "",
             profileImage: "",
@@ -1126,19 +1313,18 @@ async function startServer() {
         } catch (e) {
           console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", e);
         }
-      } else if (nickname) {
-        try {
-          const q = query(collection(db, "users"), where("nickname", "==", nickname));
-          const snap = await getDocs(q);
-          snap.forEach(async (d) => {
-            await setDoc(doc(db, "users", d.id), { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
-          });
-        } catch (e) {}
       }
 
-      if (nickname && typeof nickname === "string") {
-        broadcastProfileUpdate(nickname, "", uid);
-      }
+      let nicknameToBroadcast = (req.body.nickname || "") as string;
+      activeSessions.forEach((session) => {
+        const matches = (identity.isAuth && session.uid === identity.uid) || (!identity.isAuth && (session.guestId === identity.guestId || session.userId === identity.userId));
+        if (matches) {
+          session.photoUrl = "";
+          if (session.nickname) nicknameToBroadcast = session.nickname;
+        }
+      });
+
+      broadcastProfileUpdate(identity.userId, nicknameToBroadcast, "", identity.isAuth);
 
       res.json({ success: true });
     } catch (err) {
@@ -1251,9 +1437,19 @@ async function startServer() {
   wss.on("connection", (ws: WebSocket, req: any) => {
     const clientIp = (req && req.headers ? (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "") : "").split(",")[0].trim();
     
+    const sessionId = crypto.randomUUID();
+    const guestIdCandidate = "GST-" + crypto.randomBytes(5).toString("hex").toUpperCase();
+    const guestTokenCandidate = signGuestToken(guestIdCandidate);
+
     activeSessions.set(ws, {
       ws,
+      sessionId,
+      userId: guestIdCandidate,
+      isGuest: true,
+      guestId: guestIdCandidate,
+      guestToken: guestTokenCandidate,
       nickname: "",
+      normalizedNickname: "",
       roomId: "",
       ip: clientIp,
       lastMessageTime: [],
@@ -1261,6 +1457,11 @@ async function startServer() {
     });
 
     updateRoomCounts();
+    sendToClient(ws, "session_init", {
+      sessionId,
+      guestId: guestIdCandidate,
+      guestToken: guestTokenCandidate
+    });
     sendToClient(ws, "room_list", { rooms });
 
     ws.on("message", async (rawMessage) => {
@@ -1271,7 +1472,18 @@ async function startServer() {
 
         if (payload.fingerprint) session.fingerprint = payload.fingerprint;
         if (payload.clientId) session.clientId = payload.clientId;
-        if (payload.guestId) session.guestId = payload.guestId;
+
+        // Se o cliente enviar um token de convidado assinado válido, vincular à sessão
+        if (payload.guestToken && typeof payload.guestToken === "string") {
+          const verified = verifyGuestToken(payload.guestToken);
+          if (verified.valid && verified.guestId) {
+            session.guestId = verified.guestId;
+            session.guestToken = payload.guestToken;
+            if (!session.uid) {
+              session.userId = verified.guestId;
+            }
+          }
+        }
 
         if (!session.uid && (session.guestId || session.fingerprint)) {
           notifyAdminsGuestList();
@@ -1345,6 +1557,8 @@ async function startServer() {
               }
 
               session.uid = uid;
+              session.userId = uid;
+              session.isGuest = false;
               session.email = email;
               session.isAuthenticated = true;
               session.joinTime = session.joinTime || Date.now();
@@ -2293,47 +2507,63 @@ async function startServer() {
             break;
           }
           case "join": {
-            const nickname = sanitizeHTML(payload.nickname?.trim() || "").substring(0, 15);
+            const rawNickname = sanitizeHTML(payload.nickname?.trim() || "").substring(0, 15);
+            const canonicalNick = canonicalizeNickname(rawNickname);
             const roomId = payload.roomId || "room-1";
 
-            if (!nickname || nickname.length < 2) {
+            if (!rawNickname || rawNickname.length < 2 || !canonicalNick) {
               sendToClient(ws, "error", { message: "Apelido inválido ou muito curto." });
               return;
             }
 
-            if (isReservedNickname(nickname)) {
-              const isAuth = await isAuthorizedForReservedNickname(session.uid, nickname);
-              if (isAuth) {
-                
-              } else {
-                
+            // Validar token de visitante se fornecido no join
+            if (payload.guestToken && typeof payload.guestToken === "string") {
+              const verified = verifyGuestToken(payload.guestToken);
+              if (verified.valid && verified.guestId) {
+                session.guestId = verified.guestId;
+                session.guestToken = payload.guestToken;
+                if (!session.uid) session.userId = verified.guestId;
+              }
+            }
+
+            if (isReservedNickname(rawNickname)) {
+              const isAuth = await isAuthorizedForReservedNickname(session.uid, rawNickname);
+              if (!isAuth) {
                 sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
                 return;
               }
             }
 
-            activeSessions.forEach((s, key) => {
-              if (key !== ws && s.nickname && s.nickname.toLowerCase() === nickname.toLowerCase()) {
-                try {
-                  key.close();
-                } catch (err) {}
-                activeSessions.delete(key);
-              }
-            });
+            // 1. Verificar se o nome já está reservado ou em uso por outro participante na sala
+            const isTaken = isNicknameTakenInRoom(roomId, canonicalNick, ws, session.userId);
+            if (isTaken) {
+              sendToClient(ws, "error", {
+                code: "NICKNAME_TAKEN",
+                message: "Este nome já está sendo utilizado por outro usuário nesta sala. Escolha outro nome para continuar."
+              });
+              return;
+            }
 
-            let taken = false;
-            activeSessions.forEach((s, key) => {
-              if (key !== ws && s.roomId === roomId && s.nickname.toLowerCase() === nickname.toLowerCase()) {
-                taken = true;
-              }
-            });
+            // 2. Liberar reserva anterior caso esteja mudando de nome ou sala
+            if (session.roomId && session.normalizedNickname) {
+              releaseNicknameInRoom(session.roomId, session.normalizedNickname, ws);
+            }
 
-            const finalNickname = taken ? `${nickname}#${Math.floor(100 + Math.random() * 900)}` : nickname;
+            // 3. Reservar atomicamente o nome na sala para esta sessão
+            const reserved = reserveNicknameInRoom(roomId, canonicalNick, rawNickname, ws, session.sessionId, session.userId);
+            if (!reserved) {
+              sendToClient(ws, "error", {
+                code: "NICKNAME_TAKEN",
+                message: "Este nome já está sendo utilizado por outro usuário nesta sala. Escolha outro nome para continuar."
+              });
+              return;
+            }
 
             const oldRoomId = session.roomId;
             const oldNickname = session.nickname;
 
-            session.nickname = finalNickname;
+            session.nickname = rawNickname;
+            session.normalizedNickname = canonicalNick;
             session.roomId = roomId;
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
@@ -2356,7 +2586,7 @@ async function startServer() {
               notifyAdminsGuestList();
             }
 
-            if (oldRoomId && oldRoomId !== roomId) {
+            if (oldRoomId && oldRoomId !== roomId && oldNickname) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
               broadcastToRoom(oldRoomId, "user_left", {
                 nickname: oldNickname,
@@ -2380,7 +2610,7 @@ async function startServer() {
 
             sendToClient(ws, "room_state", {
               roomId,
-              nickname: finalNickname,
+              nickname: rawNickname,
               messages: messages[roomId],
               onlineUsers: getRoomOnlineUsers(roomId),
               userPhotos,
@@ -2396,7 +2626,7 @@ async function startServer() {
             });
 
             broadcastToRoom(roomId, "user_joined", {
-              nickname: finalNickname,
+              nickname: rawNickname,
               photoUrl: session.photoUrl || "",
               profileImage: session.photoUrl || null,
               time: getCurrentTime(),
@@ -2422,7 +2652,7 @@ async function startServer() {
                   isTyping: false
                 });
 
-                const text = `👋 Olá, ${finalNickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
+                const text = `👋 Olá, ${rawNickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
                 
                 const welcomeMsgId = "bot-welcome-" + Date.now();
                 const welcomeMsg = {
@@ -2445,7 +2675,6 @@ async function startServer() {
             broadcastRoomsList();
 
             if (!oldNickname) {
-              
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
                 sendToClient(ws, "private_typing", {
@@ -2469,11 +2698,11 @@ async function startServer() {
                   id: "pm-welcome-" + Date.now(),
                   senderId: "Bot_Papos",
                   senderName: "Bot_Papos",
-                  recipientId: finalNickname,
-                  recipientName: finalNickname,
+                  recipientId: rawNickname,
+                  recipientName: rawNickname,
                   content: welcomeText,
                   timestamp: Date.now(),
-                  conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
+                  conversationId: ["bot_papos", rawNickname.toLowerCase()].sort().join("--"),
                   isDeleted: false
                 };
                 sendToClient(ws, "private_message", pmPayload);
@@ -2488,6 +2717,22 @@ async function startServer() {
 
             const oldRoomId = session.roomId;
             if (oldRoomId === roomId) return;
+
+            // Verificar se o nome já está ocupado na nova sala
+            const isTaken = isNicknameTakenInRoom(roomId, session.normalizedNickname, ws, session.userId);
+            if (isTaken) {
+              sendToClient(ws, "error", {
+                code: "NICKNAME_TAKEN",
+                message: "Este nome já está sendo utilizado por outro usuário nesta sala. Escolha outro nome para continuar."
+              });
+              return;
+            }
+
+            if (oldRoomId && session.normalizedNickname) {
+              releaseNicknameInRoom(oldRoomId, session.normalizedNickname, ws);
+            }
+
+            reserveNicknameInRoom(roomId, session.normalizedNickname, session.nickname, ws, session.sessionId, session.userId);
 
             session.roomId = roomId;
 
@@ -3051,7 +3296,7 @@ async function startServer() {
               return;
             }
 
-            
+            // Validação de bloqueio de chamadas no servidor
             let isTargetBlocked = targetSession.blockCalls === true;
             if (!isTargetBlocked && targetSession.uid) {
               try {
@@ -3350,9 +3595,9 @@ async function startServer() {
             if (isExplicitRemove) {
               session.photoUrl = "";
               if (session.nickname) {
-                broadcastProfileUpdate(session.nickname, "", session.uid);
+                broadcastProfileUpdate(session.userId, session.nickname, "", !!session.isAuthenticated);
               }
-              if (session.uid) {
+              if (session.isAuthenticated && session.uid) {
                 try {
                   const userRef = doc(db, "users", session.uid);
                   await setDoc(userRef, { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
@@ -3363,9 +3608,9 @@ async function startServer() {
               if (typeof raw === "string" && raw.trim() !== "" && !raw.includes("null") && !raw.includes("undefined")) {
                 session.photoUrl = sanitizeHTML(raw.trim());
                 if (session.nickname) {
-                  broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+                  broadcastProfileUpdate(session.userId, session.nickname, session.photoUrl, !!session.isAuthenticated);
                 }
-                if (session.uid) {
+                if (session.isAuthenticated && session.uid) {
                   try {
                     const userRef = doc(db, "users", session.uid);
                     await setDoc(userRef, {
@@ -3387,17 +3632,32 @@ async function startServer() {
             
             if (newNickname && typeof newNickname === "string") {
               newNickname = sanitizeHTML(newNickname.trim());
-              if (newNickname !== oldNickname) {
-                if (payload.uid && !session.uid) session.uid = payload.uid;
-                const uidCandidate = payload.uid || session.uid;
+              const newCanonical = canonicalizeNickname(newNickname);
+              if (newNickname !== oldNickname && newCanonical) {
                 if (isReservedNickname(newNickname)) {
-                  const isAuth = await isAuthorizedForReservedNickname(uidCandidate, newNickname);
+                  const isAuth = await isAuthorizedForReservedNickname(session.uid, newNickname);
                   if (!isAuth) {
                     sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
                     break;
                   }
                 }
+
+                if (session.roomId) {
+                  const isTaken = isNicknameTakenInRoom(session.roomId, newCanonical, ws, session.userId);
+                  if (isTaken) {
+                    sendToClient(ws, "error", {
+                      code: "NICKNAME_TAKEN",
+                      message: "Este nome já está sendo utilizado por outro usuário nesta sala. Escolha outro nome para continuar."
+                    });
+                    break;
+                  }
+                  if (session.normalizedNickname) {
+                    releaseNicknameInRoom(session.roomId, session.normalizedNickname, ws);
+                  }
+                  reserveNicknameInRoom(session.roomId, newCanonical, newNickname, ws, session.sessionId, session.userId);
+                }
                 session.nickname = newNickname;
+                session.normalizedNickname = newCanonical;
               }
             }
 
@@ -3423,7 +3683,8 @@ async function startServer() {
               }
             }
 
-            if (session.uid) {
+            // Apenas atualizar Firestore se autenticado com UID verificado
+            if (session.isAuthenticated && session.uid) {
               try {
                 const userRef = doc(db, "users", session.uid);
                 const updateData: any = {
@@ -3456,15 +3717,18 @@ async function startServer() {
             }
 
             if (photoChanged && session.nickname) {
-              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+              broadcastProfileUpdate(session.userId, session.nickname, session.photoUrl || "", !!session.isAuthenticated);
             }
 
             if (session.roomId) {
               broadcastToRoom(session.roomId, "user_joined", {
-                user: {
-                  nickname: session.nickname,
-                  joinedAt: session.joinTime || Date.now()
-                }
+                nickname: session.nickname,
+                photoUrl: session.photoUrl || "",
+                profileImage: session.photoUrl || null,
+                time: getCurrentTime(),
+                timestamp: Date.now(),
+                onlineUsers: getRoomOnlineUsers(session.roomId),
+                adminUsers: getAdminNicknames()
               });
             }
             break;
@@ -3483,7 +3747,10 @@ async function startServer() {
     ws.on("close", () => {
       const session = activeSessions.get(ws);
       if (session) {
-        const { nickname, roomId } = session;
+        const { nickname, roomId, normalizedNickname } = session;
+        if (roomId && normalizedNickname) {
+          releaseNicknameInRoom(roomId, normalizedNickname, ws);
+        }
         activeSessions.delete(ws);
 
         if (nickname) {
@@ -3506,7 +3773,6 @@ async function startServer() {
         }
 
         if (nickname && roomId) {
-          
           const leftUsers = getRoomOnlineUsers(roomId);
           broadcastToRoom(roomId, "user_left", {
             nickname,
@@ -3527,6 +3793,10 @@ async function startServer() {
   const interval = setInterval(() => {
     wss.clients.forEach((ws) => {
       if (ws.readyState === WebSocket.CLOSED) {
+        const s = activeSessions.get(ws);
+        if (s && s.roomId && s.normalizedNickname) {
+          releaseNicknameInRoom(s.roomId, s.normalizedNickname, ws);
+        }
         activeSessions.delete(ws);
         return;
       }

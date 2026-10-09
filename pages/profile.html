@@ -2,21 +2,10 @@
 <html lang="pt-BR">
   <head>
     
-    <script>
-      document.documentElement.classList.add('js-enabled');
-      try {
-        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        var isStandalone = (window.navigator.standalone === true) || 
-          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-        if (isIOS && isStandalone) {
-          document.documentElement.classList.add('ios-pwa');
-        }
-      } catch(e) {}
-    </script>
+    <script>document.documentElement.classList.add('js-enabled');</script>
     
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Meu Perfil - Papos</title>
     
     <meta name="description" content="Altere seu apelido e confira suas estatísticas locais de conversação no Papos." />
@@ -77,6 +66,7 @@
     <link rel="manifest" href="/site.webmanifest">
 
     <meta name="theme-color" content="#111111">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -311,6 +301,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
+    <script src="/assets/js/fingerprint.js"></script>
     <script type="module" src="/firebase/auth.js"></script>
     <script type="module" src="/assets/js/auth-controller.js"></script>
 
@@ -473,17 +464,33 @@
             formData.append("image", file);
 
             const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
-            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
             const currentNick = inputNickname.value.trim() || currentUser;
 
-            if (currentUid) {
-              formData.append("uid", currentUid);
+            const headers = {};
+            let currentUserId = "";
+
+            if (currentAuthUser && typeof currentAuthUser.getIdToken === "function") {
+              const idToken = await currentAuthUser.getIdToken();
+              headers["Authorization"] = `Bearer ${idToken}`;
+              currentUserId = currentAuthUser.uid;
+              formData.append("uid", currentAuthUser.uid);
+            } else {
+              let guestToken = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestToken === "function") ? window.SecurityIdentity.getGuestToken() : (localStorage.getItem("papo_guest_token") || "");
+              if (!guestToken && window.SecurityIdentity && typeof window.SecurityIdentity.initGuestToken === "function") {
+                const initRes = await window.SecurityIdentity.initGuestToken();
+                guestToken = initRes.guestToken;
+              }
+              if (guestToken) {
+                headers["x-guest-token"] = guestToken;
+                formData.append("guestToken", guestToken);
+              }
+              currentUserId = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function") ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "guest");
             }
             formData.append("nickname", currentNick);
 
             const res = await fetch("/api/profile/upload-photo", {
               method: "POST",
-              headers: currentUid ? { "x-user-uid": currentUid } : {},
+              headers: headers,
               body: formData
             });
 
@@ -499,10 +506,8 @@
               throw new Error("URL da foto não recebida.");
             }
 
-            // Armazenar URL no cache
+            // Armazenar URL no perfil local do próprio usuário
             localStorage.setItem("papos_photo", finalUrl);
-            localStorage.setItem(`papos_photo_${currentNick}`, finalUrl);
-            localStorage.setItem(`papos_photo_${currentNick.toLowerCase()}`, finalUrl);
 
             try {
               const syncChannel = new BroadcastChannel("papos_profile_sync");
@@ -512,7 +517,7 @@
                 photoUrl: finalUrl,
                 profileImage: finalUrl,
                 action: "update_photo",
-                userId: currentUid
+                userId: currentUserId
               });
             } catch (e) {}
 
@@ -561,18 +566,34 @@
 
           try {
             const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
-            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
             const currentNick = inputNickname.value.trim() || currentUser;
+
+            const headers = { "Content-Type": "application/json" };
+            let currentUserId = "";
+
+            if (currentAuthUser && typeof currentAuthUser.getIdToken === "function") {
+              const idToken = await currentAuthUser.getIdToken();
+              headers["Authorization"] = `Bearer ${idToken}`;
+              currentUserId = currentAuthUser.uid;
+            } else {
+              let guestToken = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestToken === "function") ? window.SecurityIdentity.getGuestToken() : (localStorage.getItem("papo_guest_token") || "");
+              if (!guestToken && window.SecurityIdentity && typeof window.SecurityIdentity.initGuestToken === "function") {
+                const initRes = await window.SecurityIdentity.initGuestToken();
+                guestToken = initRes.guestToken;
+              }
+              if (guestToken) {
+                headers["x-guest-token"] = guestToken;
+              }
+              currentUserId = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function") ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "guest");
+            }
 
             await fetch("/api/profile/remove-photo", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ uid: currentUid, nickname: currentNick })
+              headers: headers,
+              body: JSON.stringify({ uid: currentUserId, nickname: currentNick })
             }).catch(() => {});
 
             localStorage.removeItem("papos_photo");
-            localStorage.removeItem(`papos_photo_${currentNick}`);
-            localStorage.removeItem(`papos_photo_${currentNick.toLowerCase()}`);
 
             try {
               const syncChannel = new BroadcastChannel("papos_profile_sync");

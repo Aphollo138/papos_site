@@ -99,13 +99,52 @@
     return guestId;
   }
 
+  function getGuestToken() {
+    return sessionStorage.getItem("papo_guest_token") || localStorage.getItem("papo_guest_token") || "";
+  }
+
+  function setGuestToken(token, id) {
+    if (token) {
+      sessionStorage.setItem("papo_guest_token", token);
+      localStorage.setItem("papo_guest_token", token);
+    }
+    if (id) {
+      localStorage.setItem("papo_guest_id", id);
+      localStorage.setItem("papos_permanent_id", id);
+    }
+  }
+
+  async function initGuestToken() {
+    const existing = getGuestToken();
+    try {
+      const url = existing ? `/api/session/guest-token?token=${encodeURIComponent(existing)}` : "/api/session/guest-token";
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.guestToken) {
+          setGuestToken(data.guestToken, data.guestId);
+          return data;
+        }
+      }
+    } catch (e) {}
+    return { guestToken: existing, guestId: getOrCreateGuestId() };
+  }
+
   const clientId = getOrCreateClientId();
   const guestId = getOrCreateGuestId();
   const fingerprint = computeFingerprint();
 
+  // Iniciar obtenção do token assinado do servidor em segundo plano
+  if (!getGuestToken()) {
+    initGuestToken().catch(() => {});
+  }
+
   window.SecurityIdentity = {
     getClientId: function() { return clientId; },
-    getGuestId: function() { return guestId; },
+    getGuestId: function() { return localStorage.getItem("papo_guest_id") || guestId; },
+    getGuestToken: function() { return getGuestToken(); },
+    setGuestToken: setGuestToken,
+    initGuestToken: initGuestToken,
     getFingerprint: function() { return fingerprint; }
   };
 })();
