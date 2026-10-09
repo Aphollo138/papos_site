@@ -6,7 +6,7 @@ const CHAT_CONFIG = {
   getWebSocketUrl() {
     const hostname = (window.location && window.location.hostname) ? window.location.hostname : "";
     
-   
+    
     const isLocalOrPreview = hostname === "localhost" || 
                              hostname === "127.0.0.1" || 
                              hostname === "0.0.0.0" ||
@@ -18,14 +18,14 @@ const CHAT_CONFIG = {
                              hostname.includes("usercontent") ||
                              hostname.includes("ai.studio");
     
-
+   
     if (isLocalOrPreview || hostname.includes("onrender.com") || hostname.includes("papos.net.br")) {
       const protocol = (window.location && window.location.protocol === "https:") ? "wss:" : "ws:";
       const host = (window.location && window.location.host) ? window.location.host : "papos-site.onrender.com";
       return `${protocol}//${host}`;
     }
     
-    
+
     let cleanUrl = this.productionServerUrl.trim();
     if (cleanUrl.endsWith("/")) {
       cleanUrl = cleanUrl.slice(0, -1);
@@ -286,6 +286,11 @@ const ChatEngine = {
       return false;
     }
     localStorage.setItem("papos_nickname", nick);
+    const existingPhoto = localStorage.getItem("papos_photo");
+    if (existingPhoto && existingPhoto.trim() !== "" && !existingPhoto.includes("null") && !existingPhoto.includes("undefined")) {
+      localStorage.setItem(`papos_photo_${nick}`, existingPhoto.trim());
+      localStorage.setItem(`papos_photo_${nick.toLowerCase()}`, existingPhoto.trim());
+    }
     return true;
   },
 
@@ -368,24 +373,38 @@ const ChatEngine = {
   renderAvatar(name, sizeClass = "", customPhotoUrl = null) {
     if (!name || name.trim() === "") name = "A";
     const cleanName = name.trim();
+    const cleanLower = cleanName.toLowerCase();
     const initial = cleanName.charAt(0).toUpperCase();
+
+    // Se customPhotoUrl for explicitamente "" ou false, significa remoção deliberada da foto
+    if (customPhotoUrl === "" || customPhotoUrl === false) {
+      const bgColor = this.getAvatarColor(cleanName);
+      return `<div class="avatar-circle ${sizeClass}" style="background-color: ${bgColor}" title="${cleanName}" aria-label="Avatar de ${cleanName}" role="img">${initial}</div>`;
+    }
     
     let photoUrl = (typeof customPhotoUrl === "string" && customPhotoUrl.trim() !== "" && !customPhotoUrl.includes("null") && !customPhotoUrl.includes("undefined"))
       ? customPhotoUrl.trim()
       : null;
 
     if (!photoUrl) {
-      if (typeof window.getUserCurrentPhoto === "function") {
+      const isRemovedForUser = localStorage.getItem(`papos_photo_removed_${cleanLower}`) === "true";
+      const currentUser = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
+      const isMe = cleanLower === currentUser.toLowerCase() || cleanName === "Você";
+
+      if (isRemovedForUser || (isMe && localStorage.getItem("papos_photo_removed") === "true")) {
+        photoUrl = null;
+      } else if (typeof window.getUserCurrentPhoto === "function") {
         photoUrl = window.getUserCurrentPhoto(cleanName);
       } else {
-        const currentUser = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
-        if (cleanName.toLowerCase() === currentUser.toLowerCase() || cleanName === "Você") {
-          photoUrl = localStorage.getItem("papos_photo");
+        if (isMe) {
+          photoUrl = localStorage.getItem("papos_photo") || localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanLower}`);
         } else {
           const cache = window.profileCache;
-          const cached = cache && (cache.get(cleanName.toLowerCase()) || cache.get(cleanName));
+          const cached = cache && (cache.get(cleanLower) || cache.get(cleanName));
           if (cached && cached.data && (cached.data.photoUrl || cached.data.photoURL || cached.data.profileImage)) {
             photoUrl = cached.data.photoUrl || cached.data.photoURL || cached.data.profileImage;
+          } else {
+            photoUrl = localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanLower}`);
           }
         }
       }
@@ -554,23 +573,31 @@ document.addEventListener("DOMContentLoaded", () => {
   ChatEngine.init();
 
   const progressBar = document.getElementById("scroll-progress-bar");
-  window.addEventListener("scroll", () => {
-    const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
-    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-    const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
-    if (progressBar) {
-      progressBar.style.width = scrolled + "%";
-    }
+  let scrollTicking = false;
 
-    const header = document.querySelector(".navbar-custom");
-    if (header) {
-      if (window.scrollY > 20) {
-        header.classList.add("scrolled");
-      } else {
-        header.classList.remove("scrolled");
-      }
+  window.addEventListener("scroll", () => {
+    if (!scrollTicking) {
+      window.requestAnimationFrame(() => {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
+        if (progressBar) {
+          progressBar.style.width = scrolled + "%";
+        }
+
+        const header = document.querySelector(".navbar-custom");
+        if (header) {
+          if (window.scrollY > 20) {
+            header.classList.add("scrolled");
+          } else {
+            header.classList.remove("scrolled");
+          }
+        }
+        scrollTicking = false;
+      });
+      scrollTicking = true;
     }
-  });
+  }, { passive: true });
 
   const revealElements = document.querySelectorAll(".scroll-reveal");
   if ("IntersectionObserver" in window) {

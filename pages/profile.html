@@ -301,7 +301,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-    <script src="/assets/js/fingerprint.js"></script>
     <script type="module" src="/firebase/auth.js"></script>
     <script type="module" src="/assets/js/auth-controller.js"></script>
 
@@ -406,9 +405,14 @@
           if (window.ChatEngine) {
             let photoToUse = customPhoto;
             if (photoToUse === null) {
-              photoToUse = localStorage.getItem("papos_photo") || null;
+              const nickClean = (name || currentUser || "").trim().toLowerCase();
+              if (localStorage.getItem("papos_photo_removed") === "true" || localStorage.getItem(`papos_photo_removed_${nickClean}`) === "true") {
+                photoToUse = "";
+              } else {
+                photoToUse = localStorage.getItem("papos_photo") || localStorage.getItem(`papos_photo_${name}`) || "";
+              }
             }
-            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse);
+            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse || "");
             
             // Gerenciar botão Remover
             if (photoToUse && typeof photoToUse === "string" && photoToUse.trim() !== "" && !photoToUse.includes("undefined") && !photoToUse.includes("null")) {
@@ -464,33 +468,17 @@
             formData.append("image", file);
 
             const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
             const currentNick = inputNickname.value.trim() || currentUser;
 
-            const headers = {};
-            let currentUserId = "";
-
-            if (currentAuthUser && typeof currentAuthUser.getIdToken === "function") {
-              const idToken = await currentAuthUser.getIdToken();
-              headers["Authorization"] = `Bearer ${idToken}`;
-              currentUserId = currentAuthUser.uid;
-              formData.append("uid", currentAuthUser.uid);
-            } else {
-              let guestToken = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestToken === "function") ? window.SecurityIdentity.getGuestToken() : (localStorage.getItem("papo_guest_token") || "");
-              if (!guestToken && window.SecurityIdentity && typeof window.SecurityIdentity.initGuestToken === "function") {
-                const initRes = await window.SecurityIdentity.initGuestToken();
-                guestToken = initRes.guestToken;
-              }
-              if (guestToken) {
-                headers["x-guest-token"] = guestToken;
-                formData.append("guestToken", guestToken);
-              }
-              currentUserId = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function") ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "guest");
+            if (currentUid) {
+              formData.append("uid", currentUid);
             }
             formData.append("nickname", currentNick);
 
             const res = await fetch("/api/profile/upload-photo", {
               method: "POST",
-              headers: headers,
+              headers: currentUid ? { "x-user-uid": currentUid } : {},
               body: formData
             });
 
@@ -506,8 +494,12 @@
               throw new Error("URL da foto não recebida.");
             }
 
-            // Armazenar URL no perfil local do próprio usuário
+            // Armazenar URL no cache
             localStorage.setItem("papos_photo", finalUrl);
+            localStorage.setItem(`papos_photo_${currentNick}`, finalUrl);
+            localStorage.setItem(`papos_photo_${currentNick.toLowerCase()}`, finalUrl);
+            localStorage.removeItem("papos_photo_removed");
+            localStorage.removeItem(`papos_photo_removed_${currentNick.toLowerCase()}`);
 
             try {
               const syncChannel = new BroadcastChannel("papos_profile_sync");
@@ -517,7 +509,7 @@
                 photoUrl: finalUrl,
                 profileImage: finalUrl,
                 action: "update_photo",
-                userId: currentUserId
+                userId: currentUid
               });
             } catch (e) {}
 
@@ -525,7 +517,8 @@
             if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
               await window.FirebaseService.saveUserProfile({
                 photoURL: finalUrl,
-                profileImage: finalUrl
+                profileImage: finalUrl,
+                photoUrl: finalUrl
               });
             }
 
@@ -566,34 +559,33 @@
 
           try {
             const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
             const currentNick = inputNickname.value.trim() || currentUser;
 
-            const headers = { "Content-Type": "application/json" };
-            let currentUserId = "";
-
+            // Obter token de autenticação se disponível para garantir autorização segura
+            let authToken = null;
             if (currentAuthUser && typeof currentAuthUser.getIdToken === "function") {
-              const idToken = await currentAuthUser.getIdToken();
-              headers["Authorization"] = `Bearer ${idToken}`;
-              currentUserId = currentAuthUser.uid;
-            } else {
-              let guestToken = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestToken === "function") ? window.SecurityIdentity.getGuestToken() : (localStorage.getItem("papo_guest_token") || "");
-              if (!guestToken && window.SecurityIdentity && typeof window.SecurityIdentity.initGuestToken === "function") {
-                const initRes = await window.SecurityIdentity.initGuestToken();
-                guestToken = initRes.guestToken;
-              }
-              if (guestToken) {
-                headers["x-guest-token"] = guestToken;
-              }
-              currentUserId = (window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function") ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "guest");
+              authToken = await currentAuthUser.getIdToken().catch(() => null);
+            }
+
+            const reqHeaders = { "Content-Type": "application/json" };
+            if (authToken) {
+              reqHeaders["Authorization"] = `Bearer ${authToken}`;
             }
 
             await fetch("/api/profile/remove-photo", {
               method: "POST",
-              headers: headers,
-              body: JSON.stringify({ uid: currentUserId, nickname: currentNick })
+              headers: reqHeaders,
+              body: JSON.stringify({ uid: currentUid, nickname: currentNick })
             }).catch(() => {});
 
+            // Limpar imediatamente todos os caches locais da foto
             localStorage.removeItem("papos_photo");
+            localStorage.removeItem("papos_photo_url");
+            localStorage.removeItem(`papos_photo_${currentNick}`);
+            localStorage.removeItem(`papos_photo_${currentNick.toLowerCase()}`);
+            localStorage.setItem("papos_photo_removed", "true");
+            localStorage.setItem(`papos_photo_removed_${currentNick.toLowerCase()}`, "true");
 
             try {
               const syncChannel = new BroadcastChannel("papos_profile_sync");
@@ -607,13 +599,16 @@
               });
             } catch (e) {}
 
+            // Persistir remoção no Firebase se autenticado
             if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
               await window.FirebaseService.saveUserProfile({
                 photoURL: "",
-                profileImage: ""
+                profileImage: "",
+                photoUrl: ""
               }).catch(() => {});
             }
 
+            // Atualizar imediatamente a interface e restaurar o avatar padrão do sistema
             updateAvatarPreview(currentNick, "");
 
             const toastFn = window.showToast || window.showAdminToast;
@@ -685,11 +680,23 @@
                       }
                     }
 
-                    if (photo) {
-                      localStorage.setItem("papos_photo", photo);
-                      localStorage.setItem(`papos_photo_${nick}`, photo);
+                    if (photo && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
+                      const cleanP = photo.trim();
+                      localStorage.setItem("papos_photo", cleanP);
+                      localStorage.setItem(`papos_photo_${nick}`, cleanP);
+                      localStorage.setItem(`papos_photo_${nick.toLowerCase()}`, cleanP);
+                      localStorage.removeItem("papos_photo_removed");
+                      localStorage.removeItem(`papos_photo_removed_${nick.toLowerCase()}`);
+                      updateAvatarPreview(nick, cleanP);
+                    } else {
+                      localStorage.removeItem("papos_photo");
+                      localStorage.removeItem("papos_photo_url");
+                      localStorage.removeItem(`papos_photo_${nick}`);
+                      localStorage.removeItem(`papos_photo_${nick.toLowerCase()}`);
+                      localStorage.setItem("papos_photo_removed", "true");
+                      localStorage.setItem(`papos_photo_removed_${nick.toLowerCase()}`, "true");
+                      updateAvatarPreview(nick, "");
                     }
-                    updateAvatarPreview(nick, photo || null);
 
                     if (inputBlockCalls && profile.blockCalls !== undefined) {
                       inputBlockCalls.checked = Boolean(profile.blockCalls);

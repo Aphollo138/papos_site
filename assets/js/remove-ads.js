@@ -63,35 +63,6 @@
         if (!btnMobileRemoveAdsElement) btnMobileRemoveAdsElement = targetMobileBtn;
         targetMobileBtn.remove();
       }
-    } else {
-      
-      if (!document.getElementById("btn-remove-ads") && btnRemoveAdsElement && btnRemoveAdsParent) {
-        if (btnRemoveAdsNextSibling && btnRemoveAdsParent.contains(btnRemoveAdsNextSibling)) {
-          btnRemoveAdsParent.insertBefore(btnRemoveAdsElement, btnRemoveAdsNextSibling);
-        } else {
-          btnRemoveAdsParent.appendChild(btnRemoveAdsElement);
-        }
-      }
-
-      if (!document.getElementById("mobile-menu-remove-ads") && btnMobileRemoveAdsElement && btnMobileRemoveAdsParent) {
-        if (btnMobileRemoveAdsNextSibling && btnMobileRemoveAdsParent.contains(btnMobileRemoveAdsNextSibling)) {
-          btnMobileRemoveAdsParent.insertBefore(btnMobileRemoveAdsElement, btnMobileRemoveAdsNextSibling);
-        } else {
-          btnMobileRemoveAdsParent.appendChild(btnMobileRemoveAdsElement);
-        }
-      }
-
-      const currentBtn = document.getElementById("btn-remove-ads");
-      if (currentBtn) {
-        currentBtn.style.display = "";
-        currentBtn.classList.remove("d-none");
-      }
-
-      const currentMobileBtn = document.getElementById("mobile-menu-remove-ads");
-      if (currentMobileBtn) {
-        currentMobileBtn.style.display = "";
-        currentMobileBtn.classList.remove("d-none");
-      }
     }
   }
 
