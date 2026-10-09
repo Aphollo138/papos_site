@@ -189,6 +189,10 @@ const FirebaseService = {
           localStorage.setItem("papos_blockCalls", String(Boolean(data.blockCalls)));
         }
 
+        if (data.muteBotWelcome !== undefined) {
+          localStorage.setItem("papos_mute_bot_welcome", String(Boolean(data.muteBotWelcome)));
+        }
+
         try {
           const supportSnap = await getDoc(doc(db, "supportNames", user.uid));
           if (supportSnap.exists() && supportSnap.data().enabled === true) {
@@ -696,6 +700,7 @@ const FirebaseService = {
     const city = profileData.city !== undefined ? String(profileData.city).trim() : undefined;
     const country = profileData.country !== undefined ? String(profileData.country).trim() : undefined;
     const blockCalls = profileData.blockCalls !== undefined ? Boolean(profileData.blockCalls) : undefined;
+    const muteBotWelcome = profileData.muteBotWelcome !== undefined ? Boolean(profileData.muteBotWelcome) : undefined;
 
     const userDocRef = doc(db, "users", user.uid);
     const updatePayload = {
@@ -718,6 +723,7 @@ const FirebaseService = {
     if (city !== undefined) updatePayload.city = city;
     if (country !== undefined) updatePayload.country = country;
     if (blockCalls !== undefined) updatePayload.blockCalls = blockCalls;
+    if (muteBotWelcome !== undefined) updatePayload.muteBotWelcome = muteBotWelcome;
 
     if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
       updatePayload.admin = true;

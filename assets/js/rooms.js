@@ -195,4 +195,183 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // Interceptar cliques de entrada nas salas para validação de apelido prévia
+  document.addEventListener("click", async (e) => {
+    const enterBtn = e.target.closest("[id^='btn-enter-']");
+    if (!enterBtn) return;
+    
+    e.preventDefault();
+    const href = enterBtn.getAttribute("href");
+    const targetRoomId = (new URL(href, window.location.origin)).searchParams.get("room") || "room-1";
+    const curNick = ChatEngine.getUser();
+
+    if (!curNick) {
+      window.location.href = `/?room=${encodeURIComponent(targetRoomId)}`;
+      return;
+    }
+
+    const originalHtml = enterBtn.innerHTML;
+    enterBtn.classList.add("disabled");
+    enterBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Entrando...`;
+
+    try {
+      const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
+      const uid = localStorage.getItem("papos_uid") || "";
+      const res = await fetch(`/api/rooms/${encodeURIComponent(targetRoomId)}/check-nickname?nickname=${encodeURIComponent(curNick)}&guestId=${encodeURIComponent(guestId)}&uid=${encodeURIComponent(uid)}`);
+      const data = await res.json();
+
+      if (!res.ok || data.available === false) {
+        enterBtn.classList.remove("disabled");
+        enterBtn.innerHTML = originalHtml;
+        showRoomNickConflictModal(targetRoomId, curNick, data.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
+        return;
+      }
+    } catch (err) {
+      // Em caso de falha de conexão transitória, prosseguir
+    }
+
+    window.location.href = href;
+  });
+
+  function showRoomNickConflictModal(roomId, currentNick, errorMsg) {
+    let modalEl = document.getElementById("roomNickConflictModal");
+    if (!modalEl) {
+      modalEl = document.createElement("div");
+      modalEl.className = "modal fade";
+      modalEl.id = "roomNickConflictModal";
+      modalEl.setAttribute("tabindex", "-1");
+      modalEl.setAttribute("aria-hidden", "true");
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-secondary" style="background-color: var(--surface); color: var(--white); border-radius: var(--radius-md);">
+            <div class="modal-header border-secondary">
+              <h5 class="modal-title font-display fw-bold text-white d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill" style="color: #ef4444;"></i>
+                Apelido Indisponível nesta Sala
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+              <div id="room-conflict-alert" class="alert p-3 mb-3" style="background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 0.9rem; line-height: 1.4; border-radius: var(--radius-sm);">
+                ${errorMsg}
+              </div>
+              <form id="form-room-conflict-nick">
+                <div class="mb-3">
+                  <label for="input-room-conflict-nick" class="form-label small fw-semibold text-secondary">Escolha outro apelido para esta sala:</label>
+                  <input type="text" class="form-control bg-dark border-secondary text-white" id="input-room-conflict-nick" minlength="2" maxlength="15" placeholder="Ex: visitante_${Math.floor(Math.random()*900+100)}" required autocomplete="off">
+                  <div id="room-conflict-err-msg" class="d-none mt-2 small fw-semibold" style="color: #ef4444 !important; font-size: 0.82rem;">
+                    Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.
+                  </div>
+                </div>
+                <div class="d-flex flex-column gap-2 mt-4">
+                  <button type="submit" class="btn btn-premium w-100 py-2.5 font-display fw-bold" id="btn-confirm-room-nick">
+                    Confirmar e Entrar na Sala
+                  </button>
+                  <button type="button" class="btn btn-secondary-custom w-100 py-2 small" data-bs-dismiss="modal">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalEl);
+
+      const rForm = document.getElementById("form-room-conflict-nick");
+      const rInput = document.getElementById("input-room-conflict-nick");
+      const rErr = document.getElementById("room-conflict-err-msg");
+      const rSub = document.getElementById("btn-confirm-room-nick");
+      let rDebounce = null;
+
+      function clearRoomConflict() {
+        if (rInput) {
+          rInput.style.borderColor = "";
+          rInput.style.boxShadow = "";
+        }
+        if (rErr) rErr.classList.add("d-none");
+        if (rSub) rSub.disabled = false;
+      }
+
+      function showRoomInputConflict(m) {
+        if (rInput) {
+          rInput.style.borderColor = "#ef4444";
+          rInput.style.boxShadow = "0 0 0 1px #ef4444";
+        }
+        if (rErr) {
+          rErr.textContent = m || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.";
+          rErr.classList.remove("d-none");
+        }
+        if (rSub) rSub.disabled = true;
+      }
+
+      if (rInput) {
+        rInput.addEventListener("input", (e) => {
+          clearTimeout(rDebounce);
+          const val = e.target.value.trim();
+          if (val.length < 2) {
+            clearRoomConflict();
+            return;
+          }
+          rDebounce = setTimeout(async () => {
+            const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
+            const uid = localStorage.getItem("papos_uid") || "";
+            try {
+              const res = await fetch(`/api/rooms/${encodeURIComponent(modalEl.dataset.roomId || "room-1")}/check-nickname?nickname=${encodeURIComponent(val)}&guestId=${encodeURIComponent(guestId)}&uid=${encodeURIComponent(uid)}`);
+              const data = await res.json();
+              if (!res.ok || data.available === false) {
+                showRoomInputConflict(data.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
+              } else {
+                clearRoomConflict();
+              }
+            } catch (err) {}
+          }, 400);
+        });
+      }
+
+      if (rForm) {
+        rForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const newN = rInput ? rInput.value.trim() : "";
+          if (!newN || newN.length < 2) return;
+
+          if (rSub) rSub.disabled = true;
+          const targetR = modalEl.dataset.roomId || "room-1";
+          const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
+          const uid = localStorage.getItem("papos_uid") || "";
+
+          try {
+            const res = await fetch(`/api/rooms/${encodeURIComponent(targetR)}/reserve-nickname`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ roomId: targetR, nickname: newN, guestId, uid })
+            });
+            const data = await res.json();
+            if (!res.ok || data.available === false) {
+              showRoomInputConflict(data.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
+              if (rSub) rSub.disabled = false;
+              return;
+            }
+          } catch (err) {}
+
+          localStorage.setItem("papos_nickname", newN);
+          window.location.href = `/chat?room=${encodeURIComponent(targetR)}`;
+        });
+      }
+    } else {
+      const alertEl = document.getElementById("room-conflict-alert");
+      if (alertEl) {
+        alertEl.textContent = errorMsg || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.";
+      }
+    }
+
+    modalEl.dataset.roomId = roomId;
+    const rInput = document.getElementById("input-room-conflict-nick");
+    if (rInput) rInput.value = "";
+    if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
+      const bsM = bootstrap.Modal.getOrCreateInstance(modalEl);
+      bsM.show();
+    }
+  }
 });

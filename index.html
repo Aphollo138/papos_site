@@ -501,6 +501,9 @@
                       </span>
                       <input type="text" class="form-control form-control-lg bg-dark border-secondary border-start-0 text-white" id="user-nickname" placeholder="Ex: coruja_noturna" minlength="2" maxlength="15" required aria-describedby="user-addon-icon">
                     </div>
+                    <div id="nickname-conflict-error" class="d-none mt-2 small fw-semibold" style="color: #ef4444 !important; font-size: 0.82rem; line-height: 1.4;">
+                      Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.
+                    </div>
                     <div class="form-text text-secondary" style="font-size: 0.75rem;">
                       De 2 a 15 caracteres. O apelido é armazenado localmente em seu navegador.
                     </div>
@@ -587,30 +590,151 @@
     <script src="/assets/js/blog.js"></script>
 
     <script>
+      let isNicknameConflict = false;
+      let nicknameDebounceTimer = null;
+
+      function clearNicknameConflict() {
+        isNicknameConflict = false;
+        const nameInput = document.getElementById("user-nickname");
+        const addonIcon = document.getElementById("user-addon-icon");
+        const errorEl = document.getElementById("nickname-conflict-error");
+        const submitBtn = document.getElementById("btn-submit-nickname");
+
+        if (nameInput) {
+          nameInput.style.borderColor = "";
+          nameInput.style.boxShadow = "";
+        }
+        if (addonIcon) {
+          addonIcon.style.borderColor = "";
+        }
+        if (errorEl) {
+          errorEl.classList.add("d-none");
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+        }
+      }
+
+      function showNicknameConflict(message) {
+        isNicknameConflict = true;
+        const nameInput = document.getElementById("user-nickname");
+        const addonIcon = document.getElementById("user-addon-icon");
+        const errorEl = document.getElementById("nickname-conflict-error");
+        const submitBtn = document.getElementById("btn-submit-nickname");
+
+        if (nameInput) {
+          nameInput.style.borderColor = "#ef4444";
+          nameInput.style.boxShadow = "0 0 0 1px #ef4444";
+        }
+        if (addonIcon) {
+          addonIcon.style.borderColor = "#ef4444";
+        }
+        if (errorEl) {
+          errorEl.textContent = message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.";
+          errorEl.classList.remove("d-none");
+        }
+        if (submitBtn) {
+          submitBtn.disabled = true;
+        }
+      }
+
+      async function checkNicknameAvailabilityRealtime(nickname) {
+        const trimmed = (nickname || "").trim();
+        if (trimmed.length < 2) {
+          clearNicknameConflict();
+          return;
+        }
+
+        const targetRoom = localStorage.getItem("target_room_id") || "room-1";
+        const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
+        const uid = localStorage.getItem("papos_uid") || "";
+
+        try {
+          const res = await fetch(`/api/rooms/${encodeURIComponent(targetRoom)}/check-nickname?nickname=${encodeURIComponent(trimmed)}&guestId=${encodeURIComponent(guestId)}&uid=${encodeURIComponent(uid)}`);
+          const data = await res.json();
+          if (!res.ok || data.available === false) {
+            showNicknameConflict(data.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
+          } else {
+            clearNicknameConflict();
+          }
+        } catch (e) {
+          // Em falhas de rede transitórias não bloquear digitação prematuramente
+        }
+      }
+
       function setTargetRoom(roomId) {
         localStorage.setItem("target_room_id", roomId);
+        const nameInput = document.getElementById("user-nickname");
+        if (nameInput && nameInput.value.trim().length >= 2) {
+          checkNicknameAvailabilityRealtime(nameInput.value.trim());
+        }
       }
 
       document.addEventListener("DOMContentLoaded", () => {
         // Autofill nickname if already saved
+        const nameInput = document.getElementById("user-nickname");
         const savedName = window.ChatEngine ? window.ChatEngine.getUser() : null;
-        if (savedName) {
-          const nameInput = document.getElementById("user-nickname");
+        if (savedName && nameInput) {
+          nameInput.value = savedName;
+          checkNicknameAvailabilityRealtime(savedName);
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("error") === "nickname_in_use" || urlParams.get("conflict") === "1") {
+          showNicknameConflict("Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
           if (nameInput) {
-            nameInput.value = savedName;
+            nameInput.focus();
+            nameInput.select();
           }
+        }
+
+        // Validação em tempo real com debounce
+        if (nameInput) {
+          nameInput.addEventListener("input", (e) => {
+            clearTimeout(nicknameDebounceTimer);
+            const val = e.target.value.trim();
+            if (val.length < 2) {
+              clearNicknameConflict();
+              return;
+            }
+            nicknameDebounceTimer = setTimeout(() => {
+              checkNicknameAvailabilityRealtime(val);
+            }, 400);
+          });
         }
 
         // Form submission and validation logic
         const nickForm = document.getElementById("nickname-form");
         if (nickForm) {
-          nickForm.addEventListener("submit", (e) => {
+          nickForm.addEventListener("submit", async (e) => {
             e.preventDefault();
-            const nicknameInput = document.getElementById("user-nickname");
-            const nickname = nicknameInput.value.trim();
-            
+            const nickname = nameInput ? nameInput.value.trim() : "";
+            if (!nickname || nickname.length < 2) return;
+
+            const targetRoom = localStorage.getItem("target_room_id") || "room-1";
+            const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
+            const uid = localStorage.getItem("papos_uid") || "";
+
+            const submitBtn = document.getElementById("btn-submit-nickname");
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+              const res = await fetch(`/api/rooms/${encodeURIComponent(targetRoom)}/reserve-nickname`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ roomId: targetRoom, nickname, guestId, uid })
+              });
+              const data = await res.json();
+              if (!res.ok || data.available === false) {
+                showNicknameConflict(data.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
+                if (nameInput) nameInput.focus();
+                return;
+              }
+            } catch (err) {
+              // Prosseguir se API falhar
+            }
+
             if (window.ChatEngine && window.ChatEngine.saveUser(nickname)) {
-              const targetRoom = localStorage.getItem("target_room_id") || "room-1";
               localStorage.removeItem("target_room_id");
               window.location.href = `/chat?room=${targetRoom}`;
             }

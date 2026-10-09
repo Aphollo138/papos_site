@@ -403,9 +403,31 @@ interface ClientSession {
   clientId?: string;
   ip?: string;
   blockCalls?: boolean;
+  muteBotWelcome?: boolean;
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
+
+interface RoomNicknameReservation {
+  roomId: string;
+  normalizedNickname: string;
+  nickname: string;
+  uid?: string;
+  guestId?: string;
+  reservedAt: number;
+  expiresAt: number;
+}
+
+const roomNicknameReservations = new Map<string, RoomNicknameReservation>();
+
+function normalizeNickname(nick: string): string {
+  if (!nick || typeof nick !== "string") return "";
+  let norm = nick.trim().replace(/\s+/g, " ");
+  try {
+    norm = norm.normalize("NFKC").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  } catch (e) {}
+  return norm.toLowerCase();
+}
 
 interface ActiveCallSession {
   callId: string;
@@ -871,6 +893,177 @@ async function startServer() {
     return permitido;
   }
 
+  interface NicknameCheckResult {
+    available: boolean;
+    message?: string;
+    code?: string;
+  }
+
+  async function checkNicknameAvailability(
+    roomId: string,
+    rawNickname: string,
+    requesterUid?: string | null,
+    requesterGuestId?: string | null
+  ): Promise<NicknameCheckResult> {
+    if (!rawNickname || typeof rawNickname !== "string" || !rawNickname.trim()) {
+      return { available: false, message: "Informe um apelido para continuar.", code: "INVALID_NICKNAME" };
+    }
+
+    const trimmed = rawNickname.trim().replace(/\s+/g, " ");
+    if (trimmed.length < 2) {
+      return { available: false, message: "O apelido deve ter no mínimo 2 caracteres.", code: "INVALID_NICKNAME" };
+    }
+    if (trimmed.length > 15) {
+      return { available: false, message: "O apelido deve ter no máximo 15 caracteres.", code: "INVALID_NICKNAME" };
+    }
+
+    const norm = normalizeNickname(trimmed);
+
+    // 1. Verificar nomes de sistema / administração
+    if (isReservedNickname(trimmed)) {
+      const isAuth = await isAuthorizedForReservedNickname(requesterUid, trimmed);
+      if (!isAuth) {
+        return { available: false, message: "Este nome é reservado pela equipe do Papo.net.br.", code: "RESERVED_NICKNAME" };
+      }
+    }
+
+    // 2. Verificar contas cadastradas no Firestore (não permitir que visitantes assumam nomes de usuários registrados)
+    try {
+      const usersCol = collection(db, "users");
+      const q1 = query(usersCol, where("nickname", "==", trimmed));
+      const snap1 = await getDocs(q1);
+      if (!snap1.empty) {
+        const ownerDoc = snap1.docs[0];
+        const ownerUid = ownerDoc.id;
+        if (!requesterUid || requesterUid !== ownerUid) {
+          return {
+            available: false,
+            message: "Este apelido pertence a uma conta cadastrada. Faça login para utilizá-lo.",
+            code: "REGISTERED_ACCOUNT_NICKNAME"
+          };
+        }
+      }
+    } catch (err) {}
+
+    // 3. Verificar bots virtuais atribuídos a esta sala
+    if (systemSettings.botsEnabled) {
+      const botConflict = BOTS.find(b => b.rooms.includes(roomId) && normalizeNickname(b.nickname) === norm);
+      if (botConflict) {
+        return {
+          available: false,
+          message: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
+          code: "NICKNAME_IN_USE"
+        };
+      }
+    }
+
+    // 4. Verificar participantes ativos nesta sala
+    for (const session of activeSessions.values()) {
+      if (session.roomId === roomId && session.nickname) {
+        if (normalizeNickname(session.nickname) === norm) {
+          const isSameUser = Boolean(
+            (requesterUid && session.uid && requesterUid === session.uid) ||
+            (requesterGuestId && session.guestId && requesterGuestId === session.guestId)
+          );
+          if (!isSameUser) {
+            return {
+              available: false,
+              message: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
+              code: "NICKNAME_IN_USE"
+            };
+          }
+        }
+      }
+    }
+
+    // 5. Verificar reservas temporárias de reconexão segura para esta sala
+    const reservationKey = `${roomId}:${norm}`;
+    const existingReservation = roomNicknameReservations.get(reservationKey);
+    if (existingReservation) {
+      if (Date.now() < existingReservation.expiresAt) {
+        const isSameUser = Boolean(
+          (requesterUid && existingReservation.uid && requesterUid === existingReservation.uid) ||
+          (requesterGuestId && existingReservation.guestId && requesterGuestId === existingReservation.guestId)
+        );
+        if (!isSameUser) {
+          return {
+            available: false,
+            message: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
+            code: "NICKNAME_IN_USE"
+          };
+        }
+      } else {
+        roomNicknameReservations.delete(reservationKey);
+      }
+    }
+
+    return { available: true };
+  }
+
+  async function checkAndReserveNickname(
+    roomId: string,
+    rawNickname: string,
+    requesterUid?: string | null,
+    requesterGuestId?: string | null
+  ): Promise<NicknameCheckResult> {
+    const check = await checkNicknameAvailability(roomId, rawNickname, requesterUid, requesterGuestId);
+    if (!check.available) {
+      return check;
+    }
+
+    const trimmed = rawNickname.trim().replace(/\s+/g, " ");
+    const norm = normalizeNickname(trimmed);
+    const reservationKey = `${roomId}:${norm}`;
+
+    // Verificação atômica concorrente para evitar condição de corrida entre promessas assíncronas
+    const concurrentReservation = roomNicknameReservations.get(reservationKey);
+    if (concurrentReservation && Date.now() < concurrentReservation.expiresAt) {
+      const isSameUser = Boolean(
+        (requesterUid && concurrentReservation.uid && requesterUid === concurrentReservation.uid) ||
+        (requesterGuestId && concurrentReservation.guestId && requesterGuestId === concurrentReservation.guestId)
+      );
+      if (!isSameUser) {
+        return {
+          available: false,
+          message: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
+          code: "NICKNAME_IN_USE"
+        };
+      }
+    }
+
+    roomNicknameReservations.set(reservationKey, {
+      roomId,
+      normalizedNickname: norm,
+      nickname: trimmed,
+      uid: requesterUid || undefined,
+      guestId: requesterGuestId || undefined,
+      reservedAt: Date.now(),
+      expiresAt: Date.now() + 60000 // Reserva ativa de 60s
+    });
+
+    return { available: true };
+  }
+
+  // Limpeza periódica de reservas expiradas
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, res] of roomNicknameReservations.entries()) {
+      if (now >= res.expiresAt) {
+        let isStillActive = false;
+        for (const s of activeSessions.values()) {
+          if (s.roomId === res.roomId && s.nickname && normalizeNickname(s.nickname) === res.normalizedNickname) {
+            isStillActive = true;
+            res.expiresAt = now + 60000;
+            break;
+          }
+        }
+        if (!isStillActive) {
+          roomNicknameReservations.delete(key);
+        }
+      }
+    }
+  }, 10000);
+
   const ALLOWED_EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
 
   function isAllowedEmailDomain(email: string): boolean {
@@ -913,14 +1106,27 @@ async function startServer() {
     }
     
     if (nickname && typeof nickname === "string") {
-      if (isReservedNickname(nickname)) {
-        const isAuth = await isAuthorizedForReservedNickname(authUid, nickname);
-        if (isAuth) {
-          
-        } else {
-          
+      const trimmedNick = nickname.trim().replace(/\s+/g, " ");
+      if (isReservedNickname(trimmedNick)) {
+        const isAuth = await isAuthorizedForReservedNickname(authUid, trimmedNick);
+        if (!isAuth) {
           res.status(400).json({ error: "Este nome é reservado pela equipe do Papo.net.br." });
           return;
+        }
+      }
+
+      // Verificar se outro usuário ativo está usando esse apelido
+      const norm = normalizeNickname(trimmedNick);
+      for (const s of activeSessions.values()) {
+        if (s.nickname && normalizeNickname(s.nickname) === norm) {
+          const isSameUser = Boolean((authUid && s.uid === authUid) || (req.body.guestId && s.guestId === req.body.guestId));
+          if (!isSameUser) {
+            res.status(409).json({
+              error: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
+              code: "NICKNAME_IN_USE"
+            });
+            return;
+          }
         }
       }
     }
@@ -954,8 +1160,66 @@ async function startServer() {
         }
       });
     }
+
+    if (req.body.muteBotWelcome !== undefined) {
+      const isMuted = Boolean(req.body.muteBotWelcome);
+      activeSessions.forEach((s) => {
+        if ((authUid && s.uid === authUid) || (nickname && s.nickname && s.nickname.toLowerCase() === String(nickname).toLowerCase())) {
+          s.muteBotWelcome = isMuted;
+        }
+      });
+    }
     
     res.json({ success: true });
+  });
+
+  // Endpoints para validação em tempo real e reserva atômica de apelidos
+  app.all(["/api/rooms/:roomId/check-nickname", "/api/check-nickname"], async (req, res) => {
+    const roomId = (req.params.roomId || req.query.roomId || req.body?.roomId || "room-1") as string;
+    const nickname = (req.query.nickname || req.body?.nickname || "") as string;
+    const guestId = (req.query.guestId || req.body?.guestId || "") as string;
+    let uid = (req.query.uid || req.body?.uid || "") as string;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      const token = req.headers.authorization.split("Bearer ")[1];
+      try {
+        const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+        if (decoded && decoded.uid) {
+          uid = decoded.uid;
+        }
+      } catch (e) {}
+    }
+
+    const result = await checkNicknameAvailability(roomId, nickname, uid || null, guestId || null);
+    if (!result.available) {
+      res.status(409).json({ available: false, message: result.message, code: result.code });
+      return;
+    }
+    res.json({ available: true, roomId, nickname });
+  });
+
+  app.post("/api/rooms/:roomId/reserve-nickname", async (req, res) => {
+    const roomId = (req.params.roomId || req.body?.roomId || "room-1") as string;
+    const nickname = (req.body?.nickname || "") as string;
+    const guestId = (req.body?.guestId || "") as string;
+    let uid = (req.body?.uid || "") as string;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      const token = req.headers.authorization.split("Bearer ")[1];
+      try {
+        const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+        if (decoded && decoded.uid) {
+          uid = decoded.uid;
+        }
+      } catch (e) {}
+    }
+
+    const result = await checkAndReserveNickname(roomId, nickname, uid || null, guestId || null);
+    if (!result.available) {
+      res.status(409).json({ available: false, message: result.message, code: result.code });
+      return;
+    }
+    res.json({ success: true, available: true, roomId, nickname });
   });
 
   async function uploadToImgur(imageBuffer: Buffer): Promise<{ success: boolean; url?: string; error?: string }> {
@@ -1181,6 +1445,10 @@ async function startServer() {
     activeSessions.forEach((session, ws) => {
       if (session.roomId === roomId && ws.readyState === WebSocket.OPEN) {
         if (excludeWs && ws === excludeWs) return;
+        // Se o usuário optou por silenciar boas-vindas dos bots, não repassar mensagens/typing de boas-vindas para este socket
+        if (session.muteBotWelcome && (payload?.isBotWelcome || payload?.message?.isBotWelcome)) {
+          return;
+        }
         ws.send(JSON.stringify({ type, ...payload }));
       }
     });
@@ -2309,42 +2577,49 @@ async function startServer() {
             break;
           }
           case "join": {
-            const nickname = sanitizeHTML(payload.nickname?.trim() || "").substring(0, 15);
+            const rawNickname = sanitizeHTML(payload.nickname?.trim() || "").substring(0, 15);
             const roomId = payload.roomId || "room-1";
 
-            if (!nickname || nickname.length < 2) {
+            if (!rawNickname || rawNickname.trim().length < 2) {
               sendToClient(ws, "error", { message: "Apelido inválido ou muito curto." });
               return;
             }
 
-            if (isReservedNickname(nickname)) {
-              const isAuth = await isAuthorizedForReservedNickname(session.uid, nickname);
-              if (isAuth) {
-                
-              } else {
-                
-                sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
-                return;
-              }
+            const cleanNickname = rawNickname.trim().replace(/\s+/g, " ");
+
+            if (payload.uid) session.uid = payload.uid;
+            if (payload.guestId) session.guestId = payload.guestId;
+            if (payload.clientId) session.clientId = payload.clientId;
+            if (payload.fingerprint) session.fingerprint = payload.fingerprint;
+            if (payload.muteBotWelcome !== undefined) session.muteBotWelcome = Boolean(payload.muteBotWelcome);
+
+            // Validação e reserva atômica de apelido na sala
+            const availability = await checkAndReserveNickname(roomId, cleanNickname, session.uid, session.guestId);
+            if (!availability.available) {
+              sendToClient(ws, "error", {
+                code: availability.code || "NICKNAME_IN_USE",
+                message: availability.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar."
+              });
+              return;
             }
 
+            // Fechar apenas sessões obsoletas do MESMO usuário legítimo reconectando
             activeSessions.forEach((s, key) => {
-              if (key !== ws && s.nickname && s.nickname.toLowerCase() === nickname.toLowerCase()) {
-                try {
-                  key.close();
-                } catch (err) {}
-                activeSessions.delete(key);
+              if (key !== ws && s.roomId === roomId && normalizeNickname(s.nickname) === normalizeNickname(cleanNickname)) {
+                const isSameUser = Boolean(
+                  (session.uid && s.uid === session.uid) ||
+                  (session.guestId && s.guestId === session.guestId)
+                );
+                if (isSameUser) {
+                  try {
+                    key.close();
+                  } catch (err) {}
+                  activeSessions.delete(key);
+                }
               }
             });
 
-            let taken = false;
-            activeSessions.forEach((s, key) => {
-              if (key !== ws && s.roomId === roomId && s.nickname.toLowerCase() === nickname.toLowerCase()) {
-                taken = true;
-              }
-            });
-
-            const finalNickname = taken ? `${nickname}#${Math.floor(100 + Math.random() * 900)}` : nickname;
+            const finalNickname = cleanNickname;
 
             const oldRoomId = session.roomId;
             const oldNickname = session.nickname;
@@ -2394,10 +2669,14 @@ async function startServer() {
               }
             });
 
+            const roomStateMessages = session.muteBotWelcome
+              ? (messages[roomId] || []).filter(m => !m.isBotWelcome && !m.id?.startsWith("bot-welcome-"))
+              : (messages[roomId] || []);
+
             sendToClient(ws, "room_state", {
               roomId,
               nickname: finalNickname,
-              messages: messages[roomId],
+              messages: roomStateMessages,
               onlineUsers: getRoomOnlineUsers(roomId),
               userPhotos,
               adminUsers: getAdminNicknames()
@@ -2421,12 +2700,13 @@ async function startServer() {
               adminUsers: getAdminNicknames()
             }, ws);
 
-            if (systemSettings.botsEnabled) {
+            if (systemSettings.botsEnabled && !session.muteBotWelcome) {
               setTimeout(() => {
                 if (!systemSettings.botsEnabled) return;
                 broadcastToRoom(roomId, "typing", {
                   nickname: "Bot_Papos",
-                  isTyping: true
+                  isTyping: true,
+                  isBotWelcome: true
                 });
               }, 500);
 
@@ -2435,7 +2715,8 @@ async function startServer() {
                 
                 broadcastToRoom(roomId, "typing", {
                   nickname: "Bot_Papos",
-                  isTyping: false
+                  isTyping: false,
+                  isBotWelcome: true
                 });
 
                 const text = `👋 Olá, ${finalNickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
@@ -2448,6 +2729,8 @@ async function startServer() {
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
+                  isBotWelcome: true,
+                  targetNickname: finalNickname,
                   reactions: {}
                 };
 
@@ -2460,13 +2743,13 @@ async function startServer() {
 
             broadcastRoomsList();
 
-            if (!oldNickname) {
-              
+            if (!oldNickname && !session.muteBotWelcome) {
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
                 sendToClient(ws, "private_typing", {
                   from: "Bot_Papos",
-                  isTyping: true
+                  isTyping: true,
+                  isBotWelcome: true
                 });
               }, 1200);
 
@@ -2475,7 +2758,8 @@ async function startServer() {
                 
                 sendToClient(ws, "private_typing", {
                   from: "Bot_Papos",
-                  isTyping: false
+                  isTyping: false,
+                  isBotWelcome: true
                 });
 
                 const welcomeText = `Olá! Seja muito bem-vindo ao **Papos**! 👋\n\nSou o assistente virtual do chat e vou te explicar como tudo funciona por aqui de forma simples:\n\n💬 **Salas Públicas**: Use o botão **Salas** no topo para explorar canais públicos (Geral, Tecnologia, Música...) e debater com todo mundo!\n\n🔒 **Conversas Privadas (DM)**: Para abrir um privado 100% seguro com qualquer usuário, basta clicar sobre o nome dele na lista de membros online à esquerda!\n\n🎨 **Cores de Mensagem**: Personalize suas mensagens clicando no ícone de **paleta** (agora posicionado elegantemente à direita do botão enviar!).\n\n😀 **Emojis**: Use o novo seletor de **emojis** do chat para enviar reações rápidas!\n\n↔️ **Ajustar Painel**: Arraste a linha divisória lateral para ajustar o tamanho da sua lista de conversas.\n\nSinta-se em casa! Qualquer dúvida, pode me mandar uma mensagem direta por aqui! 😊`;
@@ -2490,7 +2774,8 @@ async function startServer() {
                   content: welcomeText,
                   timestamp: Date.now(),
                   conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
-                  isDeleted: false
+                  isDeleted: false,
+                  isBotWelcome: true
                 };
                 sendToClient(ws, "private_message", pmPayload);
               }, 4000);
@@ -2504,6 +2789,16 @@ async function startServer() {
 
             const oldRoomId = session.roomId;
             if (oldRoomId === roomId) return;
+
+            // Validação e reserva atômica de apelido na sala destino
+            const availability = await checkAndReserveNickname(roomId, session.nickname, session.uid, session.guestId);
+            if (!availability.available) {
+              sendToClient(ws, "error", {
+                code: availability.code || "NICKNAME_IN_USE",
+                message: availability.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar."
+              });
+              return;
+            }
 
             session.roomId = roomId;
 
@@ -2537,10 +2832,14 @@ async function startServer() {
               }
             });
 
+            const switchRoomMessages = session.muteBotWelcome
+              ? (messages[roomId] || []).filter(m => !m.isBotWelcome && !m.id?.startsWith("bot-welcome-"))
+              : (messages[roomId] || []);
+
             sendToClient(ws, "room_state", {
               roomId,
               nickname: session.nickname,
-              messages: messages[roomId],
+              messages: switchRoomMessages,
               onlineUsers: getRoomOnlineUsers(roomId),
               userPhotos: switchUserPhotos
             });
@@ -2555,13 +2854,14 @@ async function startServer() {
             }, ws);
 
             const roomBots = BOTS.filter(b => b.rooms.includes(roomId) && (systemSettings.botsEnabled || ["bot_papos", "bots_papos"].includes(b.nickname.toLowerCase())));
-            if (roomBots.length > 0) {
+            if (roomBots.length > 0 && !session.muteBotWelcome) {
               const welcomeBot = roomBots[Math.floor(Math.random() * roomBots.length)];
               
               setTimeout(() => {
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
-                  isTyping: true
+                  isTyping: true,
+                  isBotWelcome: true
                 });
               }, 500);
 
@@ -2569,7 +2869,8 @@ async function startServer() {
                 
                 broadcastToRoom(roomId, "typing", {
                   nickname: welcomeBot.nickname,
-                  isTyping: false
+                  isTyping: false,
+                  isBotWelcome: true
                 });
 
                 const welcomePhrases = [
@@ -2587,6 +2888,8 @@ async function startServer() {
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
+                  isBotWelcome: true,
+                  targetNickname: session.nickname,
                   reactions: {}
                 };
 
@@ -3411,6 +3714,14 @@ async function startServer() {
                     break;
                   }
                 }
+                const availability = await checkAndReserveNickname(session.roomId, newNickname, uidCandidate, session.guestId);
+                if (!availability.available) {
+                  sendToClient(ws, "error", {
+                    code: availability.code || "NICKNAME_IN_USE",
+                    message: availability.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar."
+                  });
+                  break;
+                }
                 session.nickname = newNickname;
               }
             }
@@ -3420,6 +3731,9 @@ async function startServer() {
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
             if (payload.blockCalls !== undefined) {
               session.blockCalls = Boolean(payload.blockCalls);
+            }
+            if (payload.muteBotWelcome !== undefined) {
+              session.muteBotWelcome = Boolean(payload.muteBotWelcome);
             }
             
             const rawProfilePhoto = payload.photoUrl !== undefined ? payload.photoUrl : (payload.profileImage !== undefined ? payload.profileImage : payload.photo);
@@ -3485,6 +3799,16 @@ async function startServer() {
             break;
           }
 
+          case "update_preferences": {
+            if (payload.muteBotWelcome !== undefined) {
+              session.muteBotWelcome = Boolean(payload.muteBotWelcome);
+            }
+            if (payload.blockCalls !== undefined) {
+              session.blockCalls = Boolean(payload.blockCalls);
+            }
+            break;
+          }
+
           case "pong": {
             
             break;
@@ -3521,7 +3845,19 @@ async function startServer() {
         }
 
         if (nickname && roomId) {
-          
+          const norm = normalizeNickname(nickname);
+          const reservationKey = `${roomId}:${norm}`;
+          // Manter reserva segura por 45 segundos para que reconexões legítimas não percam o apelido
+          roomNicknameReservations.set(reservationKey, {
+            roomId,
+            normalizedNickname: norm,
+            nickname,
+            uid: session.uid,
+            guestId: session.guestId,
+            reservedAt: Date.now(),
+            expiresAt: Date.now() + 45000
+          });
+
           const leftUsers = getRoomOnlineUsers(roomId);
           broadcastToRoom(roomId, "user_left", {
             nickname,
