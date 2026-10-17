@@ -11,16 +11,37 @@ import https from "https";
 import multer from "multer";
 import sharp from "sharp";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
+import webpush from "web-push";
+import appletConfig from "./firebase-applet-config.json";
 
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
+  apiKey: process.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || "",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || "",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || "",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || "",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || "",
+  appId: process.env.VITE_FIREBASE_APP_ID || appletConfig.appId || "",
+  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || appletConfig.firestoreDatabaseId || "(default)"
 };
+
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "BFDxxavHvu-iURaKp133DuilEw8rinILTSH68nasjyogZ-vdhkFphXZjZya6z80kqDWjpj0yD7nq3KzyK1-1rrc";
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "JHvfbys0fWV6vgSODkYgPLGHzO4Qhx6vzowTWOUe3Mo";
+const vapidEmail = process.env.VAPID_EMAIL || "mailto:suporte@papo.net.br";
+
+try {
+  webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
+} catch (e) {
+  console.warn("[WebPush] Erro ao inicializar VAPID:", e);
+}
+
+interface PushSubscriptionData {
+  subscription: webpush.PushSubscription;
+  nickname: string;
+  guestId?: string;
+  uid?: string;
+  subscribedAt: number;
+}
+const pushSubscriptions = new Map<string, PushSubscriptionData>();
 
 const firebaseApp = initializeApp({
   apiKey: firebaseConfig.apiKey,
@@ -697,7 +718,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papo.net.br",
+      "https://papos.net.br",
       "https://papos-site.onrender.com"
     ];
     
