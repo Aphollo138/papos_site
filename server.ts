@@ -1,37 +1,58 @@
-import "dotenv/config";
-import express from "express";
-import http from "http";
-import path from "path";
-import { WebSocketServer, WebSocket } from "ws";
-import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, onSnapshot } from "firebase/firestore";
-import fs from "fs";
-import crypto from "crypto";
-import https from "https";
-import multer from "multer";
-import sharp from "sharp";
-import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
-import webpush from "web-push";
-import appletConfig from "./firebase-applet-config.json";
+import 'dotenv/config';
+import express from 'express';
+import http from 'http';
+import path from 'path';
+import { WebSocketServer, WebSocket } from 'ws';
+import { initializeApp } from 'firebase/app';
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  onSnapshot,
+} from 'firebase/firestore';
+import fs from 'fs';
+import crypto from 'crypto';
+import https from 'https';
+import multer from 'multer';
+import sharp from 'sharp';
+import {
+  verifyIdToken,
+  checkAdminByUid,
+  authenticateAdmin,
+  adminDb,
+} from './src/firebase-admin';
+import webpush from 'web-push';
 
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || appletConfig.appId || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || appletConfig.firestoreDatabaseId || "(default)"
+  apiKey: process.env.VITE_FIREBASE_API_KEY || '',
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || '',
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: process.env.VITE_FIREBASE_APP_ID || '',
+  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || '(default)',
 };
 
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "BFDxxavHvu-iURaKp133DuilEw8rinILTSH68nasjyogZ-vdhkFphXZjZya6z80kqDWjpj0yD7nq3KzyK1-1rrc";
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "JHvfbys0fWV6vgSODkYgPLGHzO4Qhx6vzowTWOUe3Mo";
-const vapidEmail = process.env.VAPID_EMAIL || "mailto:suporte@papo.net.br";
+const vapidPublicKey =
+  process.env.VAPID_PUBLIC_KEY ||
+  'BFDxxavHvu-iURaKp133DuilEw8rinILTSH68nasjyogZ-vdhkFphXZjZya6z80kqDWjpj0yD7nq3KzyK1-1rrc';
+const vapidPrivateKey =
+  process.env.VAPID_PRIVATE_KEY ||
+  'JHvfbys0fWV6vgSODkYgPLGHzO4Qhx6vzowTWOUe3Mo';
+const vapidEmail = process.env.VAPID_EMAIL || 'mailto:suporte@papo.net.br';
 
 try {
   webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
 } catch (e) {
-  console.warn("[WebPush] Erro ao inicializar VAPID:", e);
+  console.warn('[WebPush] Erro ao inicializar VAPID:', e);
 }
 
 interface PushSubscriptionData {
@@ -49,7 +70,7 @@ const firebaseApp = initializeApp({
   projectId: firebaseConfig.projectId,
   storageBucket: firebaseConfig.storageBucket,
   messagingSenderId: firebaseConfig.messagingSenderId,
-  appId: firebaseConfig.appId
+  appId: firebaseConfig.appId,
 });
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
@@ -57,12 +78,13 @@ const systemSettings = {
   adsEnabled: true,
   botsEnabled: true,
   maintenanceEnabled: false,
-  maintenanceTitle: "Sistema em Manutenção",
-  maintenanceMessage: "Estamos realizando melhorias na plataforma. Voltamos em instantes!",
-  maintenanceStartDate: "",
-  maintenanceStartTime: "",
-  maintenanceEndDate: "",
-  maintenanceEndTime: ""
+  maintenanceTitle: 'Sistema em Manutenção',
+  maintenanceMessage:
+    'Estamos realizando melhorias na plataforma. Voltamos em instantes!',
+  maintenanceStartDate: '',
+  maintenanceStartTime: '',
+  maintenanceEndDate: '',
+  maintenanceEndTime: '',
 };
 
 let notifyBotsToggled: ((enabled: boolean) => void) | null = null;
@@ -74,68 +96,77 @@ function sendToClient(ws: WebSocket, type: string, payload: any) {
 }
 
 try {
-  const settingsDocRef = doc(db, "system", "settings");
-  onSnapshot(settingsDocRef, (snap) => {
-    if (snap.exists()) {
-      const data = snap.data();
-      systemSettings.adsEnabled = data.adsEnabled !== false;
-      const isEnabled = data.botsEnabled !== false;
-      systemSettings.botsEnabled = isEnabled;
-      systemSettings.maintenanceEnabled = data.maintenanceEnabled === true;
-      systemSettings.maintenanceTitle = data.title || "Sistema em Manutenção";
-      systemSettings.maintenanceMessage = data.message || "Estamos realizando melhorias na plataforma. Voltamos em instantes!";
-      systemSettings.maintenanceStartDate = data.startDate || "";
-      systemSettings.maintenanceStartTime = data.startTime || "";
-      systemSettings.maintenanceEndDate = data.endDate || "";
-      systemSettings.maintenanceEndTime = data.endTime || "";
-      if (notifyBotsToggled) {
-        notifyBotsToggled(isEnabled);
-      }
+  const settingsDocRef = doc(db, 'system', 'settings');
+  onSnapshot(
+    settingsDocRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        systemSettings.adsEnabled = data.adsEnabled !== false;
+        const isEnabled = data.botsEnabled !== false;
+        systemSettings.botsEnabled = isEnabled;
+        systemSettings.maintenanceEnabled = data.maintenanceEnabled === true;
+        systemSettings.maintenanceTitle = data.title || 'Sistema em Manutenção';
+        systemSettings.maintenanceMessage =
+          data.message ||
+          'Estamos realizando melhorias na plataforma. Voltamos em instantes!';
+        systemSettings.maintenanceStartDate = data.startDate || '';
+        systemSettings.maintenanceStartTime = data.startTime || '';
+        systemSettings.maintenanceEndDate = data.endDate || '';
+        systemSettings.maintenanceEndTime = data.endTime || '';
+        if (notifyBotsToggled) {
+          notifyBotsToggled(isEnabled);
+        }
 
-      // Broadcast maintenance status to all connected sessions
-      activeSessions.forEach((s, clientWs) => {
-        sendToClient(clientWs, "maintenance_status", {
-          enabled: systemSettings.maintenanceEnabled,
-          title: systemSettings.maintenanceTitle,
-          message: systemSettings.maintenanceMessage,
-          startDate: systemSettings.maintenanceStartDate,
-          startTime: systemSettings.maintenanceStartTime,
-          endDate: systemSettings.maintenanceEndDate,
-          endTime: systemSettings.maintenanceEndTime
+        // Broadcast maintenance status to all connected sessions
+        activeSessions.forEach((s, clientWs) => {
+          sendToClient(clientWs, 'maintenance_status', {
+            enabled: systemSettings.maintenanceEnabled,
+            title: systemSettings.maintenanceTitle,
+            message: systemSettings.maintenanceMessage,
+            startDate: systemSettings.maintenanceStartDate,
+            startTime: systemSettings.maintenanceStartTime,
+            endDate: systemSettings.maintenanceEndDate,
+            endTime: systemSettings.maintenanceEndTime,
+          });
         });
-      });
-    } else {
-      systemSettings.adsEnabled = true;
-      systemSettings.botsEnabled = true;
-      systemSettings.maintenanceEnabled = false;
-      systemSettings.maintenanceStartDate = "";
-      systemSettings.maintenanceStartTime = "";
-      systemSettings.maintenanceEndDate = "";
-      systemSettings.maintenanceEndTime = "";
-      if (notifyBotsToggled) {
-        notifyBotsToggled(true);
-      }
+      } else {
+        systemSettings.adsEnabled = true;
+        systemSettings.botsEnabled = true;
+        systemSettings.maintenanceEnabled = false;
+        systemSettings.maintenanceStartDate = '';
+        systemSettings.maintenanceStartTime = '';
+        systemSettings.maintenanceEndDate = '';
+        systemSettings.maintenanceEndTime = '';
+        if (notifyBotsToggled) {
+          notifyBotsToggled(true);
+        }
 
-      activeSessions.forEach((s, clientWs) => {
-        sendToClient(clientWs, "maintenance_status", {
-          enabled: false,
-          title: "Sistema em Manutenção",
-          message: "",
-          startDate: "",
-          startTime: "",
-          endDate: "",
-          endTime: ""
+        activeSessions.forEach((s, clientWs) => {
+          sendToClient(clientWs, 'maintenance_status', {
+            enabled: false,
+            title: 'Sistema em Manutenção',
+            message: '',
+            startDate: '',
+            startTime: '',
+            endDate: '',
+            endTime: '',
+          });
         });
-      });
-    }
-  }, (err) => {
-    console.error("[SystemSettings] Listener error:", err);
-  });
+      }
+    },
+    (err) => {
+      console.error('[SystemSettings] Listener error:', err);
+    },
+  );
 } catch (err) {
-  console.error("[SystemSettings] Failed to attach listener:", err);
+  console.error('[SystemSettings] Failed to attach listener:', err);
 }
 
-async function verifyFirebaseIdToken(token: string, projectId: string): Promise<any | null> {
+async function verifyFirebaseIdToken(
+  token: string,
+  projectId: string,
+): Promise<any | null> {
   // Verificação estrita e segura da assinatura e validade através do Firebase Admin SDK
   const decoded = await verifyIdToken(token);
   if (decoded) return decoded;
@@ -158,18 +189,29 @@ let securityBansCacheTime = 0;
 
 async function getSecurityBans(): Promise<SecurityBansDoc> {
   const now = Date.now();
-  if (securityBansCache && (now - securityBansCacheTime < 10000)) {
+  if (securityBansCache && now - securityBansCacheTime < 10000) {
     return securityBansCache;
   }
   try {
-    const secDoc = await adminDb.collection("security").doc("bans").get();
+    const secDoc = await adminDb.collection('security').doc('bans').get();
     if (secDoc.exists) {
       securityBansCache = secDoc.data() as SecurityBansDoc;
     } else {
-      securityBansCache = { fingerprints: [], clientIds: [], ips: [], uids: [] };
+      securityBansCache = {
+        fingerprints: [],
+        clientIds: [],
+        ips: [],
+        uids: [],
+      };
     }
   } catch (err) {
-    if (!securityBansCache) securityBansCache = { fingerprints: [], clientIds: [], ips: [], uids: [] };
+    if (!securityBansCache)
+      securityBansCache = {
+        fingerprints: [],
+        clientIds: [],
+        ips: [],
+        uids: [],
+      };
   }
   securityBansCacheTime = now;
   return securityBansCache;
@@ -184,63 +226,77 @@ async function checkUserBlockStatus(
   fingerprint?: string,
   clientId?: string,
   ip?: string,
-  guestId?: string
+  guestId?: string,
 ): Promise<{ blocked: boolean; reason: string; until?: number }> {
   // 1. Check user document in Firestore if UID is provided
   if (uid) {
     try {
-      const userDocSnap = await adminDb.collection("users").doc(uid).get();
+      const userDocSnap = await adminDb.collection('users').doc(uid).get();
       if (userDocSnap.exists) {
         const data = userDocSnap.data();
         if (data?.banned) {
-          return { blocked: true, reason: "ban" };
+          return { blocked: true, reason: 'ban' };
         }
         if (data?.suspendedUntil && data.suspendedUntil > Date.now()) {
-          return { blocked: true, reason: "suspension", until: data.suspendedUntil };
+          return {
+            blocked: true,
+            reason: 'suspension',
+            until: data.suspendedUntil,
+          };
         }
       }
     } catch (err) {
-      console.error("[Moderation] Error checking user block status for", uid, err);
+      console.error(
+        '[Moderation] Error checking user block status for',
+        uid,
+        err,
+      );
     }
   }
 
   // 2. Check guestBans collection
   try {
-    const bansSnap = await adminDb.collection("guestBans").get();
+    const bansSnap = await adminDb.collection('guestBans').get();
     if (!bansSnap.empty) {
       for (const docSnap of bansSnap.docs) {
         const b = docSnap.data();
         const matchGid = Boolean(guestId && b.guestId && b.guestId === guestId);
-        const matchFp = Boolean(fingerprint && b.fingerprint && b.fingerprint === fingerprint);
+        const matchFp = Boolean(
+          fingerprint && b.fingerprint && b.fingerprint === fingerprint,
+        );
         const matchIp = Boolean(ip && b.ip && b.ip === ip);
         if (matchGid || matchFp || matchIp) {
-          return { blocked: true, reason: "ban" };
+          return { blocked: true, reason: 'ban' };
         }
       }
     }
   } catch (err) {
-    console.error("[Moderation] Error checking guestBans:", err);
+    console.error('[Moderation] Error checking guestBans:', err);
   }
 
   // 3. Check guestSuspensions collection
   try {
-    const susSnap = await adminDb.collection("guestSuspensions").get();
+    const susSnap = await adminDb.collection('guestSuspensions').get();
     if (!susSnap.empty) {
       const now = Date.now();
       for (const docSnap of susSnap.docs) {
         const s = docSnap.data();
         if (s.expiresAt && s.expiresAt > now) {
-          const matchGid = Boolean(guestId && s.guestId && s.guestId === guestId);
-          const matchFp = Boolean(fingerprint && s.fingerprint && s.fingerprint === fingerprint);
+          const matchGid = Boolean(
+            guestId && s.guestId && s.guestId === guestId,
+          );
+          const matchFp = Boolean(
+            fingerprint && s.fingerprint && s.fingerprint === fingerprint,
+          );
           const matchIp = Boolean(ip && s.ip && s.ip === ip);
           if (matchGid || matchFp || matchIp) {
-            return { blocked: true, reason: "suspension", until: s.expiresAt };
+            return { blocked: true, reason: 'suspension', until: s.expiresAt };
           }
         }
       }
     }
   } catch (err) {
-    console.error("[Moderation] Error checking guestSuspensions:", err);
+    console.error('[Moderation] Error checking guestSuspensions:', err);
   }
 
   // 4. Check security/bans document for UID, Fingerprint, Client ID, or IP
@@ -248,78 +304,206 @@ async function checkUserBlockStatus(
   const now = Date.now();
 
   if (uid && Array.isArray(bans.uids) && bans.uids.includes(uid)) {
-    return { blocked: true, reason: "ban" };
+    return { blocked: true, reason: 'ban' };
   }
-  if (fingerprint && Array.isArray(bans.fingerprints) && bans.fingerprints.includes(fingerprint)) {
-    return { blocked: true, reason: "ban" };
+  if (
+    fingerprint &&
+    Array.isArray(bans.fingerprints) &&
+    bans.fingerprints.includes(fingerprint)
+  ) {
+    return { blocked: true, reason: 'ban' };
   }
-  if (clientId && Array.isArray(bans.clientIds) && bans.clientIds.includes(clientId)) {
-    return { blocked: true, reason: "ban" };
+  if (
+    clientId &&
+    Array.isArray(bans.clientIds) &&
+    bans.clientIds.includes(clientId)
+  ) {
+    return { blocked: true, reason: 'ban' };
   }
   if (ip && Array.isArray(bans.ips) && bans.ips.includes(ip)) {
-    return { blocked: true, reason: "ban" };
+    return { blocked: true, reason: 'ban' };
   }
 
   // Check active suspensions
   if (uid && bans.suspendedUids && bans.suspendedUids[uid] > now) {
-    return { blocked: true, reason: "suspension", until: bans.suspendedUids[uid] };
+    return {
+      blocked: true,
+      reason: 'suspension',
+      until: bans.suspendedUids[uid],
+    };
   }
-  if (fingerprint && bans.suspendedFingerprints && bans.suspendedFingerprints[fingerprint] > now) {
-    return { blocked: true, reason: "suspension", until: bans.suspendedFingerprints[fingerprint] };
+  if (
+    fingerprint &&
+    bans.suspendedFingerprints &&
+    bans.suspendedFingerprints[fingerprint] > now
+  ) {
+    return {
+      blocked: true,
+      reason: 'suspension',
+      until: bans.suspendedFingerprints[fingerprint],
+    };
   }
-  if (clientId && bans.suspendedClientIds && bans.suspendedClientIds[clientId] > now) {
-    return { blocked: true, reason: "suspension", until: bans.suspendedClientIds[clientId] };
+  if (
+    clientId &&
+    bans.suspendedClientIds &&
+    bans.suspendedClientIds[clientId] > now
+  ) {
+    return {
+      blocked: true,
+      reason: 'suspension',
+      until: bans.suspendedClientIds[clientId],
+    };
   }
   if (ip && bans.suspendedIps && bans.suspendedIps[ip] > now) {
-    return { blocked: true, reason: "suspension", until: bans.suspendedIps[ip] };
+    return {
+      blocked: true,
+      reason: 'suspension',
+      until: bans.suspendedIps[ip],
+    };
   }
 
-  return { blocked: false, reason: "" };
+  return { blocked: false, reason: '' };
 }
 
 async function checkIsAdmin(uid: string | undefined): Promise<boolean> {
-  if (typeof uid !== "string" || !uid) {
+  if (typeof uid !== 'string' || !uid) {
     return false;
   }
   return await checkAdminByUid(uid);
 }
 
 const INITIAL_ROOMS = [
-  { id: "room-1", name: "Bate-Papo Geral 💬", desc: "A sala principal para falar sobre qualquer assunto, mandar memes ou só ver o que o pessoal está comentando.", count: 0, icon: "chat-dots" },
-  { id: "room-2", name: "Tecnologia & Devs 💻", desc: "Espaço descontraído para falar sobre programação, hardware, carreira tech e inteligência artificial.", count: 0, icon: "code" },
-  { id: "room-6", name: "Cantinho dos Desabafos ❤️", desc: "Um espaço seguro para desabafar sobre o dia a dia, pedir conselhos e dar aquele apoio a quem precisa.", count: 0, icon: "heart" },
-  { id: "room-7", name: "Novas Amizades 🤝", desc: "Sem compromisso. Entre para dar um oi, descobrir afinidades e trocar uma ideia leve com gente nova.", count: 0, icon: "people" },
-  { id: "room-4", name: "Música & Playlists 🎧", desc: "Compartilhe o que você está escutando agora, indique artistas independentes e monte playlists colaborativas.", count: 0, icon: "music" },
-  { id: "room-5", name: "Amizade & Jogos 🎮", desc: "Para quem quer achar duo, montar party ou apenas discutir o meta atual e os lançamentos dos games.", count: 0, icon: "game" },
-  { id: "room-9", name: "Relacionamentos & Amor 🌹", desc: "Debates saudáveis sobre relacionamentos, encontros, vida a dois e as ciladas de aplicativos de paquera.", count: 0, icon: "heart-half" },
-  { id: "room-10", name: "Clube da Madrugada 🌙", desc: "A sala das corujas. Conversas profundas, pensamentos aleatórios e companheirismo nas horas de silêncio.", count: 0, icon: "moon" },
-  { id: "room-11", name: "Papo Brasil 🇧🇷", desc: "Mistura boa de sotaques de norte a sul. Fale sobre cultura local, piadas internas de cada estado e rotina.", count: 0, icon: "globe" }
+  {
+    id: 'room-1',
+    name: 'Bate-Papo Geral 💬',
+    desc: 'A sala principal para falar sobre qualquer assunto, mandar memes ou só ver o que o pessoal está comentando.',
+    count: 0,
+    icon: 'chat-dots',
+  },
+  {
+    id: 'room-2',
+    name: 'Tecnologia & Devs 💻',
+    desc: 'Espaço descontraído para falar sobre programação, hardware, carreira tech e inteligência artificial.',
+    count: 0,
+    icon: 'code',
+  },
+  {
+    id: 'room-6',
+    name: 'Cantinho dos Desabafos ❤️',
+    desc: 'Um espaço seguro para desabafar sobre o dia a dia, pedir conselhos e dar aquele apoio a quem precisa.',
+    count: 0,
+    icon: 'heart',
+  },
+  {
+    id: 'room-7',
+    name: 'Novas Amizades 🤝',
+    desc: 'Sem compromisso. Entre para dar um oi, descobrir afinidades e trocar uma ideia leve com gente nova.',
+    count: 0,
+    icon: 'people',
+  },
+  {
+    id: 'room-4',
+    name: 'Música & Playlists 🎧',
+    desc: 'Compartilhe o que você está escutando agora, indique artistas independentes e monte playlists colaborativas.',
+    count: 0,
+    icon: 'music',
+  },
+  {
+    id: 'room-5',
+    name: 'Amizade & Jogos 🎮',
+    desc: 'Para quem quer achar duo, montar party ou apenas discutir o meta atual e os lançamentos dos games.',
+    count: 0,
+    icon: 'game',
+  },
+  {
+    id: 'room-9',
+    name: 'Relacionamentos & Amor 🌹',
+    desc: 'Debates saudáveis sobre relacionamentos, encontros, vida a dois e as ciladas de aplicativos de paquera.',
+    count: 0,
+    icon: 'heart-half',
+  },
+  {
+    id: 'room-10',
+    name: 'Clube da Madrugada 🌙',
+    desc: 'A sala das corujas. Conversas profundas, pensamentos aleatórios e companheirismo nas horas de silêncio.',
+    count: 0,
+    icon: 'moon',
+  },
+  {
+    id: 'room-11',
+    name: 'Papo Brasil 🇧🇷',
+    desc: 'Mistura boa de sotaques de norte a sul. Fale sobre cultura local, piadas internas de cada estado e rotina.',
+    count: 0,
+    icon: 'globe',
+  },
 ];
 
 const INITIAL_MESSAGES: Record<string, any[]> = {
-  "room-1": [
-    { id: "m-init-1", sender: "Ana Silva", text: "Olá pessoal! Sejam bem-vindos ao novo Chat Online!", time: "15:40", isSystem: false },
-    { id: "m-init-2", sender: "Carlos Dev", text: "Nossa, que interface bonita e fluida! Bootstrap 5 combinou muito.", time: "15:42", isSystem: false },
-    { id: "m-init-3", sender: "Sistema", text: "Canal aberto para conversação livre de anúncios.", time: "15:43", isSystem: true }
+  'room-1': [
+    {
+      id: 'm-init-1',
+      sender: 'Ana Silva',
+      text: 'Olá pessoal! Sejam bem-vindos ao novo Chat Online!',
+      time: '15:40',
+      isSystem: false,
+    },
+    {
+      id: 'm-init-2',
+      sender: 'Carlos Dev',
+      text: 'Nossa, que interface bonita e fluida! Bootstrap 5 combinou muito.',
+      time: '15:42',
+      isSystem: false,
+    },
+    {
+      id: 'm-init-3',
+      sender: 'Sistema',
+      text: 'Canal aberto para conversação livre de anúncios.',
+      time: '15:43',
+      isSystem: true,
+    },
   ],
-  "room-2": [
-    { id: "m-init-4", sender: "Guilherme", text: "Alguém aí já experimentou o novo motor do Node ou está focado em Bun?", time: "14:10", isSystem: false },
-    { id: "m-init-5", sender: "Mariana Tech", text: "Eu uso muito Node em produção, mas Bun é absurdamente rápido em testes locais.", time: "14:15", isSystem: false }
+  'room-2': [
+    {
+      id: 'm-init-4',
+      sender: 'Guilherme',
+      text: 'Alguém aí já experimentou o novo motor do Node ou está focado em Bun?',
+      time: '14:10',
+      isSystem: false,
+    },
+    {
+      id: 'm-init-5',
+      sender: 'Mariana Tech',
+      text: 'Eu uso muito Node em produção, mas Bun é absurdamente rápido em testes locais.',
+      time: '14:15',
+      isSystem: false,
+    },
   ],
-  "room-10": [
-    { id: "m-init-6", sender: "Gabriel_Coruja", text: "Alguém aí acordado ainda?", time: "02:15", isSystem: false },
-    { id: "m-init-7", sender: "Luiza_Nights", text: "Sempre kkk. Tô terminando um livro e perdi o sono total.", time: "02:17", isSystem: false }
-  ]
+  'room-10': [
+    {
+      id: 'm-init-6',
+      sender: 'Gabriel_Coruja',
+      text: 'Alguém aí acordado ainda?',
+      time: '02:15',
+      isSystem: false,
+    },
+    {
+      id: 'm-init-7',
+      sender: 'Luiza_Nights',
+      text: 'Sempre kkk. Tô terminando um livro e perdi o sono total.',
+      time: '02:17',
+      isSystem: false,
+    },
+  ],
 };
 
 const rooms = [...INITIAL_ROOMS];
 const messages = { ...INITIAL_MESSAGES } as Record<string, any[]>;
 
-Object.keys(messages).forEach(roomId => {
-  messages[roomId].forEach(msg => {
+Object.keys(messages).forEach((roomId) => {
+  messages[roomId].forEach((msg) => {
     if (!msg.timestamp && msg.time) {
       try {
-        const [h, m] = msg.time.split(":").map(Number);
+        const [h, m] = msg.time.split(':').map(Number);
         const d = new Date();
         d.setHours(h, m, 0, 0);
         msg.timestamp = d.getTime();
@@ -331,82 +515,82 @@ Object.keys(messages).forEach(roomId => {
 });
 
 const BOTS = [
-  { nickname: "Mariana_Tech", rooms: ["room-1", "room-2", "room-7"] },
-  { nickname: "Carlos_Meme", rooms: ["room-1", "room-4", "room-11"] },
-  { nickname: "Lucas_Gamer", rooms: ["room-1", "room-5", "room-10"] },
-  { nickname: "Beatriz_Vibes", rooms: ["room-1", "room-6", "room-7"] },
-  { nickname: "Thiago_Melo", rooms: ["room-1", "room-4", "room-10"] },
-  { nickname: "Aline_Viajante", rooms: ["room-1", "room-7", "room-11"] },
-  { nickname: "Rafa_Relacionamentos", rooms: ["room-1", "room-9"] },
-  { nickname: "Bot_Papos", rooms: ["room-1"] }
+  { nickname: 'Mariana_Tech', rooms: ['room-1', 'room-2', 'room-7'] },
+  { nickname: 'Carlos_Meme', rooms: ['room-1', 'room-4', 'room-11'] },
+  { nickname: 'Lucas_Gamer', rooms: ['room-1', 'room-5', 'room-10'] },
+  { nickname: 'Beatriz_Vibes', rooms: ['room-1', 'room-6', 'room-7'] },
+  { nickname: 'Thiago_Melo', rooms: ['room-1', 'room-4', 'room-10'] },
+  { nickname: 'Aline_Viajante', rooms: ['room-1', 'room-7', 'room-11'] },
+  { nickname: 'Rafa_Relacionamentos', rooms: ['room-1', 'room-9'] },
+  { nickname: 'Bot_Papos', rooms: ['room-1'] },
 ];
 
 const BOT_MESSAGES: Record<string, string[]> = {
-  "room-1": [
-    "Eae pessoal! Como está o dia de vocês por aí?",
-    "Gente, qual o melhor filme ou série que vocês assistiram recentemente?",
-    "Nossa, essa nova interface do chat ficou muito rápida e limpa de usar!",
-    "Alguém aí curte cozinhar? Fiz uma lasanha hoje que ficou sensacional!",
-    "Se vocês pudessem ter qualquer superpoder no mundo real, qual escolheriam?",
-    "Qual é a comida favorita de vocês? Eu sou viciada em pizza com borda recheada!",
-    "Alguém acordado por aqui pra bater um papo leve?"
+  'room-1': [
+    'Eae pessoal! Como está o dia de vocês por aí?',
+    'Gente, qual o melhor filme ou série que vocês assistiram recentemente?',
+    'Nossa, essa nova interface do chat ficou muito rápida e limpa de usar!',
+    'Alguém aí curte cozinhar? Fiz uma lasanha hoje que ficou sensacional!',
+    'Se vocês pudessem ter qualquer superpoder no mundo real, qual escolheriam?',
+    'Qual é a comida favorita de vocês? Eu sou viciada em pizza com borda recheada!',
+    'Alguém acordado por aqui pra bater um papo leve?',
   ],
-  "room-2": [
-    "Vocês usam TypeScript em tudo hoje em dia ou ainda têm projetos rodando em JS puro?",
-    "O que vocês acham da febre de Inteligência Artificial no dia a dia do desenvolvimento de software?",
-    "Alguém aí já experimentou o Tailwind CSS v4? Achei o compilador absurdamente rápido!",
-    "Qual sistema operacional vocês usam para programar? Linux, Mac ou Windows padrão?",
-    "Estou estudando Docker hoje para subir umas instâncias. Que tecnologia fantástica!",
-    "Qual foi o primeiro código de vocês? O meu foi um clássico HTML piscando em fã-clube kkk",
-    "Cursor AI ou VS Code limpo com atalhos? O que vocês preferem para trabalhar?"
+  'room-2': [
+    'Vocês usam TypeScript em tudo hoje em dia ou ainda têm projetos rodando em JS puro?',
+    'O que vocês acham da febre de Inteligência Artificial no dia a dia do desenvolvimento de software?',
+    'Alguém aí já experimentou o Tailwind CSS v4? Achei o compilador absurdamente rápido!',
+    'Qual sistema operacional vocês usam para programar? Linux, Mac ou Windows padrão?',
+    'Estou estudando Docker hoje para subir umas instâncias. Que tecnologia fantástica!',
+    'Qual foi o primeiro código de vocês? O meu foi um clássico HTML piscando em fã-clube kkk',
+    'Cursor AI ou VS Code limpo com atalhos? O que vocês preferem para trabalhar?',
   ],
-  "room-6": [
-    "Às vezes é bom tirar um tempo para nós mesmos e relaxar das pressões diárias. Respirem fundo!",
-    "Se o dia hoje foi difícil, lembrem-se de que amanhã é uma nova oportunidade para recomeçar.",
-    "Nada melhor do que colocar uma música relaxante nos fones de ouvido e deitar depois de um dia corrido.",
-    "O apoio mútuto de vocês aqui nessa sala é muito bonito de ver, de verdade! ❤️",
-    "Se alguém precisar conversar ou desabafar sobre qualquer assunto, estamos aqui para ouvir sem julgamentos."
+  'room-6': [
+    'Às vezes é bom tirar um tempo para nós mesmos e relaxar das pressões diárias. Respirem fundo!',
+    'Se o dia hoje foi difícil, lembrem-se de que amanhã é uma nova oportunidade para recomeçar.',
+    'Nada melhor do que colocar uma música relaxante nos fones de ouvido e deitar depois de um dia corrido.',
+    'O apoio mútuto de vocês aqui nessa sala é muito bonito de ver, de verdade! ❤️',
+    'Se alguém precisar conversar ou desabafar sobre qualquer assunto, estamos aqui para ouvir sem julgamentos.',
   ],
-  "room-7": [
-    "Oi gente! Sou nova por aqui na sala de amizades. De onde vocês são?",
-    "Quais são os principais hobbies de vocês para se distrair no tempo livre?",
-    "Alguém aí gosta de ler? Me indiquem livros legais de mistério ou ficção científica!",
-    "Uma das melhores coisas da internet é conhecer pessoas legais com os mesmos gostos."
+  'room-7': [
+    'Oi gente! Sou nova por aqui na sala de amizades. De onde vocês são?',
+    'Quais são os principais hobbies de vocês para se distrair no tempo livre?',
+    'Alguém aí gosta de ler? Me indiquem livros legais de mistério ou ficção científica!',
+    'Uma das melhores coisas da internet é conhecer pessoas legais com os mesmos gostos.',
   ],
-  "room-4": [
-    "Alguém aí escuta Lo-Fi ou Synthwave instrumental para focar no trabalho ou estudos?",
-    "Quais bandas clássicas do rock nacional vocês mais escutam? Legião, Capital Inicial, Skank...",
-    "Tô ouvindo a nova playlist oficial do chat e tem muita indicação boa de MPB!",
-    "Vocês tocam algum instrumento musical? Eu tento arranhar um violão kkk"
+  'room-4': [
+    'Alguém aí escuta Lo-Fi ou Synthwave instrumental para focar no trabalho ou estudos?',
+    'Quais bandas clássicas do rock nacional vocês mais escutam? Legião, Capital Inicial, Skank...',
+    'Tô ouvindo a nova playlist oficial do chat e tem muita indicação boa de MPB!',
+    'Vocês tocam algum instrumento musical? Eu tento arranhar um violão kkk',
   ],
-  "room-5": [
-    "Alguém aí joga algum game cooperativo? Tipo Overcooked, It Takes Two ou Minecraft?",
-    "Vocês estão ansiosos pelo próximo grande lançamento do GTA VI?",
-    "Melhor jogo de todos os tempos na opinião sincera de vocês. Sem brigas, valendo!",
-    "Quem prefere jogar no celular? Mandem IDs do Wild Rift, Free Fire ou Brawl Stars!"
+  'room-5': [
+    'Alguém aí joga algum game cooperativo? Tipo Overcooked, It Takes Two ou Minecraft?',
+    'Vocês estão ansiosos pelo próximo grande lançamento do GTA VI?',
+    'Melhor jogo de todos os tempos na opinião sincera de vocês. Sem brigas, valendo!',
+    'Quem prefere jogar no celular? Mandem IDs do Wild Rift, Free Fire ou Brawl Stars!',
   ],
-  "room-9": [
-    "O que vocês acham de aplicativos de namoro hoje em dia? Realmente funcionam ou é só cilada?",
-    "Qual foi o encontro (date) mais engraçado ou bizarro que vocês já tiveram?",
-    "Relacionamento à distância realmente dá certo com compromisso ou é receita para dor de cabeça?"
+  'room-9': [
+    'O que vocês acham de aplicativos de namoro hoje em dia? Realmente funcionam ou é só cilada?',
+    'Qual foi o encontro (date) mais engraçado ou bizarro que vocês já tiveram?',
+    'Relacionamento à distância realmente dá certo com compromisso ou é receita para dor de cabeça?',
   ],
-  "room-10": [
-    "A sala dos sobreviventes da madrugada kkk. O que vocês estão fazendo acordados a essa hora?",
-    "A madrugada tem um silêncio maravilhoso que ajuda muito a concentrar e pensar na vida.",
-    "Quem aí sofre de insônia crônica ou só tem o fuso horário totalmente desregulado? 🙋‍♀️"
+  'room-10': [
+    'A sala dos sobreviventes da madrugada kkk. O que vocês estão fazendo acordados a essa hora?',
+    'A madrugada tem um silêncio maravilhoso que ajuda muito a concentrar e pensar na vida.',
+    'Quem aí sofre de insônia crônica ou só tem o fuso horário totalmente desregulado? 🙋‍♀️',
   ],
-  "room-11": [
-    "Qual a melhor comida típica do estado de vocês? Aqui em SP é o famoso pastel de feira com caldo de cana!",
-    "Eae galera do sul ao norte! Como está o clima e a temperatura na cidade de vocês hoje?",
-    "Pão de queijo quentinho com café coado na hora não tem erro, mineiro sabe muito bem o que faz!"
-  ]
+  'room-11': [
+    'Qual a melhor comida típica do estado de vocês? Aqui em SP é o famoso pastel de feira com caldo de cana!',
+    'Eae galera do sul ao norte! Como está o clima e a temperatura na cidade de vocês hoje?',
+    'Pão de queijo quentinho com café coado na hora não tem erro, mineiro sabe muito bem o que faz!',
+  ],
 };
 
 interface ClientSession {
   ws: WebSocket;
   nickname: string;
   roomId: string;
-  lastMessageTime: number[]; 
+  lastMessageTime: number[];
   bio?: string;
   age?: number;
   gender?: string;
@@ -442,10 +626,13 @@ interface RoomNicknameReservation {
 const roomNicknameReservations = new Map<string, RoomNicknameReservation>();
 
 function normalizeNickname(nick: string): string {
-  if (!nick || typeof nick !== "string") return "";
-  let norm = nick.trim().replace(/\s+/g, " ");
+  if (!nick || typeof nick !== 'string') return '';
+  let norm = nick.trim().replace(/\s+/g, ' ');
   try {
-    norm = norm.normalize("NFKC").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    norm = norm
+      .normalize('NFKC')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
   } catch (e) {}
   return norm.toLowerCase();
 }
@@ -454,7 +641,7 @@ interface ActiveCallSession {
   callId: string;
   caller: string;
   callee: string;
-  status: "ringing" | "connected";
+  status: 'ringing' | 'connected';
   createdAt: number;
 }
 const activeCalls = new Map<string, ActiveCallSession>();
@@ -463,7 +650,10 @@ function isUserInActiveCall(nickname: string): boolean {
   if (!nickname) return false;
   const lower = nickname.trim().toLowerCase();
   for (const call of activeCalls.values()) {
-    if (call.caller.toLowerCase() === lower || call.callee.toLowerCase() === lower) {
+    if (
+      call.caller.toLowerCase() === lower ||
+      call.callee.toLowerCase() === lower
+    ) {
       return true;
     }
   }
@@ -474,21 +664,34 @@ function findCallForUser(nickname: string): ActiveCallSession | undefined {
   if (!nickname) return undefined;
   const lower = nickname.trim().toLowerCase();
   for (const call of activeCalls.values()) {
-    if (call.caller.toLowerCase() === lower || call.callee.toLowerCase() === lower) {
+    if (
+      call.caller.toLowerCase() === lower ||
+      call.callee.toLowerCase() === lower
+    ) {
       return call;
     }
   }
   return undefined;
 }
 
-function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?: string) {
+function broadcastProfileUpdate(
+  nickname: string,
+  photoUrl: string | null | undefined,
+  uid?: string | null,
+) {
   if (!nickname) return;
   const cleanNick = nickname.trim();
-  const cleanPhotoUrl = (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "") ? photoUrl.trim() : "";
+  const cleanPhotoUrl =
+    photoUrl && typeof photoUrl === 'string' && photoUrl.trim() !== ''
+      ? photoUrl.trim()
+      : '';
 
   // 1. Atualizar sessões ativas com o novo estado em tempo real
   activeSessions.forEach((session) => {
-    if (session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase()) {
+    if (
+      session.nickname &&
+      session.nickname.toLowerCase() === cleanNick.toLowerCase()
+    ) {
       session.photoUrl = cleanPhotoUrl;
     }
   });
@@ -497,7 +700,10 @@ function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?:
   Object.keys(messages).forEach((roomId) => {
     if (Array.isArray(messages[roomId])) {
       messages[roomId].forEach((msg) => {
-        if (msg.sender && msg.sender.toLowerCase() === cleanNick.toLowerCase()) {
+        if (
+          msg.sender &&
+          msg.sender.toLowerCase() === cleanNick.toLowerCase()
+        ) {
           msg.photoUrl = cleanPhotoUrl ? cleanPhotoUrl : undefined;
         }
       });
@@ -506,12 +712,12 @@ function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?:
 
   // 3. Notificar todos os clientes conectados via WebSocket em tempo real
   const payload = {
-    type: "profile_updated",
+    type: 'profile_updated',
     nickname: cleanNick,
     userId: uid || undefined,
-    photoUrl: cleanPhotoUrl || "",
+    photoUrl: cleanPhotoUrl || '',
     profileImage: cleanPhotoUrl || null,
-    action: cleanPhotoUrl ? "update_photo" : "remove_photo"
+    action: cleanPhotoUrl ? 'update_photo' : 'remove_photo',
   };
 
   activeSessions.forEach((session, ws) => {
@@ -526,18 +732,22 @@ function getOnlineGuestsList(): any[] {
   activeSessions.forEach((s) => {
     // ONLY non-authenticated guests (no uid and not isAuthenticated)
     if (!s.uid && !s.isAuthenticated) {
-      const gId = s.guestId || (s.fingerprint ? `GST-${s.fingerprint.substring(0, 8).toUpperCase()}` : "GST-UNK");
+      const gId =
+        s.guestId ||
+        (s.fingerprint
+          ? `GST-${s.fingerprint.substring(0, 8).toUpperCase()}`
+          : 'GST-UNK');
       if (!guestsMap.has(gId)) {
         guestsMap.set(gId, {
           guestId: gId,
-          nickname: s.nickname || "Visitante",
-          room: s.roomId || "room-1",
-          fingerprint: s.fingerprint || "",
-          ip: s.ip || "N/A",
-          socketId: s.clientId || "",
+          nickname: s.nickname || 'Visitante',
+          room: s.roomId || 'room-1',
+          fingerprint: s.fingerprint || '',
+          ip: s.ip || 'N/A',
+          socketId: s.clientId || '',
           online: true,
           connectedAt: s.connectedAt || Date.now(),
-          lastSeen: Date.now()
+          lastSeen: Date.now(),
         });
       }
     }
@@ -548,9 +758,14 @@ function getOnlineGuestsList(): any[] {
 function notifyAdminsGuestList() {
   const guests = getOnlineGuestsList();
   activeSessions.forEach((s, key) => {
-    if (s.isAuthenticated && s.uid && s.isAdmin && key.readyState === WebSocket.OPEN) {
+    if (
+      s.isAuthenticated &&
+      s.uid &&
+      s.isAdmin &&
+      key.readyState === WebSocket.OPEN
+    ) {
       try {
-        key.send(JSON.stringify({ type: "admin_online_guests", guests }));
+        key.send(JSON.stringify({ type: 'admin_online_guests', guests }));
       } catch (e) {}
     }
   });
@@ -558,41 +773,47 @@ function notifyAdminsGuestList() {
 
 function getCurrentTime() {
   const now = new Date();
-  return now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return now.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function sanitizeHTML(text: string): string {
-  if (!text) return "";
+  if (!text) return '';
   return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function containsLink(str: string): boolean {
-  if (!str || typeof str !== "string") return false;
+  if (!str || typeof str !== 'string') return false;
 
   let text = str;
 
   try {
-    if (text.includes("%")) {
+    if (text.includes('%')) {
       text = decodeURIComponent(text);
     }
   } catch (e) {
     text = text
-      .replace(/%3a/gi, ":")
-      .replace(/%2f/gi, "/")
-      .replace(/%2e/gi, ".")
-      .replace(/%20/gi, " ");
+      .replace(/%3a/gi, ':')
+      .replace(/%2f/gi, '/')
+      .replace(/%2e/gi, '.')
+      .replace(/%20/gi, ' ');
   }
 
   try {
-    text = text.normalize("NFKC");
+    text = text.normalize('NFKC');
   } catch (e) {}
 
-  text = text.replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "");
+  text = text.replace(
+    /[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g,
+    '',
+  );
 
   const lower = text.toLowerCase();
 
@@ -600,7 +821,11 @@ function containsLink(str: string): boolean {
     return true;
   }
 
-  if (/\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/.test(lower)) {
+  if (
+    /\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/.test(
+      lower,
+    )
+  ) {
     return true;
   }
   if (/(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{1,4}|::1|fe80::/i.test(lower)) {
@@ -608,38 +833,118 @@ function containsLink(str: string): boolean {
   }
 
   let normalized = lower
-    .replace(/\s*(?:\[|\(|\{|<)\s*(?:dot|ponto|\.)\s*(?:\]|\)|\}|>)\s*/gi, ".")
-    .replace(/\s+(?:dot|ponto)\s+/gi, ".")
-    .replace(/\s*(?:\[|\(|\{|<)\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk|pt|ar|mx)\s*(?:\]|\)|\}|>)\s*/gi, ".$1");
+    .replace(/\s*(?:\[|\(|\{|<)\s*(?:dot|ponto|\.)\s*(?:\]|\)|\}|>)\s*/gi, '.')
+    .replace(/\s+(?:dot|ponto)\s+/gi, '.')
+    .replace(
+      /\s*(?:\[|\(|\{|<)\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk|pt|ar|mx)\s*(?:\]|\)|\}|>)\s*/gi,
+      '.$1',
+    );
 
   normalized = normalized
-    .replace(/([a-z0-9])\s*,\s*([a-z]{2,10})\b/gi, "$1.$2")
-    .replace(/([a-z0-9])\s*\/\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk)\b/gi, "$1.$2");
+    .replace(/([a-z0-9])\s*,\s*([a-z]{2,10})\b/gi, '$1.$2')
+    .replace(
+      /([a-z0-9])\s*\/\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk)\b/gi,
+      '$1.$2',
+    );
 
   const collapsedSpaces = normalized
-    .replace(/([a-z0-9])\s+\.\s+([a-z0-9])/gi, "$1.$2")
-    .replace(/([a-z0-9])\.\s+([a-z0-9])/gi, "$1.$2")
-    .replace(/([a-z0-9])\s+\.([a-z0-9])/gi, "$1.$2");
+    .replace(/([a-z0-9])\s+\.\s+([a-z0-9])/gi, '$1.$2')
+    .replace(/([a-z0-9])\.\s+([a-z0-9])/gi, '$1.$2')
+    .replace(/([a-z0-9])\s+\.([a-z0-9])/gi, '$1.$2');
 
   const tldList = [
-    "com", "net", "org", "gov", "edu", "mil", "br", "io", "gg", "co", "app", "dev",
-    "xyz", "me", "info", "online", "site", "store", "top", "tk", "ml", "ga", "cf",
-    "gq", "link", "live", "tech", "space", "club", "fun", "icu", "vip", "shop", "pro",
-    "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
-    "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
-    "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
-    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
+    'com',
+    'net',
+    'org',
+    'gov',
+    'edu',
+    'mil',
+    'br',
+    'io',
+    'gg',
+    'co',
+    'app',
+    'dev',
+    'xyz',
+    'me',
+    'info',
+    'online',
+    'site',
+    'store',
+    'top',
+    'tk',
+    'ml',
+    'ga',
+    'cf',
+    'gq',
+    'link',
+    'live',
+    'tech',
+    'space',
+    'club',
+    'fun',
+    'icu',
+    'vip',
+    'shop',
+    'pro',
+    'biz',
+    'tv',
+    'cc',
+    'cx',
+    'to',
+    'ws',
+    'mobi',
+    'asia',
+    'cat',
+    'jobs',
+    'tel',
+    'travel',
+    'work',
+    'life',
+    'world',
+    'page',
+    'run',
+    'blog',
+    'cloud',
+    'digital',
+    'email',
+    'games',
+    'group',
+    'media',
+    'news',
+    'ones',
+    'zone',
+    'ru',
+    'cn',
+    'uk',
+    'de',
+    'us',
+    'fr',
+    'ca',
+    'it',
+    'nl',
+    'es',
+    'eu',
+    'pt',
+    'ar',
+    'mx',
+    'cl',
+    'pe',
+    'uy',
   ];
-  const tldPattern = tldList.join("|");
+  const tldPattern = tldList.join('|');
 
-  const domainRegex = new RegExp(`\\b[a-z0-9\\-]+\\.(?:${tldPattern})(?:\\.[a-z]{2,4})?(?:\\/[^\\s]*)?\\b`, "i");
+  const domainRegex = new RegExp(
+    `\\b[a-z0-9\\-]+\\.(?:${tldPattern})(?:\\.[a-z]{2,4})?(?:\\/[^\\s]*)?\\b`,
+    'i',
+  );
 
   if (domainRegex.test(collapsedSpaces)) {
     return true;
   }
 
-  const noSpaces = lower.replace(/\s+/g, "");
-  if (noSpaces.includes(".") && domainRegex.test(noSpaces)) {
+  const noSpaces = lower.replace(/\s+/g, '');
+  if (noSpaces.includes('.') && domainRegex.test(noSpaces)) {
     return true;
   }
 
@@ -649,45 +954,45 @@ function containsLink(str: string): boolean {
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
-  app.use(express.json({ limit: "15mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "15mb" }));
+  app.use(express.json({ limit: '15mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
   const PORT = Number(process.env.PORT) || 3000;
 
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 }
+    limits: { fileSize: 10 * 1024 * 1024 },
   });
 
   // Servir arquivos estáticos de uploads se salvos localmente
-  const uploadsPublicDir = path.join(process.cwd(), "public", "uploads");
+  const uploadsPublicDir = path.join(process.cwd(), 'public', 'uploads');
   if (!fs.existsSync(uploadsPublicDir)) {
     fs.mkdirSync(uploadsPublicDir, { recursive: true });
   }
-  app.use("/uploads", express.static(uploadsPublicDir));
+  app.use('/uploads', express.static(uploadsPublicDir));
 
   // Desativar identificação do servidor para dificultar reconhecimento de versão/tecnologia
-  app.disable("x-powered-by");
+  app.disable('x-powered-by');
 
   // Injetar Security Headers de alta segurança (OWASP / Mozilla Observatory / SecurityHeaders A+)
   app.use((req, res, next) => {
     // Content-Type Sniffing Protection
-    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
 
     // Clickjacking Protection (frame-ancestors na CSP e X-Frame-Options para compatibilidade)
-    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
 
     // Controle de Referrer
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
     // Permissions-Policy: permite microfone para áudio WebRTC legítimo, bloqueia recursos invasivos não utilizados
     res.setHeader(
-      "Permissions-Policy",
-      "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), display-capture=()"
+      'Permissions-Policy',
+      'camera=(), microphone=(self), geolocation=(), payment=(), usb=(), display-capture=()',
     );
 
     // HSTS (HTTP Strict Transport Security): 1 ano, sem risco de quebrar subdomínios não suportados
-    if (req.secure || req.headers["x-forwarded-proto"] === "https") {
-      res.setHeader("Strict-Transport-Security", "max-age=31536000");
+    if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000');
     }
 
     // Content-Security-Policy estrita e autorizada para integrações legítimas (Monetag, Google Analytics, Firebase, Bootstrap, WebSockets, WebRTC)
@@ -704,10 +1009,10 @@ async function startServer() {
       "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
       "object-src 'none'",
       "base-uri 'self'",
-      "frame-ancestors 'self'"
-    ].join("; ");
+      "frame-ancestors 'self'",
+    ].join('; ');
 
-    res.setHeader("Content-Security-Policy", cspDirectives);
+    res.setHeader('Content-Security-Policy', cspDirectives);
 
     next();
   });
@@ -716,28 +1021,35 @@ async function startServer() {
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     const allowedOrigins = [
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "https://papos.net.br",
-      "https://papos-site.onrender.com"
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'https://papos.net.br',
+      'https://papos-site.onrender.com',
     ];
-    
+
     if (origin) {
-      const isAllowed = allowedOrigins.includes(origin) || 
-        origin.includes("localhost") || 
-        origin.includes("127.0.0.1") || 
-        origin.includes("run.app") || 
-        origin.includes("vercel.app");
-        
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        origin.includes('run.app') ||
+        origin.includes('vercel.app');
+
       if (isAllowed) {
-        res.setHeader("Access-Control-Allow-Origin", origin);
-        res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-uid");
-        res.setHeader("Access-Control-Max-Age", "86400");
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader(
+          'Access-Control-Allow-Methods',
+          'GET,POST,PUT,DELETE,OPTIONS',
+        );
+        res.setHeader(
+          'Access-Control-Allow-Headers',
+          'Content-Type, Authorization, x-user-uid',
+        );
+        res.setHeader('Access-Control-Max-Age', '86400');
       }
     }
 
-    if (req.method === "OPTIONS") {
+    if (req.method === 'OPTIONS') {
       res.status(204).end();
       return;
     }
@@ -745,22 +1057,22 @@ async function startServer() {
     next();
   });
 
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", activeConnections: activeSessions.size });
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', activeConnections: activeSessions.size });
   });
 
-  app.get("/api/webrtc-config", (req, res) => {
+  app.get('/api/webrtc-config', (req, res) => {
     const iceServers: any[] = [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun2.l.google.com:19302" },
-      { urls: "stun:stun3.l.google.com:19302" },
-      { urls: "stun:stun4.l.google.com:19302" }
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
     ];
 
     if (process.env.TURN_SERVER_URL) {
       const turnConfig: any = {
-        urls: process.env.TURN_SERVER_URL
+        urls: process.env.TURN_SERVER_URL,
       };
       if (process.env.TURN_USERNAME) {
         turnConfig.username = process.env.TURN_USERNAME;
@@ -778,11 +1090,11 @@ async function startServer() {
     if (systemSettings.adsEnabled === false) {
       return false;
     }
-    if (!uid || typeof uid !== "string") {
-      return true; 
+    if (!uid || typeof uid !== 'string') {
+      return true;
     }
     try {
-      const userDocRef = doc(db, "users", uid);
+      const userDocRef = doc(db, 'users', uid);
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -791,14 +1103,14 @@ async function startServer() {
         }
       }
     } catch (err) {
-      console.error("[AdsPermission] Error checking Firestore:", err);
+      console.error('[AdsPermission] Error checking Firestore:', err);
     }
     return true;
   }
 
-  app.get("/api/user/ads-status", async (req, res) => {
+  app.get('/api/user/ads-status', async (req, res) => {
     try {
-      const uid = (req.query.uid as string) || "";
+      const uid = (req.query.uid as string) || '';
       const showAds = await checkAdsPermission(uid);
       res.json({ showAds });
     } catch (err) {
@@ -807,59 +1119,65 @@ async function startServer() {
   });
 
   function isReservedNickname(nickname: string): boolean {
-    if (!nickname || typeof nickname !== "string") return false;
+    if (!nickname || typeof nickname !== 'string') return false;
 
     let norm = nickname;
     try {
-      norm = norm.normalize("NFKC").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      norm = norm
+        .normalize('NFKC')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
     } catch (e) {}
 
     norm = norm
-      .replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "")
+      .replace(
+        /[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g,
+        '',
+      )
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
+      .replace(/[^a-z0-9]/g, '');
 
     if (!norm) return false;
 
     const reservedRoots = [
-      "admin",
-      "administrador",
-      "moderador",
-      "mod",
-      "staff",
-      "equipe",
-      "suporte",
-      "owner",
-      "fundador",
-      "desenvolvedor",
-      "dev",
-      "oficial",
-      "system",
-      "sistema",
-      "root",
-      "master",
-      "ceo",
-      "adm"
+      'admin',
+      'administrador',
+      'moderador',
+      'mod',
+      'staff',
+      'equipe',
+      'suporte',
+      'owner',
+      'fundador',
+      'desenvolvedor',
+      'dev',
+      'oficial',
+      'system',
+      'sistema',
+      'root',
+      'master',
+      'ceo',
+      'adm',
     ];
 
-    return reservedRoots.some(root => norm.includes(root));
+    return reservedRoots.some((root) => norm.includes(root));
   }
 
-  async function isAuthorizedForReservedNickname(uid: string | null | undefined, nickname: string): Promise<boolean> {
-    
+  async function isAuthorizedForReservedNickname(
+    uid: string | null | undefined,
+    nickname: string,
+  ): Promise<boolean> {
     if (!isReservedNickname(nickname)) {
       return true;
     }
 
-    if (!uid || typeof uid !== "string" || uid.trim() === "") {
-      
+    if (!uid || typeof uid !== 'string' || uid.trim() === '') {
       return false;
     }
 
     const cleanUid = uid.trim();
 
-    if (cleanUid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
-      
+    if (cleanUid === 'iMDKTiIEezc2w2VQ2SO27bXsQTd2') {
       return true;
     }
 
@@ -867,35 +1185,44 @@ async function startServer() {
     let isSupportEnabled = false;
 
     try {
-      
-      const userDocSnap = await getDoc(doc(db, "users", cleanUid));
+      const userDocSnap = await getDoc(doc(db, 'users', cleanUid));
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
-        if (userData.admin === true || userData.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+        if (
+          userData.admin === true ||
+          userData.uid === 'iMDKTiIEezc2w2VQ2SO27bXsQTd2'
+        ) {
           isUserAdmin = true;
         }
       } else {
-        
-        const permQuery = query(collection(db, "users"), where("permanentId", "==", cleanUid));
+        const permQuery = query(
+          collection(db, 'users'),
+          where('permanentId', '==', cleanUid),
+        );
         const permSnap = await getDocs(permQuery);
         if (!permSnap.empty) {
           const permData = permSnap.docs[0].data();
-          if (permData.admin === true || permSnap.docs[0].id === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
+          if (
+            permData.admin === true ||
+            permSnap.docs[0].id === 'iMDKTiIEezc2w2VQ2SO27bXsQTd2'
+          ) {
             isUserAdmin = true;
           }
         }
       }
 
       if (!isUserAdmin) {
-        const supportDocSnap = await getDoc(doc(db, "supportNames", cleanUid));
+        const supportDocSnap = await getDoc(doc(db, 'supportNames', cleanUid));
         if (supportDocSnap.exists()) {
           const supportData = supportDocSnap.data();
           if (supportData.enabled === true) {
             isSupportEnabled = true;
           }
         } else {
-          
-          const supQuery = query(collection(db, "supportNames"), where("uid", "==", cleanUid));
+          const supQuery = query(
+            collection(db, 'supportNames'),
+            where('uid', '==', cleanUid),
+          );
           const supSnap = await getDocs(supQuery);
           if (!supSnap.empty) {
             const supData = supSnap.docs[0].data();
@@ -906,7 +1233,7 @@ async function startServer() {
         }
       }
     } catch (err) {
-      console.error("[Reserved Nick] Erro ao consultar Firestore:", err);
+      console.error('[Reserved Nick] Erro ao consultar Firestore:', err);
     }
 
     const permitido = isUserAdmin || isSupportEnabled;
@@ -924,34 +1251,57 @@ async function startServer() {
     roomId: string,
     rawNickname: string,
     requesterUid?: string | null,
-    requesterGuestId?: string | null
+    requesterGuestId?: string | null,
   ): Promise<NicknameCheckResult> {
-    if (!rawNickname || typeof rawNickname !== "string" || !rawNickname.trim()) {
-      return { available: false, message: "Informe um apelido para continuar.", code: "INVALID_NICKNAME" };
+    if (
+      !rawNickname ||
+      typeof rawNickname !== 'string' ||
+      !rawNickname.trim()
+    ) {
+      return {
+        available: false,
+        message: 'Informe um apelido para continuar.',
+        code: 'INVALID_NICKNAME',
+      };
     }
 
-    const trimmed = rawNickname.trim().replace(/\s+/g, " ");
+    const trimmed = rawNickname.trim().replace(/\s+/g, ' ');
     if (trimmed.length < 2) {
-      return { available: false, message: "O apelido deve ter no mínimo 2 caracteres.", code: "INVALID_NICKNAME" };
+      return {
+        available: false,
+        message: 'O apelido deve ter no mínimo 2 caracteres.',
+        code: 'INVALID_NICKNAME',
+      };
     }
     if (trimmed.length > 15) {
-      return { available: false, message: "O apelido deve ter no máximo 15 caracteres.", code: "INVALID_NICKNAME" };
+      return {
+        available: false,
+        message: 'O apelido deve ter no máximo 15 caracteres.',
+        code: 'INVALID_NICKNAME',
+      };
     }
 
     const norm = normalizeNickname(trimmed);
 
     // 1. Verificar nomes de sistema / administração
     if (isReservedNickname(trimmed)) {
-      const isAuth = await isAuthorizedForReservedNickname(requesterUid, trimmed);
+      const isAuth = await isAuthorizedForReservedNickname(
+        requesterUid,
+        trimmed,
+      );
       if (!isAuth) {
-        return { available: false, message: "Este nome é reservado pela equipe do Papo.net.br.", code: "RESERVED_NICKNAME" };
+        return {
+          available: false,
+          message: 'Este nome é reservado pela equipe do Papo.net.br.',
+          code: 'RESERVED_NICKNAME',
+        };
       }
     }
 
     // 2. Verificar contas cadastradas no Firestore (não permitir que visitantes assumam nomes de usuários registrados)
     try {
-      const usersCol = collection(db, "users");
-      const q1 = query(usersCol, where("nickname", "==", trimmed));
+      const usersCol = collection(db, 'users');
+      const q1 = query(usersCol, where('nickname', '==', trimmed));
       const snap1 = await getDocs(q1);
       if (!snap1.empty) {
         const ownerDoc = snap1.docs[0];
@@ -959,8 +1309,9 @@ async function startServer() {
         if (!requesterUid || requesterUid !== ownerUid) {
           return {
             available: false,
-            message: "Este apelido pertence a uma conta cadastrada. Faça login para utilizá-lo.",
-            code: "REGISTERED_ACCOUNT_NICKNAME"
+            message:
+              'Este apelido pertence a uma conta cadastrada. Faça login para utilizá-lo.',
+            code: 'REGISTERED_ACCOUNT_NICKNAME',
           };
         }
       }
@@ -968,12 +1319,16 @@ async function startServer() {
 
     // 3. Verificar bots virtuais atribuídos a esta sala
     if (systemSettings.botsEnabled) {
-      const botConflict = BOTS.find(b => b.rooms.includes(roomId) && normalizeNickname(b.nickname) === norm);
+      const botConflict = BOTS.find(
+        (b) =>
+          b.rooms.includes(roomId) && normalizeNickname(b.nickname) === norm,
+      );
       if (botConflict) {
         return {
           available: false,
-          message: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
-          code: "NICKNAME_IN_USE"
+          message:
+            'Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.',
+          code: 'NICKNAME_IN_USE',
         };
       }
     }
@@ -984,13 +1339,16 @@ async function startServer() {
         if (normalizeNickname(session.nickname) === norm) {
           const isSameUser = Boolean(
             (requesterUid && session.uid && requesterUid === session.uid) ||
-            (requesterGuestId && session.guestId && requesterGuestId === session.guestId)
+            (requesterGuestId &&
+              session.guestId &&
+              requesterGuestId === session.guestId),
           );
           if (!isSameUser) {
             return {
               available: false,
-              message: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
-              code: "NICKNAME_IN_USE"
+              message:
+                'Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.',
+              code: 'NICKNAME_IN_USE',
             };
           }
         }
@@ -1003,14 +1361,19 @@ async function startServer() {
     if (existingReservation) {
       if (Date.now() < existingReservation.expiresAt) {
         const isSameUser = Boolean(
-          (requesterUid && existingReservation.uid && requesterUid === existingReservation.uid) ||
-          (requesterGuestId && existingReservation.guestId && requesterGuestId === existingReservation.guestId)
+          (requesterUid &&
+            existingReservation.uid &&
+            requesterUid === existingReservation.uid) ||
+          (requesterGuestId &&
+            existingReservation.guestId &&
+            requesterGuestId === existingReservation.guestId),
         );
         if (!isSameUser) {
           return {
             available: false,
-            message: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
-            code: "NICKNAME_IN_USE"
+            message:
+              'Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.',
+            code: 'NICKNAME_IN_USE',
           };
         }
       } else {
@@ -1025,14 +1388,19 @@ async function startServer() {
     roomId: string,
     rawNickname: string,
     requesterUid?: string | null,
-    requesterGuestId?: string | null
+    requesterGuestId?: string | null,
   ): Promise<NicknameCheckResult> {
-    const check = await checkNicknameAvailability(roomId, rawNickname, requesterUid, requesterGuestId);
+    const check = await checkNicknameAvailability(
+      roomId,
+      rawNickname,
+      requesterUid,
+      requesterGuestId,
+    );
     if (!check.available) {
       return check;
     }
 
-    const trimmed = rawNickname.trim().replace(/\s+/g, " ");
+    const trimmed = rawNickname.trim().replace(/\s+/g, ' ');
     const norm = normalizeNickname(trimmed);
     const reservationKey = `${roomId}:${norm}`;
 
@@ -1040,14 +1408,19 @@ async function startServer() {
     const concurrentReservation = roomNicknameReservations.get(reservationKey);
     if (concurrentReservation && Date.now() < concurrentReservation.expiresAt) {
       const isSameUser = Boolean(
-        (requesterUid && concurrentReservation.uid && requesterUid === concurrentReservation.uid) ||
-        (requesterGuestId && concurrentReservation.guestId && requesterGuestId === concurrentReservation.guestId)
+        (requesterUid &&
+          concurrentReservation.uid &&
+          requesterUid === concurrentReservation.uid) ||
+        (requesterGuestId &&
+          concurrentReservation.guestId &&
+          requesterGuestId === concurrentReservation.guestId),
       );
       if (!isSameUser) {
         return {
           available: false,
-          message: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
-          code: "NICKNAME_IN_USE"
+          message:
+            'Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.',
+          code: 'NICKNAME_IN_USE',
         };
       }
     }
@@ -1059,7 +1432,7 @@ async function startServer() {
       uid: requesterUid || undefined,
       guestId: requesterGuestId || undefined,
       reservedAt: Date.now(),
-      expiresAt: Date.now() + 60000 // Reserva ativa de 60s
+      expiresAt: Date.now() + 60000, // Reserva ativa de 60s
     });
 
     return { available: true };
@@ -1072,7 +1445,11 @@ async function startServer() {
       if (now >= res.expiresAt) {
         let isStillActive = false;
         for (const s of activeSessions.values()) {
-          if (s.roomId === res.roomId && s.nickname && normalizeNickname(s.nickname) === res.normalizedNickname) {
+          if (
+            s.roomId === res.roomId &&
+            s.nickname &&
+            normalizeNickname(s.nickname) === res.normalizedNickname
+          ) {
             isStillActive = true;
             res.expiresAt = now + 60000;
             break;
@@ -1085,38 +1462,53 @@ async function startServer() {
     }
   }, 10000);
 
-  const ALLOWED_EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
+  const ALLOWED_EMAIL_REGEX =
+    /^[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hotmail\.com|live\.com|uol\.com\.br|bol\.com\.br)$/i;
 
   function isAllowedEmailDomain(email: string): boolean {
-    if (!email || typeof email !== "string") return false;
+    if (!email || typeof email !== 'string') return false;
     return ALLOWED_EMAIL_REGEX.test(email.trim());
   }
 
-  app.post("/api/auth/validate-email", (req, res) => {
+  app.post('/api/auth/validate-email', (req, res) => {
     const { email } = req.body;
     if (!isAllowedEmailDomain(email)) {
-      res.status(400).json({ valid: false, error: "Utilize um e-mail Gmail, Outlook ou UOL." });
+      res.status(400).json({
+        valid: false,
+        error: 'Utilize um e-mail Gmail, Outlook ou UOL.',
+      });
       return;
     }
     res.json({ valid: true });
   });
 
-  app.post("/api/profile/validate", async (req, res) => {
+  app.post('/api/profile/validate', async (req, res) => {
     const { bio, age, gender, nickname, uid, email, blockCalls } = req.body;
     let authUid = uid;
 
-    if (email && typeof email === "string" && !isAllowedEmailDomain(email)) {
-      res.status(400).json({ error: "Utilize um e-mail Gmail, Outlook ou UOL." });
+    if (email && typeof email === 'string' && !isAllowedEmailDomain(email)) {
+      res
+        .status(400)
+        .json({ error: 'Utilize um e-mail Gmail, Outlook ou UOL.' });
       return;
     }
 
-    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-      const token = req.headers.authorization.split("Bearer ")[1];
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith('Bearer ')
+    ) {
+      const token = req.headers.authorization.split('Bearer ')[1];
       try {
-        const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+        const decoded = await verifyFirebaseIdToken(
+          token,
+          firebaseConfig.projectId,
+        );
         if (decoded) {
           if (decoded.email && decoded.email_verified !== true) {
-            res.status(403).json({ error: "403 Forbidden: E-mail não verificado. Por favor, verifique seu e-mail antes de acessar." });
+            res.status(403).json({
+              error:
+                '403 Forbidden: E-mail não verificado. Por favor, verifique seu e-mail antes de acessar.',
+            });
             return;
           }
           if (decoded.uid) {
@@ -1125,13 +1517,18 @@ async function startServer() {
         }
       } catch (e) {}
     }
-    
-    if (nickname && typeof nickname === "string") {
-      const trimmedNick = nickname.trim().replace(/\s+/g, " ");
+
+    if (nickname && typeof nickname === 'string') {
+      const trimmedNick = nickname.trim().replace(/\s+/g, ' ');
       if (isReservedNickname(trimmedNick)) {
-        const isAuth = await isAuthorizedForReservedNickname(authUid, trimmedNick);
+        const isAuth = await isAuthorizedForReservedNickname(
+          authUid,
+          trimmedNick,
+        );
         if (!isAuth) {
-          res.status(400).json({ error: "Este nome é reservado pela equipe do Papo.net.br." });
+          res.status(400).json({
+            error: 'Este nome é reservado pela equipe do Papo.net.br.',
+          });
           return;
         }
       }
@@ -1140,11 +1537,15 @@ async function startServer() {
       const norm = normalizeNickname(trimmedNick);
       for (const s of activeSessions.values()) {
         if (s.nickname && normalizeNickname(s.nickname) === norm) {
-          const isSameUser = Boolean((authUid && s.uid === authUid) || (req.body.guestId && s.guestId === req.body.guestId));
+          const isSameUser = Boolean(
+            (authUid && s.uid === authUid) ||
+            (req.body.guestId && s.guestId === req.body.guestId),
+          );
           if (!isSameUser) {
             res.status(409).json({
-              error: "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.",
-              code: "NICKNAME_IN_USE"
+              error:
+                'Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.',
+              code: 'NICKNAME_IN_USE',
             });
             return;
           }
@@ -1152,23 +1553,42 @@ async function startServer() {
       }
     }
 
-    if (bio !== undefined && bio !== null && typeof bio === "string" && bio.length > 400) {
-      res.status(400).json({ error: "A biografia não pode ter mais de 400 caracteres." });
+    if (
+      bio !== undefined &&
+      bio !== null &&
+      typeof bio === 'string' &&
+      bio.length > 400
+    ) {
+      res
+        .status(400)
+        .json({ error: 'A biografia não pode ter mais de 400 caracteres.' });
       return;
     }
-    
+
     if (age !== undefined && age !== null) {
       const ageNum = Number(age);
-      if (isNaN(ageNum) || ageNum < 17 || ageNum > 80 || !Number.isInteger(ageNum)) {
-        res.status(400).json({ error: "A idade deve ser um número inteiro entre 17 e 80 anos." });
+      if (
+        isNaN(ageNum) ||
+        ageNum < 17 ||
+        ageNum > 80 ||
+        !Number.isInteger(ageNum)
+      ) {
+        res.status(400).json({
+          error: 'A idade deve ser um número inteiro entre 17 e 80 anos.',
+        });
         return;
       }
     }
 
-    if (gender !== undefined && gender !== null && gender !== "") {
-      const validGenders = ["Masculino", "Feminino", "Outro", "Prefiro não informar"];
+    if (gender !== undefined && gender !== null && gender !== '') {
+      const validGenders = [
+        'Masculino',
+        'Feminino',
+        'Outro',
+        'Prefiro não informar',
+      ];
       if (!validGenders.includes(gender)) {
-        res.status(400).json({ error: "O sexo selecionado é inválido." });
+        res.status(400).json({ error: 'O sexo selecionado é inválido.' });
         return;
       }
     }
@@ -1176,7 +1596,12 @@ async function startServer() {
     if (blockCalls !== undefined) {
       const isBlocked = Boolean(blockCalls);
       activeSessions.forEach((s) => {
-        if ((authUid && s.uid === authUid) || (nickname && s.nickname && s.nickname.toLowerCase() === String(nickname).toLowerCase())) {
+        if (
+          (authUid && s.uid === authUid) ||
+          (nickname &&
+            s.nickname &&
+            s.nickname.toLowerCase() === String(nickname).toLowerCase())
+        ) {
           s.blockCalls = isBlocked;
         }
       });
@@ -1185,113 +1610,172 @@ async function startServer() {
     if (req.body.muteBotWelcome !== undefined) {
       const isMuted = Boolean(req.body.muteBotWelcome);
       activeSessions.forEach((s) => {
-        if ((authUid && s.uid === authUid) || (nickname && s.nickname && s.nickname.toLowerCase() === String(nickname).toLowerCase())) {
+        if (
+          (authUid && s.uid === authUid) ||
+          (nickname &&
+            s.nickname &&
+            s.nickname.toLowerCase() === String(nickname).toLowerCase())
+        ) {
           s.muteBotWelcome = isMuted;
         }
       });
     }
-    
+
     res.json({ success: true });
   });
 
   // Endpoints para validação em tempo real e reserva atômica de apelidos
-  app.all(["/api/rooms/:roomId/check-nickname", "/api/check-nickname"], async (req, res) => {
-    const roomId = (req.params.roomId || req.query.roomId || req.body?.roomId || "room-1") as string;
-    const nickname = (req.query.nickname || req.body?.nickname || "") as string;
-    const guestId = (req.query.guestId || req.body?.guestId || "") as string;
-    let uid = (req.query.uid || req.body?.uid || "") as string;
+  app.all(
+    ['/api/rooms/:roomId/check-nickname', '/api/check-nickname'],
+    async (req, res) => {
+      const roomId = (req.params.roomId ||
+        req.query.roomId ||
+        req.body?.roomId ||
+        'room-1') as string;
+      const nickname = (req.query.nickname ||
+        req.body?.nickname ||
+        '') as string;
+      const guestId = (req.query.guestId || req.body?.guestId || '') as string;
+      let uid = (req.query.uid || req.body?.uid || '') as string;
 
-    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-      const token = req.headers.authorization.split("Bearer ")[1];
+      if (
+        req.headers.authorization &&
+        req.headers.authorization.startsWith('Bearer ')
+      ) {
+        const token = req.headers.authorization.split('Bearer ')[1];
+        try {
+          const decoded = await verifyFirebaseIdToken(
+            token,
+            firebaseConfig.projectId,
+          );
+          if (decoded && decoded.uid) {
+            uid = decoded.uid;
+          }
+        } catch (e) {}
+      }
+
+      const result = await checkNicknameAvailability(
+        roomId,
+        nickname,
+        uid || null,
+        guestId || null,
+      );
+      if (!result.available) {
+        res.status(409).json({
+          available: false,
+          message: result.message,
+          code: result.code,
+        });
+        return;
+      }
+      res.json({ available: true, roomId, nickname });
+    },
+  );
+
+  app.post('/api/rooms/:roomId/reserve-nickname', async (req, res) => {
+    const roomId = (req.params.roomId ||
+      req.body?.roomId ||
+      'room-1') as string;
+    const nickname = (req.body?.nickname || '') as string;
+    const guestId = (req.body?.guestId || '') as string;
+    let uid = (req.body?.uid || '') as string;
+
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith('Bearer ')
+    ) {
+      const token = req.headers.authorization.split('Bearer ')[1];
       try {
-        const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+        const decoded = await verifyFirebaseIdToken(
+          token,
+          firebaseConfig.projectId,
+        );
         if (decoded && decoded.uid) {
           uid = decoded.uid;
         }
       } catch (e) {}
     }
 
-    const result = await checkNicknameAvailability(roomId, nickname, uid || null, guestId || null);
+    const result = await checkAndReserveNickname(
+      roomId,
+      nickname,
+      uid || null,
+      guestId || null,
+    );
     if (!result.available) {
-      res.status(409).json({ available: false, message: result.message, code: result.code });
-      return;
-    }
-    res.json({ available: true, roomId, nickname });
-  });
-
-  app.post("/api/rooms/:roomId/reserve-nickname", async (req, res) => {
-    const roomId = (req.params.roomId || req.body?.roomId || "room-1") as string;
-    const nickname = (req.body?.nickname || "") as string;
-    const guestId = (req.body?.guestId || "") as string;
-    let uid = (req.body?.uid || "") as string;
-
-    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-      const token = req.headers.authorization.split("Bearer ")[1];
-      try {
-        const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
-        if (decoded && decoded.uid) {
-          uid = decoded.uid;
-        }
-      } catch (e) {}
-    }
-
-    const result = await checkAndReserveNickname(roomId, nickname, uid || null, guestId || null);
-    if (!result.available) {
-      res.status(409).json({ available: false, message: result.message, code: result.code });
+      res
+        .status(409)
+        .json({ available: false, message: result.message, code: result.code });
       return;
     }
     res.json({ success: true, available: true, roomId, nickname });
   });
 
-  async function uploadToImgur(imageBuffer: Buffer): Promise<{ success: boolean; url?: string; error?: string }> {
+  async function uploadToImgur(
+    imageBuffer: Buffer,
+  ): Promise<{ success: boolean; url?: string; error?: string }> {
     const clientId = process.env.IMGUR_CLIENT_ID;
-    if (clientId && clientId.trim() !== "") {
+    if (clientId && clientId.trim() !== '') {
       try {
-        const base64Image = imageBuffer.toString("base64");
-        const response = await fetch("https://api.imgur.com/3/image", {
-          method: "POST",
+        const base64Image = imageBuffer.toString('base64');
+        const response = await fetch('https://api.imgur.com/3/image', {
+          method: 'POST',
           headers: {
-            "Authorization": `Client-ID ${clientId.trim()}`,
-            "Content-Type": "application/json",
-            "Accept": "application/json"
+            Authorization: `Client-ID ${clientId.trim()}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
           },
           body: JSON.stringify({
             image: base64Image,
-            type: "base64",
-            title: "Papos Avatar",
-            description: "Foto de perfil Papos"
-          })
+            type: 'base64',
+            title: 'Papos Avatar',
+            description: 'Foto de perfil Papos',
+          }),
         });
 
-        const data = await response.json() as any;
-        if (response.ok && data && data.success && data.data && data.data.link) {
+        const data = (await response.json()) as any;
+        if (
+          response.ok &&
+          data &&
+          data.success &&
+          data.data &&
+          data.data.link
+        ) {
           return { success: true, url: data.data.link };
         } else {
-          console.warn("[Imgur] Upload failed, status:", response.status, data);
+          console.warn('[Imgur] Upload failed, status:', response.status, data);
         }
       } catch (e: any) {
-        console.error("[Imgur] Error contacting Imgur API:", e);
+        console.error('[Imgur] Error contacting Imgur API:', e);
       }
     }
 
     // Fallback: save to public/uploads/avatars so it always works seamlessly
     try {
-      const avatarsDir = path.join(process.cwd(), "public", "uploads", "avatars");
+      const avatarsDir = path.join(
+        process.cwd(),
+        'public',
+        'uploads',
+        'avatars',
+      );
       if (!fs.existsSync(avatarsDir)) {
         fs.mkdirSync(avatarsDir, { recursive: true });
       }
-      const filename = `avatar-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
+      const filename = `avatar-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.jpg`;
       const filepath = path.join(avatarsDir, filename);
       await fs.promises.writeFile(filepath, imageBuffer);
       const localUrl = `/uploads/avatars/${filename}`;
       return { success: true, url: localUrl };
     } catch (err: any) {
-      console.error("[AvatarFallback] Error:", err);
-      return { success: false, error: "Erro ao salvar imagem localmente." };
+      console.error('[AvatarFallback] Error:', err);
+      return { success: false, error: 'Erro ao salvar imagem localmente.' };
     }
   }
 
-  async function handleProfilePhotoUpload(req: express.Request, res: express.Response) {
+  async function handleProfilePhotoUpload(
+    req: express.Request,
+    res: express.Response,
+  ) {
     try {
       let fileBuffer: Buffer | null = null;
 
@@ -1301,20 +1785,24 @@ async function startServer() {
         const imgStr = (req.body.image || req.body.photo) as string;
         const matches = imgStr.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
         if (matches && matches.length === 3) {
-          fileBuffer = Buffer.from(matches[2], "base64");
+          fileBuffer = Buffer.from(matches[2], 'base64');
         } else {
-          fileBuffer = Buffer.from(imgStr, "base64");
+          fileBuffer = Buffer.from(imgStr, 'base64');
         }
       }
 
       if (!fileBuffer || fileBuffer.length === 0) {
-        res.status(400).json({ success: false, error: "Nenhuma imagem foi enviada." });
+        res
+          .status(400)
+          .json({ success: false, error: 'Nenhuma imagem foi enviada.' });
         return;
       }
 
       // Validar tamanho máximo (5MB)
       if (fileBuffer.length > 5 * 1024 * 1024) {
-        res.status(400).json({ success: false, error: "A imagem deve ter no máximo 5MB." });
+        res
+          .status(400)
+          .json({ success: false, error: 'A imagem deve ter no máximo 5MB.' });
         return;
       }
 
@@ -1322,29 +1810,42 @@ async function startServer() {
       let optimizedBuffer: Buffer;
       try {
         optimizedBuffer = await sharp(fileBuffer)
-          .resize(400, 400, { fit: "cover" })
+          .resize(400, 400, { fit: 'cover' })
           .jpeg({ quality: 85 })
           .toBuffer();
       } catch (err) {
-        res.status(400).json({ success: false, error: "Arquivo inválido. Envie uma imagem válida (JPG, PNG ou WebP)." });
+        res.status(400).json({
+          success: false,
+          error:
+            'Arquivo inválido. Envie uma imagem válida (JPG, PNG ou WebP).',
+        });
         return;
       }
 
       const uploadResult = await uploadToImgur(optimizedBuffer);
       if (!uploadResult.success || !uploadResult.url) {
-        res.status(500).json({ success: false, error: uploadResult.error || "Erro ao processar imagem." });
+        res.status(500).json({
+          success: false,
+          error: uploadResult.error || 'Erro ao processar imagem.',
+        });
         return;
       }
 
       const photoUrl = uploadResult.url;
-      let uid = (req.body.uid || req.headers["x-user-uid"]) as string;
-      const nickname = (req.body.nickname || "") as string;
+      let uid = (req.body.uid || req.headers['x-user-uid']) as string;
+      const nickname = (req.body.nickname || '') as string;
 
       // Se houver Authorization Bearer token, valida e extrai UID verificado com segurança
-      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-        const token = req.headers.authorization.split("Bearer ")[1];
+      if (
+        req.headers.authorization &&
+        req.headers.authorization.startsWith('Bearer ')
+      ) {
+        const token = req.headers.authorization.split('Bearer ')[1];
         try {
-          const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+          const decoded = await verifyFirebaseIdToken(
+            token,
+            firebaseConfig.projectId,
+          );
           if (decoded && decoded.uid) {
             uid = decoded.uid;
           }
@@ -1352,17 +1853,24 @@ async function startServer() {
       }
 
       // Se autenticado com UID, persistir no documento do usuário no Firestore
-      if (uid && typeof uid === "string") {
+      if (uid && typeof uid === 'string') {
         try {
-          const userRef = doc(db, "users", uid);
-          await setDoc(userRef, {
-            photoURL: photoUrl,
-            profileImage: photoUrl,
-            photoUrl: photoUrl,
-            updatedAt: Date.now()
-          }, { merge: true });
+          const userRef = doc(db, 'users', uid);
+          await setDoc(
+            userRef,
+            {
+              photoURL: photoUrl,
+              profileImage: photoUrl,
+              photoUrl: photoUrl,
+              updatedAt: Date.now(),
+            },
+            { merge: true },
+          );
         } catch (e) {
-          console.error("[UploadPhoto] Erro ao sincronizar foto com Firestore:", e);
+          console.error(
+            '[UploadPhoto] Erro ao sincronizar foto com Firestore:',
+            e,
+          );
         }
       }
 
@@ -1374,26 +1882,43 @@ async function startServer() {
       res.json({
         success: true,
         url: photoUrl,
-        link: photoUrl
+        link: photoUrl,
       });
     } catch (err: any) {
-      console.error("[UploadPhoto] Erro inesperado:", err);
-      res.status(500).json({ success: false, error: "Erro interno no servidor ao fazer upload da foto." });
+      console.error('[UploadPhoto] Erro inesperado:', err);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno no servidor ao fazer upload da foto.',
+      });
     }
   }
 
-  app.post("/api/profile/upload-photo", upload.single("image"), handleProfilePhotoUpload);
-  app.post("/api/profile/upload-image", upload.single("image"), handleProfilePhotoUpload);
+  app.post(
+    '/api/profile/upload-photo',
+    upload.single('image'),
+    handleProfilePhotoUpload,
+  );
+  app.post(
+    '/api/profile/upload-image',
+    upload.single('image'),
+    handleProfilePhotoUpload,
+  );
 
-  app.post("/api/profile/remove-photo", async (req, res) => {
+  app.post('/api/profile/remove-photo', async (req, res) => {
     try {
       let { uid, nickname } = req.body;
       let authenticatedUid: string | null = null;
 
-      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-        const token = req.headers.authorization.split("Bearer ")[1];
+      if (
+        req.headers.authorization &&
+        req.headers.authorization.startsWith('Bearer ')
+      ) {
+        const token = req.headers.authorization.split('Bearer ')[1];
         try {
-          const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+          const decoded = await verifyFirebaseIdToken(
+            token,
+            firebaseConfig.projectId,
+          );
           if (decoded && decoded.uid) {
             authenticatedUid = decoded.uid;
             uid = decoded.uid;
@@ -1402,15 +1927,19 @@ async function startServer() {
       }
 
       // Se autenticado via token, atualizar estritamente o perfil do usuário autenticado no Firestore
-      if (authenticatedUid && typeof authenticatedUid === "string") {
+      if (authenticatedUid && typeof authenticatedUid === 'string') {
         try {
-          const userRef = doc(db, "users", authenticatedUid);
-          await setDoc(userRef, {
-            photoURL: "",
-            profileImage: "",
-            photoUrl: "",
-            updatedAt: Date.now()
-          }, { merge: true });
+          const userRef = doc(db, 'users', authenticatedUid);
+          await setDoc(
+            userRef,
+            {
+              photoURL: '',
+              profileImage: '',
+              photoUrl: '',
+              updatedAt: Date.now(),
+            },
+            { merge: true },
+          );
 
           // Se apelido não veio no body, obter do documento do usuário
           if (!nickname) {
@@ -1418,41 +1947,49 @@ async function startServer() {
               const snap = await getDoc(userRef);
               if (snap.exists()) {
                 const uData = snap.data();
-                nickname = uData.nickname || uData.displayName || "";
+                nickname = uData.nickname || uData.displayName || '';
               }
             } catch (e) {}
           }
         } catch (e) {
-          console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", e);
+          console.error('[RemovePhoto] Erro ao limpar foto no Firestore:', e);
         }
       }
 
       // Atualizar sessões ativas com o mesmo nickname ou UID
-      if (nickname && typeof nickname === "string") {
+      if (nickname && typeof nickname === 'string') {
         const cleanNick = nickname.trim();
         activeSessions.forEach((session) => {
           if (
             (authenticatedUid && session.uid === authenticatedUid) ||
-            (!authenticatedUid && session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase())
+            (!authenticatedUid &&
+              session.nickname &&
+              session.nickname.toLowerCase() === cleanNick.toLowerCase())
           ) {
-            session.photoUrl = "";
+            session.photoUrl = '';
           }
         });
-        broadcastProfileUpdate(cleanNick, "", authenticatedUid || uid || undefined);
+        broadcastProfileUpdate(
+          cleanNick,
+          '',
+          authenticatedUid || uid || undefined,
+        );
       }
 
       res.json({ success: true });
     } catch (err) {
-      res.status(500).json({ success: false, error: "Erro ao remover foto de perfil." });
+      res
+        .status(500)
+        .json({ success: false, error: 'Erro ao remover foto de perfil.' });
     }
   });
 
   const wss = new WebSocketServer({ noServer: true });
 
-  server.on("upgrade", (request, socket, head) => {
+  server.on('upgrade', (request, socket, head) => {
     // Permitir todas as conexões WebSocket válidas (Render, AI Studio, Google Preview, localhost e domínios personalizados)
     wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit("connection", ws, request);
+      wss.emit('connection', ws, request);
     });
   });
 
@@ -1462,12 +1999,20 @@ async function startServer() {
     }
   }
 
-  function broadcastToRoom(roomId: string, type: string, payload: any, excludeWs?: WebSocket) {
+  function broadcastToRoom(
+    roomId: string,
+    type: string,
+    payload: any,
+    excludeWs?: WebSocket,
+  ) {
     activeSessions.forEach((session, ws) => {
       if (session.roomId === roomId && ws.readyState === WebSocket.OPEN) {
         if (excludeWs && ws === excludeWs) return;
         // Se o usuário optou por silenciar boas-vindas dos bots, não repassar mensagens/typing de boas-vindas para este socket
-        if (session.muteBotWelcome && (payload?.isBotWelcome || payload?.message?.isBotWelcome)) {
+        if (
+          session.muteBotWelcome &&
+          (payload?.isBotWelcome || payload?.message?.isBotWelcome)
+        ) {
           return;
         }
         ws.send(JSON.stringify({ type, ...payload }));
@@ -1482,22 +2027,25 @@ async function startServer() {
         list.push(session.nickname);
       }
     });
-    
+
     if (systemSettings.botsEnabled) {
-      BOTS.forEach(bot => {
+      BOTS.forEach((bot) => {
         if (bot.rooms.includes(roomId)) {
           list.push(bot.nickname);
         }
       });
     }
 
-    return Array.from(new Set(list)); 
+    return Array.from(new Set(list));
   }
 
   function getAdminNicknames(): string[] {
-    const list: string[] = ["Bot_Papos", "bot_papos", "bots_papos"];
+    const list: string[] = ['Bot_Papos', 'bot_papos', 'bots_papos'];
     activeSessions.forEach((session) => {
-      if (session.nickname && (session.isAdmin || isReservedNickname(session.nickname))) {
+      if (
+        session.nickname &&
+        (session.isAdmin || isReservedNickname(session.nickname))
+      ) {
         list.push(session.nickname);
       }
     });
@@ -1513,7 +2061,7 @@ async function startServer() {
         }
       });
       if (systemSettings.botsEnabled) {
-        BOTS.forEach(bot => {
+        BOTS.forEach((bot) => {
           if (bot.rooms.includes(room.id)) {
             count++;
           }
@@ -1528,7 +2076,7 @@ async function startServer() {
     const roomsPayload = { rooms };
     activeSessions.forEach((session, ws) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "room_list", ...roomsPayload }));
+        ws.send(JSON.stringify({ type: 'room_list', ...roomsPayload }));
       }
     });
   }
@@ -1540,35 +2088,43 @@ async function startServer() {
         const userPhotos: Record<string, string> = {};
         activeSessions.forEach((s) => {
           if (s.roomId === session.roomId && s.nickname) {
-            userPhotos[s.nickname] = s.photoUrl || "";
+            userPhotos[s.nickname] = s.photoUrl || '';
           }
         });
-        sendToClient(ws, "room_members_update", {
+        sendToClient(ws, 'room_members_update', {
           roomId: session.roomId,
           onlineUsers: getRoomOnlineUsers(session.roomId),
           userPhotos,
-          adminUsers: getAdminNicknames()
+          adminUsers: getAdminNicknames(),
         });
       }
     });
   }
 
-  wss.on("connection", (ws: WebSocket, req: any) => {
-    const clientIp = (req && req.headers ? (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "") : "").split(",")[0].trim();
-    
+  wss.on('connection', (ws: WebSocket, req: any) => {
+    const clientIp = (
+      req && req.headers
+        ? (req.headers['x-forwarded-for'] as string) ||
+          req.socket?.remoteAddress ||
+          ''
+        : ''
+    )
+      .split(',')[0]
+      .trim();
+
     activeSessions.set(ws, {
       ws,
-      nickname: "",
-      roomId: "",
+      nickname: '',
+      roomId: '',
       ip: clientIp,
       lastMessageTime: [],
-      connectedAt: Date.now()
+      connectedAt: Date.now(),
     });
 
     updateRoomCounts();
-    sendToClient(ws, "room_list", { rooms });
+    sendToClient(ws, 'room_list', { rooms });
 
-    ws.on("message", async (rawMessage) => {
+    ws.on('message', async (rawMessage) => {
       try {
         const payload = JSON.parse(rawMessage.toString());
         const session = activeSessions.get(ws);
@@ -1583,29 +2139,44 @@ async function startServer() {
         }
 
         const sessionUid = session.uid;
-        if (sessionUid || session.fingerprint || session.clientId || session.ip) {
-          const blockCheck = await checkUserBlockStatus(sessionUid, session.fingerprint, session.clientId, session.ip);
+        if (
+          sessionUid ||
+          session.fingerprint ||
+          session.clientId ||
+          session.ip
+        ) {
+          const blockCheck = await checkUserBlockStatus(
+            sessionUid,
+            session.fingerprint,
+            session.clientId,
+            session.ip,
+          );
           if (blockCheck.blocked) {
-            if (blockCheck.reason === "ban") {
-              sendToClient(ws, "banned", {});
+            if (blockCheck.reason === 'ban') {
+              sendToClient(ws, 'banned', {});
             } else {
-              sendToClient(ws, "suspended", { until: blockCheck.until });
+              sendToClient(ws, 'suspended', { until: blockCheck.until });
             }
-            try { ws.close(); } catch (e) {}
+            try {
+              ws.close();
+            } catch (e) {}
             activeSessions.delete(ws);
             return;
           }
         }
 
         switch (payload.type) {
-          case "authenticate":
-          case "sync_auth":
-          case "admin_auth": {
+          case 'authenticate':
+          case 'sync_auth':
+          case 'admin_auth': {
             const token = payload.token || payload.idToken;
             if (!token) return;
 
             try {
-              const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
+              const decoded = await verifyFirebaseIdToken(
+                token,
+                firebaseConfig.projectId,
+              );
               if (!decoded) {
                 return;
               }
@@ -1613,38 +2184,55 @@ async function startServer() {
               const uid = decoded.uid;
               const email = decoded.email;
 
-              if (typeof uid !== "string" || !uid || typeof email !== "string" || !email) {
+              if (
+                typeof uid !== 'string' ||
+                !uid ||
+                typeof email !== 'string' ||
+                !email
+              ) {
                 return;
               }
 
               if (decoded.email_verified !== true) {
-                sendToClient(ws, "error", {
-                  message: "📧 Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada antes de entrar no chat.",
-                  code: "auth/unverified-email"
+                sendToClient(ws, 'error', {
+                  message:
+                    '📧 Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada antes de entrar no chat.',
+                  code: 'auth/unverified-email',
                 });
-                try { ws.close(); } catch (e) {}
+                try {
+                  ws.close();
+                } catch (e) {}
                 activeSessions.delete(ws);
                 return;
               }
 
               if (!isAllowedEmailDomain(email)) {
-                sendToClient(ws, "error", {
-                  message: "Utilize um e-mail Gmail, Outlook ou UOL.",
-                  code: "auth/invalid-email-domain"
+                sendToClient(ws, 'error', {
+                  message: 'Utilize um e-mail Gmail, Outlook ou UOL.',
+                  code: 'auth/invalid-email-domain',
                 });
-                try { ws.close(); } catch (e) {}
+                try {
+                  ws.close();
+                } catch (e) {}
                 activeSessions.delete(ws);
                 return;
               }
 
-              const blockCheck = await checkUserBlockStatus(uid, session.fingerprint, session.clientId, session.ip);
+              const blockCheck = await checkUserBlockStatus(
+                uid,
+                session.fingerprint,
+                session.clientId,
+                session.ip,
+              );
               if (blockCheck.blocked) {
-                if (blockCheck.reason === "ban") {
-                  sendToClient(ws, "banned", {});
+                if (blockCheck.reason === 'ban') {
+                  sendToClient(ws, 'banned', {});
                 } else {
-                  sendToClient(ws, "suspended", { until: blockCheck.until });
+                  sendToClient(ws, 'suspended', { until: blockCheck.until });
                 }
-                try { ws.close(); } catch (e) {}
+                try {
+                  ws.close();
+                } catch (e) {}
                 activeSessions.delete(ws);
                 return;
               }
@@ -1655,10 +2243,10 @@ async function startServer() {
               session.joinTime = session.joinTime || Date.now();
               notifyAdminsGuestList();
 
-              const userDocRef = doc(db, "users", uid);
+              const userDocRef = doc(db, 'users', uid);
               const docSnap = await getDoc(userDocRef);
-              let permanentId = "";
-              let nickname = decoded.name || email.split("@")[0];
+              let permanentId = '';
+              let nickname = decoded.name || email.split('@')[0];
               let isAdminUser = false;
               let isAdsDisabled = false;
 
@@ -1666,19 +2254,22 @@ async function startServer() {
                 const userData = docSnap.data();
                 permanentId = userData.permanentId;
                 nickname = userData.nickname || nickname;
-                isAdminUser = userData.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2";
+                isAdminUser =
+                  userData.admin === true ||
+                  uid === 'iMDKTiIEezc2w2VQ2SO27bXsQTd2';
                 isAdsDisabled = userData.adsDisabled === true || isAdminUser;
                 if (userData.blockCalls !== undefined) {
                   session.blockCalls = Boolean(userData.blockCalls);
                 }
 
                 if (isReservedNickname(nickname)) {
-                  const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
+                  const isAuth = await isAuthorizedForReservedNickname(
+                    uid,
+                    nickname,
+                  );
                   if (isAuth) {
-                    
                   } else {
-                    
-                    nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
+                    nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, '')}`;
                     await updateDoc(userDocRef, { nickname });
                   }
                 }
@@ -1687,50 +2278,60 @@ async function startServer() {
                   await updateDoc(userDocRef, { admin: false });
                 }
 
-                if (!permanentId || !permanentId.startsWith("USR-") || permanentId.length !== 10 || isNaN(Number(permanentId.split("-")[1]))) {
-                  const usersSnap = await getDocs(collection(db, "users"));
+                if (
+                  !permanentId ||
+                  !permanentId.startsWith('USR-') ||
+                  permanentId.length !== 10 ||
+                  isNaN(Number(permanentId.split('-')[1]))
+                ) {
+                  const usersSnap = await getDocs(collection(db, 'users'));
                   let nextNum = usersSnap.size + 1;
-                  permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
+                  permanentId = `USR-${String(nextNum).padStart(6, '0')}`;
                   let unique = false;
                   while (!unique) {
-                    const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
+                    const q = query(
+                      collection(db, 'users'),
+                      where('permanentId', '==', permanentId),
+                    );
                     const snap = await getDocs(q);
                     if (snap.empty) {
                       unique = true;
                     } else {
                       nextNum++;
-                      permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
+                      permanentId = `USR-${String(nextNum).padStart(6, '0')}`;
                     }
                   }
                   await updateDoc(userDocRef, { permanentId });
                 }
               } else {
-                
-                const usersSnap = await getDocs(collection(db, "users"));
+                const usersSnap = await getDocs(collection(db, 'users'));
                 let nextNum = usersSnap.size + 1;
-                permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
+                permanentId = `USR-${String(nextNum).padStart(6, '0')}`;
                 let unique = false;
                 while (!unique) {
-                  
-                  const q = query(collection(db, "users"), where("permanentId", "==", permanentId));
+                  const q = query(
+                    collection(db, 'users'),
+                    where('permanentId', '==', permanentId),
+                  );
                   const snap = await getDocs(q);
                   if (snap.empty) {
                     unique = true;
                   } else {
                     nextNum++;
-                    permanentId = `USR-${String(nextNum).padStart(6, "0")}`;
+                    permanentId = `USR-${String(nextNum).padStart(6, '0')}`;
                   }
                 }
 
                 isAdminUser = false;
 
                 if (isReservedNickname(nickname)) {
-                  const isAuth = await isAuthorizedForReservedNickname(uid, nickname);
+                  const isAuth = await isAuthorizedForReservedNickname(
+                    uid,
+                    nickname,
+                  );
                   if (isAuth) {
-                    
                   } else {
-                    
-                    nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, "")}`;
+                    nickname = `Membro_${permanentId.replace(/[^a-zA-Z0-9]/g, '')}`;
                   }
                 }
 
@@ -1743,7 +2344,7 @@ async function startServer() {
                   banned: false,
                   suspendedUntil: null,
                   admin: false,
-                  adsDisabled: false
+                  adsDisabled: false,
                 });
               }
 
@@ -1751,66 +2352,70 @@ async function startServer() {
               session.nickname = nickname;
               session.isAdmin = isAdminUser;
 
-              sendToClient(ws, "admin-status", { admin: isAdminUser });
-              sendToClient(ws, "admin_verified", { isAdmin: isAdminUser });
-              sendToClient(ws, "ads-status", { disabled: isAdsDisabled });
+              sendToClient(ws, 'admin-status', { admin: isAdminUser });
+              sendToClient(ws, 'admin_verified', { isAdmin: isAdminUser });
+              sendToClient(ws, 'ads-status', { disabled: isAdsDisabled });
 
-              sendToClient(ws, "user-permissions", {
-                type: "user-permissions",
+              sendToClient(ws, 'user-permissions', {
+                type: 'user-permissions',
                 admin: isAdminUser,
-                adsDisabled: isAdsDisabled
+                adsDisabled: isAdsDisabled,
               });
 
               try {
-                const notifQuery = query(collection(db, "notifications"), where("uid", "==", uid));
+                const notifQuery = query(
+                  collection(db, 'notifications'),
+                  where('uid', '==', uid),
+                );
                 const notifSnap = await getDocs(notifQuery);
                 if (!notifSnap.empty) {
                   for (const notifDoc of notifSnap.docs) {
                     const notifData = notifDoc.data();
-                    const msgText = notifData.message || notifData.text || "";
-                    const msgTitle = notifData.title || "Mensagem da Administração";
+                    const msgText = notifData.message || notifData.text || '';
+                    const msgTitle =
+                      notifData.title || 'Mensagem da Administração';
                     if (msgText) {
-                      sendToClient(ws, "admin-private-message", {
+                      sendToClient(ws, 'admin-private-message', {
                         title: msgTitle,
                         message: msgText,
-                        text: msgText
+                        text: msgText,
                       });
-                      sendToClient(ws, "individual_warning", {
+                      sendToClient(ws, 'individual_warning', {
                         title: msgTitle,
                         message: msgText,
-                        text: msgText
+                        text: msgText,
                       });
-                      
                     }
                     await deleteDoc(notifDoc.ref);
                   }
                 }
               } catch (notifErr) {
-                console.error("[ADMIN] Erro ao entregar notificações pendentes:", notifErr);
+                console.error(
+                  '[ADMIN] Erro ao entregar notificações pendentes:',
+                  notifErr,
+                );
               }
-
             } catch (err) {
-              console.error("[SecureAuth] Error syncing auth:", err);
+              console.error('[SecureAuth] Error syncing auth:', err);
             }
             break;
           }
 
-          case "set-admin":
-          case "set_admin":
-          case "set-ads-status":
-          case "set_ads_status":
-          case "admin-global-message":
-          case "global_warning":
-          case "admin:broadcast":
-          case "admin-private-message":
-          case "individual_warning":
-          case "admin:private":
-          case "suspend":
-          case "unsuspend":
-          case "ban":
-          case "unban":
-          case "admin_action": {
-            
+          case 'set-admin':
+          case 'set_admin':
+          case 'set-ads-status':
+          case 'set_ads_status':
+          case 'admin-global-message':
+          case 'global_warning':
+          case 'admin:broadcast':
+          case 'admin-private-message':
+          case 'individual_warning':
+          case 'admin:private':
+          case 'suspend':
+          case 'unsuspend':
+          case 'ban':
+          case 'unban':
+          case 'admin_action': {
             const actionToken = payload.idToken || payload.token;
             if (actionToken) {
               const decodedActionToken = await verifyIdToken(actionToken);
@@ -1818,93 +2423,124 @@ async function startServer() {
                 session.uid = decodedActionToken.uid;
                 session.email = decodedActionToken.email || session.email;
               } else {
-                sendToClient(ws, "admin_action_error", { message: "401 Unauthorized: ID Token do Firebase Admin inválido ou expirado." });
+                sendToClient(ws, 'admin_action_error', {
+                  message:
+                    '401 Unauthorized: ID Token do Firebase Admin inválido ou expirado.',
+                });
                 return;
               }
             }
 
-            if (typeof session.uid !== "string" || !session.uid) {
-              
-              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
+            if (typeof session.uid !== 'string' || !session.uid) {
+              sendToClient(ws, 'admin_action_error', {
+                message: '403 Forbidden: Sessão não autenticada.',
+              });
               return;
             }
 
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
-              
-              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
+              sendToClient(ws, 'admin_action_error', {
+                message: '403 Forbidden: Acesso restrito a administradores.',
+              });
               return;
             }
 
             const action = payload.action || payload.type;
-            const targetUid = payload.targetUid || payload.uid || payload.targetId;
-            const targetId = payload.targetId || payload.targetUid || payload.uid;
-            const adminState = payload.adminState !== undefined ? payload.adminState : payload.admin;
+            const targetUid =
+              payload.targetUid || payload.uid || payload.targetId;
+            const targetId =
+              payload.targetId || payload.targetUid || payload.uid;
+            const adminState =
+              payload.adminState !== undefined
+                ? payload.adminState
+                : payload.admin;
             const durationMs = payload.durationMs;
             const text = payload.text || payload.message;
-            
-            if (action === "set_admin" || action === "set-admin") {
+
+            if (action === 'set_admin' || action === 'set-admin') {
               const target = targetUid || targetId;
-              if (typeof target !== "string" || !target) return;
+              if (typeof target !== 'string' || !target) return;
               const adminBool = !!adminState;
 
-              const targetDocRef = doc(db, "users", target);
+              const targetDocRef = doc(db, 'users', target);
               await updateDoc(targetDocRef, { admin: adminBool });
 
-              let targetName = "Desconhecido";
+              let targetName = 'Desconhecido';
               try {
                 const docSnap = await getDoc(targetDocRef);
                 if (docSnap.exists()) {
-                  targetName = docSnap.data().nickname || docSnap.data().displayName || "Desconhecido";
+                  targetName =
+                    docSnap.data().nickname ||
+                    docSnap.data().displayName ||
+                    'Desconhecido';
                 }
               } catch (e) {}
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "set_admin",
+                action: 'set_admin',
                 targetUid: target,
                 targetNickname: targetName,
-                details: adminBool ? "Nomeado Administrador" : "Removido de Administrador",
-                timestamp: Date.now()
+                details: adminBool
+                  ? 'Nomeado Administrador'
+                  : 'Removido de Administrador',
+                timestamp: Date.now(),
               });
 
               const succMsg = `Status de administrador alterado com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (action === 'advanced_ban' || action === 'ban') {
+              if (typeof targetUid !== 'string' || !targetUid) return;
 
-            } else if (action === "advanced_ban" || action === "ban") {
-              if (typeof targetUid !== "string" || !targetUid) return;
+              const doBanUid =
+                payload.banUid !== undefined ? !!payload.banUid : true;
+              const doBanFp =
+                payload.banFingerprint !== undefined
+                  ? !!payload.banFingerprint
+                  : true;
+              const doBanCid =
+                payload.banClientId !== undefined
+                  ? !!payload.banClientId
+                  : true;
+              const doBanIp =
+                payload.banIp !== undefined ? !!payload.banIp : false;
 
-              const doBanUid = payload.banUid !== undefined ? !!payload.banUid : true;
-              const doBanFp = payload.banFingerprint !== undefined ? !!payload.banFingerprint : true;
-              const doBanCid = payload.banClientId !== undefined ? !!payload.banClientId : true;
-              const doBanIp = payload.banIp !== undefined ? !!payload.banIp : false;
-
-              let targetName = "Desconhecido";
-              let fp = "";
-              let cid = "";
-              let lastIp = "";
+              let targetName = 'Desconhecido';
+              let fp = '';
+              let cid = '';
+              let lastIp = '';
 
               try {
-                const userDocSnap = await adminDb.collection("users").doc(targetUid).get();
+                const userDocSnap = await adminDb
+                  .collection('users')
+                  .doc(targetUid)
+                  .get();
                 if (userDocSnap.exists) {
                   const uData = userDocSnap.data();
-                  targetName = uData?.nickname || uData?.displayName || "Desconhecido";
-                  fp = uData?.fingerprint || "";
-                  cid = uData?.clientId || "";
-                  lastIp = uData?.lastIp || "";
+                  targetName =
+                    uData?.nickname || uData?.displayName || 'Desconhecido';
+                  fp = uData?.fingerprint || '';
+                  cid = uData?.clientId || '';
+                  lastIp = uData?.lastIp || '';
                 }
               } catch (e) {}
 
               if (doBanUid) {
-                await adminDb.collection("users").doc(targetUid).set({ banned: true }, { merge: true });
+                await adminDb
+                  .collection('users')
+                  .doc(targetUid)
+                  .set({ banned: true }, { merge: true });
               }
 
               try {
-                const secRef = adminDb.collection("security").doc("bans");
+                const secRef = adminDb.collection('security').doc('bans');
                 const secDoc = await secRef.get();
-                let secData: SecurityBansDoc = secDoc.exists ? (secDoc.data() as SecurityBansDoc) : {};
+                let secData: SecurityBansDoc = secDoc.exists
+                  ? (secDoc.data() as SecurityBansDoc)
+                  : {};
 
                 const fingerprints = new Set(secData.fingerprints || []);
                 const clientIds = new Set(secData.clientIds || []);
@@ -1916,26 +2552,29 @@ async function startServer() {
                 if (doBanCid && cid) clientIds.add(cid);
                 if (doBanIp && lastIp) ips.add(lastIp);
 
-                await secRef.set({
-                  uids: Array.from(uids),
-                  fingerprints: Array.from(fingerprints),
-                  clientIds: Array.from(clientIds),
-                  ips: Array.from(ips)
-                }, { merge: true });
+                await secRef.set(
+                  {
+                    uids: Array.from(uids),
+                    fingerprints: Array.from(fingerprints),
+                    clientIds: Array.from(clientIds),
+                    ips: Array.from(ips),
+                  },
+                  { merge: true },
+                );
 
                 invalidateSecurityBansCache();
               } catch (err) {
-                console.error("[Admin] Error updating security bans doc:", err);
+                console.error('[Admin] Error updating security bans doc:', err);
               }
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "ban",
+                action: 'ban',
                 targetUid: targetUid,
                 targetNickname: targetName,
                 details: `Banido permanentemente (Multicamadas: UID=${doBanUid}, FP=${doBanFp}, CID=${doBanCid}, IP=${doBanIp})`,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
 
               activeSessions.forEach((s, key) => {
@@ -1945,51 +2584,70 @@ async function startServer() {
                 const matchIp = doBanIp && lastIp && s.ip === lastIp;
 
                 if (matchUid || matchFp || matchCid || matchIp) {
-                  sendToClient(key, "banned", {});
-                  try { key.close(); } catch (err) {}
+                  sendToClient(key, 'banned', {});
+                  try {
+                    key.close();
+                  } catch (err) {}
                   activeSessions.delete(key);
                 }
               });
 
               const succMsg = `Usuário ${targetName} banido com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (action === 'advanced_suspend' || action === 'suspend') {
+              if (typeof targetUid !== 'string' || !targetUid) return;
 
-            } else if (action === "advanced_suspend" || action === "suspend") {
-              if (typeof targetUid !== "string" || !targetUid) return;
-
-              const durMs = Number(payload.durationMs) || Number(durationMs) || 3600000;
+              const durMs =
+                Number(payload.durationMs) || Number(durationMs) || 3600000;
               const suspendedUntil = Date.now() + durMs;
 
-              const doSusUid = payload.suspendUid !== undefined ? !!payload.suspendUid : true;
-              const doSusFp = payload.suspendFingerprint !== undefined ? !!payload.suspendFingerprint : true;
-              const doSusCid = payload.suspendClientId !== undefined ? !!payload.suspendClientId : true;
-              const doSusIp = payload.suspendIp !== undefined ? !!payload.suspendIp : false;
+              const doSusUid =
+                payload.suspendUid !== undefined ? !!payload.suspendUid : true;
+              const doSusFp =
+                payload.suspendFingerprint !== undefined
+                  ? !!payload.suspendFingerprint
+                  : true;
+              const doSusCid =
+                payload.suspendClientId !== undefined
+                  ? !!payload.suspendClientId
+                  : true;
+              const doSusIp =
+                payload.suspendIp !== undefined ? !!payload.suspendIp : false;
 
-              let targetName = "Desconhecido";
-              let fp = "";
-              let cid = "";
-              let lastIp = "";
+              let targetName = 'Desconhecido';
+              let fp = '';
+              let cid = '';
+              let lastIp = '';
 
               try {
-                const userDocSnap = await adminDb.collection("users").doc(targetUid).get();
+                const userDocSnap = await adminDb
+                  .collection('users')
+                  .doc(targetUid)
+                  .get();
                 if (userDocSnap.exists) {
                   const uData = userDocSnap.data();
-                  targetName = uData?.nickname || uData?.displayName || "Desconhecido";
-                  fp = uData?.fingerprint || "";
-                  cid = uData?.clientId || "";
-                  lastIp = uData?.lastIp || "";
+                  targetName =
+                    uData?.nickname || uData?.displayName || 'Desconhecido';
+                  fp = uData?.fingerprint || '';
+                  cid = uData?.clientId || '';
+                  lastIp = uData?.lastIp || '';
                 }
               } catch (e) {}
 
               if (doSusUid) {
-                await adminDb.collection("users").doc(targetUid).set({ suspendedUntil }, { merge: true });
+                await adminDb
+                  .collection('users')
+                  .doc(targetUid)
+                  .set({ suspendedUntil }, { merge: true });
               }
 
               try {
-                const secRef = adminDb.collection("security").doc("bans");
+                const secRef = adminDb.collection('security').doc('bans');
                 const secDoc = await secRef.get();
-                let secData: SecurityBansDoc = secDoc.exists ? (secDoc.data() as SecurityBansDoc) : {};
+                let secData: SecurityBansDoc = secDoc.exists
+                  ? (secDoc.data() as SecurityBansDoc)
+                  : {};
 
                 const susUids = secData.suspendedUids || {};
                 const susFps = secData.suspendedFingerprints || {};
@@ -2001,26 +2659,32 @@ async function startServer() {
                 if (doSusCid && cid) susCids[cid] = suspendedUntil;
                 if (doSusIp && lastIp) susIps[lastIp] = suspendedUntil;
 
-                await secRef.set({
-                  suspendedUids: susUids,
-                  suspendedFingerprints: susFps,
-                  suspendedClientIds: susCids,
-                  suspendedIps: susIps
-                }, { merge: true });
+                await secRef.set(
+                  {
+                    suspendedUids: susUids,
+                    suspendedFingerprints: susFps,
+                    suspendedClientIds: susCids,
+                    suspendedIps: susIps,
+                  },
+                  { merge: true },
+                );
 
                 invalidateSecurityBansCache();
               } catch (err) {
-                console.error("[Admin] Error updating security suspensions doc:", err);
+                console.error(
+                  '[Admin] Error updating security suspensions doc:',
+                  err,
+                );
               }
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "suspension",
+                action: 'suspension',
                 targetUid: targetUid,
                 targetNickname: targetName,
                 details: `Suspenso por ${Math.round(durMs / 60000)} minutos (Multicamadas: UID=${doSusUid}, FP=${doSusFp}, CID=${doSusCid}, IP=${doSusIp})`,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
 
               activeSessions.forEach((s, key) => {
@@ -2030,91 +2694,114 @@ async function startServer() {
                 const matchIp = doSusIp && lastIp && s.ip === lastIp;
 
                 if (matchUid || matchFp || matchCid || matchIp) {
-                  sendToClient(key, "suspended", { until: suspendedUntil });
-                  try { key.close(); } catch (err) {}
+                  sendToClient(key, 'suspended', { until: suspendedUntil });
+                  try {
+                    key.close();
+                  } catch (err) {}
                   activeSessions.delete(key);
                 }
               });
 
               const succMsg = `Usuário ${targetName} suspenso com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (action === 'unban') {
+              if (typeof targetUid !== 'string' || !targetUid) return;
 
-            } else if (action === "unban") {
-              if (typeof targetUid !== "string" || !targetUid) return;
-
-              let targetName = "Desconhecido";
-              let fp = "";
-              let cid = "";
-              let lastIp = "";
+              let targetName = 'Desconhecido';
+              let fp = '';
+              let cid = '';
+              let lastIp = '';
 
               try {
-                const docSnap = await adminDb.collection("users").doc(targetUid).get();
+                const docSnap = await adminDb
+                  .collection('users')
+                  .doc(targetUid)
+                  .get();
                 if (docSnap.exists) {
                   const uData = docSnap.data();
-                  targetName = uData?.nickname || uData?.displayName || "Desconhecido";
-                  fp = uData?.fingerprint || "";
-                  cid = uData?.clientId || "";
-                  lastIp = uData?.lastIp || "";
+                  targetName =
+                    uData?.nickname || uData?.displayName || 'Desconhecido';
+                  fp = uData?.fingerprint || '';
+                  cid = uData?.clientId || '';
+                  lastIp = uData?.lastIp || '';
                 }
               } catch (e) {}
 
-              await adminDb.collection("users").doc(targetUid).set({ banned: false }, { merge: true });
+              await adminDb
+                .collection('users')
+                .doc(targetUid)
+                .set({ banned: false }, { merge: true });
 
               try {
-                const secRef = adminDb.collection("security").doc("bans");
+                const secRef = adminDb.collection('security').doc('bans');
                 const secDoc = await secRef.get();
                 if (secDoc.exists) {
                   const secData = secDoc.data() as SecurityBansDoc;
-                  const uids = (secData.uids || []).filter(id => id !== targetUid);
-                  const fingerprints = (secData.fingerprints || []).filter(id => id !== fp);
-                  const clientIds = (secData.clientIds || []).filter(id => id !== cid);
-                  const ips = (secData.ips || []).filter(id => id !== lastIp);
+                  const uids = (secData.uids || []).filter(
+                    (id) => id !== targetUid,
+                  );
+                  const fingerprints = (secData.fingerprints || []).filter(
+                    (id) => id !== fp,
+                  );
+                  const clientIds = (secData.clientIds || []).filter(
+                    (id) => id !== cid,
+                  );
+                  const ips = (secData.ips || []).filter((id) => id !== lastIp);
 
-                  await secRef.set({ uids, fingerprints, clientIds, ips }, { merge: true });
+                  await secRef.set(
+                    { uids, fingerprints, clientIds, ips },
+                    { merge: true },
+                  );
                   invalidateSecurityBansCache();
                 }
               } catch (err) {
-                console.error("[Admin] Error unbanning in security doc:", err);
+                console.error('[Admin] Error unbanning in security doc:', err);
               }
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "unban",
+                action: 'unban',
                 targetUid: targetUid,
                 targetNickname: targetName,
-                details: "Banimento removido (Multicamadas)",
-                timestamp: Date.now()
+                details: 'Banimento removido (Multicamadas)',
+                timestamp: Date.now(),
               });
 
               const succMsg = `Banimento do usuário ${targetName} removido com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (action === 'unsuspend') {
+              if (typeof targetUid !== 'string' || !targetUid) return;
 
-            } else if (action === "unsuspend") {
-              if (typeof targetUid !== "string" || !targetUid) return;
-
-              let targetName = "Desconhecido";
-              let fp = "";
-              let cid = "";
-              let lastIp = "";
+              let targetName = 'Desconhecido';
+              let fp = '';
+              let cid = '';
+              let lastIp = '';
 
               try {
-                const docSnap = await adminDb.collection("users").doc(targetUid).get();
+                const docSnap = await adminDb
+                  .collection('users')
+                  .doc(targetUid)
+                  .get();
                 if (docSnap.exists) {
                   const uData = docSnap.data();
-                  targetName = uData?.nickname || uData?.displayName || "Desconhecido";
-                  fp = uData?.fingerprint || "";
-                  cid = uData?.clientId || "";
-                  lastIp = uData?.lastIp || "";
+                  targetName =
+                    uData?.nickname || uData?.displayName || 'Desconhecido';
+                  fp = uData?.fingerprint || '';
+                  cid = uData?.clientId || '';
+                  lastIp = uData?.lastIp || '';
                 }
               } catch (e) {}
 
-              await adminDb.collection("users").doc(targetUid).set({ suspendedUntil: null }, { merge: true });
+              await adminDb
+                .collection('users')
+                .doc(targetUid)
+                .set({ suspendedUntil: null }, { merge: true });
 
               try {
-                const secRef = adminDb.collection("security").doc("bans");
+                const secRef = adminDb.collection('security').doc('bans');
                 const secDoc = await secRef.get();
                 if (secDoc.exists) {
                   const secData = secDoc.data() as SecurityBansDoc;
@@ -2128,34 +2815,39 @@ async function startServer() {
                   if (cid) delete susCids[cid];
                   if (lastIp) delete susIps[lastIp];
 
-                  await secRef.set({
-                    suspendedUids: susUids,
-                    suspendedFingerprints: susFps,
-                    suspendedClientIds: susCids,
-                    suspendedIps: susIps
-                  }, { merge: true });
+                  await secRef.set(
+                    {
+                      suspendedUids: susUids,
+                      suspendedFingerprints: susFps,
+                      suspendedClientIds: susCids,
+                      suspendedIps: susIps,
+                    },
+                    { merge: true },
+                  );
 
                   invalidateSecurityBansCache();
                 }
               } catch (err) {
-                console.error("[Admin] Error unsuspending in security doc:", err);
+                console.error(
+                  '[Admin] Error unsuspending in security doc:',
+                  err,
+                );
               }
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "unsuspend",
+                action: 'unsuspend',
                 targetUid: targetUid,
                 targetNickname: targetName,
-                details: "Suspensão removida (Multicamadas)",
-                timestamp: Date.now()
+                details: 'Suspensão removida (Multicamadas)',
+                timestamp: Date.now(),
               });
 
               const succMsg = `Suspensão do usuário ${targetName} removida com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
-
-            } else if (action === "kick_guest") {
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (action === 'kick_guest') {
               const targetGuestId = payload.targetGuestId || payload.guestId;
               if (!targetGuestId) return;
 
@@ -2164,13 +2856,23 @@ async function startServer() {
                 // NEVER disconnect the admin or any logged-in user!
                 if (key === ws || s.uid || s.isAuthenticated) return;
 
-                const matchSocketId = Boolean(payload.socketId && s.clientId === payload.socketId);
+                const matchSocketId = Boolean(
+                  payload.socketId && s.clientId === payload.socketId,
+                );
                 const matchGid = Boolean(s.guestId === targetGuestId);
-                const matchFp = Boolean(s.fingerprint && payload.fingerprint && s.fingerprint === payload.fingerprint);
+                const matchFp = Boolean(
+                  s.fingerprint &&
+                  payload.fingerprint &&
+                  s.fingerprint === payload.fingerprint,
+                );
 
                 if (matchSocketId || matchGid || matchFp) {
-                  sendToClient(key, "kicked_by_moderation", { message: "Sua conexão foi encerrada pela moderação." });
-                  try { key.close(); } catch (e) {}
+                  sendToClient(key, 'kicked_by_moderation', {
+                    message: 'Sua conexão foi encerrada pela moderação.',
+                  });
+                  try {
+                    key.close();
+                  } catch (e) {}
                   activeSessions.delete(key);
                   kickedCount++;
                 }
@@ -2178,219 +2880,273 @@ async function startServer() {
 
               notifyAdminsGuestList();
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "kick_guest",
+                action: 'kick_guest',
                 targetUid: targetGuestId,
                 targetNickname: payload.nickname || targetGuestId,
-                details: "Conexão de visitante encerrada pela moderação",
-                timestamp: Date.now()
+                details: 'Conexão de visitante encerrada pela moderação',
+                timestamp: Date.now(),
               });
 
               const succMsg = `Visitante ${targetGuestId} desconectado com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
-
-            } else if (action === "suspend_guest") {
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (action === 'suspend_guest') {
               const targetGuestId = payload.targetGuestId || payload.guestId;
               const durMs = Number(payload.durationMs) || 1800000;
               const expiresAt = Date.now() + durMs;
 
-              const doBanGid = payload.banGuestId !== undefined ? !!payload.banGuestId : true;
-              const doBanFp = payload.banFingerprint !== undefined ? !!payload.banFingerprint : true;
-              const doBanIp = payload.banIp !== undefined ? !!payload.banIp : false;
+              const doBanGid =
+                payload.banGuestId !== undefined ? !!payload.banGuestId : true;
+              const doBanFp =
+                payload.banFingerprint !== undefined
+                  ? !!payload.banFingerprint
+                  : true;
+              const doBanIp =
+                payload.banIp !== undefined ? !!payload.banIp : false;
 
-              const guestFp = payload.fingerprint || "";
-              const guestIp = payload.ip || "";
+              const guestFp = payload.fingerprint || '';
+              const guestIp = payload.ip || '';
 
-              await adminDb.collection("guestSuspensions").add({
-                guestId: doBanGid ? targetGuestId : "",
-                fingerprint: doBanFp ? guestFp : "",
-                ip: doBanIp ? guestIp : "",
-                type: "suspension",
-                reason: payload.reason || "Suspensão temporária de visitante por moderação",
+              await adminDb.collection('guestSuspensions').add({
+                guestId: doBanGid ? targetGuestId : '',
+                fingerprint: doBanFp ? guestFp : '',
+                ip: doBanIp ? guestIp : '',
+                type: 'suspension',
+                reason:
+                  payload.reason ||
+                  'Suspensão temporária de visitante por moderação',
                 durationMs: durMs,
                 expiresAt: expiresAt,
                 createdAt: Date.now(),
-                adminEmail: session.email || "Admin",
-                adminUid: session.uid
+                adminEmail: session.email || 'Admin',
+                adminUid: session.uid,
               });
 
               activeSessions.forEach((s, key) => {
                 // NEVER disconnect the admin or any logged-in user!
                 if (key === ws || s.uid || s.isAuthenticated) return;
 
-                const matchGid = Boolean(doBanGid && targetGuestId && s.guestId === targetGuestId);
-                const matchFp = Boolean(doBanFp && guestFp && s.fingerprint === guestFp);
+                const matchGid = Boolean(
+                  doBanGid && targetGuestId && s.guestId === targetGuestId,
+                );
+                const matchFp = Boolean(
+                  doBanFp && guestFp && s.fingerprint === guestFp,
+                );
                 const matchIp = Boolean(doBanIp && guestIp && s.ip === guestIp);
 
                 if (matchGid || matchFp || matchIp) {
-                  sendToClient(key, "suspended", { until: expiresAt, message: "Sua conexão foi suspensa pela moderação." });
-                  try { key.close(); } catch (e) {}
+                  sendToClient(key, 'suspended', {
+                    until: expiresAt,
+                    message: 'Sua conexão foi suspensa pela moderação.',
+                  });
+                  try {
+                    key.close();
+                  } catch (e) {}
                   activeSessions.delete(key);
                 }
               });
 
               notifyAdminsGuestList();
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "suspend_guest",
+                action: 'suspend_guest',
                 targetUid: targetGuestId,
                 targetNickname: payload.nickname || targetGuestId,
                 details: `Convidado suspenso por ${Math.round(durMs / 60000)}m (GId=${doBanGid}, FP=${doBanFp}, IP=${doBanIp})`,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
 
               const succMsg = `Visitante ${targetGuestId} suspenso com sucesso por ${Math.round(durMs / 60000)} minutos.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
-
-            } else if (action === "ban_guest") {
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (action === 'ban_guest') {
               const targetGuestId = payload.targetGuestId || payload.guestId;
 
-              const doBanGid = payload.banGuestId !== undefined ? !!payload.banGuestId : true;
-              const doBanFp = payload.banFingerprint !== undefined ? !!payload.banFingerprint : true;
-              const doBanIp = payload.banIp !== undefined ? !!payload.banIp : false;
+              const doBanGid =
+                payload.banGuestId !== undefined ? !!payload.banGuestId : true;
+              const doBanFp =
+                payload.banFingerprint !== undefined
+                  ? !!payload.banFingerprint
+                  : true;
+              const doBanIp =
+                payload.banIp !== undefined ? !!payload.banIp : false;
 
-              const guestFp = payload.fingerprint || "";
-              const guestIp = payload.ip || "";
+              const guestFp = payload.fingerprint || '';
+              const guestIp = payload.ip || '';
 
-              await adminDb.collection("guestBans").add({
-                guestId: doBanGid ? targetGuestId : "",
-                fingerprint: doBanFp ? guestFp : "",
-                ip: doBanIp ? guestIp : "",
-                type: "ban",
-                reason: payload.reason || "Banimento permanente de visitante por moderação",
+              await adminDb.collection('guestBans').add({
+                guestId: doBanGid ? targetGuestId : '',
+                fingerprint: doBanFp ? guestFp : '',
+                ip: doBanIp ? guestIp : '',
+                type: 'ban',
+                reason:
+                  payload.reason ||
+                  'Banimento permanente de visitante por moderação',
                 createdAt: Date.now(),
-                adminEmail: session.email || "Admin",
-                adminUid: session.uid
+                adminEmail: session.email || 'Admin',
+                adminUid: session.uid,
               });
 
               activeSessions.forEach((s, key) => {
                 // NEVER disconnect the admin or any logged-in user!
                 if (key === ws || s.uid || s.isAuthenticated) return;
 
-                const matchGid = Boolean(doBanGid && targetGuestId && s.guestId === targetGuestId);
-                const matchFp = Boolean(doBanFp && guestFp && s.fingerprint === guestFp);
+                const matchGid = Boolean(
+                  doBanGid && targetGuestId && s.guestId === targetGuestId,
+                );
+                const matchFp = Boolean(
+                  doBanFp && guestFp && s.fingerprint === guestFp,
+                );
                 const matchIp = Boolean(doBanIp && guestIp && s.ip === guestIp);
 
                 if (matchGid || matchFp || matchIp) {
-                  sendToClient(key, "banned", { message: "Seu acesso de visitante foi bloqueado permanentemente pela moderação." });
-                  try { key.close(); } catch (e) {}
+                  sendToClient(key, 'banned', {
+                    message:
+                      'Seu acesso de visitante foi bloqueado permanentemente pela moderação.',
+                  });
+                  try {
+                    key.close();
+                  } catch (e) {}
                   activeSessions.delete(key);
                 }
               });
 
               notifyAdminsGuestList();
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "ban_guest",
+                action: 'ban_guest',
                 targetUid: targetGuestId,
                 targetNickname: payload.nickname || targetGuestId,
                 details: `Convidado banido permanentemente (GId=${doBanGid}, FP=${doBanFp}, IP=${doBanIp})`,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
 
               const succMsg = `Visitante ${targetGuestId} banido permanentemente com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
-
-            } else if (action === "remove_guest_block" || action === "unsuspend_guest_block") {
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (
+              action === 'remove_guest_block' ||
+              action === 'unsuspend_guest_block'
+            ) {
               const blockId = payload.blockId || payload.id;
-              const colName = payload.collectionName === "guestBans" ? "guestBans" : "guestSuspensions";
+              const colName =
+                payload.collectionName === 'guestBans'
+                  ? 'guestBans'
+                  : 'guestSuspensions';
               if (!blockId) return;
 
               try {
                 await adminDb.collection(colName).doc(blockId).delete();
               } catch (e) {
-                console.error("Error removing guest block:", e);
+                console.error('Error removing guest block:', e);
               }
 
-              await addDoc(collection(db, "audits"), {
+              await addDoc(collection(db, 'audits'), {
                 adminUid: session.uid,
                 adminEmail: session.email,
-                action: "remove_guest_block",
+                action: 'remove_guest_block',
                 targetUid: blockId,
                 targetNickname: blockId,
                 details: `Bloqueio de visitante removido (${colName})`,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
 
               const succMsg = `Bloqueio de visitante removido com sucesso.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
-
-            } else if (action === "global_warning" || action === "admin-global-message" || action === "admin:broadcast") {
-              if (typeof text !== "string" || !text) {
-                sendToClient(ws, "admin_action_error", { message: "Mensagem do aviso global não pode estar vazia." });
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (
+              action === 'global_warning' ||
+              action === 'admin-global-message' ||
+              action === 'admin:broadcast'
+            ) {
+              if (typeof text !== 'string' || !text) {
+                sendToClient(ws, 'admin_action_error', {
+                  message: 'Mensagem do aviso global não pode estar vazia.',
+                });
                 return;
               }
 
               const connectedClientsCount = activeSessions.size;
-              
-              addDoc(collection(db, "audits"), {
-                adminUid: session.uid || "ADMIN",
-                adminEmail: session.email || "admin",
-                action: "global_warning",
-                targetUid: "ALL",
-                targetNickname: "Todos Usuários",
+
+              addDoc(collection(db, 'audits'), {
+                adminUid: session.uid || 'ADMIN',
+                adminEmail: session.email || 'admin',
+                action: 'global_warning',
+                targetUid: 'ALL',
+                targetNickname: 'Todos Usuários',
                 details: text.substring(0, 100),
-                timestamp: Date.now()
+                timestamp: Date.now(),
               }).catch(() => {});
 
-              addDoc(collection(db, "adminMessages"), {
-                id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
-                type: "global",
-                targetUid: "ALL",
+              addDoc(collection(db, 'adminMessages'), {
+                id:
+                  'ADM-' +
+                  Date.now() +
+                  '-' +
+                  Math.random().toString(36).substring(2, 7),
+                type: 'global',
+                targetUid: 'ALL',
                 message: text,
-                createdBy: session.email || session.uid || "ADMIN",
-                createdAt: Date.now()
+                createdBy: session.email || session.uid || 'ADMIN',
+                createdAt: Date.now(),
               }).catch(() => {});
 
               let recipientCount = 0;
               activeSessions.forEach((s, key) => {
                 if (key.readyState === WebSocket.OPEN) {
                   const bcastPayload = {
-                    type: "admin:broadcast",
-                    title: "Mensagem da Administração",
+                    type: 'admin:broadcast',
+                    title: 'Mensagem da Administração',
                     message: text,
                     text: text,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                   };
                   try {
                     key.send(JSON.stringify(bcastPayload));
                   } catch (e) {}
 
-                  sendToClient(key, "admin-global-message", {
-                    title: "Mensagem da Administração",
+                  sendToClient(key, 'admin-global-message', {
+                    title: 'Mensagem da Administração',
                     message: text,
                     text: text,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                   });
-                  sendToClient(key, "global_warning", {
-                    title: "Mensagem da Administração",
+                  sendToClient(key, 'global_warning', {
+                    title: 'Mensagem da Administração',
                     message: text,
                     text: text,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                   });
                   recipientCount++;
                 }
               });
 
               const succMsg = `Mensagem global enviada para ${recipientCount} usuários.`;
-              sendToClient(ws, "success", { message: succMsg });
-              sendToClient(ws, "admin_action_success", { message: succMsg });
+              sendToClient(ws, 'success', { message: succMsg });
+              sendToClient(ws, 'admin_action_success', { message: succMsg });
+            } else if (
+              action === 'individual_warning' ||
+              action === 'admin-private-message' ||
+              action === 'admin:private'
+            ) {
+              const searchKey =
+                typeof targetUid === 'string'
+                  ? targetUid.trim()
+                  : typeof targetId === 'string'
+                    ? targetId.trim()
+                    : '';
 
-            } else if (action === "individual_warning" || action === "admin-private-message" || action === "admin:private") {
-              const searchKey = typeof targetUid === "string" ? targetUid.trim() : (typeof targetId === "string" ? targetId.trim() : "");
-
-              if (!searchKey || typeof text !== "string" || !text) {
-                sendToClient(ws, "admin_action_error", { message: "ID do usuário e mensagem são obrigatórios." });
+              if (!searchKey || typeof text !== 'string' || !text) {
+                sendToClient(ws, 'admin_action_error', {
+                  message: 'ID do usuário e mensagem são obrigatórios.',
+                });
                 return;
               }
 
@@ -2400,9 +3156,10 @@ async function startServer() {
 
               activeSessions.forEach((s, key) => {
                 if (key.readyState === WebSocket.OPEN) {
-                  const isMatch = (s.uid && s.uid === searchKey) ||
-                                  (s.permanentId && s.permanentId === searchKey) ||
-                                  (s.uid && s.uid.toLowerCase() === searchKey.toLowerCase());
+                  const isMatch =
+                    (s.uid && s.uid === searchKey) ||
+                    (s.permanentId && s.permanentId === searchKey) ||
+                    (s.uid && s.uid.toLowerCase() === searchKey.toLowerCase());
                   if (isMatch) {
                     targetSocket = key;
                     targetSession = s;
@@ -2412,111 +3169,131 @@ async function startServer() {
               });
 
               if (targetSocket) {
-                
                 const privPayload = {
-                  type: "admin:private",
-                  title: "Mensagem da Administração",
+                  type: 'admin:private',
+                  title: 'Mensagem da Administração',
                   message: text,
                   text: text,
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
                 };
 
                 try {
                   (targetSocket as WebSocket).send(JSON.stringify(privPayload));
                 } catch (e) {}
 
-                sendToClient(targetSocket, "admin-private-message", {
-                  title: "Mensagem da Administração",
+                sendToClient(targetSocket, 'admin-private-message', {
+                  title: 'Mensagem da Administração',
                   message: text,
                   text: text,
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
                 });
-                sendToClient(targetSocket, "individual_warning", {
-                  title: "Mensagem da Administração",
+                sendToClient(targetSocket, 'individual_warning', {
+                  title: 'Mensagem da Administração',
                   message: text,
                   text: text,
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
                 });
 
-                addDoc(collection(db, "audits"), {
-                  adminUid: session.uid || "ADMIN",
-                  adminEmail: session.email || "admin",
-                  action: "individual_warning",
+                addDoc(collection(db, 'audits'), {
+                  adminUid: session.uid || 'ADMIN',
+                  adminEmail: session.email || 'admin',
+                  action: 'individual_warning',
                   targetUid: resolvedUid,
-                  targetNickname: targetSession?.nickname || "Desconhecido",
+                  targetNickname: targetSession?.nickname || 'Desconhecido',
                   details: text.substring(0, 100),
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
                 }).catch(() => {});
 
-                addDoc(collection(db, "adminMessages"), {
-                  id: "ADM-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
-                  type: "private",
+                addDoc(collection(db, 'adminMessages'), {
+                  id:
+                    'ADM-' +
+                    Date.now() +
+                    '-' +
+                    Math.random().toString(36).substring(2, 7),
+                  type: 'private',
                   targetUid: resolvedUid,
                   message: text,
-                  createdBy: session.email || session.uid || "ADMIN",
-                  createdAt: Date.now()
+                  createdBy: session.email || session.uid || 'ADMIN',
+                  createdAt: Date.now(),
                 }).catch(() => {});
 
                 const succMsg = `Mensagem enviada com sucesso para o usuário.`;
-                sendToClient(ws, "success", { message: succMsg });
-                sendToClient(ws, "admin_action_success", { message: succMsg });
+                sendToClient(ws, 'success', { message: succMsg });
+                sendToClient(ws, 'admin_action_success', { message: succMsg });
               } else {
-                
-                sendToClient(ws, "admin_action_error", { message: "Usuário offline." });
+                sendToClient(ws, 'admin_action_error', {
+                  message: 'Usuário offline.',
+                });
               }
-
-            } else if (action === "set_ads_status" || action === "set-ads-status") {
+            } else if (
+              action === 'set_ads_status' ||
+              action === 'set-ads-status'
+            ) {
               const searchKey = targetUid || targetId;
-              if (typeof searchKey !== "string" || !searchKey) return;
-              const adsDisabled = payload.adsDisabled !== undefined ? !!payload.adsDisabled : !!payload.disabled;
+              if (typeof searchKey !== 'string' || !searchKey) return;
+              const adsDisabled =
+                payload.adsDisabled !== undefined
+                  ? !!payload.adsDisabled
+                  : !!payload.disabled;
 
               let resolvedUid = searchKey;
 
               try {
-                let targetDocRef = doc(db, "users", searchKey);
+                let targetDocRef = doc(db, 'users', searchKey);
                 let docSnap = await getDoc(targetDocRef);
                 if (!docSnap.exists()) {
-                  const q = query(collection(db, "users"), where("permanentId", "==", searchKey));
+                  const q = query(
+                    collection(db, 'users'),
+                    where('permanentId', '==', searchKey),
+                  );
                   const qSnap = await getDocs(q);
                   if (!qSnap.empty) {
                     docSnap = qSnap.docs[0];
                     resolvedUid = docSnap.id;
-                    targetDocRef = doc(db, "users", resolvedUid);
+                    targetDocRef = doc(db, 'users', resolvedUid);
                   }
                 }
 
                 await updateDoc(targetDocRef, { adsDisabled: adsDisabled });
-                
+
                 activeSessions.forEach((s, key) => {
                   if (s.uid === resolvedUid || s.permanentId === searchKey) {
-                    sendToClient(key, "ads-status", { disabled: adsDisabled });
+                    sendToClient(key, 'ads-status', { disabled: adsDisabled });
                   }
                 });
 
-                addDoc(collection(db, "audits"), {
-                  adminUid: session.uid || "ADMIN",
-                  adminEmail: session.email || "admin",
-                  action: "set_ads_status",
+                addDoc(collection(db, 'audits'), {
+                  adminUid: session.uid || 'ADMIN',
+                  adminEmail: session.email || 'admin',
+                  action: 'set_ads_status',
                   targetUid: resolvedUid,
-                  targetNickname: docSnap.exists() ? (docSnap.data().nickname || "Desconhecido") : "Desconhecido",
-                  details: adsDisabled ? "Anúncios Ocultados (adsDisabled = true)" : "Anúncios Exibidos Normalmente (adsDisabled = false)",
-                  timestamp: Date.now()
+                  targetNickname: docSnap.exists()
+                    ? docSnap.data().nickname || 'Desconhecido'
+                    : 'Desconhecido',
+                  details: adsDisabled
+                    ? 'Anúncios Ocultados (adsDisabled = true)'
+                    : 'Anúncios Exibidos Normalmente (adsDisabled = false)',
+                  timestamp: Date.now(),
                 }).catch(() => {});
 
-                const succMsg = "Permissão de anúncios atualizada com sucesso.";
-                sendToClient(ws, "success", { message: succMsg });
-                sendToClient(ws, "admin_action_success", { message: succMsg });
+                const succMsg = 'Permissão de anúncios atualizada com sucesso.';
+                sendToClient(ws, 'success', { message: succMsg });
+                sendToClient(ws, 'admin_action_success', { message: succMsg });
               } catch (err: any) {
-                console.error("[Admin] Error setting ads status:", err);
-                sendToClient(ws, "admin_action_error", { message: err?.message || "Erro ao atualizar permissão de anúncios no Firestore." });
+                console.error('[Admin] Error setting ads status:', err);
+                sendToClient(ws, 'admin_action_error', {
+                  message:
+                    err?.message ||
+                    'Erro ao atualizar permissão de anúncios no Firestore.',
+                });
               }
             }
 
             break;
           }
 
-          case "get_online_guests":
-          case "get_online_users": {
+          case 'get_online_guests':
+          case 'get_online_users': {
             const token = payload.idToken || payload.token;
             if (token) {
               const decoded = await verifyIdToken(token);
@@ -2525,14 +3302,18 @@ async function startServer() {
               }
             }
 
-            if (typeof session.uid !== "string" || !session.uid) {
-              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
+            if (typeof session.uid !== 'string' || !session.uid) {
+              sendToClient(ws, 'admin_action_error', {
+                message: '403 Forbidden: Sessão não autenticada.',
+              });
               return;
             }
 
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
-              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
+              sendToClient(ws, 'admin_action_error', {
+                message: '403 Forbidden: Acesso restrito a administradores.',
+              });
               return;
             }
 
@@ -2543,22 +3324,24 @@ async function startServer() {
               if (s.isAuthenticated && s.uid) {
                 onlineUsers.push({
                   uid: s.uid,
-                  nickname: s.nickname || "Desconhecido",
-                  email: s.email || "",
-                  permanentId: s.permanentId || "",
+                  nickname: s.nickname || 'Desconhecido',
+                  email: s.email || '',
+                  permanentId: s.permanentId || '',
                   joinTime: s.joinTime || Date.now(),
-                  roomId: s.roomId || "room-1",
-                  online: true
+                  roomId: s.roomId || 'room-1',
+                  online: true,
                 });
               }
             });
 
-            sendToClient(ws, "admin_online_users", { users: onlineUsers });
-            sendToClient(ws, "admin_online_guests", { guests: getOnlineGuestsList() });
+            sendToClient(ws, 'admin_online_users', { users: onlineUsers });
+            sendToClient(ws, 'admin_online_guests', {
+              guests: getOnlineGuestsList(),
+            });
             break;
           }
 
-          case "get_audit_logs": {
+          case 'get_audit_logs': {
             const token = payload.idToken || payload.token;
             if (token) {
               const decoded = await verifyIdToken(token);
@@ -2567,69 +3350,90 @@ async function startServer() {
               }
             }
 
-            if (typeof session.uid !== "string" || !session.uid) {
-              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Sessão não autenticada." });
+            if (typeof session.uid !== 'string' || !session.uid) {
+              sendToClient(ws, 'admin_action_error', {
+                message: '403 Forbidden: Sessão não autenticada.',
+              });
               return;
             }
 
             const isAuthorized = await checkIsAdmin(session.uid);
             if (!isAuthorized) {
-              sendToClient(ws, "admin_action_error", { message: "403 Forbidden: Acesso restrito a administradores." });
+              sendToClient(ws, 'admin_action_error', {
+                message: '403 Forbidden: Acesso restrito a administradores.',
+              });
               return;
             }
 
             try {
-              const q = query(collection(db, "audits"));
+              const q = query(collection(db, 'audits'));
               const docSnap = await getDocs(q);
               const logs: any[] = [];
               docSnap.forEach((docDoc) => {
                 logs.push({
                   id: docDoc.id,
-                  ...docDoc.data()
+                  ...docDoc.data(),
                 });
               });
 
               logs.sort((a, b) => b.timestamp - a.timestamp);
 
-              sendToClient(ws, "admin_audit_logs", { logs });
+              sendToClient(ws, 'admin_audit_logs', { logs });
             } catch (err) {
-              console.error("[Admin] Error retrieving audit logs:", err);
+              console.error('[Admin] Error retrieving audit logs:', err);
             }
             break;
           }
-          case "join": {
-            const rawNickname = sanitizeHTML(payload.nickname?.trim() || "").substring(0, 15);
-            const roomId = payload.roomId || "room-1";
+          case 'join': {
+            const rawNickname = sanitizeHTML(
+              payload.nickname?.trim() || '',
+            ).substring(0, 15);
+            const roomId = payload.roomId || 'room-1';
 
             if (!rawNickname || rawNickname.trim().length < 2) {
-              sendToClient(ws, "error", { message: "Apelido inválido ou muito curto." });
+              sendToClient(ws, 'error', {
+                message: 'Apelido inválido ou muito curto.',
+              });
               return;
             }
 
-            const cleanNickname = rawNickname.trim().replace(/\s+/g, " ");
+            const cleanNickname = rawNickname.trim().replace(/\s+/g, ' ');
 
             if (payload.uid) session.uid = payload.uid;
             if (payload.guestId) session.guestId = payload.guestId;
             if (payload.clientId) session.clientId = payload.clientId;
             if (payload.fingerprint) session.fingerprint = payload.fingerprint;
-            if (payload.muteBotWelcome !== undefined) session.muteBotWelcome = Boolean(payload.muteBotWelcome);
+            if (payload.muteBotWelcome !== undefined)
+              session.muteBotWelcome = Boolean(payload.muteBotWelcome);
 
             // Validação e reserva atômica de apelido na sala
-            const availability = await checkAndReserveNickname(roomId, cleanNickname, session.uid, session.guestId);
+            const availability = await checkAndReserveNickname(
+              roomId,
+              cleanNickname,
+              session.uid,
+              session.guestId,
+            );
             if (!availability.available) {
-              sendToClient(ws, "error", {
-                code: availability.code || "NICKNAME_IN_USE",
-                message: availability.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar."
+              sendToClient(ws, 'error', {
+                code: availability.code || 'NICKNAME_IN_USE',
+                message:
+                  availability.message ||
+                  'Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.',
               });
               return;
             }
 
             // Fechar apenas sessões obsoletas do MESMO usuário legítimo reconectando
             activeSessions.forEach((s, key) => {
-              if (key !== ws && s.roomId === roomId && normalizeNickname(s.nickname) === normalizeNickname(cleanNickname)) {
+              if (
+                key !== ws &&
+                s.roomId === roomId &&
+                normalizeNickname(s.nickname) ===
+                  normalizeNickname(cleanNickname)
+              ) {
                 const isSameUser = Boolean(
                   (session.uid && s.uid === session.uid) ||
-                  (session.guestId && s.guestId === session.guestId)
+                  (session.guestId && s.guestId === session.guestId),
                 );
                 if (isSameUser) {
                   try {
@@ -2647,19 +3451,39 @@ async function startServer() {
 
             session.nickname = finalNickname;
             session.roomId = roomId;
-            session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
-            session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
-            session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
+            session.bio =
+              payload.bio !== undefined
+                ? sanitizeHTML(payload.bio)
+                : session.bio;
+            session.age =
+              payload.age !== undefined && payload.age !== null
+                ? Number(payload.age)
+                : session.age;
+            session.gender =
+              payload.gender !== undefined
+                ? sanitizeHTML(payload.gender)
+                : session.gender;
             if (payload.blockCalls !== undefined) {
               session.blockCalls = Boolean(payload.blockCalls);
             }
-            
-            const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
+
+            const isExplicitRemove =
+              payload.action === 'remove_photo' ||
+              payload.photoUrl === null ||
+              payload.profileImage === null;
             if (isExplicitRemove) {
-              session.photoUrl = "";
+              session.photoUrl = '';
             } else {
-              const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
-              if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
+              const incomingPhoto =
+                payload.photoUrl !== undefined
+                  ? payload.photoUrl
+                  : payload.profileImage;
+              if (
+                typeof incomingPhoto === 'string' &&
+                incomingPhoto.trim() !== '' &&
+                !incomingPhoto.includes('null') &&
+                !incomingPhoto.includes('undefined')
+              ) {
                 session.photoUrl = sanitizeHTML(incomingPhoto.trim());
               }
             }
@@ -2670,12 +3494,12 @@ async function startServer() {
 
             if (oldRoomId && oldRoomId !== roomId) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
-              broadcastToRoom(oldRoomId, "user_left", {
+              broadcastToRoom(oldRoomId, 'user_left', {
                 nickname: oldNickname,
                 time: getCurrentTime(),
                 timestamp: Date.now(),
                 onlineUsers: leftUsers,
-                adminUsers: getAdminNicknames()
+                adminUsers: getAdminNicknames(),
               });
             }
 
@@ -2686,79 +3510,86 @@ async function startServer() {
             const userPhotos: Record<string, string> = {};
             activeSessions.forEach((s) => {
               if (s.roomId === roomId && s.nickname) {
-                userPhotos[s.nickname] = s.photoUrl || "";
+                userPhotos[s.nickname] = s.photoUrl || '';
               }
             });
 
             const roomStateMessages = session.muteBotWelcome
-              ? (messages[roomId] || []).filter(m => !m.isBotWelcome && !m.id?.startsWith("bot-welcome-"))
-              : (messages[roomId] || []);
+              ? (messages[roomId] || []).filter(
+                  (m) => !m.isBotWelcome && !m.id?.startsWith('bot-welcome-'),
+                )
+              : messages[roomId] || [];
 
-            sendToClient(ws, "room_state", {
+            sendToClient(ws, 'room_state', {
               roomId,
               nickname: finalNickname,
               messages: roomStateMessages,
               onlineUsers: getRoomOnlineUsers(roomId),
               userPhotos,
-              adminUsers: getAdminNicknames()
+              adminUsers: getAdminNicknames(),
             });
 
-            sendToClient(ws, "maintenance_status", {
+            sendToClient(ws, 'maintenance_status', {
               enabled: systemSettings.maintenanceEnabled,
               title: systemSettings.maintenanceTitle,
               message: systemSettings.maintenanceMessage,
               startTime: systemSettings.maintenanceStartTime,
-              endTime: systemSettings.maintenanceEndTime
+              endTime: systemSettings.maintenanceEndTime,
             });
 
-            broadcastToRoom(roomId, "user_joined", {
-              nickname: finalNickname,
-              photoUrl: session.photoUrl || "",
-              profileImage: session.photoUrl || null,
-              time: getCurrentTime(),
-              timestamp: Date.now(),
-              onlineUsers: getRoomOnlineUsers(roomId),
-              adminUsers: getAdminNicknames()
-            }, ws);
+            broadcastToRoom(
+              roomId,
+              'user_joined',
+              {
+                nickname: finalNickname,
+                photoUrl: session.photoUrl || '',
+                profileImage: session.photoUrl || null,
+                time: getCurrentTime(),
+                timestamp: Date.now(),
+                onlineUsers: getRoomOnlineUsers(roomId),
+                adminUsers: getAdminNicknames(),
+              },
+              ws,
+            );
 
             if (systemSettings.botsEnabled && !session.muteBotWelcome) {
               setTimeout(() => {
                 if (!systemSettings.botsEnabled) return;
-                broadcastToRoom(roomId, "typing", {
-                  nickname: "Bot_Papos",
+                broadcastToRoom(roomId, 'typing', {
+                  nickname: 'Bot_Papos',
                   isTyping: true,
-                  isBotWelcome: true
+                  isBotWelcome: true,
                 });
               }, 500);
 
               setTimeout(() => {
                 if (!systemSettings.botsEnabled) return;
-                
-                broadcastToRoom(roomId, "typing", {
-                  nickname: "Bot_Papos",
+
+                broadcastToRoom(roomId, 'typing', {
+                  nickname: 'Bot_Papos',
                   isTyping: false,
-                  isBotWelcome: true
+                  isBotWelcome: true,
                 });
 
                 const text = `👋 Olá, ${finalNickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
-                
-                const welcomeMsgId = "bot-welcome-" + Date.now();
+
+                const welcomeMsgId = 'bot-welcome-' + Date.now();
                 const welcomeMsg = {
                   id: welcomeMsgId,
-                  sender: "Bot_Papos",
+                  sender: 'Bot_Papos',
                   text,
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
                   isBotWelcome: true,
                   targetNickname: finalNickname,
-                  reactions: {}
+                  reactions: {},
                 };
 
                 if (!messages[roomId]) messages[roomId] = [];
                 messages[roomId].push(welcomeMsg);
                 if (messages[roomId].length > 100) messages[roomId].shift();
-                broadcastToRoom(roomId, "message", { message: welcomeMsg });
+                broadcastToRoom(roomId, 'message', { message: welcomeMsg });
               }, 1800);
             }
 
@@ -2767,44 +3598,46 @@ async function startServer() {
             if (!oldNickname && !session.muteBotWelcome) {
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
-                sendToClient(ws, "private_typing", {
-                  from: "Bot_Papos",
+                sendToClient(ws, 'private_typing', {
+                  from: 'Bot_Papos',
                   isTyping: true,
-                  isBotWelcome: true
+                  isBotWelcome: true,
                 });
               }, 1200);
 
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
-                
-                sendToClient(ws, "private_typing", {
-                  from: "Bot_Papos",
+
+                sendToClient(ws, 'private_typing', {
+                  from: 'Bot_Papos',
                   isTyping: false,
-                  isBotWelcome: true
+                  isBotWelcome: true,
                 });
 
                 const welcomeText = `Olá! Seja muito bem-vindo ao **Papos**! 👋\n\nSou o assistente virtual do chat e vou te explicar como tudo funciona por aqui de forma simples:\n\n💬 **Salas Públicas**: Use o botão **Salas** no topo para explorar canais públicos (Geral, Tecnologia, Música...) e debater com todo mundo!\n\n🔒 **Conversas Privadas (DM)**: Para abrir um privado 100% seguro com qualquer usuário, basta clicar sobre o nome dele na lista de membros online à esquerda!\n\n🎨 **Cores de Mensagem**: Personalize suas mensagens clicando no ícone de **paleta** (agora posicionado elegantemente à direita do botão enviar!).\n\n😀 **Emojis**: Use o novo seletor de **emojis** do chat para enviar reações rápidas!\n\n↔️ **Ajustar Painel**: Arraste a linha divisória lateral para ajustar o tamanho da sua lista de conversas.\n\nSinta-se em casa! Qualquer dúvida, pode me mandar uma mensagem direta por aqui! 😊`;
 
                 const pmPayload = {
-                  type: "private_message",
-                  id: "pm-welcome-" + Date.now(),
-                  senderId: "Bot_Papos",
-                  senderName: "Bot_Papos",
+                  type: 'private_message',
+                  id: 'pm-welcome-' + Date.now(),
+                  senderId: 'Bot_Papos',
+                  senderName: 'Bot_Papos',
                   recipientId: finalNickname,
                   recipientName: finalNickname,
                   content: welcomeText,
                   timestamp: Date.now(),
-                  conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
+                  conversationId: ['bot_papos', finalNickname.toLowerCase()]
+                    .sort()
+                    .join('--'),
                   isDeleted: false,
-                  isBotWelcome: true
+                  isBotWelcome: true,
                 };
-                sendToClient(ws, "private_message", pmPayload);
+                sendToClient(ws, 'private_message', pmPayload);
               }, 4000);
             }
             break;
           }
 
-          case "join_room": {
+          case 'join_room': {
             const roomId = payload.roomId;
             if (!roomId || !session.nickname) return;
 
@@ -2812,33 +3645,52 @@ async function startServer() {
             if (oldRoomId === roomId) return;
 
             // Validação e reserva atômica de apelido na sala destino
-            const availability = await checkAndReserveNickname(roomId, session.nickname, session.uid, session.guestId);
+            const availability = await checkAndReserveNickname(
+              roomId,
+              session.nickname,
+              session.uid,
+              session.guestId,
+            );
             if (!availability.available) {
-              sendToClient(ws, "error", {
-                code: availability.code || "NICKNAME_IN_USE",
-                message: availability.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar."
+              sendToClient(ws, 'error', {
+                code: availability.code || 'NICKNAME_IN_USE',
+                message:
+                  availability.message ||
+                  'Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.',
               });
               return;
             }
 
             session.roomId = roomId;
 
-            if (payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null) {
-              session.photoUrl = "";
+            if (
+              payload.action === 'remove_photo' ||
+              payload.photoUrl === null ||
+              payload.profileImage === null
+            ) {
+              session.photoUrl = '';
             } else {
-              const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
-              if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
+              const incomingPhoto =
+                payload.photoUrl !== undefined
+                  ? payload.photoUrl
+                  : payload.profileImage;
+              if (
+                typeof incomingPhoto === 'string' &&
+                incomingPhoto.trim() !== '' &&
+                !incomingPhoto.includes('null') &&
+                !incomingPhoto.includes('undefined')
+              ) {
                 session.photoUrl = sanitizeHTML(incomingPhoto.trim());
               }
             }
 
             if (oldRoomId) {
               const leftUsers = getRoomOnlineUsers(oldRoomId);
-              broadcastToRoom(oldRoomId, "user_left", {
+              broadcastToRoom(oldRoomId, 'user_left', {
                 nickname: session.nickname,
                 time: getCurrentTime(),
                 timestamp: Date.now(),
-                onlineUsers: leftUsers
+                onlineUsers: leftUsers,
               });
             }
 
@@ -2849,59 +3701,76 @@ async function startServer() {
             const switchUserPhotos: Record<string, string> = {};
             activeSessions.forEach((s) => {
               if (s.roomId === roomId && s.nickname) {
-                switchUserPhotos[s.nickname] = s.photoUrl || "";
+                switchUserPhotos[s.nickname] = s.photoUrl || '';
               }
             });
 
             const switchRoomMessages = session.muteBotWelcome
-              ? (messages[roomId] || []).filter(m => !m.isBotWelcome && !m.id?.startsWith("bot-welcome-"))
-              : (messages[roomId] || []);
+              ? (messages[roomId] || []).filter(
+                  (m) => !m.isBotWelcome && !m.id?.startsWith('bot-welcome-'),
+                )
+              : messages[roomId] || [];
 
-            sendToClient(ws, "room_state", {
+            sendToClient(ws, 'room_state', {
               roomId,
               nickname: session.nickname,
               messages: switchRoomMessages,
               onlineUsers: getRoomOnlineUsers(roomId),
-              userPhotos: switchUserPhotos
+              userPhotos: switchUserPhotos,
             });
 
-            broadcastToRoom(roomId, "user_joined", {
-              nickname: session.nickname,
-              photoUrl: session.photoUrl || "",
-              profileImage: session.photoUrl || null,
-              time: getCurrentTime(),
-              timestamp: Date.now(),
-              onlineUsers: getRoomOnlineUsers(roomId)
-            }, ws);
+            broadcastToRoom(
+              roomId,
+              'user_joined',
+              {
+                nickname: session.nickname,
+                photoUrl: session.photoUrl || '',
+                profileImage: session.photoUrl || null,
+                time: getCurrentTime(),
+                timestamp: Date.now(),
+                onlineUsers: getRoomOnlineUsers(roomId),
+              },
+              ws,
+            );
 
-            const roomBots = BOTS.filter(b => b.rooms.includes(roomId) && (systemSettings.botsEnabled || ["bot_papos", "bots_papos"].includes(b.nickname.toLowerCase())));
+            const roomBots = BOTS.filter(
+              (b) =>
+                b.rooms.includes(roomId) &&
+                (systemSettings.botsEnabled ||
+                  ['bot_papos', 'bots_papos'].includes(
+                    b.nickname.toLowerCase(),
+                  )),
+            );
             if (roomBots.length > 0 && !session.muteBotWelcome) {
-              const welcomeBot = roomBots[Math.floor(Math.random() * roomBots.length)];
-              
+              const welcomeBot =
+                roomBots[Math.floor(Math.random() * roomBots.length)];
+
               setTimeout(() => {
-                broadcastToRoom(roomId, "typing", {
+                broadcastToRoom(roomId, 'typing', {
                   nickname: welcomeBot.nickname,
                   isTyping: true,
-                  isBotWelcome: true
+                  isBotWelcome: true,
                 });
               }, 500);
 
               setTimeout(() => {
-                
-                broadcastToRoom(roomId, "typing", {
+                broadcastToRoom(roomId, 'typing', {
                   nickname: welcomeBot.nickname,
                   isTyping: false,
-                  isBotWelcome: true
+                  isBotWelcome: true,
                 });
 
                 const welcomePhrases = [
                   `Seja bem-vindo(a) à sala, @${session.nickname}!`,
                   `Eae @${session.nickname}! Chegou na sala certa. Como vão as coisas?`,
-                  `Oi @${session.nickname}! Como vai? Que bom ver você por aqui.`
+                  `Oi @${session.nickname}! Como vai? Que bom ver você por aqui.`,
                 ];
-                const text = welcomePhrases[Math.floor(Math.random() * welcomePhrases.length)];
-                
-                const welcomeMsgId = "bot-welcome-" + Date.now();
+                const text =
+                  welcomePhrases[
+                    Math.floor(Math.random() * welcomePhrases.length)
+                  ];
+
+                const welcomeMsgId = 'bot-welcome-' + Date.now();
                 const welcomeMsg = {
                   id: welcomeMsgId,
                   sender: welcomeBot.nickname,
@@ -2911,12 +3780,12 @@ async function startServer() {
                   isSystem: false,
                   isBotWelcome: true,
                   targetNickname: session.nickname,
-                  reactions: {}
+                  reactions: {},
                 };
 
                 if (!messages[roomId]) messages[roomId] = [];
                 messages[roomId].push(welcomeMsg);
-                broadcastToRoom(roomId, "message", { message: welcomeMsg });
+                broadcastToRoom(roomId, 'message', { message: welcomeMsg });
               }, 2500);
             }
 
@@ -2924,48 +3793,78 @@ async function startServer() {
             break;
           }
 
-          case "get_room_members": {
-            const currentRoomId = session.roomId || "room-1";
-            sendToClient(ws, "room_members_update", {
+          case 'get_room_members': {
+            const currentRoomId = session.roomId || 'room-1';
+            sendToClient(ws, 'room_members_update', {
               roomId: currentRoomId,
               onlineUsers: getRoomOnlineUsers(currentRoomId),
-              adminUsers: getAdminNicknames()
+              adminUsers: getAdminNicknames(),
             });
             break;
           }
 
-          case "message": {
+          case 'message': {
             if (systemSettings.maintenanceEnabled && !session.isAdmin) {
-              sendToClient(ws, "error", { message: "O sistema está em manutenção no momento." });
+              sendToClient(ws, 'error', {
+                message: 'O sistema está em manutenção no momento.',
+              });
               return;
             }
 
             if (!session.nickname || !session.roomId) {
-              sendToClient(ws, "error", { message: "Você precisa se identificar antes de enviar mensagens." });
+              sendToClient(ws, 'error', {
+                message:
+                  'Você precisa se identificar antes de enviar mensagens.',
+              });
               return;
             }
 
             const now = Date.now();
-            session.lastMessageTime = session.lastMessageTime.filter(t => now - t < 4000); 
+            session.lastMessageTime = session.lastMessageTime.filter(
+              (t) => now - t < 4000,
+            );
             if (session.lastMessageTime.length >= 4) {
-              sendToClient(ws, "error", { message: "Você está enviando mensagens rápido demais. Aguarde um instante." });
+              sendToClient(ws, 'error', {
+                message:
+                  'Você está enviando mensagens rápido demais. Aguarde um instante.',
+              });
               return;
             }
             session.lastMessageTime.push(now);
 
-            const rawText = payload.text || "";
-            if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
-              sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
+            const rawText = payload.text || '';
+            if (
+              containsLink(rawText) ||
+              (payload.replyTo && containsLink(payload.replyTo.text || ''))
+            ) {
+              sendToClient(ws, 'error', {
+                message: 'Links não são permitidos nas conversas.',
+              });
               return;
             }
 
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
             if (!text) return;
 
-            const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
-            const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
+            const color = payload.color
+              ? sanitizeHTML(payload.color).substring(0, 15)
+              : undefined;
+            const msgId =
+              payload.id ||
+              payload.clientMsgId ||
+              'm-' +
+                Date.now() +
+                '-' +
+                Math.random().toString(36).substring(2, 6);
 
-            if (!session.photoUrl && payload.photoUrl && typeof payload.photoUrl === "string" && payload.photoUrl.trim() !== "" && !payload.photoUrl.includes("null") && !payload.photoUrl.includes("undefined")) {
+            if (
+              !session.photoUrl &&
+              payload.photoUrl &&
+              typeof payload.photoUrl === 'string' &&
+              payload.photoUrl.trim() !== '' &&
+              !payload.photoUrl.includes('null') &&
+              !payload.photoUrl.includes('undefined')
+            ) {
               session.photoUrl = sanitizeHTML(payload.photoUrl.trim());
             }
 
@@ -2978,12 +3877,14 @@ async function startServer() {
               isSystem: false,
               color,
               photoUrl: session.photoUrl || undefined,
-              replyTo: payload.replyTo ? {
-                id: payload.replyTo.id,
-                sender: payload.replyTo.sender,
-                text: payload.replyTo.text
-              } : null,
-              reactions: {}
+              replyTo: payload.replyTo
+                ? {
+                    id: payload.replyTo.id,
+                    sender: payload.replyTo.sender,
+                    text: payload.replyTo.text,
+                  }
+                : null,
+              reactions: {},
             };
 
             if (!messages[session.roomId]) {
@@ -2995,42 +3896,60 @@ async function startServer() {
               messages[session.roomId].shift();
             }
 
-            broadcastToRoom(session.roomId, "message", { message: msgObj });
+            broadcastToRoom(session.roomId, 'message', { message: msgObj });
             break;
           }
 
-          case "private_message": {
+          case 'private_message': {
             if (systemSettings.maintenanceEnabled && !session.isAdmin) {
-              sendToClient(ws, "error", { message: "O sistema está em manutenção no momento." });
+              sendToClient(ws, 'error', {
+                message: 'O sistema está em manutenção no momento.',
+              });
               return;
             }
 
             if (!session.nickname) return;
             const toNick = payload.to?.trim();
-            const rawText = payload.text || "";
+            const rawText = payload.text || '';
 
             if (!toNick || !rawText) return;
 
             // Proteção contra flood de mensagens privadas (máximo 5 mensagens a cada 4 segundos)
             const now = Date.now();
-            session.lastMessageTime = (session.lastMessageTime || []).filter(t => now - t < 4000);
+            session.lastMessageTime = (session.lastMessageTime || []).filter(
+              (t) => now - t < 4000,
+            );
             if (session.lastMessageTime.length >= 5) {
-              sendToClient(ws, "error", { message: "Você está enviando mensagens rápido demais. Aguarde um instante." });
+              sendToClient(ws, 'error', {
+                message:
+                  'Você está enviando mensagens rápido demais. Aguarde um instante.',
+              });
               return;
             }
             session.lastMessageTime.push(now);
 
             if (containsLink(rawText)) {
-              sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
+              sendToClient(ws, 'error', {
+                message: 'Links não são permitidos nas conversas.',
+              });
               return;
             }
 
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
             if (!text) return;
 
-            const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
+            const color = payload.color
+              ? sanitizeHTML(payload.color).substring(0, 15)
+              : undefined;
 
-            if (!session.photoUrl && payload.photoUrl && typeof payload.photoUrl === "string" && payload.photoUrl.trim() !== "" && !payload.photoUrl.includes("null") && !payload.photoUrl.includes("undefined")) {
+            if (
+              !session.photoUrl &&
+              payload.photoUrl &&
+              typeof payload.photoUrl === 'string' &&
+              payload.photoUrl.trim() !== '' &&
+              !payload.photoUrl.includes('null') &&
+              !payload.photoUrl.includes('undefined')
+            ) {
               session.photoUrl = sanitizeHTML(payload.photoUrl.trim());
             }
 
@@ -3041,13 +3960,18 @@ async function startServer() {
               }
             });
 
-            const pmId = payload.id || ("pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
+            const pmId =
+              payload.id ||
+              'pm-' +
+                Date.now() +
+                '-' +
+                Math.random().toString(36).substring(2, 6);
 
             if (toNick.toLowerCase() === session.nickname.toLowerCase()) return;
 
             if (targetWs && targetWs !== ws) {
               const pmPayload = {
-                type: "private_message",
+                type: 'private_message',
                 id: pmId,
                 senderId: session.nickname,
                 senderName: session.nickname,
@@ -3056,33 +3980,53 @@ async function startServer() {
                 recipientName: toNick,
                 content: text,
                 timestamp: Date.now(),
-                conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
+                conversationId: [
+                  session.nickname.toLowerCase(),
+                  toNick.toLowerCase(),
+                ]
+                  .sort()
+                  .join('--'),
                 isDeleted: false,
                 color,
-                replyTo: payload.replyTo ? {
-                  id: payload.replyTo.id || payload.replyTo.messageId,
-                  messageId: payload.replyTo.messageId || payload.replyTo.id,
-                  sender: payload.replyTo.sender || payload.replyTo.senderId || payload.replyTo.senderName,
-                  senderId: payload.replyTo.senderId || payload.replyTo.sender || payload.replyTo.senderName,
-                  text: payload.replyTo.text || payload.replyTo.content || ""
-                } : null,
-                reactions: {}
+                replyTo: payload.replyTo
+                  ? {
+                      id: payload.replyTo.id || payload.replyTo.messageId,
+                      messageId:
+                        payload.replyTo.messageId || payload.replyTo.id,
+                      sender:
+                        payload.replyTo.sender ||
+                        payload.replyTo.senderId ||
+                        payload.replyTo.senderName,
+                      senderId:
+                        payload.replyTo.senderId ||
+                        payload.replyTo.sender ||
+                        payload.replyTo.senderName,
+                      text:
+                        payload.replyTo.text || payload.replyTo.content || '',
+                    }
+                  : null,
+                reactions: {},
               };
-              
-              sendToClient(targetWs, "private_message", pmPayload);
-              
-              sendToClient(ws, "private_message", pmPayload);
+
+              sendToClient(targetWs, 'private_message', pmPayload);
+
+              sendToClient(ws, 'private_message', pmPayload);
             } else {
-              
-              const isBot = BOTS.some(b => b.nickname.toLowerCase() === toNick.toLowerCase());
+              const isBot = BOTS.some(
+                (b) => b.nickname.toLowerCase() === toNick.toLowerCase(),
+              );
               if (isBot) {
-                const isExemptBot = ["bot_papos", "bots_papos"].includes(toNick.toLowerCase());
+                const isExemptBot = ['bot_papos', 'bots_papos'].includes(
+                  toNick.toLowerCase(),
+                );
                 if (!systemSettings.botsEnabled && !isExemptBot) {
-                  sendToClient(ws, "error", { message: `Usuário '${toNick}' não está online.` });
+                  sendToClient(ws, 'error', {
+                    message: `Usuário '${toNick}' não está online.`,
+                  });
                   return;
                 }
                 const pmPayload = {
-                  type: "private_message",
+                  type: 'private_message',
                   id: pmId,
                   senderId: session.nickname,
                   senderName: session.nickname,
@@ -3090,85 +4034,113 @@ async function startServer() {
                   recipientName: toNick,
                   content: text,
                   timestamp: Date.now(),
-                  conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
+                  conversationId: [
+                    session.nickname.toLowerCase(),
+                    toNick.toLowerCase(),
+                  ]
+                    .sort()
+                    .join('--'),
                   isDeleted: false,
                   color,
-                  replyTo: payload.replyTo ? {
-                    id: payload.replyTo.id || payload.replyTo.messageId,
-                    messageId: payload.replyTo.messageId || payload.replyTo.id,
-                    sender: payload.replyTo.sender || payload.replyTo.senderId || payload.replyTo.senderName,
-                    senderId: payload.replyTo.senderId || payload.replyTo.sender || payload.replyTo.senderName,
-                    text: payload.replyTo.text || payload.replyTo.content || ""
-                  } : null,
-                  reactions: {}
+                  replyTo: payload.replyTo
+                    ? {
+                        id: payload.replyTo.id || payload.replyTo.messageId,
+                        messageId:
+                          payload.replyTo.messageId || payload.replyTo.id,
+                        sender:
+                          payload.replyTo.sender ||
+                          payload.replyTo.senderId ||
+                          payload.replyTo.senderName,
+                        senderId:
+                          payload.replyTo.senderId ||
+                          payload.replyTo.sender ||
+                          payload.replyTo.senderName,
+                        text:
+                          payload.replyTo.text || payload.replyTo.content || '',
+                      }
+                    : null,
+                  reactions: {},
                 };
-                
-                sendToClient(ws, "private_message", pmPayload);
+
+                sendToClient(ws, 'private_message', pmPayload);
 
                 setTimeout(() => {
                   if (ws.readyState !== WebSocket.OPEN) return;
-                  sendToClient(ws, "private_typing", {
+                  sendToClient(ws, 'private_typing', {
                     from: toNick,
-                    isTyping: true
+                    isTyping: true,
                   });
                 }, 200);
 
                 setTimeout(() => {
                   if (ws.readyState !== WebSocket.OPEN) return;
-                  
-                  sendToClient(ws, "private_typing", {
+
+                  sendToClient(ws, 'private_typing', {
                     from: toNick,
-                    isTyping: false
+                    isTyping: false,
                   });
 
                   let botReplies = [];
-                  if (toNick.toLowerCase() === "bot_papos") {
+                  if (toNick.toLowerCase() === 'bot_papos') {
                     botReplies = [
-                      "Olá! Como assistente do Papos, posso te ajudar. Lembra que você pode ver todas as salas públicas clicando em **Salas** no menu superior!",
-                      "Quer mudar a cor da sua mensagem? Basta clicar no ícone da **Paleta de Cores** no campo de envio (no celular, clique no ícone de três pontos para abrir as opções!).",
-                      "Dica: Se quiser iniciar um chat privado com qualquer outra pessoa, basta clicar sobre o nome dela na lista de usuários online à esquerda!",
-                      "Sinta-se à vontade para me perguntar qualquer dúvida sobre o funcionamento do chat! Estou sempre por aqui de olho para garantir a melhor experiência."
+                      'Olá! Como assistente do Papos, posso te ajudar. Lembra que você pode ver todas as salas públicas clicando em **Salas** no menu superior!',
+                      'Quer mudar a cor da sua mensagem? Basta clicar no ícone da **Paleta de Cores** no campo de envio (no celular, clique no ícone de três pontos para abrir as opções!).',
+                      'Dica: Se quiser iniciar um chat privado com qualquer outra pessoa, basta clicar sobre o nome dela na lista de usuários online à esquerda!',
+                      'Sinta-se à vontade para me perguntar qualquer dúvida sobre o funcionamento do chat! Estou sempre por aqui de olho para garantir a melhor experiência.',
                     ];
                   } else {
                     botReplies = [
-                      "Opa! Tudo bem? Estou meio ocupado(a) lendo as novidades nos canais públicos agora, mas depois a gente se fala!",
-                      "Haha que bacana! Me conta mais sobre isso depois lá no canal principal pra todo mundo interagir junto!",
-                      "Oi oi! Tudo ótimo por aqui. Dá uma olhada no canal geral, o pessoal tá trocando uma ideia super bacana lá!",
-                      "Eae! No momento tô focado(a) nos debates das salas públicas, mas adorei seu alô!",
-                      "Opa, valeu pelo salve! Vamos papear lá no chat principal?"
+                      'Opa! Tudo bem? Estou meio ocupado(a) lendo as novidades nos canais públicos agora, mas depois a gente se fala!',
+                      'Haha que bacana! Me conta mais sobre isso depois lá no canal principal pra todo mundo interagir junto!',
+                      'Oi oi! Tudo ótimo por aqui. Dá uma olhada no canal geral, o pessoal tá trocando uma ideia super bacana lá!',
+                      'Eae! No momento tô focado(a) nos debates das salas públicas, mas adorei seu alô!',
+                      'Opa, valeu pelo salve! Vamos papear lá no chat principal?',
                     ];
                   }
-                  const randomReply = botReplies[Math.floor(Math.random() * botReplies.length)];
-                  sendToClient(ws, "private_message", {
-                    type: "private_message",
-                    id: "pm-reply-" + Date.now(),
+                  const randomReply =
+                    botReplies[Math.floor(Math.random() * botReplies.length)];
+                  sendToClient(ws, 'private_message', {
+                    type: 'private_message',
+                    id: 'pm-reply-' + Date.now(),
                     senderId: toNick,
                     senderName: toNick,
                     recipientId: session.nickname,
                     recipientName: session.nickname,
                     content: randomReply,
                     timestamp: Date.now(),
-                    conversationId: [toNick.toLowerCase(), session.nickname.toLowerCase()].sort().join("--"),
-                    isDeleted: false
+                    conversationId: [
+                      toNick.toLowerCase(),
+                      session.nickname.toLowerCase(),
+                    ]
+                      .sort()
+                      .join('--'),
+                    isDeleted: false,
                   });
                 }, 1700);
               } else {
-                sendToClient(ws, "error", { message: `Usuário '${toNick}' não está online.` });
+                sendToClient(ws, 'error', {
+                  message: `Usuário '${toNick}' não está online.`,
+                });
               }
             }
             break;
           }
 
-          case "typing": {
+          case 'typing': {
             if (!session.nickname || !session.roomId) return;
-            broadcastToRoom(session.roomId, "typing", {
-              nickname: session.nickname,
-              isTyping: !!payload.isTyping
-            }, ws);
+            broadcastToRoom(
+              session.roomId,
+              'typing',
+              {
+                nickname: session.nickname,
+                isTyping: !!payload.isTyping,
+              },
+              ws,
+            );
             break;
           }
 
-          case "private_typing": {
+          case 'private_typing': {
             if (!session.nickname) return;
             const toNick = payload.to?.trim();
             if (!toNick) return;
@@ -3181,16 +4153,16 @@ async function startServer() {
             });
 
             if (targetWs) {
-              sendToClient(targetWs, "private_typing", {
+              sendToClient(targetWs, 'private_typing', {
                 from: session.nickname,
-                isTyping: !!payload.isTyping
+                isTyping: !!payload.isTyping,
               });
             }
             break;
           }
 
-          case "private_reaction":
-          case "reaction": {
+          case 'private_reaction':
+          case 'reaction': {
             if (!session.nickname) return;
             const { messageId, emoji, to: toNick } = payload;
             if (!messageId || !emoji) return;
@@ -3199,7 +4171,10 @@ async function startServer() {
               // Route reaction for private chat message
               let targetWs: WebSocket | null = null;
               activeSessions.forEach((s, key) => {
-                if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                if (
+                  s.nickname &&
+                  s.nickname.toLowerCase() === toNick.toLowerCase()
+                ) {
                   targetWs = key;
                 }
               });
@@ -3209,33 +4184,37 @@ async function startServer() {
                 emoji,
                 from: session.nickname,
                 partner: session.nickname,
-                to: toNick
+                to: toNick,
               };
 
               if (targetWs && targetWs !== ws) {
-                sendToClient(targetWs, "private_reaction_update", reactionPayload);
+                sendToClient(
+                  targetWs,
+                  'private_reaction_update',
+                  reactionPayload,
+                );
               }
-              sendToClient(ws, "private_reaction_update", {
+              sendToClient(ws, 'private_reaction_update', {
                 messageId,
                 emoji,
                 from: session.nickname,
                 partner: toNick,
-                to: toNick
+                to: toNick,
               });
               break;
             }
 
             if (!session.roomId) return;
             const roomMsgs = messages[session.roomId] || [];
-            const msgObj = roomMsgs.find(m => m.id === messageId);
+            const msgObj = roomMsgs.find((m) => m.id === messageId);
             if (msgObj) {
               if (!msgObj.reactions) msgObj.reactions = {};
               if (!msgObj.reactions[emoji]) msgObj.reactions[emoji] = [];
-              
+
               const reactors = msgObj.reactions[emoji];
               const index = reactors.indexOf(session.nickname);
               if (index > -1) {
-                reactors.splice(index, 1); 
+                reactors.splice(index, 1);
               } else {
                 reactors.push(session.nickname);
               }
@@ -3244,67 +4223,87 @@ async function startServer() {
                 delete msgObj.reactions[emoji];
               }
 
-              broadcastToRoom(session.roomId, "reaction_update", {
+              broadcastToRoom(session.roomId, 'reaction_update', {
                 messageId,
-                reactions: msgObj.reactions
+                reactions: msgObj.reactions,
               });
             }
             break;
           }
 
-          case "create_room": {
+          case 'create_room': {
             if (!session.nickname) return;
-            const name = sanitizeHTML(payload.name || "").trim().substring(0, 30);
-            const desc = sanitizeHTML(payload.desc || "").trim().substring(0, 120);
+            const name = sanitizeHTML(payload.name || '')
+              .trim()
+              .substring(0, 30);
+            const desc = sanitizeHTML(payload.desc || '')
+              .trim()
+              .substring(0, 120);
 
             if (!name) return;
 
-            if (rooms.some(r => r.name.toLowerCase() === name.toLowerCase())) {
-              sendToClient(ws, "error", { message: "Já existe uma sala com este nome." });
+            if (
+              rooms.some((r) => r.name.toLowerCase() === name.toLowerCase())
+            ) {
+              sendToClient(ws, 'error', {
+                message: 'Já existe uma sala com este nome.',
+              });
               return;
             }
 
-            const newId = "room-" + Date.now();
+            const newId = 'room-' + Date.now();
             const newRoom = {
               id: newId,
               name,
-              desc: desc || "Uma nova sala criada por um membro da comunidade.",
+              desc: desc || 'Uma nova sala criada por um membro da comunidade.',
               count: 0,
-              icon: "chat-dots"
+              icon: 'chat-dots',
             };
 
             rooms.push(newRoom);
             messages[newId] = [
-              { id: `sys-init-${newId}`, sender: "Sistema", text: `Sala '${name}' foi criada com sucesso por ${session.nickname}.`, time: getCurrentTime(), timestamp: Date.now(), isSystem: true }
+              {
+                id: `sys-init-${newId}`,
+                sender: 'Sistema',
+                text: `Sala '${name}' foi criada com sucesso por ${session.nickname}.`,
+                time: getCurrentTime(),
+                timestamp: Date.now(),
+                isSystem: true,
+              },
             ];
 
-            sendToClient(ws, "room_created", { room: newRoom });
+            sendToClient(ws, 'room_created', { room: newRoom });
 
             broadcastRoomsList();
             break;
           }
 
-          case "delete_message": {
+          case 'delete_message': {
             if (!session.nickname || !session.roomId) return;
             const { messageId } = payload;
             if (!messageId) return;
 
             const roomMsgs = messages[session.roomId] || [];
-            const index = roomMsgs.findIndex(m => m.id === messageId);
+            const index = roomMsgs.findIndex((m) => m.id === messageId);
             if (index > -1) {
               const msgObj = roomMsgs[index];
-              
+
               if (!msgObj.isSystem && msgObj.sender === session.nickname) {
                 roomMsgs.splice(index, 1);
-                broadcastToRoom(session.roomId, "message_deleted", { messageId });
+                broadcastToRoom(session.roomId, 'message_deleted', {
+                  messageId,
+                });
               } else {
-                sendToClient(ws, "error", { message: "Você não possui permissão para excluir esta mensagem." });
+                sendToClient(ws, 'error', {
+                  message:
+                    'Você não possui permissão para excluir esta mensagem.',
+                });
               }
             }
             break;
           }
 
-          case "delete_private_message": {
+          case 'delete_private_message': {
             if (!session.nickname) return;
             const { messageId, to } = payload;
             if (!messageId || !to) return;
@@ -3316,15 +4315,21 @@ async function startServer() {
               }
             });
 
-            sendToClient(ws, "private_message_deleted", { messageId, partner: to });
+            sendToClient(ws, 'private_message_deleted', {
+              messageId,
+              partner: to,
+            });
 
             if (targetWs) {
-              sendToClient(targetWs, "private_message_deleted", { messageId, partner: session.nickname });
+              sendToClient(targetWs, 'private_message_deleted', {
+                messageId,
+                partner: session.nickname,
+              });
             }
             break;
           }
 
-          case "delete_private_conversation": {
+          case 'delete_private_conversation': {
             if (!session.nickname) return;
             const { partner } = payload;
             if (!partner) return;
@@ -3336,58 +4341,79 @@ async function startServer() {
               }
             });
 
-            sendToClient(ws, "private_conversation_deleted", { partner });
+            sendToClient(ws, 'private_conversation_deleted', { partner });
 
             if (targetWs) {
-              sendToClient(targetWs, "private_conversation_deleted", { partner: session.nickname });
+              sendToClient(targetWs, 'private_conversation_deleted', {
+                partner: session.nickname,
+              });
             }
             break;
           }
 
-          case "update_call_settings": {
+          case 'update_call_settings': {
             if (payload.blockCalls !== undefined) {
               session.blockCalls = Boolean(payload.blockCalls);
               if (session.uid) {
                 try {
-                  const userRef = doc(db, "users", session.uid);
-                  await setDoc(userRef, { blockCalls: session.blockCalls, updatedAt: Date.now() }, { merge: true });
+                  const userRef = doc(db, 'users', session.uid);
+                  await setDoc(
+                    userRef,
+                    { blockCalls: session.blockCalls, updatedAt: Date.now() },
+                    { merge: true },
+                  );
                 } catch (e) {}
               }
             }
             break;
           }
 
-          case "call:request": {
+          case 'call:request': {
             if (!session.nickname) return;
-            const toNick = (payload.to || "").trim();
+            const toNick = (payload.to || '').trim();
             if (!toNick) return;
 
             if (toNick.toLowerCase() === session.nickname.toLowerCase()) {
-              sendToClient(ws, "call:error", { message: "Você não pode ligar para si mesmo." });
+              sendToClient(ws, 'call:error', {
+                message: 'Você não pode ligar para si mesmo.',
+              });
               return;
             }
 
             if (isUserInActiveCall(session.nickname)) {
-              sendToClient(ws, "call:busy", { partner: toNick, message: "Você já está em uma chamada." });
+              sendToClient(ws, 'call:busy', {
+                partner: toNick,
+                message: 'Você já está em uma chamada.',
+              });
               return;
             }
 
             let targetWs: WebSocket | null = null;
             let targetSession: ClientSession | null = null;
-            activeSessions.forEach((s, key) => {
-              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
-                targetWs = key;
-                targetSession = s;
+            for (const [candidateWs, candidateSession] of activeSessions) {
+              if (
+                candidateSession.nickname &&
+                candidateSession.nickname.toLowerCase() === toNick.toLowerCase()
+              ) {
+                targetWs = candidateWs;
+                targetSession = candidateSession;
+                break;
               }
-            });
+            }
 
             if (!targetWs || !targetSession) {
-              sendToClient(ws, "call:unavailable", { partner: toNick, message: "Usuário indisponível no momento." });
+              sendToClient(ws, 'call:unavailable', {
+                partner: toNick,
+                message: 'Usuário indisponível no momento.',
+              });
               return;
             }
 
             if (isUserInActiveCall(toNick)) {
-              sendToClient(ws, "call:busy", { partner: toNick, message: "Usuário está em outra chamada." });
+              sendToClient(ws, 'call:busy', {
+                partner: toNick,
+                message: 'Usuário está em outra chamada.',
+              });
               return;
             }
 
@@ -3395,8 +4421,13 @@ async function startServer() {
             let isTargetBlocked = targetSession.blockCalls === true;
             if (!isTargetBlocked && targetSession.uid) {
               try {
-                const targetDocSnap = await getDoc(doc(db, "users", targetSession.uid));
-                if (targetDocSnap.exists() && targetDocSnap.data().blockCalls === true) {
+                const targetDocSnap = await getDoc(
+                  doc(db, 'users', targetSession.uid),
+                );
+                if (
+                  targetDocSnap.exists() &&
+                  targetDocSnap.data().blockCalls === true
+                ) {
                   isTargetBlocked = true;
                   targetSession.blockCalls = true;
                 }
@@ -3404,52 +4435,67 @@ async function startServer() {
             }
 
             if (isTargetBlocked) {
-              sendToClient(ws, "call:blocked", {
+              sendToClient(ws, 'call:blocked', {
                 partner: toNick,
-                message: "Esta pessoa não pode aceitar ligações no momento."
+                message: 'Esta pessoa não pode aceitar ligações no momento.',
               });
               return;
             }
 
-            sendToClient(ws, "call:permitted", {
+            sendToClient(ws, 'call:permitted', {
               partner: toNick,
-              to: toNick
+              to: toNick,
             });
             break;
           }
 
-          case "call:initiate":
-          case "call:offer": {
+          case 'call:initiate':
+          case 'call:offer': {
             if (!session.nickname) return;
-            const toNick = (payload.to || "").trim();
+            const toNick = (payload.to || '').trim();
             if (!toNick) return;
 
             if (toNick.toLowerCase() === session.nickname.toLowerCase()) {
-              sendToClient(ws, "call:error", { message: "Você não pode ligar para si mesmo." });
+              sendToClient(ws, 'call:error', {
+                message: 'Você não pode ligar para si mesmo.',
+              });
               return;
             }
 
             if (isUserInActiveCall(session.nickname)) {
-              sendToClient(ws, "call:busy", { partner: toNick, message: "Você já está em uma chamada." });
+              sendToClient(ws, 'call:busy', {
+                partner: toNick,
+                message: 'Você já está em uma chamada.',
+              });
               return;
             }
 
             let targetWs: WebSocket | null = null;
             let targetSession: ClientSession | null = null;
-            activeSessions.forEach((s, key) => {
-              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
-                targetWs = key;
-                targetSession = s;
+            for (const [candidateWs, candidateSession] of activeSessions) {
+              if (
+                candidateSession.nickname &&
+                candidateSession.nickname.toLowerCase() === toNick.toLowerCase()
+              ) {
+                targetWs = candidateWs;
+                targetSession = candidateSession;
+                break;
               }
-            });
+            }
 
             if (!targetWs || !targetSession) {
-              sendToClient(ws, "call:unavailable", { partner: toNick, message: "Usuário indisponível no momento." });
+              sendToClient(ws, 'call:unavailable', {
+                partner: toNick,
+                message: 'Usuário indisponível no momento.',
+              });
               return;
             }
 
             if (isUserInActiveCall(toNick)) {
-              sendToClient(ws, "call:busy", { partner: toNick, message: "Usuário está em outra chamada." });
+              sendToClient(ws, 'call:busy', {
+                partner: toNick,
+                message: 'Usuário está em outra chamada.',
+              });
               return;
             }
 
@@ -3457,8 +4503,13 @@ async function startServer() {
             let isTargetBlocked = targetSession.blockCalls === true;
             if (!isTargetBlocked && targetSession.uid) {
               try {
-                const targetDocSnap = await getDoc(doc(db, "users", targetSession.uid));
-                if (targetDocSnap.exists() && targetDocSnap.data().blockCalls === true) {
+                const targetDocSnap = await getDoc(
+                  doc(db, 'users', targetSession.uid),
+                );
+                if (
+                  targetDocSnap.exists() &&
+                  targetDocSnap.data().blockCalls === true
+                ) {
                   isTargetBlocked = true;
                   targetSession.blockCalls = true;
                 }
@@ -3466,280 +4517,376 @@ async function startServer() {
             }
 
             if (isTargetBlocked) {
-              sendToClient(ws, "call:blocked", {
+              sendToClient(ws, 'call:blocked', {
                 partner: toNick,
-                message: "Esta pessoa não pode aceitar ligações no momento."
+                message: 'Esta pessoa não pode aceitar ligações no momento.',
               });
               return;
             }
 
-            const callId = "call-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+            const callId =
+              'call-' +
+              Date.now() +
+              '-' +
+              Math.random().toString(36).substring(2, 7);
             activeCalls.set(callId, {
               callId,
               caller: session.nickname,
               callee: toNick,
-              status: "ringing",
-              createdAt: Date.now()
+              status: 'ringing',
+              createdAt: Date.now(),
             });
 
-            sendToClient(targetWs, "call:incoming", {
+            sendToClient(targetWs, 'call:incoming', {
               callId,
               from: session.nickname,
               callerPhotoUrl: session.photoUrl,
-              offer: payload.offer
+              offer: payload.offer,
             });
 
-            sendToClient(ws, "call:calling", {
+            sendToClient(ws, 'call:calling', {
               callId,
-              to: toNick
+              to: toNick,
             });
             break;
           }
 
-          case "call:ringing": {
+          case 'call:ringing': {
             if (!session.nickname) return;
-            const toNick = (payload.to || "").trim();
+            const toNick = (payload.to || '').trim();
             let targetWs: WebSocket | null = null;
             activeSessions.forEach((s, key) => {
-              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+              if (
+                s.nickname &&
+                s.nickname.toLowerCase() === toNick.toLowerCase()
+              ) {
                 targetWs = key;
               }
             });
             if (targetWs) {
-              sendToClient(targetWs, "call:ringing", { from: session.nickname });
-            }
-            break;
-          }
-
-          case "call:answer": {
-            if (!session.nickname) return;
-            const toNick = (payload.to || "").trim();
-            const ongoingCall = findCallForUser(session.nickname);
-            if (ongoingCall) {
-              ongoingCall.status = "connected";
-            }
-
-            let targetWs: WebSocket | null = null;
-            activeSessions.forEach((s, key) => {
-              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
-                targetWs = key;
-              }
-            });
-
-            if (targetWs) {
-              sendToClient(targetWs, "call:answer", {
+              sendToClient(targetWs, 'call:ringing', {
                 from: session.nickname,
-                answer: payload.answer
               });
             }
             break;
           }
 
-          case "call:ice_candidate": {
+          case 'call:answer': {
             if (!session.nickname) return;
-            const toNick = (payload.to || "").trim();
+            const toNick = (payload.to || '').trim();
+            const ongoingCall = findCallForUser(session.nickname);
+            if (ongoingCall) {
+              ongoingCall.status = 'connected';
+            }
+
+            let targetWs: WebSocket | null = null;
+            activeSessions.forEach((s, key) => {
+              if (
+                s.nickname &&
+                s.nickname.toLowerCase() === toNick.toLowerCase()
+              ) {
+                targetWs = key;
+              }
+            });
+
+            if (targetWs) {
+              sendToClient(targetWs, 'call:answer', {
+                from: session.nickname,
+                answer: payload.answer,
+              });
+            }
+            break;
+          }
+
+          case 'call:ice_candidate': {
+            if (!session.nickname) return;
+            const toNick = (payload.to || '').trim();
             if (!toNick || !payload.candidate) return;
 
             let targetWs: WebSocket | null = null;
             activeSessions.forEach((s, key) => {
-              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+              if (
+                s.nickname &&
+                s.nickname.toLowerCase() === toNick.toLowerCase()
+              ) {
                 targetWs = key;
               }
             });
 
             if (targetWs) {
-              sendToClient(targetWs, "call:ice_candidate", {
+              sendToClient(targetWs, 'call:ice_candidate', {
                 from: session.nickname,
-                candidate: payload.candidate
+                candidate: payload.candidate,
               });
             }
             break;
           }
 
-          case "call:reject": {
+          case 'call:reject': {
             if (!session.nickname) return;
             const ongoingCall = findCallForUser(session.nickname);
-            let partner = (payload.to || "").trim();
+            let partner = (payload.to || '').trim();
             if (ongoingCall) {
               activeCalls.delete(ongoingCall.callId);
               if (!partner) {
-                partner = ongoingCall.caller.toLowerCase() === session.nickname.toLowerCase()
-                  ? ongoingCall.callee
-                  : ongoingCall.caller;
+                partner =
+                  ongoingCall.caller.toLowerCase() ===
+                  session.nickname.toLowerCase()
+                    ? ongoingCall.callee
+                    : ongoingCall.caller;
               }
             }
 
             if (partner) {
               activeSessions.forEach((s, key) => {
-                if (s.nickname && s.nickname.toLowerCase() === partner.toLowerCase()) {
-                  sendToClient(key, "call:rejected", { from: session.nickname, reason: payload.reason || "declined" });
+                if (
+                  s.nickname &&
+                  s.nickname.toLowerCase() === partner.toLowerCase()
+                ) {
+                  sendToClient(key, 'call:rejected', {
+                    from: session.nickname,
+                    reason: payload.reason || 'declined',
+                  });
                 }
               });
             }
             break;
           }
 
-          case "call:end": {
+          case 'call:end': {
             if (!session.nickname) return;
             const ongoingCall = findCallForUser(session.nickname);
-            let partner = (payload.to || "").trim();
+            let partner = (payload.to || '').trim();
             if (ongoingCall) {
               activeCalls.delete(ongoingCall.callId);
               if (!partner) {
-                partner = ongoingCall.caller.toLowerCase() === session.nickname.toLowerCase()
-                  ? ongoingCall.callee
-                  : ongoingCall.caller;
+                partner =
+                  ongoingCall.caller.toLowerCase() ===
+                  session.nickname.toLowerCase()
+                    ? ongoingCall.callee
+                    : ongoingCall.caller;
               }
             }
 
             if (partner) {
               activeSessions.forEach((s, key) => {
-                if (s.nickname && s.nickname.toLowerCase() === partner.toLowerCase()) {
-                  sendToClient(key, "call:ended", { from: session.nickname });
+                if (
+                  s.nickname &&
+                  s.nickname.toLowerCase() === partner.toLowerCase()
+                ) {
+                  sendToClient(key, 'call:ended', { from: session.nickname });
                 }
               });
             }
-            sendToClient(ws, "call:ended", { from: session.nickname });
+            sendToClient(ws, 'call:ended', { from: session.nickname });
             break;
           }
 
-          case "get_profile": {
+          case 'get_profile': {
             const requestedNickname = payload.nickname;
-            if (!requestedNickname || typeof requestedNickname !== "string") {
-              sendToClient(ws, "error", { message: "Apelido inválido." });
+            if (!requestedNickname || typeof requestedNickname !== 'string') {
+              sendToClient(ws, 'error', { message: 'Apelido inválido.' });
               return;
             }
 
             let foundSession: ClientSession | null = null;
             activeSessions.forEach((s) => {
-              if (s.nickname && s.nickname.toLowerCase() === requestedNickname.toLowerCase()) {
+              if (
+                s.nickname &&
+                s.nickname.toLowerCase() === requestedNickname.toLowerCase()
+              ) {
                 foundSession = s;
               }
             });
 
-            let bio = "";
+            let bio = '';
             let age: number | null = null;
-            let gender = "";
-            let photoUrl = "";
-            let permanentId = "";
+            let gender = '';
+            let photoUrl = '';
+            let permanentId = '';
             const isOnline = !!foundSession;
 
             if (foundSession) {
-              bio = (foundSession as ClientSession).bio || "";
+              bio = (foundSession as ClientSession).bio || '';
               age = (foundSession as ClientSession).age || null;
-              gender = (foundSession as ClientSession).gender || "";
-              photoUrl = (foundSession as ClientSession).photoUrl || "";
-              permanentId = (foundSession as ClientSession).permanentId || "";
+              gender = (foundSession as ClientSession).gender || '';
+              photoUrl = (foundSession as ClientSession).photoUrl || '';
+              permanentId = (foundSession as ClientSession).permanentId || '';
 
               if (!bio || age === null || !gender || !permanentId) {
                 try {
-                  const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
+                  const q = query(
+                    collection(db, 'users'),
+                    where('nickname', '==', requestedNickname),
+                  );
                   const snap = await getDocs(q);
                   if (!snap.empty) {
                     const userData = snap.docs[0].data();
-                    if (!bio) bio = userData.bio || "";
+                    if (!bio) bio = userData.bio || '';
                     if (age === null) age = userData.age || null;
-                    if (!gender) gender = userData.gender || "";
-                    if (!permanentId) permanentId = userData.permanentId || "";
+                    if (!gender) gender = userData.gender || '';
+                    if (!permanentId) permanentId = userData.permanentId || '';
                   }
                 } catch (err) {}
               }
             } else {
               try {
-                const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
+                const q = query(
+                  collection(db, 'users'),
+                  where('nickname', '==', requestedNickname),
+                );
                 const snap = await getDocs(q);
                 if (!snap.empty) {
                   const userData = snap.docs[0].data();
-                  bio = userData.bio || "";
+                  bio = userData.bio || '';
                   age = userData.age || null;
-                  gender = userData.gender || "";
-                  photoUrl = userData.photoURL || userData.profileImage || userData.photoUrl || "";
-                  permanentId = userData.permanentId || "";
+                  gender = userData.gender || '';
+                  photoUrl =
+                    userData.photoURL ||
+                    userData.profileImage ||
+                    userData.photoUrl ||
+                    '';
+                  permanentId = userData.permanentId || '';
                 }
               } catch (err) {
-                console.error("[Firestore] Error fetching profile:", err);
+                console.error('[Firestore] Error fetching profile:', err);
               }
             }
 
             if (!permanentId) {
-              if (BOTS.some(b => b.nickname.toLowerCase() === requestedNickname.toLowerCase())) {
-                permanentId = "BOT-ASSISTANT";
+              if (
+                BOTS.some(
+                  (b) =>
+                    b.nickname.toLowerCase() ===
+                    requestedNickname.toLowerCase(),
+                )
+              ) {
+                permanentId = 'BOT-ASSISTANT';
               } else {
-                permanentId = "USR-Membro";
+                permanentId = 'USR-Membro';
               }
             }
 
-            sendToClient(ws, "profile_data", {
-              nickname: foundSession ? (foundSession as ClientSession).nickname : requestedNickname,
+            sendToClient(ws, 'profile_data', {
+              nickname: foundSession
+                ? (foundSession as ClientSession).nickname
+                : requestedNickname,
               photoUrl,
               profileImage: photoUrl || null,
               bio,
               age,
               gender,
               online: isOnline,
-              permanentId
+              permanentId,
             });
             break;
           }
 
-          case "update_photo":
-          case "profile_updated": {
-            const raw = payload.photoUrl !== undefined ? payload.photoUrl : (payload.profileImage !== undefined ? payload.profileImage : payload.photo);
-            const isExplicitRemove = payload.action === "remove_photo" || raw === null || raw === "" || raw === "null" || raw === "undefined";
-            const hasPhoto = raw !== undefined && raw !== null && typeof raw === "string" && raw.trim() !== "" && !raw.includes("null") && !raw.includes("undefined");
+          case 'update_photo':
+          case 'profile_updated': {
+            const raw =
+              payload.photoUrl !== undefined
+                ? payload.photoUrl
+                : payload.profileImage !== undefined
+                  ? payload.profileImage
+                  : payload.photo;
+            const isExplicitRemove =
+              payload.action === 'remove_photo' ||
+              raw === null ||
+              raw === '' ||
+              raw === 'null' ||
+              raw === 'undefined';
+            const hasPhoto =
+              raw !== undefined &&
+              raw !== null &&
+              typeof raw === 'string' &&
+              raw.trim() !== '' &&
+              !raw.includes('null') &&
+              !raw.includes('undefined');
 
             if (isExplicitRemove) {
-              session.photoUrl = "";
+              session.photoUrl = '';
               if (session.nickname) {
-                broadcastProfileUpdate(session.nickname, "", session.uid);
+                broadcastProfileUpdate(session.nickname, '', session.uid);
               }
               if (session.uid) {
                 try {
-                  const userRef = doc(db, "users", session.uid);
-                  await setDoc(userRef, { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
+                  const userRef = doc(db, 'users', session.uid);
+                  await setDoc(
+                    userRef,
+                    {
+                      photoURL: '',
+                      profileImage: '',
+                      photoUrl: '',
+                      updatedAt: Date.now(),
+                    },
+                    { merge: true },
+                  );
                 } catch (e) {}
               }
             } else if (hasPhoto) {
               session.photoUrl = sanitizeHTML(raw.trim());
               if (session.nickname) {
-                broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+                broadcastProfileUpdate(
+                  session.nickname,
+                  session.photoUrl,
+                  session.uid,
+                );
               }
               if (session.uid) {
                 try {
-                  const userRef = doc(db, "users", session.uid);
-                  await setDoc(userRef, {
-                    photoURL: session.photoUrl,
-                    profileImage: session.photoUrl,
-                    photoUrl: session.photoUrl,
-                    updatedAt: Date.now()
-                  }, { merge: true });
+                  const userRef = doc(db, 'users', session.uid);
+                  await setDoc(
+                    userRef,
+                    {
+                      photoURL: session.photoUrl,
+                      profileImage: session.photoUrl,
+                      photoUrl: session.photoUrl,
+                      updatedAt: Date.now(),
+                    },
+                    { merge: true },
+                  );
                 } catch (e) {}
               }
             }
             break;
           }
 
-          case "update_profile": {
+          case 'update_profile': {
             const oldNickname = session.nickname;
-            let newNickname = payload.nickname || payload.displayName || payload.name;
-            
-            if (newNickname && typeof newNickname === "string") {
+            let newNickname =
+              payload.nickname || payload.displayName || payload.name;
+
+            if (newNickname && typeof newNickname === 'string') {
               newNickname = sanitizeHTML(newNickname.trim());
               if (newNickname !== oldNickname) {
                 if (payload.uid && !session.uid) session.uid = payload.uid;
                 const uidCandidate = payload.uid || session.uid;
                 if (isReservedNickname(newNickname)) {
-                  const isAuth = await isAuthorizedForReservedNickname(uidCandidate, newNickname);
+                  const isAuth = await isAuthorizedForReservedNickname(
+                    uidCandidate,
+                    newNickname,
+                  );
                   if (!isAuth) {
-                    sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
+                    sendToClient(ws, 'error', {
+                      message:
+                        'Este nome é reservado pela equipe do Papo.net.br.',
+                    });
                     break;
                   }
                 }
-                const availability = await checkAndReserveNickname(session.roomId, newNickname, uidCandidate, session.guestId);
+                const availability = await checkAndReserveNickname(
+                  session.roomId,
+                  newNickname,
+                  uidCandidate,
+                  session.guestId,
+                );
                 if (!availability.available) {
-                  sendToClient(ws, "error", {
-                    code: availability.code || "NICKNAME_IN_USE",
-                    message: availability.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar."
+                  sendToClient(ws, 'error', {
+                    code: availability.code || 'NICKNAME_IN_USE',
+                    message:
+                      availability.message ||
+                      'Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.',
                   });
                   break;
                 }
@@ -3747,27 +4894,60 @@ async function startServer() {
               }
             }
 
-            session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
-            session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
-            session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
+            session.bio =
+              payload.bio !== undefined
+                ? sanitizeHTML(payload.bio)
+                : session.bio;
+            session.age =
+              payload.age !== undefined && payload.age !== null
+                ? Number(payload.age)
+                : session.age;
+            session.gender =
+              payload.gender !== undefined
+                ? sanitizeHTML(payload.gender)
+                : session.gender;
             if (payload.blockCalls !== undefined) {
               session.blockCalls = Boolean(payload.blockCalls);
             }
             if (payload.muteBotWelcome !== undefined) {
               session.muteBotWelcome = Boolean(payload.muteBotWelcome);
             }
-            
-            const rawProfilePhoto = payload.photoUrl !== undefined ? payload.photoUrl : (payload.profileImage !== undefined ? payload.profileImage : payload.photo);
-            const isExplicitRemove = payload.action === "remove_photo" || rawProfilePhoto === null || rawProfilePhoto === "" || rawProfilePhoto === "null" || rawProfilePhoto === "undefined";
-            const photoProvided = rawProfilePhoto !== undefined && rawProfilePhoto !== null && typeof rawProfilePhoto === "string" && rawProfilePhoto.trim() !== "" && !rawProfilePhoto.includes("null") && !rawProfilePhoto.includes("undefined");
+
+            const rawProfilePhoto =
+              payload.photoUrl !== undefined
+                ? payload.photoUrl
+                : payload.profileImage !== undefined
+                  ? payload.profileImage
+                  : payload.photo;
+            const isExplicitRemove =
+              payload.action === 'remove_photo' ||
+              rawProfilePhoto === null ||
+              rawProfilePhoto === '' ||
+              rawProfilePhoto === 'null' ||
+              rawProfilePhoto === 'undefined';
+            const photoProvided =
+              rawProfilePhoto !== undefined &&
+              rawProfilePhoto !== null &&
+              typeof rawProfilePhoto === 'string' &&
+              rawProfilePhoto.trim() !== '' &&
+              !rawProfilePhoto.includes('null') &&
+              !rawProfilePhoto.includes('undefined');
             let photoChanged = false;
 
             if (isExplicitRemove) {
-              session.photoUrl = "";
+              session.photoUrl = '';
               photoChanged = true;
             } else if (photoProvided) {
-              const rawPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
-              if (typeof rawPhoto === "string" && rawPhoto.trim() !== "" && !rawPhoto.includes("null") && !rawPhoto.includes("undefined")) {
+              const rawPhoto =
+                payload.photoUrl !== undefined
+                  ? payload.photoUrl
+                  : payload.profileImage;
+              if (
+                typeof rawPhoto === 'string' &&
+                rawPhoto.trim() !== '' &&
+                !rawPhoto.includes('null') &&
+                !rawPhoto.includes('undefined')
+              ) {
                 session.photoUrl = sanitizeHTML(rawPhoto.trim());
                 photoChanged = true;
               }
@@ -3775,7 +4955,7 @@ async function startServer() {
 
             if (session.uid) {
               try {
-                const userRef = doc(db, "users", session.uid);
+                const userRef = doc(db, 'users', session.uid);
                 const updateData: any = {
                   nickname: session.nickname,
                   displayName: session.nickname,
@@ -3783,7 +4963,7 @@ async function startServer() {
                   bio: session.bio,
                   age: session.age,
                   gender: session.gender,
-                  updatedAt: Date.now()
+                  updatedAt: Date.now(),
                 };
                 if (session.blockCalls !== undefined) {
                   updateData.blockCalls = session.blockCalls;
@@ -3793,34 +4973,41 @@ async function startServer() {
                   updateData.profileImage = session.photoUrl;
                   updateData.photoUrl = session.photoUrl;
                 } else if (isExplicitRemove) {
-                  updateData.photoURL = "";
-                  updateData.profileImage = "";
-                  updateData.photoUrl = "";
+                  updateData.photoURL = '';
+                  updateData.profileImage = '';
+                  updateData.photoUrl = '';
                 }
                 await setDoc(userRef, updateData, { merge: true });
               } catch (e) {
-                console.error("[update_profile] Erro ao atualizar Firestore:", e);
+                console.error(
+                  '[update_profile] Erro ao atualizar Firestore:',
+                  e,
+                );
               }
             } else {
               notifyAdminsGuestList();
             }
 
             if (photoChanged && session.nickname) {
-              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+              broadcastProfileUpdate(
+                session.nickname,
+                session.photoUrl,
+                session.uid,
+              );
             }
 
             if (session.roomId) {
-              broadcastToRoom(session.roomId, "user_joined", {
+              broadcastToRoom(session.roomId, 'user_joined', {
                 user: {
                   nickname: session.nickname,
-                  joinedAt: session.joinTime || Date.now()
-                }
+                  joinedAt: session.joinTime || Date.now(),
+                },
               });
             }
             break;
           }
 
-          case "update_preferences": {
+          case 'update_preferences': {
             if (payload.muteBotWelcome !== undefined) {
               session.muteBotWelcome = Boolean(payload.muteBotWelcome);
             }
@@ -3830,17 +5017,16 @@ async function startServer() {
             break;
           }
 
-          case "pong": {
-            
+          case 'pong': {
             break;
           }
         }
       } catch (err) {
-        console.error("Error processing websocket message:", err);
+        console.error('Error processing websocket message:', err);
       }
     });
 
-    ws.on("close", () => {
+    ws.on('close', () => {
       const session = activeSessions.get(ws);
       if (session) {
         const { nickname, roomId } = session;
@@ -3850,12 +5036,19 @@ async function startServer() {
           const ongoingCall = findCallForUser(nickname);
           if (ongoingCall) {
             activeCalls.delete(ongoingCall.callId);
-            const partner = ongoingCall.caller.toLowerCase() === nickname.toLowerCase()
-              ? ongoingCall.callee
-              : ongoingCall.caller;
+            const partner =
+              ongoingCall.caller.toLowerCase() === nickname.toLowerCase()
+                ? ongoingCall.callee
+                : ongoingCall.caller;
             activeSessions.forEach((s, key) => {
-              if (s.nickname && s.nickname.toLowerCase() === partner.toLowerCase()) {
-                sendToClient(key, "call:ended", { from: nickname, reason: "disconnected" });
+              if (
+                s.nickname &&
+                s.nickname.toLowerCase() === partner.toLowerCase()
+              ) {
+                sendToClient(key, 'call:ended', {
+                  from: nickname,
+                  reason: 'disconnected',
+                });
               }
             });
           }
@@ -3876,23 +5069,23 @@ async function startServer() {
             uid: session.uid,
             guestId: session.guestId,
             reservedAt: Date.now(),
-            expiresAt: Date.now() + 45000
+            expiresAt: Date.now() + 45000,
           });
 
           const leftUsers = getRoomOnlineUsers(roomId);
-          broadcastToRoom(roomId, "user_left", {
+          broadcastToRoom(roomId, 'user_left', {
             nickname,
             time: getCurrentTime(),
             timestamp: Date.now(),
-            onlineUsers: leftUsers
+            onlineUsers: leftUsers,
           });
         }
         broadcastRoomsList();
       }
     });
 
-    ws.on("error", (err) => {
-      console.error("Websocket connection error:", err);
+    ws.on('error', (err) => {
+      console.error('Websocket connection error:', err);
     });
   });
 
@@ -3902,213 +5095,395 @@ async function startServer() {
         activeSessions.delete(ws);
         return;
       }
-      ws.ping(); 
+      ws.ping();
     });
   }, 30000);
 
-  wss.on("close", () => {
+  wss.on('close', () => {
     clearInterval(interval);
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    
-    const { createServer: createViteServer } = await import("vite");
+  if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "custom" 
+      appType: 'custom',
     });
 
-    const serveTemplate = async (req: express.Request, res: express.Response, next: express.NextFunction, filePath: string) => {
+    const serveTemplate = async (
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+      filePath: string,
+    ) => {
       try {
-        const fs = await import("fs");
+        const fs = await import('fs');
         if (fs.existsSync(filePath)) {
-          let html = fs.readFileSync(filePath, "utf-8");
-          html = await vite.transformIndexHtml(req.originalUrl || req.url, html);
-          res.status(200).set({ "Content-Type": "text/html" }).end(html);
+          let html = fs.readFileSync(filePath, 'utf-8');
+          html = await vite.transformIndexHtml(
+            req.originalUrl || req.url,
+            html,
+          );
+          res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
         } else {
-          res.status(404).end("Not Found");
+          res.status(404).end('Not Found');
         }
       } catch (e) {
         next(e);
       }
     };
 
-    app.get("/robots.txt", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/robots.txt")));
-    app.get("/sitemap.xml", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/sitemap.xml")));
-    app.get("/manifest.json", (req, res) => res.sendFile(path.resolve(process.cwd(), "public/manifest.json")));
+    app.get('/robots.txt', (req, res) =>
+      res.sendFile(path.resolve(process.cwd(), 'public/robots.txt')),
+    );
+    app.get('/sitemap.xml', (req, res) =>
+      res.sendFile(path.resolve(process.cwd(), 'public/sitemap.xml')),
+    );
+    app.get('/manifest.json', (req, res) =>
+      res.sendFile(path.resolve(process.cwd(), 'public/manifest.json')),
+    );
 
-    app.get("/", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "index.html")));
-    app.get("/pagina-inicial", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "index.html")));
-    app.get("/salas", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/rooms.html")));
-    app.get("/chat", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/chat.html")));
-    app.get("/perfil", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/profile.html")));
-    app.get("/privacidade", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/privacy.html")));
-    app.get("/termos", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/terms.html")));
-    app.get("/sobre", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/about.html")));
-    app.get("/avaliacoes", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/avaliacoes.html")));
-    app.get("/contato", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/contact.html")));
-    app.get("/regras", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "pages/rules.html")));
-    app.get("/reset-password", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "public/reset-password.html")));
-    app.get("/reset-password.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "public/reset-password.html")));
-    app.get("/verify-email", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "public/verify-email.html")));
-    app.get("/verify-email.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "public/verify-email.html")));
+    app.get('/', (req, res, next) =>
+      serveTemplate(req, res, next, path.resolve(process.cwd(), 'index.html')),
+    );
+    app.get('/pagina-inicial', (req, res, next) =>
+      serveTemplate(req, res, next, path.resolve(process.cwd(), 'index.html')),
+    );
+    app.get('/salas', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/rooms.html'),
+      ),
+    );
+    app.get('/chat', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/chat.html'),
+      ),
+    );
+    app.get('/perfil', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/profile.html'),
+      ),
+    );
+    app.get('/privacidade', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/privacy.html'),
+      ),
+    );
+    app.get('/termos', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/terms.html'),
+      ),
+    );
+    app.get('/sobre', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/about.html'),
+      ),
+    );
+    app.get('/avaliacoes', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/avaliacoes.html'),
+      ),
+    );
+    app.get('/contato', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/contact.html'),
+      ),
+    );
+    app.get('/regras', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages/rules.html'),
+      ),
+    );
+    app.get('/reset-password', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'public/reset-password.html'),
+      ),
+    );
+    app.get('/reset-password.html', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'public/reset-password.html'),
+      ),
+    );
+    app.get('/verify-email', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'public/verify-email.html'),
+      ),
+    );
+    app.get('/verify-email.html', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'public/verify-email.html'),
+      ),
+    );
 
-    app.get("/blog", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
-    app.get("/blog/", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
-    app.get("/blog/index.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/index.html")));
-    app.get("/blog/categoria.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/categoria.html")));
-    app.get("/blog/artigo.html", (req, res, next) => serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/artigo.html")));
-    app.get("/blog/:slug", (req, res, next) => {
+    app.get('/blog', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'blog/index.html'),
+      ),
+    );
+    app.get('/blog/', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'blog/index.html'),
+      ),
+    );
+    app.get('/blog/index.html', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'blog/index.html'),
+      ),
+    );
+    app.get('/blog/categoria.html', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'blog/categoria.html'),
+      ),
+    );
+    app.get('/blog/artigo.html', (req, res, next) =>
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'blog/artigo.html'),
+      ),
+    );
+    app.get('/blog/:slug', (req, res, next) => {
       const slug = req.params.slug;
-      if (slug === "index.html" || slug === "categoria.html" || slug === "artigo.html") {
-        return serveTemplate(req, res, next, path.resolve(process.cwd(), `blog/${slug}`));
+      if (
+        slug === 'index.html' ||
+        slug === 'categoria.html' ||
+        slug === 'artigo.html'
+      ) {
+        return serveTemplate(
+          req,
+          res,
+          next,
+          path.resolve(process.cwd(), `blog/${slug}`),
+        );
       }
-      if (slug.endsWith(".html")) {
-        return serveTemplate(req, res, next, path.resolve(process.cwd(), "blog", slug));
+      if (slug.endsWith('.html')) {
+        return serveTemplate(
+          req,
+          res,
+          next,
+          path.resolve(process.cwd(), 'blog', slug),
+        );
       }
-      serveTemplate(req, res, next, path.resolve(process.cwd(), "blog/artigo.html"));
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'blog/artigo.html'),
+      );
     });
-    app.get(["/login", "/entrar"], (req, res) => {
+    app.get(['/login', '/entrar'], (req, res) => {
       const mode = req.query.mode;
       const oobCode = req.query.oobCode || req.query.code;
-      if (mode === "verifyEmail" || (oobCode && mode !== "resetPassword")) {
-        const qIndex = req.url.indexOf("?");
-        const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=verifyEmail&oobCode=${oobCode}`;
+      if (mode === 'verifyEmail' || (oobCode && mode !== 'resetPassword')) {
+        const qIndex = req.url.indexOf('?');
+        const qs =
+          qIndex !== -1
+            ? req.url.slice(qIndex)
+            : `?mode=verifyEmail&oobCode=${oobCode}`;
         return res.redirect(`/verify-email${qs}`);
       }
-      if (mode === "resetPassword") {
-        const qIndex = req.url.indexOf("?");
-        const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=resetPassword&oobCode=${oobCode}`;
+      if (mode === 'resetPassword') {
+        const qIndex = req.url.indexOf('?');
+        const qs =
+          qIndex !== -1
+            ? req.url.slice(qIndex)
+            : `?mode=resetPassword&oobCode=${oobCode}`;
         return res.redirect(`/reset-password${qs}`);
       }
-      res.redirect("/chat?room=room-1&action=login");
+      res.redirect('/chat?room=room-1&action=login');
     });
 
-    app.get("/pages/:page.html", (req, res, next) => {
-      serveTemplate(req, res, next, path.resolve(process.cwd(), "pages", `${req.params.page}.html`));
+    app.get('/pages/:page.html', (req, res, next) => {
+      serveTemplate(
+        req,
+        res,
+        next,
+        path.resolve(process.cwd(), 'pages', `${req.params.page}.html`),
+      );
     });
 
     app.use(vite.middlewares);
   } else {
-    
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = path.join(process.cwd(), 'dist');
 
-    app.use("/assets", express.static(path.join(process.cwd(), "assets")));
+    app.use('/assets', express.static(path.join(process.cwd(), 'assets')));
 
     app.use(express.static(distPath));
 
-    app.get("/", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get('/', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
     });
-    app.get("/pagina-inicial", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get('/pagina-inicial', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
     });
-    app.get("/salas", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "rooms.html"));
+    app.get('/salas', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'rooms.html'));
     });
-    app.get("/chat", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "chat.html"));
+    app.get('/chat', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'chat.html'));
     });
-    app.get("/perfil", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "profile.html"));
+    app.get('/perfil', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'profile.html'));
     });
-    app.get("/privacidade", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "privacy.html"));
+    app.get('/privacidade', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'privacy.html'));
     });
-    app.get("/termos", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "terms.html"));
+    app.get('/termos', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'terms.html'));
     });
-    app.get("/sobre", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "about.html"));
+    app.get('/sobre', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'about.html'));
     });
-    app.get("/avaliacoes", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "avaliacoes.html"));
+    app.get('/avaliacoes', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'avaliacoes.html'));
     });
-    app.get("/contato", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "contact.html"));
+    app.get('/contato', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'contact.html'));
     });
-    app.get("/regras", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "rules.html"));
+    app.get('/regras', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', 'rules.html'));
     });
-    app.get("/reset-password", (req, res) => {
-      res.sendFile(path.join(distPath, "reset-password.html"));
+    app.get('/reset-password', (req, res) => {
+      res.sendFile(path.join(distPath, 'reset-password.html'));
     });
-    app.get("/reset-password.html", (req, res) => {
-      res.sendFile(path.join(distPath, "reset-password.html"));
+    app.get('/reset-password.html', (req, res) => {
+      res.sendFile(path.join(distPath, 'reset-password.html'));
     });
-    app.get("/verify-email", (req, res) => {
-      res.sendFile(path.join(distPath, "verify-email.html"));
+    app.get('/verify-email', (req, res) => {
+      res.sendFile(path.join(distPath, 'verify-email.html'));
     });
-    app.get("/verify-email.html", (req, res) => {
-      res.sendFile(path.join(distPath, "verify-email.html"));
+    app.get('/verify-email.html', (req, res) => {
+      res.sendFile(path.join(distPath, 'verify-email.html'));
     });
 
-    app.get("/blog", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "index.html"));
+    app.get('/blog', (req, res) => {
+      res.sendFile(path.join(distPath, 'blog', 'index.html'));
     });
-    app.get("/blog/", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "index.html"));
+    app.get('/blog/', (req, res) => {
+      res.sendFile(path.join(distPath, 'blog', 'index.html'));
     });
-    app.get("/blog/index.html", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "index.html"));
+    app.get('/blog/index.html', (req, res) => {
+      res.sendFile(path.join(distPath, 'blog', 'index.html'));
     });
-    app.get("/blog/categoria.html", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "categoria.html"));
+    app.get('/blog/categoria.html', (req, res) => {
+      res.sendFile(path.join(distPath, 'blog', 'categoria.html'));
     });
-    app.get("/blog/artigo.html", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "artigo.html"));
+    app.get('/blog/artigo.html', (req, res) => {
+      res.sendFile(path.join(distPath, 'blog', 'artigo.html'));
     });
-    app.get("/blog/:slug", (req, res) => {
+    app.get('/blog/:slug', (req, res) => {
       const slug = req.params.slug;
-      if (slug === "index.html" || slug === "categoria.html" || slug === "artigo.html") {
-        return res.sendFile(path.join(distPath, "blog", slug));
+      if (
+        slug === 'index.html' ||
+        slug === 'categoria.html' ||
+        slug === 'artigo.html'
+      ) {
+        return res.sendFile(path.join(distPath, 'blog', slug));
       }
-      if (slug.endsWith(".html")) {
-        return res.sendFile(path.join(distPath, "blog", slug));
+      if (slug.endsWith('.html')) {
+        return res.sendFile(path.join(distPath, 'blog', slug));
       }
-      res.sendFile(path.join(distPath, "blog", "artigo.html"));
+      res.sendFile(path.join(distPath, 'blog', 'artigo.html'));
     });
-    app.get(["/login", "/entrar"], (req, res) => {
+    app.get(['/login', '/entrar'], (req, res) => {
       const mode = req.query.mode;
       const oobCode = req.query.oobCode || req.query.code;
-      if (mode === "verifyEmail" || (oobCode && mode !== "resetPassword")) {
-        const qIndex = req.url.indexOf("?");
-        const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=verifyEmail&oobCode=${oobCode}`;
+      if (mode === 'verifyEmail' || (oobCode && mode !== 'resetPassword')) {
+        const qIndex = req.url.indexOf('?');
+        const qs =
+          qIndex !== -1
+            ? req.url.slice(qIndex)
+            : `?mode=verifyEmail&oobCode=${oobCode}`;
         return res.redirect(`/verify-email${qs}`);
       }
-      if (mode === "resetPassword") {
-        const qIndex = req.url.indexOf("?");
-        const qs = qIndex !== -1 ? req.url.slice(qIndex) : `?mode=resetPassword&oobCode=${oobCode}`;
+      if (mode === 'resetPassword') {
+        const qIndex = req.url.indexOf('?');
+        const qs =
+          qIndex !== -1
+            ? req.url.slice(qIndex)
+            : `?mode=resetPassword&oobCode=${oobCode}`;
         return res.redirect(`/reset-password${qs}`);
       }
-      res.redirect("/chat?room=room-1&action=login");
+      res.redirect('/chat?room=room-1&action=login');
     });
 
-    app.get("/pages/:page.html", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", `${req.params.page}.html`));
+    app.get('/pages/:page.html', (req, res) => {
+      res.sendFile(path.join(distPath, 'pages', `${req.params.page}.html`));
     });
-    
+
     app.use((req, res, next) => {
       const ext = path.extname(req.path);
-      if (ext && ext !== ".html") {
-        res.status(404).set("Content-Type", "text/plain").send("Not Found");
+      if (ext && ext !== '.html') {
+        res.status(404).set('Content-Type', 'text/plain').send('Not Found');
         return;
       }
       next();
     });
 
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
   const PAPOS_TIPS = [
-    "💬 Respeite todos os participantes da conversa.",
-    "🔒 Nunca compartilhe senhas ou informações pessoais.",
-    "⭐ Avalie o Papo.net no menu se estiver gostando.",
-    "🚫 Denuncie comportamentos inadequados utilizando as ferramentas disponíveis.",
-    "😊 Converse com educação e faça novas amizades.",
-    "📱 O Papo.net funciona perfeitamente também no celular."
+    '💬 Respeite todos os participantes da conversa.',
+    '🔒 Nunca compartilhe senhas ou informações pessoais.',
+    '⭐ Avalie o Papo.net no menu se estiver gostando.',
+    '🚫 Denuncie comportamentos inadequados utilizando as ferramentas disponíveis.',
+    '😊 Converse com educação e faça novas amizades.',
+    '📱 O Papo.net funciona perfeitamente também no celular.',
   ];
 
   let paposTipIndex = 0;
@@ -4120,29 +5495,29 @@ async function startServer() {
     const tipText = PAPOS_TIPS[paposTipIndex % PAPOS_TIPS.length];
     paposTipIndex = (paposTipIndex + 1) % PAPOS_TIPS.length;
 
-    const targetRoomId = "room-1";
-    const msgId = "bot-tip-" + Date.now();
+    const targetRoomId = 'room-1';
+    const msgId = 'bot-tip-' + Date.now();
     const msgObj = {
       id: msgId,
-      sender: "Bot_Papos",
+      sender: 'Bot_Papos',
       text: tipText,
       time: getCurrentTime(),
       timestamp: Date.now(),
       isSystem: false,
-      reactions: {}
+      reactions: {},
     };
 
-    broadcastToRoom(targetRoomId, "typing", {
-      nickname: "Bot_Papos",
-      isTyping: true
+    broadcastToRoom(targetRoomId, 'typing', {
+      nickname: 'Bot_Papos',
+      isTyping: true,
     });
 
     setTimeout(() => {
       if (!systemSettings.botsEnabled) return;
 
-      broadcastToRoom(targetRoomId, "typing", {
-        nickname: "Bot_Papos",
-        isTyping: false
+      broadcastToRoom(targetRoomId, 'typing', {
+        nickname: 'Bot_Papos',
+        isTyping: false,
       });
 
       if (!messages[targetRoomId]) {
@@ -4153,16 +5528,19 @@ async function startServer() {
         messages[targetRoomId].shift();
       }
 
-      broadcastToRoom(targetRoomId, "message", { message: msgObj });
+      broadcastToRoom(targetRoomId, 'message', { message: msgObj });
     }, 1200);
   }
 
   function syncPaposTipTimer() {
     if (systemSettings.botsEnabled) {
       if (!paposTipInterval) {
-        paposTipInterval = setInterval(() => {
-          sendPaposTip();
-        }, 15 * 60 * 1000); // 15 minutes = 900,000 ms
+        paposTipInterval = setInterval(
+          () => {
+            sendPaposTip();
+          },
+          15 * 60 * 1000,
+        ); // 15 minutes = 900,000 ms
       }
     } else {
       if (paposTipInterval) {
@@ -4186,18 +5564,19 @@ async function startServer() {
 
   const currentlyTypingBots = new Set<string>();
 
-  const triggerBotSpeech = (bot: typeof BOTS[0]) => {
+  const triggerBotSpeech = (bot: (typeof BOTS)[0]) => {
     if (!systemSettings.botsEnabled) return;
-    if (bot.nickname === "Bot_Papos") return; // Bot_Papos handled separately (welcome + 15-min tips)
+    if (bot.nickname === 'Bot_Papos') return; // Bot_Papos handled separately (welcome + 15-min tips)
     if (currentlyTypingBots.has(bot.nickname)) return;
-    
+
     const roomId = bot.rooms[Math.floor(Math.random() * bot.rooms.length)];
     const roomMsgs = BOT_MESSAGES[roomId];
     if (!roomMsgs || roomMsgs.length === 0) return;
 
     const text = roomMsgs[Math.floor(Math.random() * roomMsgs.length)];
 
-    const msgId = "bot-m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+    const msgId =
+      'bot-m-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
     const msgObj = {
       id: msgId,
       sender: bot.nickname,
@@ -4205,13 +5584,13 @@ async function startServer() {
       time: getCurrentTime(),
       timestamp: Date.now(),
       isSystem: false,
-      reactions: {}
+      reactions: {},
     };
 
     currentlyTypingBots.add(bot.nickname);
-    broadcastToRoom(roomId, "typing", {
+    broadcastToRoom(roomId, 'typing', {
       nickname: bot.nickname,
-      isTyping: true
+      isTyping: true,
     });
 
     const typingDuration = 1500 + Math.random() * 2000;
@@ -4221,9 +5600,9 @@ async function startServer() {
         return;
       }
 
-      broadcastToRoom(roomId, "typing", {
+      broadcastToRoom(roomId, 'typing', {
         nickname: bot.nickname,
-        isTyping: false
+        isTyping: false,
       });
       currentlyTypingBots.delete(bot.nickname);
 
@@ -4235,7 +5614,7 @@ async function startServer() {
         messages[roomId].shift();
       }
 
-      broadcastToRoom(roomId, "message", { message: msgObj });
+      broadcastToRoom(roomId, 'message', { message: msgObj });
     }, typingDuration);
   };
 
@@ -4243,7 +5622,7 @@ async function startServer() {
     try {
       if (!systemSettings.botsEnabled) return;
 
-      const chatterBots = BOTS.filter(b => b.nickname !== "Bot_Papos");
+      const chatterBots = BOTS.filter((b) => b.nickname !== 'Bot_Papos');
       if (chatterBots.length === 0) return;
 
       const r = Math.random();
@@ -4258,21 +5637,21 @@ async function startServer() {
         }, index * 600);
       });
     } catch (err) {
-      console.error("Error running automated bot conversation interval:", err);
+      console.error('Error running automated bot conversation interval:', err);
     }
   }, 4500);
 
-  wss.on("close", () => {
+  wss.on('close', () => {
     clearInterval(interval);
     clearInterval(botInterval);
     if (paposTipInterval) clearInterval(paposTipInterval);
   });
 
-  server.listen(PORT, "0.0.0.0", () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`[Server] Express + WebSocket server running on port ${PORT}`);
   });
 }
 
 startServer().catch((err) => {
-  console.error("Fatal error starting Express/WS server:", err);
+  console.error('Fatal error starting Express/WS server:', err);
 });
