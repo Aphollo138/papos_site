@@ -1,8 +1,14 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, Root } from 'react-dom/client';
 import { MediaPicker } from './components/MediaPicker';
 
-function mountMediaPicker() {
+declare global {
+  interface Window {
+    __paposMediaPickerReactRoot?: Root;
+  }
+}
+
+export function mountMediaPicker() {
   let rootContainer = document.getElementById('papos-media-picker-root');
   if (!rootContainer) {
     rootContainer = document.createElement('div');
@@ -10,9 +16,15 @@ function mountMediaPicker() {
     document.body.appendChild(rootContainer);
   }
 
-  const root = createRoot(rootContainer);
-  root.render(<MediaPicker />);
+  // Garantir montagem única (React 19 createRoot singleton)
+  if (!window.__paposMediaPickerReactRoot) {
+    window.__paposMediaPickerReactRoot = createRoot(rootContainer);
+  }
+
+  window.__paposMediaPickerReactRoot.render(<MediaPicker />);
 }
+
+(window as any).mountMediaPicker = mountMediaPicker;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', mountMediaPicker);

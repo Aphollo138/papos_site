@@ -11,6 +11,14 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    define: {
+      'import.meta.env.VITE_KLIPY_API_KEY': JSON.stringify(
+        process.env.VITE_KLIPY_API_KEY || process.env.KLIPY_API_KEY || ''
+      ),
+      'import.meta.env.VITE_GIPHY_API_KEY': JSON.stringify(
+        process.env.VITE_GIPHY_API_KEY || process.env.GIPHY_API_KEY || ''
+      )
+    },
     build: {
       rollupOptions: {
         input: {

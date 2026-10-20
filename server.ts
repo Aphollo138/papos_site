@@ -656,8 +656,8 @@ async function startServer() {
       "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
       "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https: http:",
-      "media-src 'self' blob: data:",
-      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
+      "media-src 'self' blob: data: https: http:",
+      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com https://api.klipy.com https://*.klipy.com https://api.giphy.com https://*.giphy.com",
       "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -704,6 +704,13 @@ async function startServer() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
+  });
+
+  app.get("/api/media-config", (req, res) => {
+    res.json({
+      klipyKey: process.env.VITE_KLIPY_API_KEY || process.env.KLIPY_API_KEY || "",
+      giphyKey: process.env.VITE_GIPHY_API_KEY || process.env.GIPHY_API_KEY || ""
+    });
   });
 
   app.get("/api/webrtc-config", (req, res) => {
