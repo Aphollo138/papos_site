@@ -109,6 +109,26 @@ function formatMessageTime(msg) {
 
 let replyTargetMsg = null;
 let blockedUsers = JSON.parse(localStorage.getItem("papos_blocked_users") || "[]");
+let muteBots = localStorage.getItem("papos_mute_bots") === "true";
+
+const KNOWN_BOTS = new Set([
+  "bot_papos",
+  "mariana_tech",
+  "carlos_meme",
+  "lucas_gamer",
+  "beatriz_vibes",
+  "thiago_melo",
+  "aline_viajante",
+  "rafa_relacionamentos"
+]);
+
+function isBotMessage(msg) {
+  if (!msg) return false;
+  if (msg.isBot) return true;
+  if (typeof msg.id === "string" && msg.id.startsWith("bot-m-")) return true;
+  if (typeof msg.sender === "string" && KNOWN_BOTS.has(msg.sender.trim().toLowerCase())) return true;
+  return false;
+}
 
 window.adminUsersSet = window.adminUsersSet || new Set();
 window.isAdminUser = function(nickname) {
@@ -230,17 +250,10 @@ function getUserCurrentPhoto(name) {
   const isMe = cleanLower === cUser.toLowerCase() || cleanName === "Você";
 
   if (isMe) {
-    if (localStorage.getItem("papos_photo_removed") === "true") {
-      return "";
-    }
     const myPhoto = localStorage.getItem("papos_photo");
     if (myPhoto && typeof myPhoto === "string" && myPhoto.trim() !== "" && !myPhoto.includes("null") && !myPhoto.includes("undefined")) {
       return myPhoto.trim();
     }
-    return "";
-  }
-
-  if (localStorage.getItem(`papos_photo_removed_${cleanLower}`) === "true") {
     return "";
   }
 
@@ -270,15 +283,6 @@ window.getUserCurrentPhoto = getUserCurrentPhoto;
 (function() {
   const myCurrentNick = localStorage.getItem("papos_nickname");
   if (!myCurrentNick) return;
-  const isRemoved = localStorage.getItem("papos_photo_removed") === "true" ||
-                    localStorage.getItem(`papos_photo_removed_${myCurrentNick.toLowerCase()}`) === "true";
-  if (isRemoved) {
-    localStorage.removeItem("papos_photo");
-    localStorage.removeItem("papos_photo_url");
-    localStorage.removeItem(`papos_photo_${myCurrentNick}`);
-    localStorage.removeItem(`papos_photo_${myCurrentNick.toLowerCase()}`);
-    return;
-  }
   let myCurrentPhoto = localStorage.getItem("papos_photo");
   if (!myCurrentPhoto || myCurrentPhoto.trim() === "" || myCurrentPhoto.includes("null") || myCurrentPhoto.includes("undefined")) {
     myCurrentPhoto = localStorage.getItem(`papos_photo_${myCurrentNick}`) || localStorage.getItem(`papos_photo_${myCurrentNick.toLowerCase()}`);
@@ -775,10 +779,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id") || "");
     const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
     const myPhoto = localStorage.getItem("papos_photo") || "";
-    const isMuteBotWelcome = localStorage.getItem("papos_mute_bot_welcome") === "true";
-    const myUid = localStorage.getItem("papos_uid") || "";
 
-    const joinPayload = {
+    socket.send(JSON.stringify({
       type: "join",
       nickname: currentUser,
       roomId: roomId,
@@ -790,22 +792,8 @@ document.addEventListener("DOMContentLoaded", () => {
       clientId: clientId,
       guestId: guestId,
       fingerprint: fingerprint,
-      uid: myUid,
-      blockCalls: localStorage.getItem("papos_block_calls") === "true",
-      muteBotWelcome: isMuteBotWelcome
-    };
-
-    const curAuth = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
-    if (curAuth && typeof curAuth.getIdToken === "function") {
-      curAuth.getIdToken().then((token) => {
-        if (token) joinPayload.token = token;
-        socket.send(JSON.stringify(joinPayload));
-      }).catch(() => {
-        socket.send(JSON.stringify(joinPayload));
-      });
-    } else {
-      socket.send(JSON.stringify(joinPayload));
-    }
+      blockCalls: localStorage.getItem("papos_block_calls") === "true"
+    }));
   }
 
   function connect() {
@@ -855,7 +843,6 @@ document.addEventListener("DOMContentLoaded", () => {
                   localStorage.setItem(`papos_photo_${cleanLower}`, validPhoto);
                   if (isMe) {
                     localStorage.setItem("papos_photo", validPhoto);
-                    localStorage.removeItem("papos_photo_removed");
                   }
                   if (profileCache) {
                     const cached = profileCache.get(cleanLower);
@@ -865,22 +852,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                   }
                 } else if (isMe) {
-                  if (localStorage.getItem("papos_photo_removed") === "true") {
-                    localStorage.removeItem("papos_photo");
-                    localStorage.removeItem("papos_photo_url");
-                    localStorage.removeItem(`papos_photo_${cleanNick}`);
-                    localStorage.removeItem(`papos_photo_${cleanLower}`);
-                  } else {
-                    const mySavedPhoto = localStorage.getItem("papos_photo");
-                    if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
-                      const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
-                      if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-                        activeSocket.send(JSON.stringify({
-                          type: "update_photo",
-                          photoUrl: mySavedPhoto.trim(),
-                          profileImage: mySavedPhoto.trim()
-                        }));
-                      }
+                  const mySavedPhoto = localStorage.getItem("papos_photo");
+                  if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
+                    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+                    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+                      activeSocket.send(JSON.stringify({
+                        type: "update_photo",
+                        photoUrl: mySavedPhoto.trim(),
+                        profileImage: mySavedPhoto.trim()
+                      }));
                     }
                   }
                 }
@@ -892,13 +872,7 @@ document.addEventListener("DOMContentLoaded", () => {
           case "room_state":
             activeRoomId = data.roomId;
             window.confirmedNickname = data.nickname;
-            const isMuteActive = localStorage.getItem("papos_mute_bot_welcome") === "true";
-            publicRoomMessages = (data.messages || []).filter(m => {
-              if (isMuteActive && (m.isBotWelcome || (m.id && String(m.id).startsWith("bot-welcome-")))) {
-                return false;
-              }
-              return true;
-            });
+            publicRoomMessages = data.messages;
             onlineUsersList = data.onlineUsers;
 
             if (data.userPhotos && typeof data.userPhotos === "object") {
@@ -915,7 +889,6 @@ document.addEventListener("DOMContentLoaded", () => {
                   localStorage.setItem(`papos_photo_${cleanLower}`, validPhoto);
                   if (isMe) {
                     localStorage.setItem("papos_photo", validPhoto);
-                    localStorage.removeItem("papos_photo_removed");
                   }
                   if (profileCache) {
                     const cached = profileCache.get(cleanLower);
@@ -925,22 +898,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                   }
                 } else if (isMe) {
-                  if (localStorage.getItem("papos_photo_removed") === "true") {
-                    localStorage.removeItem("papos_photo");
-                    localStorage.removeItem("papos_photo_url");
-                    localStorage.removeItem(`papos_photo_${cleanNick}`);
-                    localStorage.removeItem(`papos_photo_${cleanLower}`);
-                  } else {
-                    const mySavedPhoto = localStorage.getItem("papos_photo");
-                    if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
-                      const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
-                      if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-                        activeSocket.send(JSON.stringify({
-                          type: "update_photo",
-                          photoUrl: mySavedPhoto.trim(),
-                          profileImage: mySavedPhoto.trim()
-                        }));
-                      }
+                  const mySavedPhoto = localStorage.getItem("papos_photo");
+                  if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
+                    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+                    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+                      activeSocket.send(JSON.stringify({
+                        type: "update_photo",
+                        photoUrl: mySavedPhoto.trim(),
+                        profileImage: mySavedPhoto.trim()
+                      }));
                     }
                   }
                 }
@@ -960,11 +926,6 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "message":
-            if (data.message && (data.message.isBotWelcome || (data.message.id && String(data.message.id).startsWith("bot-welcome-")))) {
-              if (localStorage.getItem("papos_mute_bot_welcome") === "true") {
-                break;
-              }
-            }
             publicRoomMessages.push(data.message);
             if (chatMode === "public") {
               appendSingleMessage(data.message);
@@ -1033,11 +994,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           case "private_message":
-            if (data.isBotWelcome || (data.from === "Bot_Papos" && data.content && data.content.includes("Seja muito bem-vindo"))) {
-              if (localStorage.getItem("papos_mute_bot_welcome") === "true") {
-                break;
-              }
-            }
             if (!isValidPrivateMessage(data)) {
               
               break;
@@ -1087,18 +1043,12 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "typing":
-            if (data.isBotWelcome && localStorage.getItem("papos_mute_bot_welcome") === "true") {
-              break;
-            }
             if (chatMode === "public") {
               toggleTypingIndicator(data.nickname, data.isTyping);
             }
             break;
 
           case "private_typing":
-            if (data.isBotWelcome && localStorage.getItem("papos_mute_bot_welcome") === "true") {
-              break;
-            }
             if (data && data.from && chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === data.from.toLowerCase()) {
               toggleTypingIndicator(data.from, data.isTyping);
             }
@@ -1118,10 +1068,6 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "error":
-            if (data.code === "NICKNAME_IN_USE" || data.code === "REGISTERED_ACCOUNT_NICKNAME" || (data.message && data.message.includes("já está sendo utilizado"))) {
-              showNicknameConflictModal(data.message);
-              break;
-            }
             if (data.message && data.message.includes("Links não são permitidos")) {
               if (typeof window.showToast === "function") {
                 window.showToast("Links não são permitidos nas conversas.", "warning");
@@ -1497,225 +1443,24 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Switch de silenciar boas-vindas dos bots
-    const chatMuteBotSwitch = document.getElementById("chat-mute-bot-welcome");
-    if (chatMuteBotSwitch) {
-      chatMuteBotSwitch.checked = localStorage.getItem("papos_mute_bot_welcome") === "true";
-      chatMuteBotSwitch.addEventListener("change", (e) => {
-        const isMuted = Boolean(e.target.checked);
-        localStorage.setItem("papos_mute_bot_welcome", String(isMuted));
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: "update_preferences",
-            muteBotWelcome: isMuted
-          }));
-        }
-        try {
-          const profileSync = new BroadcastChannel("papos_profile_sync");
-          profileSync.postMessage({
-            type: "mute_bot_welcome_changed",
-            muteBotWelcome: isMuted
-          });
-        } catch (err) {}
-        const curAuth = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
-        if (curAuth && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
-          window.FirebaseService.saveUserProfile({ muteBotWelcome: isMuted }).catch(() => {});
-        }
-        fetch("/api/profile/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ muteBotWelcome: isMuted, uid: curAuth ? curAuth.uid : undefined, nickname: currentUser })
-        }).catch(() => {});
-        if (isMuted) {
-          purgeBotWelcomeMessages();
-        }
+    const muteBotsSwitch = document.getElementById("mobile-menu-mute-bots-switch");
+    const muteBotsContainer = document.getElementById("mobile-menu-mute-bots-container");
+    if (muteBotsSwitch) {
+      muteBotsSwitch.checked = muteBots;
+      muteBotsSwitch.addEventListener("change", (e) => {
+        muteBots = e.target.checked;
+        localStorage.setItem("papos_mute_bots", muteBots ? "true" : "false");
+        renderMessages();
       });
-    }
-  }
-
-  function purgeBotWelcomeMessages() {
-    publicRoomMessages = (publicRoomMessages || []).filter(m => !m.isBotWelcome && !(m.id && String(m.id).startsWith("bot-welcome-")));
-    const welcomeElements = document.querySelectorAll("[data-msg-id^='bot-welcome-'], [id^='msg-id-bot-welcome-']");
-    welcomeElements.forEach(el => el.remove());
-    if (privateChats && privateChats["Bot_Papos"]) {
-      delete privateChats["Bot_Papos"];
-      try {
-        localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
-        if (typeof renderPrivateConversationsSidebar === "function") {
-          renderPrivateConversationsSidebar();
-        }
-      } catch (e) {}
-    }
-  }
-
-  try {
-    const profileSyncChannel = new BroadcastChannel("papos_profile_sync");
-    profileSyncChannel.onmessage = (event) => {
-      if (event.data && event.data.type === "mute_bot_welcome_changed") {
-        const isMuted = Boolean(event.data.muteBotWelcome);
-        localStorage.setItem("papos_mute_bot_welcome", String(isMuted));
-        const chatSwitch = document.getElementById("chat-mute-bot-welcome");
-        if (chatSwitch) chatSwitch.checked = isMuted;
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: "update_preferences",
-            muteBotWelcome: isMuted
-          }));
-        }
-        if (isMuted) {
-          purgeBotWelcomeMessages();
-        }
-      }
-    };
-  } catch (e) {}
-
-  function showNicknameConflictModal(customMsg) {
-    let modalEl = document.getElementById("nicknameConflictModal");
-    if (!modalEl) {
-      modalEl = document.createElement("div");
-      modalEl.className = "modal fade";
-      modalEl.id = "nicknameConflictModal";
-      modalEl.setAttribute("data-bs-backdrop", "static");
-      modalEl.setAttribute("data-bs-keyboard", "false");
-      modalEl.setAttribute("tabindex", "-1");
-      modalEl.setAttribute("aria-labelledby", "nicknameConflictModalLabel");
-      modalEl.setAttribute("aria-hidden", "true");
-      modalEl.innerHTML = `
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content border-secondary" style="background-color: var(--surface); color: var(--white); border-radius: var(--radius-md);">
-            <div class="modal-header border-secondary">
-              <h5 class="modal-title font-display fw-bold text-white d-flex align-items-center gap-2" id="nicknameConflictModalLabel">
-                <i class="bi bi-exclamation-triangle-fill" style="color: #ef4444;"></i>
-                Apelido Indisponível
-              </h5>
-            </div>
-            <div class="modal-body">
-              <div id="modal-nick-conflict-alert" class="alert p-3 mb-3" style="background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 0.9rem; line-height: 1.4; border-radius: var(--radius-sm);">
-                ${customMsg || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar."}
-              </div>
-              <form id="form-resolve-nickname-conflict">
-                <div class="mb-3">
-                  <label for="input-resolve-nickname" class="form-label small fw-semibold text-secondary">Novo Apelido</label>
-                  <input type="text" class="form-control bg-dark border-secondary text-white" id="input-resolve-nickname" minlength="2" maxlength="15" placeholder="Digite outro apelido..." required autocomplete="off">
-                  <div id="resolve-nick-error-msg" class="d-none mt-2 small fw-semibold" style="color: #ef4444 !important; font-size: 0.82rem;">
-                    Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.
-                  </div>
-                </div>
-                <div class="d-flex flex-column gap-2 mt-4">
-                  <button type="submit" class="btn btn-premium w-100 py-2.5 font-display fw-bold" id="btn-confirm-resolve-nick">
-                    Confirmar e Entrar no Chat
-                  </button>
-                  <a href="/salas" class="btn btn-secondary-custom w-100 py-2 small text-center">
-                    Voltar para a Lista de Salas
-                  </a>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modalEl);
-
-      const resolveForm = document.getElementById("form-resolve-nickname-conflict");
-      const resolveInput = document.getElementById("input-resolve-nickname");
-      const resolveError = document.getElementById("resolve-nick-error-msg");
-      const resolveSubmit = document.getElementById("btn-confirm-resolve-nick");
-      let resolveDebounceTimer = null;
-
-      function clearResolveConflict() {
-        if (resolveInput) {
-          resolveInput.style.borderColor = "";
-          resolveInput.style.boxShadow = "";
-        }
-        if (resolveError) resolveError.classList.add("d-none");
-        if (resolveSubmit) resolveSubmit.disabled = false;
-      }
-
-      function showResolveConflict(msg) {
-        if (resolveInput) {
-          resolveInput.style.borderColor = "#ef4444";
-          resolveInput.style.boxShadow = "0 0 0 1px #ef4444";
-        }
-        if (resolveError) {
-          resolveError.textContent = msg || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.";
-          resolveError.classList.remove("d-none");
-        }
-        if (resolveSubmit) resolveSubmit.disabled = true;
-      }
-
-      if (resolveInput) {
-        resolveInput.addEventListener("input", (e) => {
-          clearTimeout(resolveDebounceTimer);
-          const val = e.target.value.trim();
-          if (val.length < 2) {
-            clearResolveConflict();
-            return;
-          }
-          resolveDebounceTimer = setTimeout(async () => {
-            const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
-            const uid = localStorage.getItem("papos_uid") || "";
-            try {
-              const res = await fetch(`/api/rooms/${encodeURIComponent(activeRoomId)}/check-nickname?nickname=${encodeURIComponent(val)}&guestId=${encodeURIComponent(guestId)}&uid=${encodeURIComponent(uid)}`);
-              const data = await res.json();
-              if (!res.ok || data.available === false) {
-                showResolveConflict(data.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
-              } else {
-                clearResolveConflict();
-              }
-            } catch (err) {}
-          }, 400);
+      if (muteBotsContainer) {
+        muteBotsContainer.addEventListener("click", (e) => {
+          if (e.target === muteBotsSwitch || (e.target && e.target.closest && e.target.closest(".form-switch"))) return;
+          muteBotsSwitch.checked = !muteBotsSwitch.checked;
+          muteBots = muteBotsSwitch.checked;
+          localStorage.setItem("papos_mute_bots", muteBots ? "true" : "false");
+          renderMessages();
         });
       }
-
-      if (resolveForm) {
-        resolveForm.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const newNick = resolveInput ? resolveInput.value.trim() : "";
-          if (!newNick || newNick.length < 2) return;
-
-          if (resolveSubmit) resolveSubmit.disabled = true;
-          const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
-          const uid = localStorage.getItem("papos_uid") || "";
-
-          try {
-            const res = await fetch(`/api/rooms/${encodeURIComponent(activeRoomId)}/reserve-nickname`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ roomId: activeRoomId, nickname: newNick, guestId, uid })
-            });
-            const data = await res.json();
-            if (!res.ok || data.available === false) {
-              showResolveConflict(data.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
-              if (resolveSubmit) resolveSubmit.disabled = false;
-              return;
-            }
-          } catch (err) {}
-
-          currentUser = newNick;
-          if (window.ChatEngine && window.ChatEngine.saveUser) {
-            window.ChatEngine.saveUser(newNick);
-          } else {
-            localStorage.setItem("papos_nickname", newNick);
-          }
-          if (sidebarUsername) sidebarUsername.textContent = newNick;
-          if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
-            const bsModal = bootstrap.Modal.getInstance(modalEl);
-            if (bsModal) bsModal.hide();
-          }
-
-          sendJoinRoom(activeRoomId);
-        });
-      }
-    } else {
-      const alertEl = document.getElementById("modal-nick-conflict-alert");
-      if (alertEl) {
-        alertEl.textContent = customMsg || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.";
-      }
-    }
-
-    if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
-      const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
-      modalInstance.show();
     }
   }
 
@@ -2315,6 +2060,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const filtered = activeList.filter(msg => {
       if (msg.isSystem) return true;
+      if (muteBots && isBotMessage(msg)) return false;
       const isBlocked = blockedUsers.includes(msg.sender);
       if (isBlocked) return false;
       if (filterText.trim() === "") return true;
@@ -2333,15 +2079,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     let lastSender = null;
-    const fragment = document.createDocumentFragment();
-    const messagesToRender = filtered.length > 150 ? filtered.slice(filtered.length - 150) : filtered;
 
-    messagesToRender.forEach(msg => {
+    filtered.forEach(msg => {
       if (msg.isSystem) {
         const sysDiv = document.createElement("div");
         sysDiv.className = "msg-system";
         sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${msg.text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${formatMessageTime(msg)})</span>`;
-        fragment.appendChild(sysDiv);
+        chatMessagesContainer.appendChild(sysDiv);
         lastSender = null; 
       } else {
         const isMe = msg.sender === (window.confirmedNickname || currentUser);
@@ -2415,13 +2159,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (msg.sender && msg.photoUrl) {
-          const sLower = msg.sender.toLowerCase();
-          const isSenderRemoved = localStorage.getItem(`papos_photo_removed_${sLower}`) === "true" ||
-                                  (isMe && localStorage.getItem("papos_photo_removed") === "true");
-          if (!isSenderRemoved && typeof msg.photoUrl === "string" && msg.photoUrl.trim() !== "") {
-            localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
-            localStorage.setItem(`papos_photo_${sLower}`, msg.photoUrl);
-          }
+          localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
+          localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
         }
 
         msgDiv.setAttribute("data-sender", msg.sender);
@@ -2441,17 +2180,17 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         `;
 
-        fragment.appendChild(msgDiv);
+        chatMessagesContainer.appendChild(msgDiv);
         lastSender = msg.sender;
       }
     });
 
-    chatMessagesContainer.appendChild(fragment);
     scrollToBottom();
   }
 
   function appendSingleMessage(msg) {
     if (!chatMessagesContainer) return;
+    if (muteBots && isBotMessage(msg)) return;
     const isBlocked = blockedUsers.includes(msg.sender);
     if (isBlocked) return;
 
@@ -2542,13 +2281,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (msg.sender && msg.photoUrl) {
-      const sLower = msg.sender.toLowerCase();
-      const isSenderRemoved = localStorage.getItem(`papos_photo_removed_${sLower}`) === "true" ||
-                              (isMe && localStorage.getItem("papos_photo_removed") === "true");
-      if (!isSenderRemoved && typeof msg.photoUrl === "string" && msg.photoUrl.trim() !== "") {
-        localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
-        localStorage.setItem(`papos_photo_${sLower}`, msg.photoUrl);
-      }
+      localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
+      localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
     }
 
     msgDiv.innerHTML = `
@@ -2566,12 +2300,6 @@ document.addEventListener("DOMContentLoaded", () => {
         ${reactionsHtml}
       </div>
     `;
-
-    // Limitar total de nós no DOM para evitar consumo excessivo de memória em aparelhos móveis
-    if (chatMessagesContainer.children.length > 160) {
-      const firstChild = chatMessagesContainer.firstElementChild;
-      if (firstChild) firstChild.remove();
-    }
 
     chatMessagesContainer.appendChild(msgDiv);
     scrollToBottom();
@@ -2677,7 +2405,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
     const isMe = targetLower === myNick.toLowerCase();
 
-    const isExplicitRemove = data.action === "remove_photo" || data.photoUrl === null || data.profileImage === null || data.photoUrl === "" || data.profileImage === "";
+    const isExplicitRemove = data.action === "remove_photo" || data.photoUrl === null || data.profileImage === null;
     const rawPhoto = data.photoUrl !== undefined ? data.photoUrl : (data.profileImage !== undefined ? data.profileImage : "");
     const isValidPhotoString = typeof rawPhoto === "string" && rawPhoto.trim() !== "" && !rawPhoto.includes("null") && !rawPhoto.includes("undefined");
 
@@ -2688,20 +2416,15 @@ document.addEventListener("DOMContentLoaded", () => {
       effectivePhoto = "";
       localStorage.removeItem(`papos_photo_${targetNick}`);
       localStorage.removeItem(`papos_photo_${targetLower}`);
-      localStorage.setItem(`papos_photo_removed_${targetLower}`, "true");
       if (isMe) {
         localStorage.removeItem("papos_photo");
-        localStorage.removeItem("papos_photo_url");
-        localStorage.setItem("papos_photo_removed", "true");
       }
     } else if (isValidPhotoString) {
       effectivePhoto = rawPhoto.trim();
       localStorage.setItem(`papos_photo_${targetNick}`, effectivePhoto);
       localStorage.setItem(`papos_photo_${targetLower}`, effectivePhoto);
-      localStorage.removeItem(`papos_photo_removed_${targetLower}`);
       if (isMe) {
         localStorage.setItem("papos_photo", effectivePhoto);
-        localStorage.removeItem("papos_photo_removed");
       }
     } else {
       // Preservar foto existente do usuário
@@ -3029,9 +2752,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function scrollToBottom() {
     if (!chatMessagesContainer) return;
-    window.requestAnimationFrame(() => {
-      chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-    });
+    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
   }
 
   function handleSendMessage() {
