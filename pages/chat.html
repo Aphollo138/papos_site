@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
   <head>
     
@@ -353,7 +353,7 @@
                 <textarea class="form-control bg-dark border-secondary px-3 py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none;"></textarea>
                 
                 <div class="dropdown d-none d-md-block" id="dropdown-emoji-wrapper" style="align-self: flex-end;">
-                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-emoji-picker" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Escolher emoji" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0; padding: 0; border-left: none; border-right: none;">
+                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-emoji-picker" title="Escolher emojis, GIFs e figurinhas" aria-label="Escolher emojis, GIFs e figurinhas" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0; padding: 0; border-left: none; border-right: none;">
                     <i class="bi bi-emoji-smile" style="color: var(--text-primary); font-size: 1.15rem;"></i>
                   </button>
                   <div class="dropdown-menu dropdown-menu-end p-2 border-secondary shadow-lg" id="emoji-picker-dropdown" aria-labelledby="btn-emoji-picker" style="background-color: var(--surface); width: 310px; max-width: 90vw; z-index: 1060; border-radius: var(--radius-md);">
@@ -1010,6 +1010,17 @@
           <span class="fw-semibold">Avaliações</span>
         </button>
 
+        <!-- Silenciar Bots (Desktop) -->
+        <div class="btn btn-secondary-custom text-start d-flex align-items-center justify-content-between py-2 px-3 rounded-3" id="desktop-sidebar-mute-bots-container" role="button" style="cursor: pointer;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-robot text-info fs-5 me-1" aria-hidden="true"></i>
+            <span class="fw-semibold">Silenciar bots</span>
+          </div>
+          <div class="form-check form-switch m-0 p-0 d-flex align-items-center">
+            <input class="form-check-input papos-compact-switch m-0" type="checkbox" role="switch" id="desktop-sidebar-mute-bots-switch" aria-label="Silenciar bots">
+          </div>
+        </div>
+
         <hr class="border-secondary my-2">
 
         <!-- 8. Sair / Entrar -->
@@ -1294,21 +1305,22 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-    <script src="/assets/js/fingerprint.js"></script>
+    <script type="module" src="/assets/js/fingerprint.js"></script>
     <script type="module" src="/firebase/auth.js"></script>
     <script type="module" src="/assets/js/auth-controller.js"></script>
 
-    <script src="/assets/js/remove-ads.js"></script>
+    <script type="module" src="/assets/js/remove-ads.js"></script>
 
-    <script src="/assets/js/main.js"></script>
+    <script type="module" src="/assets/js/main.js"></script>
 
-    <script src="/assets/js/monetization.js"></script>
+    <script type="module" src="/assets/js/monetization.js"></script>
 
-    <script src="/assets/js/feedback-controller.js"></script>
+    <script type="module" src="/assets/js/feedback-controller.js"></script>
 
-    <script src="/assets/js/audio-call.js"></script>
+    <script type="module" src="/assets/js/audio-call.js"></script>
 
-    <script src="/assets/js/chat.js"></script>
-    <script src="/assets/js/zenithe-card.js"></script>
+    <script type="module" src="/assets/js/chat.js"></script>
+    <script type="module" src="/src/chat-media-picker.tsx"></script>
+    <script type="module" src="/assets/js/zenithe-card.js"></script>
   </body>
 </html>
