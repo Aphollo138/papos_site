@@ -2,6 +2,17 @@
 function containsLink(str) {
   if (!str || typeof str !== "string") return false;
 
+  // Permitir stickers e figurinhas legítimos da plataforma
+  if (
+    str.startsWith("[sticker:") ||
+    str.startsWith("[figurinha:") ||
+    str.startsWith("[gif:") ||
+    str.includes("chat-sticker-img") ||
+    str.includes("chat-gif-img")
+  ) {
+    return false;
+  }
+
   let text = str;
 
   try {
@@ -109,29 +120,6 @@ function formatMessageTime(msg) {
 
 let replyTargetMsg = null;
 let blockedUsers = JSON.parse(localStorage.getItem("papos_blocked_users") || "[]");
-let muteBots = localStorage.getItem("papos_mute_bots") === "true";
-
-const KNOWN_BOTS = new Set([
-  "bot_papos",
-  "bots_papos",
-  "mariana_tech",
-  "carlos_meme",
-  "lucas_gamer",
-  "beatriz_vibes",
-  "thiago_melo",
-  "aline_viajante",
-  "rafa_relacionamentos"
-]);
-
-function isBotMessage(msg) {
-  if (!msg) return false;
-  if (msg.isBot === true) return true;
-  if (typeof msg.id === "string" && (msg.id.startsWith("bot-m-") || msg.id.startsWith("bot-welcome-") || msg.id.startsWith("bot-"))) return true;
-  const sender = String(msg.sender || msg.senderId || msg.senderName || "").trim().toLowerCase();
-  if (sender && KNOWN_BOTS.has(sender)) return true;
-  if (msg.botId && KNOWN_BOTS.has(String(msg.botId).trim().toLowerCase())) return true;
-  return false;
-}
 
 window.adminUsersSet = window.adminUsersSet || new Set();
 window.isAdminUser = function(nickname) {
@@ -1047,18 +1035,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
           case "typing":
             if (chatMode === "public") {
-              if (muteBots && KNOWN_BOTS.has(String(data.nickname || "").trim().toLowerCase())) {
-                break;
-              }
               toggleTypingIndicator(data.nickname, data.isTyping);
             }
             break;
 
           case "private_typing":
             if (data && data.from && chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === data.from.toLowerCase()) {
-              if (muteBots && KNOWN_BOTS.has(String(data.from || "").trim().toLowerCase())) {
-                break;
-              }
               toggleTypingIndicator(data.from, data.isTyping);
             }
             break;
@@ -1372,31 +1354,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function updateMuteBotsSetting(enabled) {
-    muteBots = Boolean(enabled);
-    try {
-      localStorage.setItem("papos_mute_bots", muteBots ? "true" : "false");
-    } catch (e) {}
-
-    const mSwitch = document.getElementById("mobile-menu-mute-bots-switch");
-    const dSwitch = document.getElementById("desktop-sidebar-mute-bots-switch");
-    if (mSwitch && mSwitch.checked !== muteBots) mSwitch.checked = muteBots;
-    if (dSwitch && dSwitch.checked !== muteBots) dSwitch.checked = muteBots;
-
-    if (muteBots) {
-      activeTypingUsers.forEach((user) => {
-        if (KNOWN_BOTS.has(String(user).trim().toLowerCase())) {
-          toggleTypingIndicator(user, false);
-        }
-      });
-    }
-
-    if (typeof renderMessages === "function") {
-      renderMessages();
-    }
-  }
-  window.updateMuteBotsSetting = updateMuteBotsSetting;
-
   function initMobileMenuInteractions() {
     
     const btnMembers = document.getElementById("mobile-menu-members");
@@ -1475,36 +1432,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       });
-    }
-
-    const muteBotsSwitch = document.getElementById("mobile-menu-mute-bots-switch");
-    const muteBotsContainer = document.getElementById("mobile-menu-mute-bots-container");
-    if (muteBotsSwitch) {
-      muteBotsSwitch.checked = muteBots;
-      muteBotsSwitch.addEventListener("change", (e) => {
-        updateMuteBotsSetting(e.target.checked);
-      });
-      if (muteBotsContainer) {
-        muteBotsContainer.addEventListener("click", (e) => {
-          if (e.target === muteBotsSwitch || (e.target && e.target.closest && e.target.closest(".form-switch"))) return;
-          updateMuteBotsSetting(!muteBotsSwitch.checked);
-        });
-      }
-    }
-
-    const desktopMuteBotsSwitch = document.getElementById("desktop-sidebar-mute-bots-switch");
-    const desktopMuteBotsContainer = document.getElementById("desktop-sidebar-mute-bots-container");
-    if (desktopMuteBotsSwitch) {
-      desktopMuteBotsSwitch.checked = muteBots;
-      desktopMuteBotsSwitch.addEventListener("change", (e) => {
-        updateMuteBotsSetting(e.target.checked);
-      });
-      if (desktopMuteBotsContainer) {
-        desktopMuteBotsContainer.addEventListener("click", (e) => {
-          if (e.target === desktopMuteBotsSwitch || (e.target && e.target.closest && e.target.closest(".form-switch"))) return;
-          updateMuteBotsSetting(!desktopMuteBotsSwitch.checked);
-        });
-      }
     }
   }
 
@@ -1652,16 +1579,12 @@ document.addEventListener("DOMContentLoaded", () => {
       privateChats[partner] = [];
     }
 
-    const isBotPartner = KNOWN_BOTS.has(String(partner).trim().toLowerCase()) || KNOWN_BOTS.has(String(sender).trim().toLowerCase());
-
     let isNew = false;
     if (!privateChats[partner].some(m => m.id === id)) {
       privateChats[partner].push({
         id: id,
         sender: sender,
         text: content,
-        mediaType: pm.mediaType,
-        mediaUrl: pm.mediaUrl,
         time: timestamp,
         color: color,
         replyTo: replyTo,
@@ -1675,7 +1598,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const isFromOther = (sender !== currentUser);
       if (isFromOther && !notifiedPrivateMessageIds.has(id)) {
         notifiedPrivateMessageIds.add(id);
-        if (isInitialSyncDone && (!muteBots || !isBotPartner)) {
+        if (isInitialSyncDone) {
           playPrivateNotificationSound();
           updatePrivateUnreadBadge(true);
         } else {
@@ -1687,7 +1610,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (
-        !isBotPartner &&
         partner !== "Bot_Papos" &&
         sender !== "Bot_Papos" &&
         recipient !== "Bot_Papos" &&
@@ -1699,8 +1621,6 @@ document.addEventListener("DOMContentLoaded", () => {
           sender: sender,
           recipient: recipient,
           text: content,
-          mediaType: pm.mediaType,
-          mediaUrl: pm.mediaUrl,
           timestamp: typeof timestamp === "number" ? timestamp : Date.now(),
           time: formatMessageTime({ timestamp: typeof timestamp === "number" ? timestamp : Date.now() }),
           unread: (partner !== activePrivateRecipient),
@@ -1714,19 +1634,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (isNew && chatMode === "private" && activePrivateRecipient === partner) {
-      if (!muteBots || !isBotPartner) {
-        appendSingleMessage({
-          id: id,
-          sender: sender,
-          text: content,
-          mediaType: pm.mediaType,
-          mediaUrl: pm.mediaUrl,
-          time: timestamp,
-          color: color,
-          replyTo: replyTo,
-          reactions: reactions
-        });
-      }
+      appendSingleMessage({
+        id: id,
+        sender: sender,
+        text: content,
+        time: timestamp,
+        color: color,
+        replyTo: replyTo,
+        reactions: reactions
+      });
     }
 
     renderPrivateConversationsSidebar();
@@ -2107,32 +2023,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function renderMessageBubbleContent(msg) {
-    const isSticker = msg.mediaType === "sticker";
-    const isGif = msg.mediaType === "gif";
-    const mediaUrl = msg.mediaUrl;
+  function formatMessageBubbleHtml(msg) {
+    if (!msg || typeof msg.text !== "string") return "";
+    const raw = msg.text.trim();
 
-    if (isSticker && mediaUrl) {
-      const showCaption = msg.text && msg.text !== "🧸 Figurinha" && !msg.text.includes("Figurinha");
-      return `
-        <div class="msg-sticker-wrapper" style="display: inline-flex; flex-direction: column; align-items: flex-start; max-width: 100%;">
-          <img src="${mediaUrl}" alt="${msg.text || 'Figurinha'}" class="msg-sticker-img" loading="lazy" style="width: 130px; height: 130px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2)); border-radius: 8px;" />
-          ${showCaption ? `<span class="small mt-1 d-block opacity-75">${msg.text}</span>` : ''}
-        </div>
-      `;
+    // 1. Tag de Figurinha: [sticker:URL] ou [figurinha:URL]
+    const stickerMatch = raw.match(/^\[(?:sticker|figurinha):([^\]]+)\]$/i);
+    if (stickerMatch) {
+      const url = stickerMatch[1].trim();
+      return `<div class="msg-bubble msg-bubble-sticker"><img src="${url}" alt="Figurinha" class="chat-sticker-img" loading="lazy" /></div>`;
     }
 
-    if (isGif && mediaUrl) {
-      const showCaption = msg.text && msg.text !== "🎞️ GIF" && !msg.text.includes("GIF");
-      return `
-        <div class="msg-gif-wrapper papos-message-gif-wrapper" style="display: inline-flex; flex-direction: column; align-items: flex-start; max-width: 100%;">
-          <img src="${mediaUrl}" alt="${msg.text || 'GIF'}" class="msg-gif-img papos-message-gif" loading="lazy" style="max-width: 220px; max-height: 220px; width: auto; height: auto; object-fit: contain; border-radius: 10px; display: block;" />
-          ${showCaption ? `<span class="small mt-1 d-block opacity-75">${msg.text}</span>` : ''}
-        </div>
-      `;
+    // 2. Tag de GIF: [gif:URL]
+    const gifMatch = raw.match(/^\[gif:([^\]]+)\]$/i);
+    if (gifMatch) {
+      const url = gifMatch[1].trim();
+      return `<div class="msg-bubble"><img src="${url}" alt="GIF" class="chat-gif-img" loading="lazy" /></div>`;
     }
 
-    return msg.text;
+    // 3. Se for histórico com tag <img> já formatada
+    if (raw.includes("chat-sticker-img")) {
+      return `<div class="msg-bubble msg-bubble-sticker">${raw}</div>`;
+    }
+    if (raw.includes("chat-gif-img")) {
+      return `<div class="msg-bubble">${raw}</div>`;
+    }
+
+    const colorStyle = msg.color ? `color: ${msg.color} !important; font-weight: 500;` : "";
+    return `<div class="msg-bubble" style="${colorStyle}">${msg.text}</div>`;
   }
 
   function renderMessages(filterText = "") {
@@ -2143,7 +2061,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const filtered = activeList.filter(msg => {
       if (msg.isSystem) return true;
-      if (muteBots && isBotMessage(msg)) return false;
       const isBlocked = blockedUsers.includes(msg.sender);
       if (isBlocked) return false;
       if (filterText.trim() === "") return true;
@@ -2258,7 +2175,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
               <span class="msg-meta">${formatMessageTime(msg)}</span>
             </div>
-            <div class="msg-bubble" style="${(msg.mediaType === 'sticker' && msg.mediaUrl) ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
+            ${formatMessageBubbleHtml(msg)}
             ${reactionsHtml}
           </div>
         `;
@@ -2273,7 +2190,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function appendSingleMessage(msg) {
     if (!chatMessagesContainer) return;
-    if (muteBots && isBotMessage(msg)) return;
     const isBlocked = blockedUsers.includes(msg.sender);
     if (isBlocked) return;
 
@@ -2379,7 +2295,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
           <span class="msg-meta">${formatMessageTime(msg)}</span>
         </div>
-        <div class="msg-bubble" style="${(msg.mediaType === 'sticker' && msg.mediaUrl) ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
+        ${formatMessageBubbleHtml(msg)}
         ${reactionsHtml}
       </div>
     `;
@@ -2838,118 +2754,10 @@ document.addEventListener("DOMContentLoaded", () => {
     chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
   }
 
-  function updateSendButtonState() {
-    const btnSend = document.getElementById("btn-send");
-    const input = document.getElementById("message-input");
-    if (!btnSend || !input) return;
-
-    const hasText = input.value.trim().length > 0;
-    if (hasText) {
-      btnSend.innerHTML = '<i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>';
-      btnSend.title = "Enviar mensagem";
-      btnSend.setAttribute("aria-label", "Enviar mensagem");
-    } else {
-      btnSend.innerHTML = '<i class="bi bi-mic-fill" style="font-size: 1rem;"></i>';
-      btnSend.title = "Gravar áudio";
-      btnSend.setAttribute("aria-label", "Gravar áudio");
-    }
-  }
-  window.updateSendButtonState = updateSendButtonState;
-
-  window.sendMediaMessage = function(mediaType, mediaUrl, caption) {
-    if (!mediaUrl || !socket || socket.readyState !== WebSocket.OPEN) return;
-
-    const senderNick = window.confirmedNickname || currentUser;
-    const myPhoto = getUserCurrentPhoto(senderNick) || undefined;
-    const defaultCaption = mediaType === "gif" ? "🎞️ GIF" : "🧸 Figurinha";
-    const text = caption || defaultCaption;
-
-    if (chatMode === "public") {
-      const clientMsgId = "m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
-      const replyData = replyTargetMsg ? {
-        id: replyTargetMsg.id || replyTargetMsg.messageId,
-        messageId: replyTargetMsg.messageId || replyTargetMsg.id,
-        sender: replyTargetMsg.sender || replyTargetMsg.senderId,
-        senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
-        text: replyTargetMsg.text
-      } : null;
-
-      const msgObj = {
-        id: clientMsgId,
-        sender: senderNick,
-        text: text,
-        mediaType: mediaType,
-        mediaUrl: mediaUrl,
-        time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-        timestamp: Date.now(),
-        isSystem: false,
-        color: activeMessageColor || undefined,
-        photoUrl: myPhoto,
-        replyTo: replyData,
-        reactions: {}
-      };
-
-      publicRoomMessages.push(msgObj);
-      appendSingleMessage(msgObj);
-
-      socket.send(JSON.stringify({
-        type: "message",
-        id: clientMsgId,
-        text: text,
-        mediaType: mediaType,
-        mediaUrl: mediaUrl,
-        color: activeMessageColor || undefined,
-        photoUrl: myPhoto,
-        replyTo: replyData
-      }));
-      clearReplyTarget();
-    } else if (activePrivateRecipient) {
-      const msgId = "pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
-      const replyData = replyTargetMsg ? {
-        id: replyTargetMsg.id || replyTargetMsg.messageId,
-        messageId: replyTargetMsg.messageId || replyTargetMsg.id,
-        sender: replyTargetMsg.sender || replyTargetMsg.senderId,
-        senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
-        text: replyTargetMsg.text
-      } : null;
-
-      socket.send(JSON.stringify({
-        type: "private_message",
-        id: msgId,
-        to: activePrivateRecipient,
-        text: text,
-        mediaType: mediaType,
-        mediaUrl: mediaUrl,
-        color: activeMessageColor || undefined,
-        photoUrl: myPhoto,
-        replyTo: replyData
-      }));
-
-      handleIncomingPrivateMessage({
-        id: msgId,
-        senderName: senderNick,
-        recipientName: activePrivateRecipient,
-        content: text,
-        mediaType: mediaType,
-        mediaUrl: mediaUrl,
-        color: activeMessageColor || undefined,
-        timestamp: Date.now(),
-        replyTo: replyData,
-        reactions: {}
-      });
-      clearReplyTarget();
-    }
-  };
-
   function handleSendMessage() {
     if (!messageInput || !socket) return;
     const text = messageInput.value.trim();
-    if (text === "") {
-      if (typeof window.showToast === "function") {
-        window.showToast("Digite uma mensagem ou insira um emoji para enviar.", "info");
-      }
-      return;
-    }
+    if (text === "") return;
 
     if (containsLink(text) || (replyTargetMsg && containsLink(replyTargetMsg.text))) {
       if (typeof window.showToast === "function") {
@@ -3072,6 +2880,293 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  function updateSendButtonState() {
+    const btn = document.getElementById("btn-send");
+    const input = document.getElementById("message-input");
+    if (!btn) return;
+    const hasText = input && input.value.trim().length > 0;
+    const icon = btn.querySelector("i") || document.getElementById("btn-send-icon");
+    if (hasText) {
+      btn.setAttribute("title", "Enviar mensagem");
+      btn.setAttribute("aria-label", "Enviar mensagem");
+      if (icon) {
+        icon.className = "bi bi-send-fill";
+      }
+    } else {
+      btn.setAttribute("title", "Gravar áudio");
+      btn.setAttribute("aria-label", "Gravar áudio");
+      if (icon) {
+        icon.className = "bi bi-mic-fill";
+      }
+    }
+  }
+
+  const STICKERS_COLLECTION = [
+    { id: "s1", name: "Coração Vermelho", category: "amor", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp", tags: "amor coracao paixao carinho" },
+    { id: "s2", name: "Olhos de Coração", category: "amor", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.webp", tags: "amor apaixonado lindo fofo" },
+    { id: "s3", name: "Coração com Brilhos", category: "amor", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f496/512.webp", tags: "amor brilhante coracao carinho" },
+    { id: "s4", name: "Beijo Apaixonado", category: "amor", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/512.webp", tags: "beijo amor carinho lindo" },
+    { id: "s5", name: "Rosto Apaixonado", category: "amor", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f970/512.webp", tags: "fofo amor coracoes sorriso" },
+    { id: "s6", name: "Joinha Positivo", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.webp", tags: "joinha ok sim legal concordo" },
+    { id: "s7", name: "Palmas Parabéns", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.webp", tags: "palmas parabens show aplausos" },
+    { id: "s8", name: "Fogo Demais", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp", tags: "fogo quente sucesso brabo top" },
+    { id: "s9", name: "Festa & Confete", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f973/512.webp", tags: "festa comemorar parabens chapeu" },
+    { id: "s10", name: "Chorando de Rir", category: "memes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp", tags: "risada rindo kkk haaha meme engraçado" },
+    { id: "s11", name: "Rolando de Rir", category: "memes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f923/512.webp", tags: "rindo gargalhada kkk meme zoeira" },
+    { id: "s12", name: "Mente Explodindo", category: "memes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92f/512.webp", tags: "choque uau caramba explodiu uou" },
+    { id: "s13", name: "Óculos Escuros", category: "memes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60e/512.webp", tags: "estilo legal brabo oculos top" },
+    { id: "s14", name: "Derretendo", category: "memes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1fae0/512.webp", tags: "calor vergonha cansado socorro" },
+    { id: "s15", name: "Pede Segredo", category: "memes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92b/512.webp", tags: "psiu segredo silencio calado quieto" },
+    { id: "s16", name: "Gato Rindo", category: "pets", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f639/512.webp", tags: "gato gatinho pet felino risada fofo" },
+    { id: "s17", name: "Gato Amoroso", category: "pets", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f63b/512.webp", tags: "gato amor apaixonado pet carinho" },
+    { id: "s18", name: "Gato Chocado", category: "pets", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f640/512.webp", tags: "gato susto medo espanto pet" },
+    { id: "s19", name: "Cachorrinho", category: "pets", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f436/512.webp", tags: "cao cachorro pet fofo auau lindo" },
+    { id: "s20", name: "Abraço Quentinho", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f917/512.webp", tags: "abraco carinho fofo amor acolhimento" },
+    { id: "s21", name: "Saudação Sim Senhor", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1fae1/512.webp", tags: "sim chefe respeito saudacao positivo" },
+    { id: "s22", name: "Nota 100", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4af/512.webp", tags: "100 perfeito certo top acerto" },
+    { id: "s23", name: "Foguete Voando", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp", tags: "foguete subir voar velocidade futuro" },
+    { id: "s24", name: "Brilhos Mágicos", category: "reacoes", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/2728/512.webp", tags: "brilho estrela magia especial incrivel" }
+  ];
+
+  const GIFS_COLLECTION = [
+    { id: "g1", title: "Palmas", url: "https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif", tags: "palmas aplausos parabens show" },
+    { id: "g2", title: "Dança Feliz", url: "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif", tags: "danca feliz comemorar festa animado" },
+    { id: "g3", title: "Muitas Risadas", url: "https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif", tags: "risada gargalhada rindo kkk engraçado" },
+    { id: "g4", title: "Gatinho Fofo", url: "https://media.giphy.com/media/BzyTuYCmvSORqs1ABM/giphy.gif", tags: "gato gatinho pet fofo miau amor" },
+    { id: "g5", title: "Joinha Legal", url: "https://media.giphy.com/media/111ebonMs90YLu/giphy.gif", tags: "joinha ok sim legal aprovo" },
+    { id: "g6", title: "Uau Incrível", url: "https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif", tags: "uau choque caramba impressionado" },
+    { id: "g7", title: "Toca Aqui", url: "https://media.giphy.com/media/l0ErFafpUCQTQFMSk/giphy.gif", tags: "toca aqui amizade parabens parceiro" },
+    { id: "g8", title: "Festa e Alegria", url: "https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif", tags: "festa confete comemorar alegria" }
+  ];
+
+  function sendMediaSticker(url, type = "sticker") {
+    if (!url || !socket || socket.readyState !== WebSocket.OPEN) return;
+    const tag = type === "gif" ? `[gif:${url}]` : `[sticker:${url}]`;
+
+    if (chatMode === "public") {
+      const clientMsgId = "m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+      const replyData = replyTargetMsg ? {
+        id: replyTargetMsg.id || replyTargetMsg.messageId,
+        messageId: replyTargetMsg.messageId || replyTargetMsg.id,
+        sender: replyTargetMsg.sender || replyTargetMsg.senderId,
+        senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
+        text: replyTargetMsg.text
+      } : null;
+
+      const senderNick = window.confirmedNickname || currentUser;
+      const myPhoto = getUserCurrentPhoto(senderNick) || undefined;
+      const msgObj = {
+        id: clientMsgId,
+        sender: senderNick,
+        text: tag,
+        time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        timestamp: Date.now(),
+        isSystem: false,
+        photoUrl: myPhoto,
+        replyTo: replyData,
+        reactions: {}
+      };
+
+      publicRoomMessages.push(msgObj);
+      appendSingleMessage(msgObj);
+
+      socket.send(JSON.stringify({
+        type: "message",
+        id: clientMsgId,
+        text: tag,
+        photoUrl: myPhoto,
+        replyTo: replyData
+      }));
+      clearReplyTarget();
+    } else {
+      const msgId = "pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+      const replyData = replyTargetMsg ? {
+        id: replyTargetMsg.id || replyTargetMsg.messageId,
+        messageId: replyTargetMsg.messageId || replyTargetMsg.id,
+        sender: replyTargetMsg.sender || replyTargetMsg.senderId,
+        senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
+        text: replyTargetMsg.text
+      } : null;
+
+      sendPrivateMessage(tag, msgId, replyData);
+      handleIncomingPrivateMessage({
+        id: msgId,
+        senderName: currentUser,
+        recipientName: activePrivateRecipient,
+        content: tag,
+        timestamp: Date.now(),
+        replyTo: replyData,
+        reactions: {}
+      });
+      clearReplyTarget();
+    }
+
+    const mediaDropdown = document.getElementById("emoji-picker-dropdown");
+    if (mediaDropdown) mediaDropdown.classList.remove("show");
+  }
+  window.sendMediaSticker = sendMediaSticker;
+
+  function renderStickersGrid(cat = "all", query = "") {
+    const container = document.getElementById("stickers-grid-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const filtered = STICKERS_COLLECTION.filter(stk => {
+      const matchCat = (cat === "all" || stk.category === cat);
+      const matchQuery = !query || stk.name.toLowerCase().includes(query) || stk.tags.includes(query);
+      return matchCat && matchQuery;
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="text-secondary small text-center py-4 w-100" style="grid-column: 1 / -1;">Nenhuma figurinha encontrada.</div>';
+      return;
+    }
+
+    filtered.forEach(stk => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "sticker-item-btn";
+      btn.setAttribute("title", stk.name);
+      btn.setAttribute("aria-label", stk.name);
+      btn.innerHTML = `<img src="${stk.url}" alt="${stk.name}" loading="lazy" />`;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        sendMediaSticker(stk.url, "sticker");
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function renderGifsGrid(query = "") {
+    const container = document.getElementById("gifs-grid-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const filtered = GIFS_COLLECTION.filter(gif => {
+      return !query || gif.title.toLowerCase().includes(query) || gif.tags.includes(query);
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="text-secondary small text-center py-4 w-100" style="grid-column: 1 / -1;">Nenhum GIF encontrado.</div>';
+      return;
+    }
+
+    filtered.forEach(gif => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "gif-item-btn";
+      btn.setAttribute("title", gif.title);
+      btn.setAttribute("aria-label", gif.title);
+      btn.innerHTML = `<img src="${gif.url}" alt="${gif.title}" loading="lazy" />`;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        sendMediaSticker(gif.url, "gif");
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function initMediaPicker() {
+    const btnStickerToggle = document.getElementById("btn-sticker-toggle");
+    const mediaDropdown = document.getElementById("emoji-picker-dropdown");
+    if (!btnStickerToggle || !mediaDropdown) return;
+
+    btnStickerToggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const isShown = mediaDropdown.classList.contains("show");
+      if (isShown) {
+        mediaDropdown.classList.remove("show");
+        btnStickerToggle.setAttribute("aria-expanded", "false");
+      } else {
+        document.querySelectorAll(".dropdown-menu.show").forEach(m => {
+          if (m !== mediaDropdown) m.classList.remove("show");
+        });
+        mediaDropdown.classList.add("show");
+        btnStickerToggle.setAttribute("aria-expanded", "true");
+        renderStickersGrid();
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (mediaDropdown.classList.contains("show")) {
+        if (!mediaDropdown.contains(e.target) && !btnStickerToggle.contains(e.target)) {
+          mediaDropdown.classList.remove("show");
+          btnStickerToggle.setAttribute("aria-expanded", "false");
+        }
+      }
+    });
+
+    const tabBtns = document.querySelectorAll(".media-tab-btn");
+    const tabPanes = {
+      emojis: document.getElementById("media-pane-emojis"),
+      gifs: document.getElementById("media-pane-gifs"),
+      stickers: document.getElementById("media-pane-stickers")
+    };
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tab = btn.getAttribute("data-tab");
+        tabBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        Object.keys(tabPanes).forEach(k => {
+          if (tabPanes[k]) {
+            if (k === tab) {
+              tabPanes[k].classList.remove("d-none");
+            } else {
+              tabPanes[k].classList.add("d-none");
+            }
+          }
+        });
+
+        if (tab === "stickers") {
+          renderStickersGrid();
+        } else if (tab === "gifs") {
+          renderGifsGrid();
+        } else if (tab === "emojis") {
+          window.switchEmojiCategory(window.currentEmojiCategory || "faces");
+        }
+      });
+    });
+
+    const stickerCatBtns = document.querySelectorAll(".sticker-cat-btn");
+    stickerCatBtns.forEach(cBtn => {
+      cBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        stickerCatBtns.forEach(b => b.classList.remove("active"));
+        cBtn.classList.add("active");
+        const cat = cBtn.getAttribute("data-cat");
+        const searchVal = (document.getElementById("sticker-search-input")?.value || "").toLowerCase();
+        renderStickersGrid(cat, searchVal);
+      });
+    });
+
+    const stickerSearch = document.getElementById("sticker-search-input");
+    if (stickerSearch) {
+      stickerSearch.addEventListener("input", (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        const activeCat = document.querySelector(".sticker-cat-btn.active")?.getAttribute("data-cat") || "all";
+        renderStickersGrid(activeCat, query);
+      });
+    }
+
+    const gifSearch = document.getElementById("gif-search-input");
+    if (gifSearch) {
+      gifSearch.addEventListener("input", (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        renderGifsGrid(query);
+      });
+    }
+
+    renderStickersGrid();
+  }
+
   if (messageInput) {
     adjustMessageInputHeight();
     updateSendButtonState();
@@ -3080,11 +3175,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!messageInput.value || messageInput.value.length === 0) {
         messageInput.scrollTop = 0;
       }
-    });
-
-    messageInput.addEventListener("change", () => {
-      adjustMessageInputHeight();
-      updateSendButtonState();
     });
 
     messageInput.addEventListener("input", () => {
@@ -3127,8 +3217,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (sendButton) {
-    sendButton.addEventListener("click", handleSendMessage);
+    sendButton.addEventListener("click", () => {
+      if (messageInput && messageInput.value.trim().length > 0) {
+        handleSendMessage();
+      } else {
+        if (typeof window.showToast === "function") {
+          window.showToast("Digite uma mensagem para enviar ou use a chamada de áudio no topo.", "info");
+        }
+      }
+    });
   }
+
+  updateSendButtonState();
+  initMediaPicker();
 
   if (btnToggleSidebar && chatSidebar) {
     btnToggleSidebar.addEventListener("click", (e) => {
@@ -3785,26 +3886,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const menuEmojis = document.getElementById("mobile-menu-emojis");
   const menuColors = document.getElementById("mobile-menu-colors");
 
-  const btnEmojiPicker = document.getElementById("btn-emoji-picker");
-  if (btnEmojiPicker) {
-    btnEmojiPicker.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (window.PaposMediaPicker) {
-        window.PaposMediaPicker.toggle("emojis");
-      }
-    });
-  }
-
   if (btnMobileOpenEmojis) {
     btnMobileOpenEmojis.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (window.PaposMediaPicker) {
-        window.closeMobileDropdown();
-        window.PaposMediaPicker.open("emojis");
-        return;
-      }
       if (step1) step1.classList.add("d-none");
       if (menuEmojis) menuEmojis.classList.remove("d-none");
       setTimeout(() => { if (searchMobile) searchMobile.focus(); }, 100);

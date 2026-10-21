@@ -283,7 +283,7 @@ const INITIAL_MESSAGES: Record<string, any[]> = {
   ],
   "room-2": [
     { id: "m-init-4", sender: "Guilherme", text: "Alguém aí já experimentou o novo motor do Node ou está focado em Bun?", time: "14:10", isSystem: false },
-    { id: "m-init-5", sender: "Mariana Tech", text: "Eu uso muito Node em produção, mas Bun é absurdamente rápido em testes locais.", time: "14:15", isSystem: false, isBot: true, botId: "mariana_tech" }
+    { id: "m-init-5", sender: "Mariana Tech", text: "Eu uso muito Node em produção, mas Bun é absurdamente rápido em testes locais.", time: "14:15", isSystem: false }
   ],
   "room-10": [
     { id: "m-init-6", sender: "Gabriel_Coruja", text: "Alguém aí acordado ainda?", time: "02:15", isSystem: false },
@@ -531,6 +531,17 @@ function sanitizeHTML(text: string): string {
 function containsLink(str: string): boolean {
   if (!str || typeof str !== "string") return false;
 
+  // Permitir tags e URLs de figurinhas e GIFs legítimos da plataforma
+  if (
+    str.startsWith("[sticker:") ||
+    str.startsWith("[figurinha:") ||
+    str.startsWith("[gif:") ||
+    str.includes("chat-sticker-img") ||
+    str.includes("chat-gif-img")
+  ) {
+    return false;
+  }
+
   let text = str;
 
   try {
@@ -656,8 +667,8 @@ async function startServer() {
       "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
       "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https: http:",
-      "media-src 'self' blob: data: https: http:",
-      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com https://api.klipy.com https://*.klipy.com https://api.giphy.com https://*.giphy.com",
+      "media-src 'self' blob: data:",
+      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
       "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -704,13 +715,6 @@ async function startServer() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
-  });
-
-  app.get("/api/media-config", (req, res) => {
-    res.json({
-      klipyKey: process.env.VITE_KLIPY_API_KEY || process.env.KLIPY_API_KEY || "",
-      giphyKey: process.env.VITE_GIPHY_API_KEY || process.env.GIPHY_API_KEY || ""
-    });
   });
 
   app.get("/api/webrtc-config", (req, res) => {
@@ -2439,8 +2443,6 @@ async function startServer() {
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
-                  isBot: true,
-                  botId: "bot_papos",
                   reactions: {}
                 };
 
@@ -2483,9 +2485,7 @@ async function startServer() {
                   content: welcomeText,
                   timestamp: Date.now(),
                   conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
-                  isDeleted: false,
-                  isBot: true,
-                  botId: "bot_papos"
+                  isDeleted: false
                 };
                 sendToClient(ws, "private_message", pmPayload);
               }, 4000);
@@ -2582,8 +2582,6 @@ async function startServer() {
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
-                  isBot: true,
-                  botId: welcomeBot.nickname.toLowerCase(),
                   reactions: {}
                 };
 
@@ -2627,17 +2625,14 @@ async function startServer() {
             session.lastMessageTime.push(now);
 
             const rawText = payload.text || "";
-            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker";
-            const mediaType = isMedia ? payload.mediaType : undefined;
-            const mediaUrl = (isMedia && typeof payload.mediaUrl === "string") ? sanitizeHTML(payload.mediaUrl).substring(0, 1000) : undefined;
-
-            if (!isMedia && (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || "")))) {
+            if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
             }
 
-            const text = sanitizeHTML(rawText).trim().substring(0, 250);
-            if (!text && !isMedia) return;
+            const isMediaMsg = rawText.startsWith("[sticker:") || rawText.startsWith("[figurinha:") || rawText.startsWith("[gif:");
+            const text = sanitizeHTML(rawText).trim().substring(0, isMediaMsg ? 600 : 250);
+            if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
             const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
@@ -2649,14 +2644,12 @@ async function startServer() {
             const msgObj = {
               id: msgId,
               sender: session.nickname,
-              text: text || (mediaType === "gif" ? "🎞️ GIF" : "🧸 Figurinha"),
+              text,
               time: getCurrentTime(),
               timestamp: Date.now(),
               isSystem: false,
               color,
               photoUrl: session.photoUrl || undefined,
-              mediaType,
-              mediaUrl,
               replyTo: payload.replyTo ? {
                 id: payload.replyTo.id,
                 sender: payload.replyTo.sender,
@@ -2688,11 +2681,7 @@ async function startServer() {
             const toNick = payload.to?.trim();
             const rawText = payload.text || "";
 
-            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker";
-            const mediaType = isMedia ? payload.mediaType : undefined;
-            const mediaUrl = (isMedia && typeof payload.mediaUrl === "string") ? sanitizeHTML(payload.mediaUrl).substring(0, 1000) : undefined;
-
-            if (!toNick || (!rawText && !isMedia)) return;
+            if (!toNick || !rawText) return;
 
             // Proteção contra flood de mensagens privadas (máximo 5 mensagens a cada 4 segundos)
             const now = Date.now();
@@ -2703,13 +2692,14 @@ async function startServer() {
             }
             session.lastMessageTime.push(now);
 
-            if (!isMedia && containsLink(rawText)) {
+            if (containsLink(rawText)) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
             }
 
-            const text = sanitizeHTML(rawText).trim().substring(0, 250);
-            if (!text && !isMedia) return;
+            const isMediaMsg = rawText.startsWith("[sticker:") || rawText.startsWith("[figurinha:") || rawText.startsWith("[gif:");
+            const text = sanitizeHTML(rawText).trim().substring(0, isMediaMsg ? 600 : 250);
+            if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 
@@ -2737,13 +2727,11 @@ async function startServer() {
                 senderPhotoUrl: session.photoUrl || undefined,
                 recipientId: toNick,
                 recipientName: toNick,
-                content: text || (mediaType === "gif" ? "Enviou um GIF" : "Enviou uma figurinha"),
+                content: text,
                 timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
                 color,
-                mediaType,
-                mediaUrl,
                 replyTo: payload.replyTo ? {
                   id: payload.replyTo.id || payload.replyTo.messageId,
                   messageId: payload.replyTo.messageId || payload.replyTo.id,
@@ -2773,13 +2761,11 @@ async function startServer() {
                   senderName: session.nickname,
                   recipientId: toNick,
                   recipientName: toNick,
-                  content: text || (mediaType === "gif" ? "Enviou um GIF" : "Enviou uma figurinha"),
+                  content: text,
                   timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,
                   color,
-                  mediaType,
-                  mediaUrl,
                   replyTo: payload.replyTo ? {
                     id: payload.replyTo.id || payload.replyTo.messageId,
                     messageId: payload.replyTo.messageId || payload.replyTo.id,
@@ -3784,8 +3770,6 @@ async function startServer() {
       time: getCurrentTime(),
       timestamp: Date.now(),
       isSystem: false,
-      isBot: true,
-      botId: "bot_papos",
       reactions: {}
     };
 
@@ -3862,8 +3846,6 @@ async function startServer() {
       time: getCurrentTime(),
       timestamp: Date.now(),
       isSystem: false,
-      isBot: true,
-      botId: bot.nickname.toLowerCase(),
       reactions: {}
     };
 

@@ -350,18 +350,79 @@
             </div>
 
             <form id="message-form" class="m-0" onsubmit="return false;">
-              <div class="input-group flex-nowrap align-items-end chat-composer-group">
-                <div class="chat-input-wrapper position-relative flex-grow-1 d-flex align-items-center">
-                  <button class="btn btn-input-emoji d-flex align-items-center justify-content-center" type="button" id="btn-emoji-picker" title="Escolher emojis, GIFs e figurinhas" aria-label="Escolher emojis, GIFs e figurinhas">
-                    <i class="fa-regular fa-face-smile" aria-hidden="true"></i>
+              <div class="input-group flex-nowrap align-items-end">
+                <!-- Container visual do campo de digitação com o ícone de figurinhas no canto direito interno -->
+                <div class="chat-input-wrapper position-relative flex-grow-1" id="chat-input-wrapper" style="min-width: 0;">
+                  <textarea class="form-control bg-dark border-secondary px-3 py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm); padding-right: 44px;"></textarea>
+                  
+                  <!-- Ícone exato de figurinhas do Font Awesome: fa-solid fa-note-sticky -->
+                  <button type="button" class="btn-sticker-inner" id="btn-sticker-toggle" title="Figurinhas, Emojis e GIFs" aria-label="Figurinhas, Emojis e GIFs" tabindex="0">
+                    <i class="fa-solid fa-note-sticky"></i>
                   </button>
-                  <textarea class="form-control bg-dark border-secondary py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none; padding-left: 42px; padding-right: 12px;"></textarea>
-                </div>
-                
-                <div class="d-none" id="emoji-picker-dropdown" aria-hidden="true" style="display: none !important;"></div>
 
-                <button class="btn btn-premium d-flex align-items-center justify-content-center" type="submit" id="btn-send" title="Gravar áudio" aria-label="Gravar áudio" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; align-self: flex-end; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; border-right: none; padding: 0;">
-                  <i class="bi bi-mic-fill" style="font-size: 1rem;"></i>
+                  <!-- Painel unificado de Mídias (Emojis, GIFs e Figurinhas da KLIPY) -->
+                  <div class="dropdown-menu p-2 border-secondary shadow-lg" id="emoji-picker-dropdown" aria-labelledby="btn-sticker-toggle" style="background-color: var(--surface); width: 340px; max-width: 92vw; z-index: 1060; border-radius: var(--radius-md);">
+                    
+                    <!-- 3 Abas: Emojis, GIFs, Figurinhas (KLIPY) -->
+                    <div class="media-tabs-header d-flex border-bottom border-secondary pb-2 mb-2 gap-1" id="media-tabs-header">
+                      <button type="button" class="media-tab-btn" data-tab="emojis" id="tab-btn-emojis">
+                        <i class="bi bi-emoji-smile me-1"></i> Emojis
+                      </button>
+                      <button type="button" class="media-tab-btn" data-tab="gifs" id="tab-btn-gifs">
+                        <i class="bi bi-filetype-gif me-1"></i> GIFs
+                      </button>
+                      <button type="button" class="media-tab-btn active" data-tab="stickers" id="tab-btn-stickers">
+                        <i class="fa-solid fa-note-sticky me-1"></i> Figurinhas
+                      </button>
+                    </div>
+
+                    <!-- Aba: Figurinhas (KLIPY / Stickers) -->
+                    <div id="media-pane-stickers" class="media-tab-pane">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <input type="text" id="sticker-search-input" class="form-control form-control-sm bg-dark border-secondary text-white" placeholder="Pesquisar figurinhas..." style="font-size: 0.82rem; flex: 1;">
+                        <span class="badge bg-success bg-opacity-10 text-success ms-2 small" style="font-size: 0.68rem; font-weight: 600;">KLIPY</span>
+                      </div>
+                      <div class="sticker-category-tabs d-flex gap-1 pb-1 mb-2" id="sticker-category-tabs" style="overflow-x: auto; scrollbar-width: none;">
+                        <button type="button" class="btn btn-sm sticker-cat-btn active" data-cat="all">Todos</button>
+                        <button type="button" class="btn btn-sm sticker-cat-btn" data-cat="memes">Memes</button>
+                        <button type="button" class="btn btn-sm sticker-cat-btn" data-cat="reacoes">Reações</button>
+                        <button type="button" class="btn btn-sm sticker-cat-btn" data-cat="amor">Amor</button>
+                        <button type="button" class="btn btn-sm sticker-cat-btn" data-cat="pets">Fofos</button>
+                      </div>
+                      <div class="stickers-panel-grid" id="stickers-grid-container"></div>
+                    </div>
+
+                    <!-- Aba: GIFs -->
+                    <div id="media-pane-gifs" class="media-tab-pane d-none">
+                      <div class="mb-2">
+                        <input type="text" id="gif-search-input" class="form-control form-control-sm bg-dark border-secondary text-white" placeholder="Pesquisar GIFs..." style="font-size: 0.82rem;">
+                      </div>
+                      <div class="gifs-panel-grid" id="gifs-grid-container" style="max-height: 220px; overflow-y: auto; padding: 2px;"></div>
+                    </div>
+
+                    <!-- Aba: Emojis -->
+                    <div id="media-pane-emojis" class="media-tab-pane d-none">
+                      <div class="mb-2">
+                        <input type="text" id="emoji-search-desktop" class="form-control form-control-sm bg-dark border-secondary text-white" placeholder="Pesquisar emoji..." style="font-size: 0.82rem;">
+                      </div>
+                      <div class="d-flex justify-content-between border-bottom border-secondary pb-2 mb-2 emoji-tabs" style="font-size: 1.1rem; overflow-x: auto; scrollbar-width: none;">
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none active-emoji-tab" onclick="window.switchEmojiCategory('faces')" style="box-shadow: none;">😀</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('animals')" style="box-shadow: none;">🐱</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('food')" style="box-shadow: none;">🍔</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('activities')" style="box-shadow: none;">⚽</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('travel')" style="box-shadow: none;">🚗</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('objects')" style="box-shadow: none;">💡</button>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('hearts')" style="box-shadow: none;">💖</button>
+                      </div>
+                      <div class="emoji-grid d-flex flex-wrap gap-1" id="emoji-grid-container" style="max-height: 180px; overflow-y: auto; font-size: 1.3rem; padding: 2px; justify-content: center;"></div>
+                    </div>
+
+                  </div>
+                </div>
+
+                <!-- Botão externo direito: Microfone (quando vazio) / Enviar (quando tem texto) -->
+                <button class="btn btn-premium d-flex align-items-center justify-content-center" type="submit" id="btn-send" title="Gravar áudio" aria-label="Gravar áudio" style="height: 40px; width: 40px; min-width: 40px; min-height: 40px; align-self: flex-end; border-radius: 50%; padding: 0;">
+                  <i class="bi bi-mic-fill" id="btn-send-icon" style="font-size: 1rem;"></i>
                 </button>
 
                 <div class="dropdown dropup d-block d-md-none" id="dropdown-actions-wrapper" style="align-self: flex-end;">
@@ -552,6 +613,14 @@
       </div>
       <div class="offcanvas-body p-3 d-flex flex-column gap-2 overflow-y-auto">
         
+        <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center justify-content-between py-2.5 px-3 mb-1 border-0" id="mobile-menu-zenithe" aria-label="Conhecer o Zenithe" title="Conhecer o Zenithe" role="button" style="border-radius: var(--radius-sm); background: linear-gradient(135deg, rgba(0, 230, 118, 0.16) 0%, rgba(56, 189, 248, 0.14) 100%); border: 1px solid rgba(0, 230, 118, 0.3) !important;">
+          <div class="d-flex align-items-center gap-2.5">
+            <img src="/assets/img/zenithe-logo.png" alt="Zenithe" width="22" height="22" style="border-radius: 6px; object-fit: contain;">
+            <span class="fw-bold text-white" style="font-size: 0.88rem;">Conhecer o Zenithe</span>
+          </div>
+          <span class="badge rounded-pill bg-success text-dark fw-bold px-2 py-0.5" style="font-size: 0.65rem;">NOVO</span>
+        </button>
+
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-rooms" data-bs-toggle="modal" data-bs-target="#roomsModal" data-bs-dismiss="offcanvas" aria-label="Salas de Bate-Papo" title="Salas de Bate-Papo" role="button" style="border-radius: var(--radius-sm);">
           <i class="bi bi-grid-fill text-primary" aria-hidden="true"></i>
           <span>Salas</span>
@@ -572,17 +641,6 @@
           <i class="bi bi-moon-fill theme-moon-icon-btn text-primary" aria-hidden="true"></i>
           <span class="ms-1">Tema</span>
         </button>
-
-        <!-- Silenciar Bots (Switch Moderno, Compacto e Totalmente Arredondado) -->
-        <div class="btn btn-secondary-custom text-start d-flex align-items-center justify-content-between py-2 px-3 mobile-menu-switch-item" id="mobile-menu-mute-bots-container" role="button" style="border-radius: var(--radius-sm); cursor: pointer;">
-          <div class="d-flex align-items-center gap-2.5">
-            <i class="bi bi-robot text-info" aria-hidden="true"></i>
-            <span>Silenciar bots</span>
-          </div>
-          <div class="form-check form-switch m-0 p-0 d-flex align-items-center">
-            <input class="form-check-input papos-compact-switch m-0" type="checkbox" role="switch" id="mobile-menu-mute-bots-switch" aria-label="Silenciar bots">
-          </div>
-        </div>
 
         <button type="button" class="btn btn-secondary-custom text-start d-flex align-items-center gap-2.5 py-2 px-3" id="mobile-menu-feedback" onclick="window.openFeedbackModal && window.openFeedbackModal()" data-bs-dismiss="offcanvas" aria-label="Avaliar o Papo.net" title="Avaliar o Papo.net" role="button" style="border-radius: var(--radius-sm);">
           <i class="bi bi-star-fill text-warning" aria-hidden="true"></i>
@@ -992,17 +1050,6 @@
           <span class="fw-semibold">Avaliações</span>
         </button>
 
-        <!-- Silenciar Bots (Desktop) -->
-        <div class="btn btn-secondary-custom text-start d-flex align-items-center justify-content-between py-2 px-3 rounded-3" id="desktop-sidebar-mute-bots-container" role="button" style="cursor: pointer;">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-robot text-info fs-5 me-1" aria-hidden="true"></i>
-            <span class="fw-semibold">Silenciar bots</span>
-          </div>
-          <div class="form-check form-switch m-0 p-0 d-flex align-items-center">
-            <input class="form-check-input papos-compact-switch m-0" type="checkbox" role="switch" id="desktop-sidebar-mute-bots-switch" aria-label="Silenciar bots">
-          </div>
-        </div>
-
         <hr class="border-secondary my-2">
 
         <!-- 8. Sair / Entrar -->
@@ -1285,8 +1332,6 @@
       </div>
     </div>
 
-    <div id="papos-media-picker-root"></div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     <script src="/assets/js/fingerprint.js"></script>
@@ -1304,7 +1349,6 @@
     <script src="/assets/js/audio-call.js"></script>
 
     <script src="/assets/js/chat.js"></script>
-    <script type="module" src="/src/chat-media-picker.tsx"></script>
     <script src="/assets/js/zenithe-card.js"></script>
   </body>
 </html>
