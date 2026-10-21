@@ -283,7 +283,7 @@ const INITIAL_MESSAGES: Record<string, any[]> = {
   ],
   "room-2": [
     { id: "m-init-4", sender: "Guilherme", text: "Alguém aí já experimentou o novo motor do Node ou está focado em Bun?", time: "14:10", isSystem: false },
-    { id: "m-init-5", sender: "Mariana Tech", text: "Eu uso muito Node em produção, mas Bun é absurdamente rápido em testes locais.", time: "14:15", isSystem: false }
+    { id: "m-init-5", sender: "Mariana Tech", text: "Eu uso muito Node em produção, mas Bun é absurdamente rápido em testes locais.", time: "14:15", isSystem: false, isBot: true, botId: "mariana_tech" }
   ],
   "room-10": [
     { id: "m-init-6", sender: "Gabriel_Coruja", text: "Alguém aí acordado ainda?", time: "02:15", isSystem: false },
@@ -531,17 +531,6 @@ function sanitizeHTML(text: string): string {
 function containsLink(str: string): boolean {
   if (!str || typeof str !== "string") return false;
 
-  // Permitir tags e URLs de figurinhas e GIFs legítimos da plataforma
-  if (
-    str.startsWith("[sticker:") ||
-    str.startsWith("[figurinha:") ||
-    str.startsWith("[gif:") ||
-    str.includes("chat-sticker-img") ||
-    str.includes("chat-gif-img")
-  ) {
-    return false;
-  }
-
   let text = str;
 
   try {
@@ -667,8 +656,8 @@ async function startServer() {
       "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
       "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https: http:",
-      "media-src 'self' blob: data:",
-      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
+      "media-src 'self' blob: data: https: http:",
+      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com https://api.klipy.com https://*.klipy.com https://api.giphy.com https://*.giphy.com",
       "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -715,6 +704,56 @@ async function startServer() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
+  });
+
+  app.get("/api/media-config", (req, res) => {
+    const klipyKey =
+      process.env.VITE_KLIPY_API_KEY ||
+      process.env.KLIPY_API_KEY ||
+      process.env.KLIPY_APP_KEY ||
+      process.env.KLIPY_KEY ||
+      process.env.KLIPY_TOKEN ||
+      process.env.VITE_KLIPY_KEY ||
+      process.env.VITE_KLIPY_APP_KEY ||
+      "";
+    const giphyKey =
+      process.env.VITE_GIPHY_API_KEY ||
+      process.env.GIPHY_API_KEY ||
+      "";
+    res.json({ klipyKey, giphyKey });
+  });
+
+  app.get("/api/klipy/stickers", async (req, res) => {
+    try {
+      const key =
+        (req.query.key as string) ||
+        process.env.VITE_KLIPY_API_KEY ||
+        process.env.KLIPY_API_KEY ||
+        process.env.KLIPY_APP_KEY ||
+        process.env.KLIPY_KEY ||
+        process.env.KLIPY_TOKEN ||
+        process.env.VITE_KLIPY_KEY ||
+        process.env.VITE_KLIPY_APP_KEY ||
+        "";
+
+      if (!key) {
+        res.status(400).json({ error: "missing_key", message: "Chave KLIPY não configurada no servidor." });
+        return;
+      }
+
+      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+      const page = typeof req.query.page === "string" ? req.query.page : "1";
+      const perPage = typeof req.query.per_page === "string" ? req.query.per_page : "40";
+      const targetUrl = q
+        ? `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/stickers/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${perPage}`
+        : `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/stickers/trending?page=${page}&per_page=${perPage}`;
+
+      const klipyRes = await fetch(targetUrl);
+      const klipyData = await klipyRes.json();
+      res.status(klipyRes.status).json(klipyData);
+    } catch (err: any) {
+      res.status(502).json({ error: "gateway_error", message: err?.message || "Falha na comunicação com a API KLIPY." });
+    }
   });
 
   app.get("/api/webrtc-config", (req, res) => {
@@ -772,107 +811,6 @@ async function startServer() {
     } catch (err) {
       res.json({ showAds: true });
     }
-  });
-
-  // ========================================================
-  // Integração com KLIPY (GIFs e Figurinhas)
-  // ========================================================
-  const KLIPY_STICKERS_DATA = [
-    { id: "stk-1", title: "Flork Apaixonado", category: "amor", tags: "amor coracao flork love apaixonado", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3ZkNHlqMDl0OWkxbWZzZjF4N2VzbjB6bDZ2dTRmZ3F2eDJhODRldyZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/MDJ9IbxxvDUQM/giphy.gif" },
-    { id: "stk-2", title: "Gato Dançando", category: "memes", tags: "gato meme festa danca dancando", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExd25pM25qMDl0OWkxbWZzZjF4N2VzbjB6bDZ2dTRmZ3F2eDJhODRldyZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/jpbnoe3UIa8TU8LM13/giphy.gif" },
-    { id: "stk-3", title: "Joinha Legal", category: "reacoes", tags: "joinha ok sim legal aprovado positivo", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmZ1NXFjZ21sM3U5bDN3ODJodWRobXZrY3kyMjRvdWN3ZXBxdzB1eiZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/111ebonMs90YLu/giphy.gif" },
-    { id: "stk-4", title: "Cachorrinho Feliz", category: "pets", tags: "cachorro dog fofo pet feliz", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHU4enN0eG10c2ZudGdtODdjaXlyOXp5bWpsbzZ1czdyOHc2c3NlOSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/13CoXDiaCcCoyk/giphy.gif" },
-    { id: "stk-5", title: "Coração Pulsando", category: "amor", tags: "amor coracao love carinho paixao", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnB2czAybGNxNGpnZnRjYmZpdG5mZ3RzNXEzbXZ3dGk2NGNyd3R2diZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/26FLdmIp6wJr91JAI/giphy.gif" },
-    { id: "stk-6", title: "Palmas Parabéns", category: "reacoes", tags: "palmas parabens aplausos show sucesso", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaG9wMDV1aWl5dHRucmx1bnJnd3ZkZGVzZ2lqcHBqMHQybWFvYzQ4dyZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/artj92V8o75VPL7AeQ/giphy.gif" },
-    { id: "stk-7", title: "Pikachu Surpreso", category: "memes", tags: "pikachu meme surpreso choque uau chocada", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMGNqM3d4OGl1OGpsMHdudnJkZmFlcmhrMGF4eDdsanE5bzFmdHR2YSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/6nWhy3NdSTmBQEDzdT/giphy.gif" },
-    { id: "stk-8", title: "Gatinho Dormindo", category: "pets", tags: "gato sono dormindo fofo zzz pet", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZTRxdjBsbzF0ZGN1aXVvN25rbXl3MWh0ZXRqczJsdG13M3pkaGVrMCZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/mlvseq9yvZhba/giphy.gif" },
-    { id: "stk-9", title: "Rindo Muito Gargalhada", category: "reacoes", tags: "rir risada rindo kkk hahah gargalhada", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDVjbnptamNma3h2aTN1ZnAzMGV4ajd2cW01ZXJmaGF1M3lsbDNldyZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/3oEjHAUOqG3lSS0f1C/giphy.gif" },
-    { id: "stk-10", title: "Festa & Confete", category: "memes", tags: "festa comemorar confete aniversario balada", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcGpoMWtva3p5a3JwbTJsa2gxdjJrdzVwbnB0OHF3aGl4MnBtd2xkayZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/l0MYt5jPR6QX5pnqM/giphy.gif" },
-    { id: "stk-11", title: "Abraço Carinhoso", category: "amor", tags: "abraco carinho fofo amor amigos amizade", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMWNlMGpsOG9mbnVqOTdsdG9ndHR2N3dzdHQwYXg4cDJqbmJqcXpkaiZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/l8oo4x3mpamNa/giphy.gif" },
-    { id: "stk-12", title: "Capivara Relax", category: "pets", tags: "capivara zen calma pet fofo relax brasil", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmNxMWpnYWl1NWpqNXkyaGpsNm5sdGlqZjF3d3h5bjFrZGQzOGEwNCZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/VCma6oU09qJSKGiW5O/giphy.gif" },
-    { id: "stk-13", title: "Cafézinho Quente", category: "memes", tags: "cafe cafezinho bom dia quente pausa energia", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZm1td2xobHhkbTlnbXBzNXV1ODR1cW5uMG54N21zOXc3dnN2ZW1kZSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/3oKIPnAiaMCws8nOsE/giphy.gif" },
-    { id: "stk-14", title: "Fogo Pegando Fogo", category: "reacoes", tags: "fogo fire chamas brabo quente sucesso", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbm5ydjJydnRzMmYxc21yM3Fyd2g2a2Jubmd4dHdseWlncXFxcXZldCZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/3o72FfM5HJydzafgUE/giphy.gif" },
-    { id: "stk-15", title: "Uau Estrelas nos Olhos", category: "reacoes", tags: "uau estrelas incrivel impressionado top", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZzhpZXlydnF2Z3htdWdrMWJ6NHQ5cG5lcmNqcmV1ZThvcmN6ZWRveSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/26BRv0ThflsDTjq4E/giphy.gif" },
-    { id: "stk-16", title: "Gato Hacker Teclando", category: "memes", tags: "gato pc computador hacker trabalhando digitando", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmFscHRnbm8ycG9obXRmOGk4enhrMmRtdjlnbnN3dmh0aDJmdWw3dyZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/unQ3IJU2RG7DO/giphy.gif" }
-  ];
-
-  const KLIPY_GIFS_DATA = [
-    { id: "gif-1", title: "Oi Olá Aceno", tags: "oi ola aceno tchau hello hi boas vindas", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmNldnRtOHBqN3RjcDZwaHk4azRhMmR6aG1nZWtkc2o0N212MHRwMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/bcKmIWkUMCjVm/giphy.gif" },
-    { id: "gif-2", title: "Dança Comemoração", tags: "danca dancando festa comemorar animado alegria", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcHJsdzE5eXJsdzBxcTJ1dDVqY3FvaDkyNXF5cmI4cnpqM2psbHRwNCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif" },
-    { id: "gif-3", title: "Pipoca Vendo Treta", tags: "pipoca cinema treta assistindo olhando curioso", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnJ2dnNudTNjMTdxbHFqMDVpdGl0MnJzNzhqcXNreXk2cGlqY3k3NSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/gl0mkIZOW6Nwc/giphy.gif" },
-    { id: "gif-4", title: "Gato Surpreso", tags: "gato susto medo surpreso choque uau o que", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWNxbTdpZjUxaWRmbmNpcW9kZ3B2eHF6bzFsdDZxbHJrOXpnZWhxMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/JIX9t2j0ZTN9S/giphy.gif" },
-    { id: "gif-5", title: "Rindo Muito Risada", tags: "rir risada rindo kkk engraçado hilário morrendo", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNndic2Vqd2RucWZmbjFpd3hkajExMjNvd296NXh0ZTVxY25ycWFleSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/10JhviFuU2BQZ2/giphy.gif" },
-    { id: "gif-6", title: "Palmas Aplausos", tags: "palmas aplausos parabens show perfeito genial", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHo3cmpsMjVxbjVqMzg1bXQzb3A3bzJldmdjMXF2ZXZ4ZHR1NHlzbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/nbvFVElcVw4WqPK5pa/giphy.gif" },
-    { id: "gif-7", title: "Joinha Aprovado", tags: "joinha ok sim legal aprovado beleza perfeito", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExc29lMHpsNHlndXNrd3Vxc3hqc3J2eGZzdjNkcTZsdDJ1ZWkzbTVjdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/111ebonMs90YLu/giphy.gif" },
-    { id: "gif-8", title: "Cachorrinho Dançando", tags: "cachorro dog fofo festa danca dançando feliz", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNG1ycTNsOHVpMnZ6OGN1dWhtMWdpcHRtMDR0dThxYnlqZHR5ZzN5NyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/artj92V8o75VPL7AeQ/giphy.gif" },
-    { id: "gif-9", title: "Chorando Tristeza", tags: "chorando choro lagrimas triste tristeza drama", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTRtcnd4bW8xNDJ4OXN1aGRicGk4NnM1bjRzdXRkcHR6dGlrdWdrNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/d2lcHJTG5Tscg/giphy.gif" },
-    { id: "gif-10", title: "Mandando Beijo", tags: "beijo amor coracao carinho kiss te amo", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWc2dHF0ZmxrOG94djR1bGNpdXRrc3U2bjFodmt6a2lkaDZ1MmxxeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/gDfteqLchLcRTtjAD7/giphy.gif" },
-    { id: "gif-11", title: "Mente Explodindo", tags: "mente explodindo uau choque cerebro uau chocado", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmNqaTZvdXp3OHI5OWJwdzV4ODhldjJscW5rcjB5bTExZDVrOXV5diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26ufdipQqU2lhNA4g/giphy.gif" },
-    { id: "gif-12", title: "Café Energia", tags: "cafe cafezinho bom dia acordar sono energia", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTVnNHF3eHkyN3JmMWVxcjE0eWprYm84OHY0ZWR2NHQxbTVlYWZqMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/oZEBLugoTNRxS/giphy.gif" }
-  ];
-
-  app.get("/api/klipy/:mediaType/:action", async (req, res) => {
-    const { mediaType, action } = req.params;
-    const query = ((req.query.q as string) || "").trim();
-    const appKey = (process.env.KLIPY_API_KEY || process.env.KLIPY_KEY || (req.query.key as string) || "").trim();
-
-    // Se houver uma chave da KLIPY, tentar a chamada oficial da KLIPY primeiro
-    if (appKey && appKey !== "default") {
-      try {
-        const endpoint = action === "search" && query
-          ? `https://api.klipy.com/api/v1/${encodeURIComponent(appKey)}/${mediaType}/search?q=${encodeURIComponent(query)}&limit=30`
-          : `https://api.klipy.com/api/v1/${encodeURIComponent(appKey)}/${mediaType}/trending?limit=30`;
-
-        const resp = await fetch(endpoint, {
-          headers: { "Accept": "application/json" },
-          signal: AbortSignal.timeout(3000)
-        });
-
-        if (resp.ok) {
-          const json: any = await resp.json();
-          const items = json.data || json.results || [];
-          if (Array.isArray(items) && items.length > 0) {
-            const list = items.map((it: any) => {
-              const id = it.id || String(Math.random());
-              const title = it.title || it.name || "KLIPY Media";
-              let url = "";
-              let previewUrl = "";
-              if (it.images) {
-                url = it.images.original?.url || it.images.downsized?.url || it.url || "";
-                previewUrl = it.images.downsized?.url || it.images.fixed_height?.url || it.images.preview?.url || url;
-              } else if (it.media_formats) {
-                url = it.media_formats.gif?.url || it.media_formats.sticker?.url || it.media_formats.tinygif?.url || "";
-                previewUrl = it.media_formats.tinygif?.url || it.media_formats.nanogif?.url || url;
-              } else if (it.url) {
-                url = it.url;
-                previewUrl = it.previewUrl || it.thumbnail || it.url;
-              }
-              return { id, title, url, previewUrl };
-            }).filter((x: any) => x.url);
-
-            if (list.length > 0) {
-              return res.json({ result: true, data: list, source: "klipy-live" });
-            }
-          }
-        }
-      } catch (e) {
-        // Fallback seguro em caso de timeout ou indisponibilidade
-      }
-    }
-
-    // Fallback de alta performance
-    const dataset = mediaType === "stickers" ? KLIPY_STICKERS_DATA : KLIPY_GIFS_DATA;
-    let results = dataset;
-    if (query) {
-      const qLower = query.toLowerCase();
-      results = dataset.filter(item => {
-        return item.title.toLowerCase().includes(qLower) ||
-               (item.tags && item.tags.toLowerCase().includes(qLower)) ||
-               ((item as any).category && (item as any).category.toLowerCase() === qLower);
-      });
-    }
-
-    return res.json({ result: true, data: results, source: "klipy-curated" });
   });
 
   function isReservedNickname(nickname: string): boolean {
@@ -2544,6 +2482,8 @@ async function startServer() {
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
+                  isBot: true,
+                  botId: "bot_papos",
                   reactions: {}
                 };
 
@@ -2586,7 +2526,9 @@ async function startServer() {
                   content: welcomeText,
                   timestamp: Date.now(),
                   conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
-                  isDeleted: false
+                  isDeleted: false,
+                  isBot: true,
+                  botId: "bot_papos"
                 };
                 sendToClient(ws, "private_message", pmPayload);
               }, 4000);
@@ -2683,6 +2625,8 @@ async function startServer() {
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
+                  isBot: true,
+                  botId: welcomeBot.nickname.toLowerCase(),
                   reactions: {}
                 };
 
@@ -2726,14 +2670,17 @@ async function startServer() {
             session.lastMessageTime.push(now);
 
             const rawText = payload.text || "";
-            if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
+            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker";
+            const mediaType = isMedia ? payload.mediaType : undefined;
+            const mediaUrl = (isMedia && typeof payload.mediaUrl === "string") ? sanitizeHTML(payload.mediaUrl).substring(0, 1000) : undefined;
+
+            if (!isMedia && (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || "")))) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
             }
 
-            const isMediaMsg = rawText.startsWith("[sticker:") || rawText.startsWith("[figurinha:") || rawText.startsWith("[gif:");
-            const text = sanitizeHTML(rawText).trim().substring(0, isMediaMsg ? 600 : 250);
-            if (!text) return;
+            const text = sanitizeHTML(rawText).trim().substring(0, 250);
+            if (!text && !isMedia) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
             const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
@@ -2745,12 +2692,14 @@ async function startServer() {
             const msgObj = {
               id: msgId,
               sender: session.nickname,
-              text,
+              text: text || (mediaType === "gif" ? "🎞️ GIF" : "🧸 Figurinha"),
               time: getCurrentTime(),
               timestamp: Date.now(),
               isSystem: false,
               color,
               photoUrl: session.photoUrl || undefined,
+              mediaType,
+              mediaUrl,
               replyTo: payload.replyTo ? {
                 id: payload.replyTo.id,
                 sender: payload.replyTo.sender,
@@ -2782,7 +2731,11 @@ async function startServer() {
             const toNick = payload.to?.trim();
             const rawText = payload.text || "";
 
-            if (!toNick || !rawText) return;
+            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker";
+            const mediaType = isMedia ? payload.mediaType : undefined;
+            const mediaUrl = (isMedia && typeof payload.mediaUrl === "string") ? sanitizeHTML(payload.mediaUrl).substring(0, 1000) : undefined;
+
+            if (!toNick || (!rawText && !isMedia)) return;
 
             // Proteção contra flood de mensagens privadas (máximo 5 mensagens a cada 4 segundos)
             const now = Date.now();
@@ -2793,14 +2746,13 @@ async function startServer() {
             }
             session.lastMessageTime.push(now);
 
-            if (containsLink(rawText)) {
+            if (!isMedia && containsLink(rawText)) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
             }
 
-            const isMediaMsg = rawText.startsWith("[sticker:") || rawText.startsWith("[figurinha:") || rawText.startsWith("[gif:");
-            const text = sanitizeHTML(rawText).trim().substring(0, isMediaMsg ? 600 : 250);
-            if (!text) return;
+            const text = sanitizeHTML(rawText).trim().substring(0, 250);
+            if (!text && !isMedia) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 
@@ -2828,11 +2780,13 @@ async function startServer() {
                 senderPhotoUrl: session.photoUrl || undefined,
                 recipientId: toNick,
                 recipientName: toNick,
-                content: text,
+                content: text || (mediaType === "gif" ? "Enviou um GIF" : "Enviou uma figurinha"),
                 timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
                 color,
+                mediaType,
+                mediaUrl,
                 replyTo: payload.replyTo ? {
                   id: payload.replyTo.id || payload.replyTo.messageId,
                   messageId: payload.replyTo.messageId || payload.replyTo.id,
@@ -2862,11 +2816,13 @@ async function startServer() {
                   senderName: session.nickname,
                   recipientId: toNick,
                   recipientName: toNick,
-                  content: text,
+                  content: text || (mediaType === "gif" ? "Enviou um GIF" : "Enviou uma figurinha"),
                   timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,
                   color,
+                  mediaType,
+                  mediaUrl,
                   replyTo: payload.replyTo ? {
                     id: payload.replyTo.id || payload.replyTo.messageId,
                     messageId: payload.replyTo.messageId || payload.replyTo.id,
@@ -3146,11 +3102,14 @@ async function startServer() {
               return;
             }
 
-            const targetEntry = Array.from(activeSessions.entries()).find(
-              ([, candidate]) => candidate.nickname?.toLowerCase() === toNick.toLowerCase()
-            );
-            const targetWs = targetEntry?.[0];
-            const targetSession = targetEntry?.[1];
+            let targetWs: WebSocket | null = null;
+            let targetSession: ClientSession | null = null;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                targetWs = key;
+                targetSession = s;
+              }
+            });
 
             if (!targetWs || !targetSession) {
               sendToClient(ws, "call:unavailable", { partner: toNick, message: "Usuário indisponível no momento." });
@@ -3205,11 +3164,14 @@ async function startServer() {
               return;
             }
 
-            const targetEntry = Array.from(activeSessions.entries()).find(
-              ([, candidate]) => candidate.nickname?.toLowerCase() === toNick.toLowerCase()
-            );
-            const targetWs = targetEntry?.[0];
-            const targetSession = targetEntry?.[1];
+            let targetWs: WebSocket | null = null;
+            let targetSession: ClientSession | null = null;
+            activeSessions.forEach((s, key) => {
+              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
+                targetWs = key;
+                targetSession = s;
+              }
+            });
 
             if (!targetWs || !targetSession) {
               sendToClient(ws, "call:unavailable", { partner: toNick, message: "Usuário indisponível no momento." });
@@ -3471,7 +3433,7 @@ async function startServer() {
               if (typeof raw === "string" && raw.trim() !== "" && !raw.includes("null") && !raw.includes("undefined")) {
                 session.photoUrl = sanitizeHTML(raw.trim());
                 if (session.nickname) {
-                  broadcastProfileUpdate(session.nickname, session.photoUrl || null, session.uid);
+                  broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
                 }
                 if (session.uid) {
                   try {
@@ -3564,7 +3526,7 @@ async function startServer() {
             }
 
             if (photoChanged && session.nickname) {
-              broadcastProfileUpdate(session.nickname, session.photoUrl || null, session.uid);
+              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
             }
 
             if (session.roomId) {
@@ -3659,6 +3621,21 @@ async function startServer() {
         const fs = await import("fs");
         if (fs.existsSync(filePath)) {
           let html = fs.readFileSync(filePath, "utf-8");
+          const klipyKey =
+            process.env.VITE_KLIPY_API_KEY ||
+            process.env.KLIPY_API_KEY ||
+            process.env.KLIPY_APP_KEY ||
+            process.env.KLIPY_KEY ||
+            process.env.KLIPY_TOKEN ||
+            process.env.VITE_KLIPY_KEY ||
+            process.env.VITE_KLIPY_APP_KEY ||
+            "";
+          if (klipyKey && html.includes("</head>")) {
+            html = html.replace(
+              "</head>",
+              `<script>window.__KLIPY_API_KEY__ = window.__KLIPY_API_KEY__ || ${JSON.stringify(klipyKey)};</script></head>`
+            );
+          }
           html = await vite.transformIndexHtml(req.originalUrl || req.url, html);
           res.status(200).set({ "Content-Type": "text/html" }).end(html);
         } else {
@@ -3865,6 +3842,8 @@ async function startServer() {
       time: getCurrentTime(),
       timestamp: Date.now(),
       isSystem: false,
+      isBot: true,
+      botId: "bot_papos",
       reactions: {}
     };
 
@@ -3941,6 +3920,8 @@ async function startServer() {
       time: getCurrentTime(),
       timestamp: Date.now(),
       isSystem: false,
+      isBot: true,
+      botId: bot.nickname.toLowerCase(),
       reactions: {}
     };
 
