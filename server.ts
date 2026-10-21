@@ -771,6 +771,7 @@ async function startServer() {
       res.json({ showAds });
     } catch (err) {
       res.json({ showAds: true });
+    }
   });
 
   // ========================================================
@@ -3145,14 +3146,11 @@ async function startServer() {
               return;
             }
 
-            let targetWs: WebSocket | null = null;
-            let targetSession: ClientSession | null = null;
-            activeSessions.forEach((s, key) => {
-              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
-                targetWs = key;
-                targetSession = s;
-              }
-            });
+            const targetEntry = Array.from(activeSessions.entries()).find(
+              ([, candidate]) => candidate.nickname?.toLowerCase() === toNick.toLowerCase()
+            );
+            const targetWs = targetEntry?.[0];
+            const targetSession = targetEntry?.[1];
 
             if (!targetWs || !targetSession) {
               sendToClient(ws, "call:unavailable", { partner: toNick, message: "Usuário indisponível no momento." });
@@ -3207,14 +3205,11 @@ async function startServer() {
               return;
             }
 
-            let targetWs: WebSocket | null = null;
-            let targetSession: ClientSession | null = null;
-            activeSessions.forEach((s, key) => {
-              if (s.nickname && s.nickname.toLowerCase() === toNick.toLowerCase()) {
-                targetWs = key;
-                targetSession = s;
-              }
-            });
+            const targetEntry = Array.from(activeSessions.entries()).find(
+              ([, candidate]) => candidate.nickname?.toLowerCase() === toNick.toLowerCase()
+            );
+            const targetWs = targetEntry?.[0];
+            const targetSession = targetEntry?.[1];
 
             if (!targetWs || !targetSession) {
               sendToClient(ws, "call:unavailable", { partner: toNick, message: "Usuário indisponível no momento." });
@@ -3476,7 +3471,7 @@ async function startServer() {
               if (typeof raw === "string" && raw.trim() !== "" && !raw.includes("null") && !raw.includes("undefined")) {
                 session.photoUrl = sanitizeHTML(raw.trim());
                 if (session.nickname) {
-                  broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+                  broadcastProfileUpdate(session.nickname, session.photoUrl || null, session.uid);
                 }
                 if (session.uid) {
                   try {
@@ -3569,7 +3564,7 @@ async function startServer() {
             }
 
             if (photoChanged && session.nickname) {
-              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+              broadcastProfileUpdate(session.nickname, session.photoUrl || null, session.uid);
             }
 
             if (session.roomId) {
