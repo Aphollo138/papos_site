@@ -1549,6 +1549,95 @@ html.js-enabled .scroll-reveal.revealed {
   border-top-right-radius: var(--radius-md);
 }
 
+/* Container integrado do input de mensagem com botão de emoji à esquerda */
+.chat-composer-group {
+  position: relative;
+  width: 100%;
+}
+
+.chat-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 40px;
+}
+
+.btn-input-emoji {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+  font-size: 1.15rem;
+  line-height: 1;
+  outline: none;
+  box-shadow: none !important;
+}
+
+.btn-input-emoji:hover {
+  color: var(--text-primary, #ffffff);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.btn-input-emoji:active {
+  transform: scale(0.92);
+}
+
+[data-theme="light"] .btn-input-emoji {
+  color: #6b7280;
+}
+
+[data-theme="light"] .btn-input-emoji:hover {
+  color: #111827;
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Textarea com padding à esquerda para não sobrepor o ícone */
+.chat-input-wrapper #message-input {
+  padding-left: 42px !important;
+  padding-right: 12px !important;
+  width: 100% !important;
+}
+
+/* Dimensões padronizadas e compactas para mensagens com GIFs (desktop: 220px, mobile: 180px) */
+.msg-gif-img,
+.papos-message-gif {
+  max-width: 220px !important;
+  max-height: 220px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  border-radius: 10px !important;
+  display: block !important;
+}
+
+@media (max-width: 768px) {
+  .msg-gif-img,
+  .papos-message-gif {
+    max-width: 180px !important;
+    max-height: 180px !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+}
+
 .reactions-list {
   display: flex;
   flex-wrap: wrap;
@@ -1901,16 +1990,24 @@ button, .btn, .reaction-pill, .private-chat-item {
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1) !important;
   }
 
-  /* No mobile, a carinha de emoji fica oculta ao lado do botão de enviar (acessível somente pelos três pontos) */
+  /* No mobile, o botão de emoji dentro do input é visível e acessível por toque */
   .chat-input-area #dropdown-emoji-wrapper,
-  .chat-input-area .dropdown:has(#btn-emoji-picker),
-  .chat-input-area #btn-emoji-picker {
+  .chat-input-area .dropdown:has(#btn-emoji-picker) {
     display: none !important;
   }
+  .chat-input-area .btn-input-emoji,
+  #btn-emoji-picker.btn-input-emoji {
+    display: inline-flex !important;
+  }
 
-  /* Ordem no Mobile: [Campo de mensagem] [⋮] [Enviar] */
-  .chat-input-area #message-input {
+  /* Ordem no Mobile: [Campo de mensagem com emoji à esquerda] [⋮] [Enviar/Mic] */
+  .chat-input-area .chat-input-wrapper {
     order: 1 !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  .chat-input-area #message-input {
+    width: 100% !important;
   }
 
   .chat-input-area #dropdown-actions-wrapper,

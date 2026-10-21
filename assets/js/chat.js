@@ -2125,8 +2125,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isGif && mediaUrl) {
       const showCaption = msg.text && msg.text !== "🎞️ GIF" && !msg.text.includes("GIF");
       return `
-        <div class="msg-gif-wrapper" style="display: inline-flex; flex-direction: column; align-items: flex-start; max-width: 100%;">
-          <img src="${mediaUrl}" alt="${msg.text || 'GIF'}" class="msg-gif-img" loading="lazy" style="max-width: 240px; max-height: 200px; width: auto; height: auto; object-fit: cover; border-radius: 10px; display: block;" />
+        <div class="msg-gif-wrapper papos-message-gif-wrapper" style="display: inline-flex; flex-direction: column; align-items: flex-start; max-width: 100%;">
+          <img src="${mediaUrl}" alt="${msg.text || 'GIF'}" class="msg-gif-img papos-message-gif" loading="lazy" style="max-width: 220px; max-height: 220px; width: auto; height: auto; object-fit: contain; border-radius: 10px; display: block;" />
           ${showCaption ? `<span class="small mt-1 d-block opacity-75">${msg.text}</span>` : ''}
         </div>
       `;

@@ -11,6 +11,7 @@ declare global {
   interface Window {
     insertEmojiAtCursor?: (emoji: string) => void;
     sendMediaMessage?: (mediaType: 'gif' | 'sticker', mediaUrl: string, caption?: string) => void;
+    updateSendButtonState?: () => void;
     closeMobileDropdown?: () => void;
     __KLIPY_API_KEY__?: string;
     PaposMediaPicker?: {
@@ -54,74 +55,27 @@ class TabErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState>
   }
 }
 
+// Interface de figurinha integrada com a API KLIPY
 export interface StickerItem {
   id: string;
-  name: string;
-  pack: 'divertidas' | 'reacoes' | 'animais' | 'memes';
+  title: string;
   url: string;
-  category: string;
+  previewUrl: string;
 }
 
-const STICKER_PACKS: Record<string, { label: string; icon: string; items: StickerItem[] }> = {
-  divertidas: {
-    label: 'Divertidas',
-    icon: '🎉',
-    items: [
-      { id: 'festa', name: 'Partiu Festa!', pack: 'divertidas', url: '/assets/stickers/divertidas/festa.svg', category: 'festa comemoração animado' },
-      { id: 'danca', name: 'No Passinho', pack: 'divertidas', url: '/assets/stickers/divertidas/danca.svg', category: 'dança música passinho festa' },
-      { id: 'pipoquinha', name: 'De Olho...', pack: 'divertidas', url: '/assets/stickers/divertidas/pipoquinha.svg', category: 'pipoca fofoca observando cinema' },
-      { id: 'foguete', name: 'Bora Voar!', pack: 'divertidas', url: '/assets/stickers/divertidas/foguete.svg', category: 'foguete voar bora sucesso' },
-      { id: 'cafezinho', name: 'Pausa pro Café', pack: 'divertidas', url: '/assets/stickers/divertidas/cafezinho.svg', category: 'café pausa descanso bom dia' },
-      { id: 'dormindo', name: 'Partiu Sono', pack: 'divertidas', url: '/assets/stickers/divertidas/dormindo.svg', category: 'dormir sono noite zzz cansado' },
-      { id: 'rock', name: 'Show Demais', pack: 'divertidas', url: '/assets/stickers/divertidas/rock.svg', category: 'show rock metal incrível top' },
-      { id: 'parabens', name: 'Mandou Bem!', pack: 'divertidas', url: '/assets/stickers/divertidas/parabens.svg', category: 'campeão troféu parabéns vitória' }
-    ]
-  },
-  reacoes: {
-    label: 'Reações',
-    icon: '❤️',
-    items: [
-      { id: 'amei', name: 'Amei Demais!', pack: 'reacoes', url: '/assets/stickers/reacoes/amei.svg', category: 'amor coração amei lindo fofo' },
-      { id: 'chocado', name: 'Eitaaa!', pack: 'reacoes', url: '/assets/stickers/reacoes/chocado.svg', category: 'eita chocado susto bicho surpresa' },
-      { id: 'chorando_rir', name: 'Morri de Rir', pack: 'reacoes', url: '/assets/stickers/reacoes/chorando_rir.svg', category: 'rir risada engraçado choro kkk' },
-      { id: 'palmas', name: 'Palmas!', pack: 'reacoes', url: '/assets/stickers/reacoes/palmas.svg', category: 'palmas parabéns aplausos show' },
-      { id: 'joinha', name: '100% Aprovado', pack: 'reacoes', url: '/assets/stickers/reacoes/joinha.svg', category: 'joinha top sim aprovado legal' },
-      { id: 'duvida', name: 'Será Mesmo?', pack: 'reacoes', url: '/assets/stickers/reacoes/duvida.svg', category: 'dúvida hum pensativo será pergunta' },
-      { id: 'calor', name: 'Que Calor!', pack: 'reacoes', url: '/assets/stickers/reacoes/calor.svg', category: 'calor sol quente derretendo' },
-      { id: 'perfeito', name: 'Nota Dez!', pack: 'reacoes', url: '/assets/stickers/reacoes/perfeito.svg', category: 'cem nota dez perfeito nota 10' }
-    ]
-  },
-  animais: {
-    label: 'Animais',
-    icon: '🐱',
-    items: [
-      { id: 'gatinho', name: 'Miau Miau', pack: 'animais', url: '/assets/stickers/animais/gatinho.svg', category: 'gato gatinho pet miau fofo' },
-      { id: 'doguinho', name: 'Au Au Feliz', pack: 'animais', url: '/assets/stickers/animais/doguinho.svg', category: 'cachorro cão dog feliz au au' },
-      { id: 'pandinha', name: 'Zen Total', pack: 'animais', url: '/assets/stickers/animais/pandinha.svg', category: 'panda calmo paz zen relax' },
-      { id: 'raposinha', name: 'Esperta!', pack: 'animais', url: '/assets/stickers/animais/raposinha.svg', category: 'raposa esperta astuta fofa' },
-      { id: 'coelhinho', name: 'Saltitando', pack: 'animais', url: '/assets/stickers/animais/coelhinho.svg', category: 'coelho pulo páscoa fofo' },
-      { id: 'ursinho', name: 'Abraço!', pack: 'animais', url: '/assets/stickers/animais/ursinho.svg', category: 'urso abraço carinho quentinho' },
-      { id: 'leaozinho', name: 'Poderoso', pack: 'animais', url: '/assets/stickers/animais/leaozinho.svg', category: 'leão rei poder selva líder' },
-      { id: 'pinguim', name: 'Na Pose!', pack: 'animais', url: '/assets/stickers/animais/pinguim.svg', category: 'pinguim gelo frio elegante pose' }
-    ]
-  },
-  memes: {
-    label: 'Memes',
-    icon: '😎',
-    items: [
-      { id: 'eita_bicho', name: 'Eita Bicho!', pack: 'memes', url: '/assets/stickers/memes/eita_bicho.svg', category: 'eita bicho meme choque fofoca' },
-      { id: 'calabreso', name: 'Calma Calabreso', pack: 'memes', url: '/assets/stickers/memes/calabreso.svg', category: 'calabreso calma meme zoeira' },
-      { id: 'stonks', name: 'Stonks!', pack: 'memes', url: '/assets/stickers/memes/stonks.svg', category: 'stonks lucro sucesso gênio meme' },
-      { id: 'foco_cafe', name: 'Foco & Café', pack: 'memes', url: '/assets/stickers/memes/foco_cafe.svg', category: 'foco café trabalho estresse' },
-      { id: 'valeu_a_pena', name: 'Valeu a Pena', pack: 'memes', url: '/assets/stickers/memes/valeu_a_pena.svg', category: 'valeu a pena pôr do sol paz' },
-      { id: 'deu_ruim', name: 'Deu Ruim!', pack: 'memes', url: '/assets/stickers/memes/deu_ruim.svg', category: 'deu ruim perigo erro problema' },
-      { id: 'segredo', name: 'Segredo Nosso', pack: 'memes', url: '/assets/stickers/memes/segredo.svg', category: 'segredo silêncio não conta bico calado' },
-      { id: 'manda_mais', name: 'Manda Mais!', pack: 'memes', url: '/assets/stickers/memes/manda_mais.svg', category: 'manda mais fofoca fogo quero mais' }
-    ]
-  }
-};
+// Tags de pesquisa rápida para a API de figurinhas da KLIPY
+const KLIPY_STICKER_TAGS = [
+  { id: 'trending', label: '🔥 Em Alta', query: '' },
+  { id: 'reacoes', label: '👏 Reações', query: 'reactions' },
+  { id: 'memes', label: '😂 Memes', query: 'memes' },
+  { id: 'amor', label: '❤️ Amor', query: 'love' },
+  { id: 'animais', label: '🐱 Animais', query: 'animals' },
+  { id: 'festa', label: '🎉 Festa', query: 'party' },
+  { id: 'bomdia', label: '☀️ Bom Dia', query: 'good morning' },
+  { id: 'engracado', label: '🤣 Engraçado', query: 'funny' }
+];
 
-// GIFs de reação instantânea (curados, otimizados e sempre disponíveis mesmo offline ou com falha de rede/API)
+// GIFs de reação instantânea para contingência caso a rede/API falhe
 const CURATED_REACTION_GIFS = [
   { id: 'g1', title: 'Palmas e Aplausos', tag: 'palmas parabens show aplausos top', url: 'https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif' },
   { id: 'g2', title: 'Chorando de Rir', tag: 'rir risada kkk gargalhada engraçado morri', url: 'https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif' },
@@ -142,11 +96,12 @@ export const MediaPicker: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'emojis' | 'gifs' | 'stickers'>('emojis');
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute('data-theme') !== 'light');
 
-  // Keys de GIF dinâmicas (frontend + proxy/server)
+  // Keys dinâmicas da KLIPY / GIPHY
   const [klipyApiKey, setKlipyApiKey] = useState<string>(() => {
     return (
       import.meta.env.VITE_KLIPY_API_KEY ||
       (window as any).__KLIPY_API_KEY__ ||
+      localStorage.getItem('klipy_api_key') ||
       ''
     );
   });
@@ -154,13 +109,22 @@ export const MediaPicker: React.FC = () => {
     return import.meta.env.VITE_GIPHY_API_KEY || '';
   });
 
-  // Estado de conexão KLIPY
+  // Estado da aba de GIFs KLIPY
   const [klipyStatus, setKlipyStatus] = useState<'idle' | 'testing' | 'ready' | 'error'>('idle');
   const [klipyErrorMessage, setKlipyErrorMessage] = useState<string | null>(null);
   const [retryKeyCount, setRetryKeyCount] = useState(0);
+  const [gifSearchTerm, setGifSearchTerm] = useState('');
 
-  // Stickers state
-  const [stickerPack, setStickerPack] = useState<'divertidas' | 'reacoes' | 'animais' | 'memes' | 'recent' | 'favorites'>('divertidas');
+  // Estado da aba de Figurinhas KLIPY
+  const [klipyStickers, setKlipyStickers] = useState<StickerItem[]>([]);
+  const [stickersLoading, setStickersLoading] = useState(false);
+  const [stickersError, setStickersError] = useState<string | null>(null);
+  const [stickerSearchTerm, setStickerSearchTerm] = useState('');
+  const [selectedStickerTag, setSelectedStickerTag] = useState<string>('trending');
+  const [stickerSubTab, setStickerSubTab] = useState<'catalog' | 'recent' | 'favorites'>('catalog');
+  const [retryStickersCount, setRetryStickersCount] = useState(0);
+
+  // Figurinhas favoritas e recentes
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('papos_favorite_stickers') || '[]');
@@ -168,17 +132,15 @@ export const MediaPicker: React.FC = () => {
       return [];
     }
   });
+
   const [recents, setRecents] = useState<StickerItem[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem('papos_recent_stickers') || '[]');
+      return JSON.parse(localStorage.getItem('papos_recent_klipy_stickers') || '[]');
     } catch {
       return [];
     }
   });
-  const [stickerSearch, setStickerSearch] = useState('');
 
-  // Curated GIFs state
-  const [gifSearchTerm, setGifSearchTerm] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Buscar chaves atualizadas do servidor caso ainda não estejam injetadas no cliente
@@ -195,7 +157,7 @@ export const MediaPicker: React.FC = () => {
           }
         })
         .catch(() => {
-          // Servidor offline ou rota indisponível, segue com chaves locais
+          // Servidor offline ou rota indisponível
         });
     }
   }, [klipyApiKey, giphyApiKey]);
@@ -227,8 +189,13 @@ export const MediaPicker: React.FC = () => {
       getActiveTab: () => activeTab
     };
 
+    window.insertEmojiAtCursor = (emoji: string) => {
+      handleEmojiClick({ emoji } as any);
+    };
+
     return () => {
       delete window.PaposMediaPicker;
+      delete window.insertEmojiAtCursor;
     };
   }, [isOpen, activeTab]);
 
@@ -246,12 +213,10 @@ export const MediaPicker: React.FC = () => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
-      // Se clicou dentro do painel, não fecha
       if (panelRef.current && panelRef.current.contains(target)) {
         return;
       }
 
-      // Se clicou no botão de abrir/fechar, deixa o botão cuidar do toggle
       if (target.closest('#btn-emoji-picker') || target.closest('#btn-mobile-open-emojis')) {
         return;
       }
@@ -270,7 +235,7 @@ export const MediaPicker: React.FC = () => {
     };
   }, [isOpen]);
 
-  // Inserção de Emoji respeitando cursor, preservando texto e alternando botão de enviar
+  // Inserção de Emoji respeitando cursor, preservando texto digitado e alternando botão mic/enviar
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     const input = document.getElementById('message-input') as HTMLTextAreaElement | null;
     if (input) {
@@ -283,37 +248,13 @@ export const MediaPicker: React.FC = () => {
       input.selectionStart = input.selectionEnd = startPos + emoji.length;
       input.focus();
 
-      // Disparar eventos para redimensionamento e alternância do botão mic/enviar
+      // Disparar eventos de entrada e acionar alternância imediata do botão direito
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
+      if (typeof window.updateSendButtonState === 'function') {
+        window.updateSendButtonState();
+      }
     }
-  };
-
-  // Envio de Figurinha
-  const handleStickerClick = (sticker: StickerItem) => {
-    const updatedRecents = [sticker, ...recents.filter(s => s.id !== sticker.id)].slice(0, 20);
-    setRecents(updatedRecents);
-    try {
-      localStorage.setItem('papos_recent_stickers', JSON.stringify(updatedRecents));
-    } catch {}
-
-    if (window.sendMediaMessage) {
-      window.sendMediaMessage('sticker', sticker.url, sticker.name);
-    }
-
-    setIsOpen(false);
-  };
-
-  // Favoritar figurinha
-  const toggleFavorite = (e: React.MouseEvent, stickerId: string) => {
-    e.stopPropagation();
-    setFavorites(prev => {
-      const next = prev.includes(stickerId) ? prev.filter(id => id !== stickerId) : [...prev, stickerId];
-      try {
-        localStorage.setItem('papos_favorite_stickers', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
   };
 
   // Envio de GIF
@@ -325,7 +266,39 @@ export const MediaPicker: React.FC = () => {
     setIsOpen(false);
   };
 
-  // Instanciar provedor de GIFs (Prioridade 1: KLIPY conforme especificado; Prioridade 2: GIPHY)
+  // Envio de Figurinha KLIPY
+  const handleStickerSelect = (sticker: StickerItem) => {
+    if (!sticker.url) return;
+
+    // Salvar nos recentes locais
+    setRecents(prev => {
+      const next = [sticker, ...prev.filter(s => s.id !== sticker.id)].slice(0, 30);
+      try {
+        localStorage.setItem('papos_recent_klipy_stickers', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    if (window.sendMediaMessage) {
+      window.sendMediaMessage('sticker', sticker.url, sticker.title || 'Figurinha KLIPY');
+    }
+
+    setIsOpen(false);
+  };
+
+  // Alternar favorito de figurinha
+  const toggleFavorite = (e: React.MouseEvent, stickerId: string) => {
+    e.stopPropagation();
+    setFavorites(prev => {
+      const next = prev.includes(stickerId) ? prev.filter(id => id !== stickerId) : [...prev, stickerId];
+      try {
+        localStorage.setItem('papos_favorite_stickers', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Instanciar provedor de GIFs (Prioridade 1: KLIPY; Prioridade 2: GIPHY)
   const gifProvider = useMemo(() => {
     if (klipyApiKey && typeof Klipy === 'function') {
       try {
@@ -344,7 +317,7 @@ export const MediaPicker: React.FC = () => {
     return null;
   }, [klipyApiKey, giphyApiKey, retryKeyCount]);
 
-  // Testar conexão com KLIPY ao selecionar a aba de GIFs quando uma chave estiver presente
+  // Testar conexão com KLIPY ao abrir a aba de GIFs
   useEffect(() => {
     if (activeTab !== 'gifs' || !klipyApiKey || !gifProvider) return;
 
@@ -352,9 +325,8 @@ export const MediaPicker: React.FC = () => {
     setKlipyStatus('testing');
     setKlipyErrorMessage(null);
 
-    // Testar chamada inicial de trending para validar chave e conexões CORS/CSP
     Promise.resolve(gifProvider.getTrending())
-      .then((res: any[]) => {
+      .then(() => {
         if (!isMounted) return;
         setKlipyStatus('ready');
         setKlipyErrorMessage(null);
@@ -362,7 +334,7 @@ export const MediaPicker: React.FC = () => {
       .catch((err: any) => {
         if (!isMounted) return;
         const msg = String(err?.message || err || 'Falha na requisição');
-        console.warn('[PaposMediaPicker] Erro ao carregar KLIPY:', msg);
+        console.warn('[PaposMediaPicker] Erro na API KLIPY (GIFs):', msg);
         setKlipyStatus('error');
         if (msg.includes('401')) {
           setKlipyErrorMessage('Chave KLIPY não autorizada (401 Unauthorized). Verifique sua credencial.');
@@ -382,29 +354,94 @@ export const MediaPicker: React.FC = () => {
     };
   }, [activeTab, klipyApiKey, gifProvider, retryKeyCount]);
 
-  // Lista de figurinhas filtradas
+  // Carregamento de figurinhas DIRETAMENTE DA API KLIPY
+  useEffect(() => {
+    if (activeTab !== 'stickers' || stickerSubTab !== 'catalog') return;
+
+    let isCancelled = false;
+
+    if (!klipyApiKey) {
+      setStickersError('Chave da KLIPY não configurada no projeto.');
+      setStickersLoading(false);
+      return;
+    }
+
+    setStickersLoading(true);
+    setStickersError(null);
+
+    const queryToSearch = stickerSearchTerm.trim() || (KLIPY_STICKER_TAGS.find(t => t.id === selectedStickerTag)?.query || '');
+
+    const timer = setTimeout(() => {
+      const endpoint = queryToSearch
+        ? `https://api.klipy.com/api/v1/${klipyApiKey}/stickers/search?q=${encodeURIComponent(queryToSearch)}&page=1&per_page=40`
+        : `https://api.klipy.com/api/v1/${klipyApiKey}/stickers/trending?page=1&per_page=40`;
+
+      fetch(endpoint)
+        .then(async (res) => {
+          if (!res.ok) {
+            const errData = await res.json().catch(() => null);
+            const msg = errData?.errors?.message?.[0] || errData?.message || `Erro da KLIPY (${res.status} ${res.statusText})`;
+            throw new Error(msg);
+          }
+          return res.json();
+        })
+        .then((json) => {
+          if (isCancelled) return;
+          const rawItems = Array.isArray(json?.data) ? json.data : (Array.isArray(json?.data?.data) ? json.data.data : []);
+
+          const parsed: StickerItem[] = rawItems
+            .map((item: any) => {
+              const file = item.file || {};
+              const md = file.md || file.sm || file.hd || {};
+              const sm = file.sm || file.md || file.xs || {};
+
+              // Suporte a formatos webp, gif e png de figurinhas
+              const mdUrl = md.webp?.url || md.gif?.url || md.png?.url || md.url;
+              const smUrl = sm.webp?.url || sm.gif?.url || sm.png?.url || sm.url;
+              const finalUrl = mdUrl || smUrl || item.url || item.image_url;
+              const previewUrl = smUrl || mdUrl || finalUrl;
+
+              if (!finalUrl) return null;
+              return {
+                id: String(item.slug || item.id || Math.random().toString(36).substring(2, 9)),
+                title: item.title || 'Figurinha KLIPY',
+                url: finalUrl,
+                previewUrl: previewUrl || finalUrl
+              };
+            })
+            .filter(Boolean) as StickerItem[];
+
+          setKlipyStickers(parsed);
+          setStickersLoading(false);
+          setStickersError(null);
+        })
+        .catch((err: any) => {
+          if (isCancelled) return;
+          console.warn('[PaposMediaPicker] Erro ao carregar figurinhas da KLIPY:', err);
+          const rawMsg = err?.message || 'Falha ao conectar com o catálogo de figurinhas da KLIPY.';
+          setStickersError(rawMsg);
+          setStickersLoading(false);
+        });
+    }, stickerSearchTerm.trim() ? 350 : 0);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeTab, stickerSubTab, klipyApiKey, stickerSearchTerm, selectedStickerTag, retryStickersCount]);
+
+  // Lista de figurinhas a exibir conforme a sub-aba
   const displayedStickers = useMemo(() => {
-    let list: StickerItem[] = [];
-
-    if (stickerPack === 'recent') {
-      list = recents;
-    } else if (stickerPack === 'favorites') {
-      const all: StickerItem[] = [];
-      Object.values(STICKER_PACKS).forEach(p => all.push(...p.items));
-      list = all.filter(s => favorites.includes(s.id));
-    } else {
-      list = STICKER_PACKS[stickerPack]?.items || [];
+    if (stickerSubTab === 'recent') {
+      return recents;
     }
-
-    if (stickerSearch.trim()) {
-      const q = stickerSearch.toLowerCase().trim();
-      return list.filter(s => s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
+    if (stickerSubTab === 'favorites') {
+      return klipyStickers.filter(s => favorites.includes(s.id));
     }
+    return klipyStickers;
+  }, [stickerSubTab, klipyStickers, recents, favorites]);
 
-    return list;
-  }, [stickerPack, favorites, recents, stickerSearch]);
-
-  // GIFs filtrados da lista de reações rápidas
+  // GIFs curados filtrados para contingência
   const filteredCuratedGifs = useMemo(() => {
     if (!gifSearchTerm.trim()) return CURATED_REACTION_GIFS;
     const q = gifSearchTerm.toLowerCase().trim();
@@ -437,7 +474,7 @@ export const MediaPicker: React.FC = () => {
       role="dialog"
       aria-label="Seletor de Emojis, GIFs e Figurinhas"
     >
-      {/* CABEÇALHO DO PAINEL COM ABAS UNIFICADAS */}
+      {/* CABEÇALHO DO PAINEL COM 3 ABAS INDEPENDENTES */}
       <div
         style={{
           display: 'flex',
@@ -448,24 +485,23 @@ export const MediaPicker: React.FC = () => {
           backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.02)'
         }}
       >
-        {/* Abas */}
-        <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {/* Aba Emojis */}
           <button
             type="button"
-            className={`media-picker-tab-btn ${activeTab === 'emojis' ? 'active' : ''}`}
             onClick={() => setActiveTab('emojis')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               padding: '6px 14px',
-              borderRadius: '10px',
+              borderRadius: '20px',
               border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
               fontSize: '0.84rem',
-              backgroundColor: activeTab === 'emojis' ? (isDark ? '#22c55e' : '#16a34a') : 'transparent',
-              color: activeTab === 'emojis' ? '#ffffff' : (isDark ? '#9ca3af' : '#6b7280'),
+              fontWeight: 600,
+              cursor: 'pointer',
+              backgroundColor: activeTab === 'emojis' ? '#22c55e' : 'transparent',
+              color: activeTab === 'emojis' ? '#ffffff' : (isDark ? '#9ca3af' : '#4b5563'),
               transition: 'all 0.15s ease'
             }}
           >
@@ -473,22 +509,22 @@ export const MediaPicker: React.FC = () => {
             <span>Emojis</span>
           </button>
 
+          {/* Aba GIFs */}
           <button
             type="button"
-            className={`media-picker-tab-btn ${activeTab === 'gifs' ? 'active' : ''}`}
             onClick={() => setActiveTab('gifs')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               padding: '6px 14px',
-              borderRadius: '10px',
+              borderRadius: '20px',
               border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
               fontSize: '0.84rem',
-              backgroundColor: activeTab === 'gifs' ? (isDark ? '#22c55e' : '#16a34a') : 'transparent',
-              color: activeTab === 'gifs' ? '#ffffff' : (isDark ? '#9ca3af' : '#6b7280'),
+              fontWeight: 600,
+              cursor: 'pointer',
+              backgroundColor: activeTab === 'gifs' ? '#22c55e' : 'transparent',
+              color: activeTab === 'gifs' ? '#ffffff' : (isDark ? '#9ca3af' : '#4b5563'),
               transition: 'all 0.15s ease'
             }}
           >
@@ -496,22 +532,22 @@ export const MediaPicker: React.FC = () => {
             <span>GIFs</span>
           </button>
 
+          {/* Aba Figurinhas */}
           <button
             type="button"
-            className={`media-picker-tab-btn ${activeTab === 'stickers' ? 'active' : ''}`}
             onClick={() => setActiveTab('stickers')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               padding: '6px 14px',
-              borderRadius: '10px',
+              borderRadius: '20px',
               border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
               fontSize: '0.84rem',
-              backgroundColor: activeTab === 'stickers' ? (isDark ? '#22c55e' : '#16a34a') : 'transparent',
-              color: activeTab === 'stickers' ? '#ffffff' : (isDark ? '#9ca3af' : '#6b7280'),
+              fontWeight: 600,
+              cursor: 'pointer',
+              backgroundColor: activeTab === 'stickers' ? '#22c55e' : 'transparent',
+              color: activeTab === 'stickers' ? '#ffffff' : (isDark ? '#9ca3af' : '#4b5563'),
               transition: 'all 0.15s ease'
             }}
           >
@@ -520,38 +556,37 @@ export const MediaPicker: React.FC = () => {
           </button>
         </div>
 
-        {/* Botão Fechar */}
+        {/* Botão de Fechar */}
         <button
           type="button"
           onClick={() => setIsOpen(false)}
-          title="Fechar painel (Esc)"
+          title="Fechar"
           aria-label="Fechar"
           style={{
             background: 'none',
             border: 'none',
             color: isDark ? '#9ca3af' : '#6b7280',
+            fontSize: '1.2rem',
+            lineHeight: 1,
             cursor: 'pointer',
             padding: '4px 8px',
-            fontSize: '1.1rem',
-            lineHeight: 1,
-            borderRadius: '6px',
-            transition: 'color 0.15s ease'
+            borderRadius: '6px'
           }}
         >
           ✕
         </button>
       </div>
 
-      {/* CONTEÚDO DAS ABAS (COM ISOLAMENTO POR ERROR BOUNDARY) */}
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-
-        {/* ABA 1: EMOJIS (emoji-picker-react) */}
+      {/* ÁREA DE CONTEÚDO DAS ABAS */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+        
+        {/* ABA 1: EMOJIS */}
         {activeTab === 'emojis' && (
           <TabErrorBoundary
             tabName="Emojis"
             fallback={
               <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>
-                <p>Falha ao renderizar seletor de emojis.</p>
+                <p>Falha ao carregar emojis.</p>
                 <button
                   type="button"
                   onClick={() => setActiveTab('emojis')}
@@ -577,18 +612,17 @@ export const MediaPicker: React.FC = () => {
           </TabErrorBoundary>
         )}
 
-        {/* ABA 2: GIFS (gif-picker-react com KLIPY oficial + Fallback seguro) */}
+        {/* ABA 2: GIFS (KLIPY Oficial + Contingência Curada) */}
         {activeTab === 'gifs' && (
           <TabErrorBoundary
             tabName="GIFs"
             fallback={
-              <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', flex: 1, overflowY: 'auto' }}>
-                <p style={{ color: '#ef4444', fontWeight: 600 }}>Falha temporária ao inicializar o provedor de GIFs.</p>
-                <p style={{ fontSize: '0.85rem' }}>Você ainda pode usar as outras abas normalmente ou tentar novamente:</p>
+              <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>
+                <p>Falha ao renderizar GIFs.</p>
                 <button
                   type="button"
                   onClick={() => setRetryKeyCount(c => c + 1)}
-                  style={{ padding: '6px 14px', borderRadius: '8px', backgroundColor: '#22c55e', color: '#fff', border: 'none', cursor: 'pointer', margin: '8px 0' }}
+                  style={{ padding: '6px 12px', borderRadius: '6px', backgroundColor: '#22c55e', color: '#fff', border: 'none', cursor: 'pointer' }}
                 >
                   Tentar novamente
                 </button>
@@ -596,7 +630,6 @@ export const MediaPicker: React.FC = () => {
             }
           >
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-              {/* Quando a chave KLIPY está ativa e sem erro fatal */}
               {gifProvider && klipyStatus !== 'error' ? (
                 <div style={{ flex: 1, height: '100%', width: '100%', position: 'relative' }}>
                   {klipyStatus === 'testing' && (
@@ -622,9 +655,8 @@ export const MediaPicker: React.FC = () => {
                   />
                 </div>
               ) : (
-                /* Modo de contingência e explicação amigável caso KLIPY falhe ou não tenha chave */
+                /* Contingência caso KLIPY falhe ou não tenha chave */
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                  {/* Banner explicativo com status real */}
                   <div
                     style={{
                       padding: '8px 12px',
@@ -663,11 +695,10 @@ export const MediaPicker: React.FC = () => {
                       )}
                     </div>
                     <span style={{ opacity: 0.85 }}>
-                      Exibindo biblioteca de GIFs curados para envio instantâneo:
+                      Exibindo GIFs curados para envio instantâneo:
                     </span>
                   </div>
 
-                  {/* Barra de Pesquisa de GIFs curados */}
                   <div style={{ padding: '8px 12px', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
                     <input
                       type="text"
@@ -687,7 +718,6 @@ export const MediaPicker: React.FC = () => {
                     />
                   </div>
 
-                  {/* Grid de GIFs */}
                   <div
                     style={{
                       flex: 1,
@@ -745,11 +775,6 @@ export const MediaPicker: React.FC = () => {
                         </span>
                       </button>
                     ))}
-                    {filteredCuratedGifs.length === 0 && (
-                      <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '24px 8px', color: '#9ca3af', fontSize: '0.82rem' }}>
-                        Nenhum GIF correspondente encontrado.
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -757,7 +782,7 @@ export const MediaPicker: React.FC = () => {
           </TabErrorBoundary>
         )}
 
-        {/* ABA 3: FIGURINHAS (Packs, Recentes e Favoritas) */}
+        {/* ABA 3: FIGURINHAS (DIRETAMENTE DA KLIPY) */}
         {activeTab === 'stickers' && (
           <TabErrorBoundary
             tabName="Figurinhas"
@@ -766,7 +791,7 @@ export const MediaPicker: React.FC = () => {
                 <p>Falha ao renderizar figurinhas.</p>
                 <button
                   type="button"
-                  onClick={() => setActiveTab('stickers')}
+                  onClick={() => setRetryStickersCount(c => c + 1)}
                   style={{ padding: '6px 12px', borderRadius: '6px', backgroundColor: '#22c55e', color: '#fff', border: 'none', cursor: 'pointer' }}
                 >
                   Tentar recarregar
@@ -775,10 +800,12 @@ export const MediaPicker: React.FC = () => {
             }
           >
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-              {/* Seletor de Pacotes */}
+              
+              {/* Barra superior de navegação da aba Figurinhas */}
               <div
                 style={{
                   display: 'flex',
+                  alignItems: 'center',
                   gap: '4px',
                   padding: '6px 8px',
                   overflowX: 'auto',
@@ -787,58 +814,34 @@ export const MediaPicker: React.FC = () => {
                   scrollbarWidth: 'none'
                 }}
               >
+                {/* Catálogo Oficial KLIPY */}
+                <button
+                  type="button"
+                  onClick={() => setStickerSubTab('catalog')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    backgroundColor: stickerSubTab === 'catalog' ? (isDark ? 'rgba(255,255,255,0.15)' : '#e5e7eb') : 'transparent',
+                    color: isDark ? '#ffffff' : '#111827'
+                  }}
+                >
+                  <span>✨</span>
+                  <span>Catálogo KLIPY</span>
+                </button>
+
                 {/* Recentes */}
-                <button
-                  type="button"
-                  onClick={() => setStickerPack('recent')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 10px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    backgroundColor: stickerPack === 'recent' ? (isDark ? 'rgba(255,255,255,0.15)' : '#e5e7eb') : 'transparent',
-                    color: isDark ? '#ffffff' : '#111827'
-                  }}
-                >
-                  <span>🕒</span>
-                  <span>Recentes</span>
-                </button>
-
-                {/* Favoritas */}
-                <button
-                  type="button"
-                  onClick={() => setStickerPack('favorites')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 10px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    backgroundColor: stickerPack === 'favorites' ? (isDark ? 'rgba(255,255,255,0.15)' : '#e5e7eb') : 'transparent',
-                    color: isDark ? '#ffffff' : '#111827'
-                  }}
-                >
-                  <span>⭐</span>
-                  <span>Favoritas</span>
-                </button>
-
-                {/* Pacotes Principais */}
-                {Object.entries(STICKER_PACKS).map(([key, pack]) => (
+                {recents.length > 0 && (
                   <button
-                    key={key}
                     type="button"
-                    onClick={() => setStickerPack(key as any)}
+                    onClick={() => setStickerSubTab('recent')}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -850,37 +853,148 @@ export const MediaPicker: React.FC = () => {
                       fontWeight: 600,
                       cursor: 'pointer',
                       whiteSpace: 'nowrap',
-                      backgroundColor: stickerPack === key ? (isDark ? 'rgba(255,255,255,0.15)' : '#e5e7eb') : 'transparent',
+                      backgroundColor: stickerSubTab === 'recent' ? (isDark ? 'rgba(255,255,255,0.15)' : '#e5e7eb') : 'transparent',
                       color: isDark ? '#ffffff' : '#111827'
                     }}
                   >
-                    <span>{pack.icon}</span>
-                    <span>{pack.label}</span>
+                    <span>🕒</span>
+                    <span>Recentes ({recents.length})</span>
                   </button>
-                ))}
+                )}
+
+                {/* Favoritas */}
+                {favorites.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setStickerSubTab('favorites')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      backgroundColor: stickerSubTab === 'favorites' ? (isDark ? 'rgba(255,255,255,0.15)' : '#e5e7eb') : 'transparent',
+                      color: isDark ? '#ffffff' : '#111827'
+                    }}
+                  >
+                    <span>⭐</span>
+                    <span>Favoritas</span>
+                  </button>
+                )}
               </div>
 
-              {/* Campo de Busca Rápida */}
-              <div style={{ padding: '6px 10px', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
-                <input
-                  type="text"
-                  value={stickerSearch}
-                  onChange={(e) => setStickerSearch(e.target.value)}
-                  placeholder="Filtrar figurinhas..."
+              {/* Tags de categorias rápidas da KLIPY */}
+              {stickerSubTab === 'catalog' && (
+                <div
                   style={{
-                    width: '100%',
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'}`,
-                    backgroundColor: isDark ? 'rgba(0,0,0,0.25)' : '#f9fafb',
-                    color: isDark ? '#ffffff' : '#111827',
-                    fontSize: '0.8rem',
-                    outline: 'none'
+                    display: 'flex',
+                    gap: '4px',
+                    padding: '5px 8px',
+                    overflowX: 'auto',
+                    scrollbarWidth: 'none',
+                    borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}`
                   }}
-                />
-              </div>
+                >
+                  {KLIPY_STICKER_TAGS.map((tag) => {
+                    const isSelected = selectedStickerTag === tag.id && !stickerSearchTerm;
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStickerTag(tag.id);
+                          setStickerSearchTerm('');
+                        }}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          border: 'none',
+                          fontSize: '0.72rem',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          backgroundColor: isSelected ? '#22c55e' : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'),
+                          color: isSelected ? '#ffffff' : (isDark ? '#d1d5db' : '#4b5563'),
+                          transition: 'all 0.12s ease'
+                        }}
+                      >
+                        {tag.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
-              {/* Grid de Figurinhas */}
+              {/* Campo de Pesquisa de Figurinhas KLIPY */}
+              {stickerSubTab === 'catalog' && (
+                <div style={{ padding: '6px 10px', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
+                  <input
+                    type="text"
+                    value={stickerSearchTerm}
+                    onChange={(e) => setStickerSearchTerm(e.target.value)}
+                    placeholder="Pesquisar figurinhas na KLIPY..."
+                    style={{
+                      width: '100%',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'}`,
+                      backgroundColor: isDark ? 'rgba(0,0,0,0.25)' : '#f9fafb',
+                      color: isDark ? '#ffffff' : '#111827',
+                      fontSize: '0.8rem',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Informação sobre status de erro ou chave KLIPY ausente */}
+              {stickersError && (
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '0.74rem',
+                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                    color: isDark ? '#fca5a5' : '#b91c1c',
+                    borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px'
+                  }}
+                >
+                  <span>⚠️ {stickersError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setRetryStickersCount(c => c + 1)}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: `1px solid currentColor`,
+                      color: 'inherit',
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      fontSize: '0.7rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              {/* Indicador de carregamento */}
+              {stickersLoading && (
+                <div style={{ padding: '16px', textAlign: 'center', color: isDark ? '#9ca3af' : '#6b7280', fontSize: '0.82rem' }}>
+                  <span>Carregando figurinhas da KLIPY...</span>
+                </div>
+              )}
+
+              {/* Grid de Figurinhas KLIPY */}
               <div
                 style={{
                   flex: 1,
@@ -897,15 +1011,15 @@ export const MediaPicker: React.FC = () => {
                   return (
                     <div
                       key={sticker.id}
-                      onClick={() => handleStickerClick(sticker)}
-                      title={`${sticker.name} (Clique para enviar)`}
+                      onClick={() => handleStickerSelect(sticker)}
+                      title={`${sticker.title} (Clique para enviar)`}
                       style={{
                         position: 'relative',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        padding: '8px 4px',
+                        padding: '6px 4px',
                         borderRadius: '10px',
                         cursor: 'pointer',
                         backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
@@ -913,7 +1027,7 @@ export const MediaPicker: React.FC = () => {
                         transition: 'transform 0.12s ease, background-color 0.12s ease'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.transform = 'scale(1.06)';
                         e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
                       }}
                       onMouseLeave={(e) => {
@@ -934,9 +1048,9 @@ export const MediaPicker: React.FC = () => {
                           border: 'none',
                           cursor: 'pointer',
                           padding: '2px',
-                          fontSize: '0.8rem',
+                          fontSize: '0.75rem',
                           lineHeight: 1,
-                          opacity: isFav ? 1 : 0.4,
+                          opacity: isFav ? 1 : 0.35,
                           transition: 'opacity 0.15s ease'
                         }}
                       >
@@ -944,14 +1058,21 @@ export const MediaPicker: React.FC = () => {
                       </button>
 
                       <img
-                        src={sticker.url}
-                        alt={sticker.name}
+                        src={sticker.previewUrl || sticker.url}
+                        alt={sticker.title}
                         loading="lazy"
-                        style={{ width: '56px', height: '56px', objectFit: 'contain', display: 'block', marginBottom: '4px' }}
+                        style={{
+                          width: '56px',
+                          height: '56px',
+                          objectFit: 'contain',
+                          display: 'block',
+                          marginBottom: '4px',
+                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))'
+                        }}
                       />
                       <span
                         style={{
-                          fontSize: '0.66rem',
+                          fontSize: '0.64rem',
                           color: isDark ? '#9ca3af' : '#6b7280',
                           textAlign: 'center',
                           whiteSpace: 'nowrap',
@@ -961,33 +1082,63 @@ export const MediaPicker: React.FC = () => {
                           fontWeight: 500
                         }}
                       >
-                        {sticker.name}
+                        {sticker.title}
                       </span>
                     </div>
                   );
                 })}
 
-                {displayedStickers.length === 0 && (
+                {!stickersLoading && displayedStickers.length === 0 && (
                   <div style={{ gridColumn: 'span 4', textAlign: 'center', padding: '30px 8px', color: '#9ca3af', fontSize: '0.82rem' }}>
-                    {stickerPack === 'favorites' ? (
+                    {stickerSubTab === 'favorites' ? (
                       <div>
                         <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '6px' }}>⭐</span>
                         <span>Nenhuma figurinha favoritada ainda.<br />Clique na estrela para salvar suas preferidas!</span>
                       </div>
-                    ) : stickerPack === 'recent' ? (
+                    ) : stickerSubTab === 'recent' ? (
                       <div>
                         <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '6px' }}>🕒</span>
                         <span>Suas figurinhas enviadas recentemente aparecerão aqui.</span>
                       </div>
                     ) : (
                       <div>
-                        <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '6px' }}>📦</span>
-                        <span>Nenhuma figurinha encontrada para esta pesquisa.</span>
+                        <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '6px' }}>🧸</span>
+                        <span>
+                          {stickersError
+                            ? 'Catálogo online indisponível no momento.'
+                            : 'Nenhuma figurinha encontrada para esta pesquisa.'}
+                        </span>
                       </div>
                     )}
                   </div>
                 )}
               </div>
+
+              {/* Atribuição obrigatória da KLIPY */}
+              <div
+                style={{
+                  padding: '6px 12px',
+                  borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  fontSize: '0.68rem',
+                  color: isDark ? '#6b7280' : '#9ca3af'
+                }}
+              >
+                <span>Powered by</span>
+                <a
+                  href="https://klipy.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#22c55e', textDecoration: 'none', fontWeight: 600 }}
+                >
+                  KLIPY
+                </a>
+                <span>• Figurinhas Oficiais</span>
+              </div>
+
             </div>
           </TabErrorBoundary>
         )}
