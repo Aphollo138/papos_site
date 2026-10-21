@@ -2019,10 +2019,9 @@ button, .btn, .reaction-pill, .private-chat-item {
     color: #111111 !important;
   }
 
-  /* Painéis de Emojis e Cores abrem estritamente para CIMA no Mobile */
-  .chat-input-area .dropdown-menu,
+  /* Painéis de Ações Mobile e Cores abrem para cima */
+  .chat-input-area .dropdown-menu:not(#emoji-picker-dropdown),
   .chat-input-area #mobile-actions-dropdown,
-  .chat-input-area #emoji-picker-dropdown,
   .chat-input-area .color-picker-menu {
     top: auto !important;
     bottom: calc(100% + 10px) !important;
@@ -3575,21 +3574,34 @@ body.in-call-fullscreen {
    RESPONSIVIDADE MOBILE (TELAS <= 768px)
    ======================================================== */
 @media (max-width: 768px) {
-  /* Painel de figurinhas se adapta à largura disponível sem overflow */
+  /* Painel de figurinhas, GIFs e emojis perfeitamente centralizado horizontalmente na tela */
   #emoji-picker-dropdown {
-    right: 0 !important;
-    left: 0 !important;
-    margin: 0 auto !important;
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
     width: calc(100vw - 24px) !important;
-    max-width: 360px !important;
-    bottom: calc(100% + 8px) !important;
+    max-width: 400px !important;
+    bottom: calc(64px + max(0px, env(safe-area-inset-bottom))) !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    z-index: 1070 !important;
+  }
+
+  /* Garante responsividade interna sem overflow */
+  .papos-emoji-picker-container,
+  #emoji-picker-react-root,
+  .EmojiPickerReact {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Grade no mobile com colunas adaptativas */
   .stickers-panel-grid {
     grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)) !important;
     gap: 6px !important;
-    max-height: 200px !important;
+    max-height: 220px !important;
     padding: 2px !important;
   }
 
@@ -3603,7 +3615,7 @@ body.in-call-fullscreen {
   .gifs-panel-grid {
     grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)) !important;
     gap: 6px !important;
-    max-height: 200px !important;
+    max-height: 220px !important;
   }
 
   .gif-item-btn {
@@ -3620,6 +3632,29 @@ body.in-call-fullscreen {
     max-width: 160px !important;
     max-height: 140px !important;
   }
+}
+
+/* Customização para EmojiPickerReact integrar-se perfeitamente aos temas Claro e Escuro */
+.papos-emoji-picker-container .EmojiPickerReact {
+  --epr-bg-color: var(--surface, #1e293b) !important;
+  --epr-category-label-bg-color: var(--surface, #1e293b) !important;
+  --epr-text-color: var(--text-primary, #ffffff) !important;
+  --epr-search-input-bg-color: rgba(255, 255, 255, 0.06) !important;
+  --epr-border-color: var(--border, rgba(255, 255, 255, 0.1)) !important;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1)) !important;
+  border-radius: var(--radius-sm, 8px) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  font-family: inherit !important;
+}
+
+[data-theme="light"] .papos-emoji-picker-container .EmojiPickerReact {
+  --epr-bg-color: #ffffff !important;
+  --epr-category-label-bg-color: #ffffff !important;
+  --epr-text-color: #111827 !important;
+  --epr-search-input-bg-color: #f3f4f6 !important;
+  --epr-border-color: #e5e7eb !important;
 }
 
 
