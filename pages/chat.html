@@ -356,6 +356,19 @@
                   <button class="btn btn-input-emoji d-flex align-items-center justify-content-center" type="button" id="btn-emoji-picker" title="Escolher figurinhas, emojis e GIFs" aria-label="Escolher figurinhas, emojis e GIFs">
                     <i class="fa-solid fa-note-sticky" aria-hidden="true"></i>
                   </button>
+                  <div id="audio-recording-bar" class="d-none position-absolute top-0 start-0 w-100 h-100 align-items-center justify-content-between px-3 bg-dark border border-secondary" style="border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none; z-index: 5;">
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="recording-pulse-dot" style="width: 10px; height: 10px; border-radius: 50%; background-color: #ef4444; display: inline-block;"></span>
+                      <span id="audio-record-timer" class="text-white font-mono fw-bold" style="font-size: 0.88rem;">00:00</span>
+                      <span class="small text-white-50 d-none d-sm-inline">Gravando áudio...</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-1">
+                      <button type="button" class="btn btn-sm btn-link text-danger p-1 text-decoration-none d-flex align-items-center gap-1" id="btn-cancel-voice" title="Cancelar gravação">
+                        <i class="bi bi-trash3-fill fs-6"></i>
+                        <span class="small d-none d-sm-inline">Cancelar</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 
                 <div class="d-none" id="emoji-picker-dropdown" aria-hidden="true" style="display: none !important;"></div>

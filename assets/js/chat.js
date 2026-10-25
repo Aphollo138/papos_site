@@ -1728,6 +1728,7 @@ document.addEventListener("DOMContentLoaded", () => {
         text: content,
         mediaType: pm.mediaType,
         mediaUrl: pm.mediaUrl,
+        duration: pm.duration || undefined,
         time: timestamp,
         color: color,
         replyTo: replyTo,
@@ -2173,10 +2174,123 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // --- PLAYER DE ÁUDIO EMBUTIDO DO PAPOS ---
+  let currentPlayingAudio = null;
+  let currentPlayingBtn = null;
+
+  window.onAudioMetadataLoaded = function(audioEl) {
+    if (!audioEl) return;
+    const player = audioEl.closest(".papos-audio-player");
+    if (!player) return;
+    const durEl = player.querySelector(".papos-audio-duration");
+    if (durEl && durEl.textContent.trim() === "--:--" && !isNaN(audioEl.duration) && isFinite(audioEl.duration)) {
+      const sec = Math.round(audioEl.duration);
+      durEl.textContent = `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
+    }
+  };
+
+  window.toggleAudioPlayback = function(btn, url) {
+    const player = btn.closest(".papos-audio-player");
+    if (!player) return;
+    const audio = player.querySelector("audio.papos-native-audio");
+    if (!audio) return;
+
+    const icon = btn.querySelector("i");
+    const bar = player.querySelector(".papos-audio-bar");
+    const timeEl = player.querySelector(".papos-audio-current-time");
+    const durEl = player.querySelector(".papos-audio-duration");
+
+    if (currentPlayingAudio && currentPlayingAudio !== audio) {
+      try {
+        currentPlayingAudio.pause();
+      } catch (e) {}
+      if (currentPlayingBtn) {
+        const prevIcon = currentPlayingBtn.querySelector("i");
+        if (prevIcon) prevIcon.className = "bi bi-play-fill fs-5";
+      }
+    }
+
+    if (audio.paused) {
+      audio.play().then(() => {
+        if (icon) icon.className = "bi bi-pause-fill fs-5";
+        currentPlayingAudio = audio;
+        currentPlayingBtn = btn;
+      }).catch(err => {
+        console.warn("Erro ao reproduzir áudio:", err);
+      });
+    } else {
+      audio.pause();
+      if (icon) icon.className = "bi bi-play-fill fs-5";
+      currentPlayingAudio = null;
+      currentPlayingBtn = null;
+    }
+
+    audio.ontimeupdate = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        const pct = (audio.currentTime / audio.duration) * 100;
+        if (bar) bar.style.width = `${pct}%`;
+        const curSec = Math.floor(audio.currentTime);
+        if (timeEl) timeEl.textContent = `${Math.floor(curSec / 60)}:${(curSec % 60).toString().padStart(2, "0")}`;
+        if (durEl && (durEl.textContent.trim() === "--:--" || durEl.textContent === "")) {
+          const totalSec = Math.round(audio.duration);
+          durEl.textContent = `${Math.floor(totalSec / 60)}:${(totalSec % 60).toString().padStart(2, "0")}`;
+        }
+      }
+    };
+
+    audio.onended = () => {
+      if (icon) icon.className = "bi bi-play-fill fs-5";
+      if (bar) bar.style.width = "0%";
+      if (timeEl) timeEl.textContent = "0:00";
+      if (currentPlayingAudio === audio) {
+        currentPlayingAudio = null;
+        currentPlayingBtn = null;
+      }
+    };
+  };
+
+  window.seekAudioPlayback = function(e, progressContainer) {
+    const player = progressContainer.closest(".papos-audio-player");
+    if (!player) return;
+    const audio = player.querySelector("audio.papos-native-audio");
+    if (!audio || !audio.duration || !isFinite(audio.duration)) return;
+
+    const rect = progressContainer.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, clickX / rect.width));
+    audio.currentTime = pct * audio.duration;
+    const bar = player.querySelector(".papos-audio-bar");
+    if (bar) bar.style.width = `${pct * 100}%`;
+  };
+
   function renderMessageBubbleContent(msg) {
     const isSticker = msg.mediaType === "sticker";
     const isGif = msg.mediaType === "gif";
+    const isAudio = msg.mediaType === "audio";
     const mediaUrl = msg.mediaUrl;
+
+    if (isAudio && mediaUrl) {
+      const durSec = typeof msg.duration === "number" && !isNaN(msg.duration) ? Math.round(msg.duration) : null;
+      const formattedDuration = durSec !== null ? `${Math.floor(durSec / 60)}:${(durSec % 60).toString().padStart(2, "0")}` : "--:--";
+
+      return `
+        <div class="papos-audio-player d-flex align-items-center gap-2 py-1 px-1" data-audio-url="${mediaUrl}">
+          <button type="button" class="btn btn-sm rounded-circle d-flex align-items-center justify-content-center papos-audio-play-btn" style="width: 36px; height: 36px; min-width: 36px; background: #22c55e; color: #ffffff; border: none; cursor: pointer; transition: transform 0.15s ease; padding: 0;" onclick="window.toggleAudioPlayback(this, '${mediaUrl}')" title="Reproduzir mensagem de voz" aria-label="Reproduzir mensagem de voz">
+            <i class="bi bi-play-fill fs-5" style="margin-left: 2px;"></i>
+          </button>
+          <div class="flex-grow-1 d-flex flex-column justify-content-center" style="min-width: 130px; max-width: 220px;">
+            <div class="progress papos-audio-progress" style="height: 6px; background: rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; overflow: hidden;" onclick="window.seekAudioPlayback(event, this)">
+              <div class="progress-bar bg-success papos-audio-bar" role="progressbar" style="width: 0%; height: 100%; transition: width 0.1s linear;"></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-1 text-white-50" style="font-size: 0.72rem; font-family: monospace;">
+              <span class="papos-audio-current-time">0:00</span>
+              <span class="papos-audio-duration">${formattedDuration}</span>
+            </div>
+          </div>
+          <audio class="papos-native-audio d-none" src="${mediaUrl}" preload="metadata" onloadedmetadata="window.onAudioMetadataLoaded(this)"></audio>
+        </div>
+      `;
+    }
 
     if (isSticker && mediaUrl) {
       const showCaption = msg.text && msg.text !== "🧸 Figurinha" && !msg.text.includes("Figurinha");
@@ -2905,10 +3019,43 @@ document.addEventListener("DOMContentLoaded", () => {
     chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
   }
 
+  // --- SISTEMA DE GRAVAÇÃO E ENVIO DE MENSAGENS DE VOZ (ÁUDIO) ---
+  let isRecordingVoice = false;
+  let voiceMediaRecorder = null;
+  let voiceMediaStream = null;
+  let voiceAudioChunks = [];
+  let voiceRecordingTimer = null;
+  let voiceRecordingSeconds = 0;
+  let isAudioUploading = false;
+
+  function getSupportedAudioMimeType() {
+    const types = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+      "audio/aac",
+      "audio/ogg;codecs=opus",
+      "audio/wav"
+    ];
+    for (const t of types) {
+      if (window.MediaRecorder && typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported(t)) {
+        return t;
+      }
+    }
+    return "";
+  }
+
   function updateSendButtonState() {
     const btnSend = document.getElementById("btn-send");
     const input = document.getElementById("message-input");
     if (!btnSend || !input) return;
+
+    if (isRecordingVoice) {
+      btnSend.innerHTML = '<i class="bi bi-send-fill text-white" style="font-size: 0.95rem;"></i>';
+      btnSend.title = "Finalizar e enviar áudio";
+      btnSend.setAttribute("aria-label", "Finalizar e enviar áudio");
+      return;
+    }
 
     const hasText = input.value.trim().length > 0;
     if (hasText) {
@@ -2923,12 +3070,219 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   window.updateSendButtonState = updateSendButtonState;
 
-  window.sendMediaMessage = function(mediaType, mediaUrl, caption) {
+  async function startVoiceRecording() {
+    if (isRecordingVoice || isAudioUploading) return;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const toast = window.showToast || alert;
+      toast("Seu navegador não suporta gravação de áudio diretamente nesta página.", "warning");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceMediaStream = stream;
+
+      const mimeType = getSupportedAudioMimeType();
+      const options = mimeType ? { mimeType } : undefined;
+      voiceMediaRecorder = new MediaRecorder(stream, options);
+      voiceAudioChunks = [];
+
+      voiceMediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          voiceAudioChunks.push(event.data);
+        }
+      };
+
+      voiceMediaRecorder.start(250);
+      isRecordingVoice = true;
+      voiceRecordingSeconds = 0;
+
+      const recordingBar = document.getElementById("audio-recording-bar");
+      const recordTimer = document.getElementById("audio-record-timer");
+      const btnSend = document.getElementById("btn-send");
+      const btnEmoji = document.getElementById("btn-emoji-picker");
+
+      if (recordingBar) {
+        recordingBar.classList.remove("d-none");
+        recordingBar.classList.add("d-flex");
+      }
+      if (btnEmoji) {
+        btnEmoji.classList.add("d-none");
+      }
+      if (recordTimer) {
+        recordTimer.textContent = "00:00";
+      }
+      if (btnSend) {
+        btnSend.innerHTML = '<i class="bi bi-send-fill text-white" style="font-size: 0.95rem;"></i>';
+        btnSend.title = "Finalizar e enviar áudio";
+        btnSend.setAttribute("aria-label", "Finalizar e enviar áudio");
+      }
+
+      clearInterval(voiceRecordingTimer);
+      voiceRecordingTimer = setInterval(() => {
+        voiceRecordingSeconds++;
+        const mins = Math.floor(voiceRecordingSeconds / 60);
+        const secs = voiceRecordingSeconds % 60;
+        const timeStr = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+        if (recordTimer) recordTimer.textContent = timeStr;
+
+        if (voiceRecordingSeconds >= 300) {
+          finishAndSendVoiceRecording();
+        }
+      }, 1000);
+
+    } catch (err) {
+      console.warn("Acesso ao microfone negado ou erro:", err);
+      const toast = window.showToast || alert;
+      toast("Permissão de microfone negada. Permita o microfone no navegador para gravar mensagens de voz.", "warning");
+      cleanupVoiceRecordingUI();
+    }
+  }
+
+  function cleanupVoiceRecordingUI() {
+    isRecordingVoice = false;
+    clearInterval(voiceRecordingTimer);
+    voiceRecordingTimer = null;
+
+    if (voiceMediaStream) {
+      try {
+        voiceMediaStream.getTracks().forEach(track => track.stop());
+      } catch (e) {}
+      voiceMediaStream = null;
+    }
+    voiceMediaRecorder = null;
+    voiceAudioChunks = [];
+
+    const recordingBar = document.getElementById("audio-recording-bar");
+    const btnEmoji = document.getElementById("btn-emoji-picker");
+    const recordTimer = document.getElementById("audio-record-timer");
+
+    if (recordingBar) {
+      recordingBar.classList.remove("d-flex");
+      recordingBar.classList.add("d-none");
+    }
+    if (btnEmoji) {
+      btnEmoji.classList.remove("d-none");
+    }
+    if (recordTimer) {
+      recordTimer.textContent = "00:00";
+    }
+
+    updateSendButtonState();
+  }
+
+  function cancelVoiceRecording() {
+    if (!isRecordingVoice && !voiceMediaRecorder) return;
+    try {
+      if (voiceMediaRecorder && voiceMediaRecorder.state !== "inactive") {
+        voiceMediaRecorder.stop();
+      }
+    } catch (e) {}
+    cleanupVoiceRecordingUI();
+  }
+
+  async function finishAndSendVoiceRecording() {
+    if (!isRecordingVoice || !voiceMediaRecorder) return;
+
+    const recordedDuration = Math.max(1, voiceRecordingSeconds);
+    const mimeType = voiceMediaRecorder.mimeType || getSupportedAudioMimeType() || "audio/webm";
+
+    try {
+      if (voiceMediaRecorder.state !== "inactive") {
+        voiceMediaRecorder.stop();
+      }
+    } catch (e) {}
+
+    if (voiceMediaStream) {
+      try {
+        voiceMediaStream.getTracks().forEach(track => track.stop());
+      } catch (e) {}
+      voiceMediaStream = null;
+    }
+
+    clearInterval(voiceRecordingTimer);
+    voiceRecordingTimer = null;
+    isRecordingVoice = false;
+
+    await new Promise(r => setTimeout(r, 150));
+
+    if (voiceAudioChunks.length === 0) {
+      cleanupVoiceRecordingUI();
+      return;
+    }
+
+    const audioBlob = new Blob(voiceAudioChunks, { type: mimeType });
+    voiceAudioChunks = [];
+
+    isAudioUploading = true;
+    const btnSend = document.getElementById("btn-send");
+    if (btnSend) {
+      btnSend.disabled = true;
+      btnSend.innerHTML = '<span class="spinner-border spinner-border-sm text-white" role="status" aria-hidden="true"></span>';
+    }
+
+    try {
+      let ext = "webm";
+      if (mimeType.includes("mp4") || mimeType.includes("m4a") || mimeType.includes("aac")) {
+        ext = "mp4";
+      } else if (mimeType.includes("ogg")) {
+        ext = "ogg";
+      } else if (mimeType.includes("wav")) {
+        ext = "wav";
+      }
+
+      const formData = new FormData();
+      formData.append("audio", audioBlob, `voice_recording.${ext}`);
+
+      const headers = {};
+      if (window.confirmedAuthToken) {
+        headers["Authorization"] = `Bearer ${window.confirmedAuthToken}`;
+      } else {
+        const localToken = localStorage.getItem("papos_id_token");
+        if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+      }
+
+      const response = await fetch("/api/upload-audio", {
+        method: "POST",
+        headers,
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => null);
+        throw new Error(errJson?.error || `Falha no envio do áudio (${response.status})`);
+      }
+
+      const result = await response.json();
+      if (!result.success || !result.url) {
+        throw new Error(result.error || "URL do áudio não retornada pelo servidor.");
+      }
+
+      window.sendMediaMessage("audio", result.url, "🎤 Mensagem de voz", recordedDuration);
+
+    } catch (err) {
+      console.error("[AudioVoice] Erro no upload do áudio:", err);
+      const toast = window.showToast || alert;
+      toast("Não foi possível enviar o áudio. Verifique sua conexão e tente novamente.", "error");
+    } finally {
+      isAudioUploading = false;
+      if (btnSend) {
+        btnSend.disabled = false;
+      }
+      cleanupVoiceRecordingUI();
+    }
+  }
+
+  window.cancelVoiceRecording = cancelVoiceRecording;
+  window.finishAndSendVoiceRecording = finishAndSendVoiceRecording;
+
+  window.sendMediaMessage = function(mediaType, mediaUrl, caption, duration) {
     if (!mediaUrl || !socket || socket.readyState !== WebSocket.OPEN) return;
 
     const senderNick = window.confirmedNickname || currentUser;
     const myPhoto = getUserCurrentPhoto(senderNick) || undefined;
-    const defaultCaption = mediaType === "gif" ? "🎞️ GIF" : "🧸 Figurinha";
+    const defaultCaption = mediaType === "gif" ? "🎞️ GIF" : (mediaType === "audio" ? "🎤 Mensagem de voz" : "🧸 Figurinha");
     const text = caption || defaultCaption;
 
     if (chatMode === "public") {
@@ -2947,6 +3301,7 @@ document.addEventListener("DOMContentLoaded", () => {
         text: text,
         mediaType: mediaType,
         mediaUrl: mediaUrl,
+        duration: duration || undefined,
         time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         timestamp: Date.now(),
         isSystem: false,
@@ -2965,6 +3320,7 @@ document.addEventListener("DOMContentLoaded", () => {
         text: text,
         mediaType: mediaType,
         mediaUrl: mediaUrl,
+        duration: duration || undefined,
         color: activeMessageColor || undefined,
         photoUrl: myPhoto,
         replyTo: replyData
@@ -2987,6 +3343,7 @@ document.addEventListener("DOMContentLoaded", () => {
         text: text,
         mediaType: mediaType,
         mediaUrl: mediaUrl,
+        duration: duration || undefined,
         color: activeMessageColor || undefined,
         photoUrl: myPhoto,
         replyTo: replyData
@@ -2999,6 +3356,7 @@ document.addEventListener("DOMContentLoaded", () => {
         content: text,
         mediaType: mediaType,
         mediaUrl: mediaUrl,
+        duration: duration || undefined,
         color: activeMessageColor || undefined,
         timestamp: Date.now(),
         replyTo: replyData,
@@ -3012,8 +3370,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!messageInput || !socket) return;
     const text = messageInput.value.trim();
     if (text === "") {
-      if (typeof window.showToast === "function") {
-        window.showToast("Digite uma mensagem ou insira um emoji para enviar.", "info");
+      if (isRecordingVoice) {
+        finishAndSendVoiceRecording();
+      } else {
+        startVoiceRecording();
       }
       return;
     }
@@ -3852,31 +4212,60 @@ document.addEventListener("DOMContentLoaded", () => {
   const menuEmojis = document.getElementById("mobile-menu-emojis");
   const menuColors = document.getElementById("mobile-menu-colors");
 
-  const btnEmojiPicker = document.getElementById("btn-emoji-picker");
-  if (btnEmojiPicker) {
-    btnEmojiPicker.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (window.PaposMediaPicker) {
-        window.PaposMediaPicker.toggle("emojis");
-      }
-    });
-  }
+  // Delegação global estável e resiliente para botões de emojis/figurinhas e gravação de áudio
+  document.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!target) return;
 
-  if (btnMobileOpenEmojis) {
-    btnMobileOpenEmojis.addEventListener("click", (e) => {
+    // 1. Botão de Emojis/Figurinhas no campo de digitação (fa-note-sticky)
+    const btnEmojiPicker = target.closest("#btn-emoji-picker");
+    if (btnEmojiPicker) {
       e.preventDefault();
       e.stopPropagation();
-      if (window.PaposMediaPicker) {
-        window.closeMobileDropdown();
-        window.PaposMediaPicker.open("emojis");
-        return;
+      if (window.PaposMediaPicker && typeof window.PaposMediaPicker.toggle === "function") {
+        window.PaposMediaPicker.toggle("emojis");
+      } else if (typeof window.mountMediaPicker === "function") {
+        window.mountMediaPicker();
+        setTimeout(() => {
+          if (window.PaposMediaPicker && typeof window.PaposMediaPicker.toggle === "function") {
+            window.PaposMediaPicker.toggle("emojis");
+          }
+        }, 60);
       }
-      if (step1) step1.classList.add("d-none");
-      if (menuEmojis) menuEmojis.classList.remove("d-none");
-      setTimeout(() => { if (searchMobile) searchMobile.focus(); }, 100);
-    });
-  }
+      return;
+    }
+
+    // 2. Botão Cancelar Gravação de Áudio
+    const btnCancelVoice = target.closest("#btn-cancel-voice");
+    if (btnCancelVoice) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.cancelVoiceRecording === "function") {
+        window.cancelVoiceRecording();
+      }
+      return;
+    }
+
+    // 3. Botão mobile de abrir emojis
+    const btnMobileOpenEmojis = target.closest("#btn-mobile-open-emojis");
+    if (btnMobileOpenEmojis) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.closeMobileDropdown === "function") {
+        window.closeMobileDropdown();
+      }
+      if (window.PaposMediaPicker && typeof window.PaposMediaPicker.open === "function") {
+        window.PaposMediaPicker.open("emojis");
+      } else if (typeof window.mountMediaPicker === "function") {
+        window.mountMediaPicker();
+        setTimeout(() => {
+          if (window.PaposMediaPicker && typeof window.PaposMediaPicker.open === "function") {
+            window.PaposMediaPicker.open("emojis");
+          }
+        }, 60);
+      }
+    }
+  });
 
   if (btnMobileOpenColors) {
     btnMobileOpenColors.addEventListener("click", (e) => {

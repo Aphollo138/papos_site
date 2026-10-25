@@ -740,7 +740,7 @@ function containsLink(str: string): boolean {
     "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
     "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
     "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
-    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
+    "it", "nl", "es", "pt", "ar", "mx", "cl", "pe", "uy"
   ];
   const tldPattern = tldList.join("|");
 
@@ -830,7 +830,7 @@ async function startServer() {
     const allowedOrigins = [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://papos.net.br",
+      "https://papo.net.br",
       "https://papos-site.onrender.com"
     ];
     
@@ -1304,6 +1304,77 @@ async function startServer() {
 
   app.post("/api/profile/upload-photo", upload.single("image"), handleProfilePhotoUpload);
   app.post("/api/profile/upload-image", upload.single("image"), handleProfilePhotoUpload);
+
+  // Endpoint dedicado para upload seguro e armazenamento de mensagens de voz/áudio
+  const audioUploadDir = path.join(process.cwd(), "public", "uploads", "audio");
+  if (!fs.existsSync(audioUploadDir)) {
+    fs.mkdirSync(audioUploadDir, { recursive: true });
+  }
+
+  const audioMulter = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 15 * 1024 * 1024 } // 15MB máximo para áudios
+  });
+
+  const uploadAudioAnyMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    audioMulter.any()(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ success: false, error: "Falha no upload do áudio: " + (err.message || "Tamanho excedido") });
+      }
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        req.file = req.files[0];
+      }
+      next();
+    });
+  };
+
+  async function handleAudioUpload(req: express.Request, res: express.Response) {
+    try {
+      const file = req.file;
+      if (!file || !file.buffer || file.buffer.length === 0) {
+        return res.status(400).json({ success: false, error: "Nenhum arquivo de áudio foi recebido pelo servidor." });
+      }
+
+      const mime = (file.mimetype || "").toLowerCase();
+      // Validação de segurança MIME
+      const isValidMime = mime.startsWith("audio/") || mime === "video/webm" || mime === "application/octet-stream";
+      if (!isValidMime) {
+        return res.status(400).json({ success: false, error: "Tipo de arquivo inválido. Apenas mensagens de áudio são permitidas." });
+      }
+
+      // Extensão compatível com navegadores e iOS Safari / Android Chrome
+      let ext = "webm";
+      if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) {
+        ext = "mp4";
+      } else if (mime.includes("ogg")) {
+        ext = "ogg";
+      } else if (mime.includes("wav")) {
+        ext = "wav";
+      } else if (mime.includes("mpeg") || mime.includes("mp3")) {
+        ext = "mp3";
+      }
+
+      const filename = `voice_${Date.now()}_${crypto.randomBytes(6).toString("hex")}.${ext}`;
+      const targetFilePath = path.join(audioUploadDir, filename);
+
+      await fs.promises.writeFile(targetFilePath, file.buffer);
+      const audioUrl = `/uploads/audio/${filename}`;
+
+      return res.json({
+        success: true,
+        url: audioUrl,
+        filename,
+        size: file.buffer.length,
+        mimetype: file.mimetype
+      });
+    } catch (err: any) {
+      console.error("[AudioUpload] Erro ao salvar arquivo de áudio:", err);
+      return res.status(500).json({ success: false, error: "Erro interno no servidor ao processar áudio." });
+    }
+  }
+
+  app.post("/api/upload-audio", uploadAudioAnyMiddleware, handleAudioUpload);
+  app.post("/api/messages/upload-audio", uploadAudioAnyMiddleware, handleAudioUpload);
 
   app.post("/api/profile/remove-photo", async (req, res) => {
     try {
@@ -2844,9 +2915,10 @@ async function startServer() {
             session.lastMessageTime.push(now);
 
             const rawText = payload.text || "";
-            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker";
+            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker" || payload.mediaType === "audio";
             const mediaType = isMedia ? payload.mediaType : undefined;
             const mediaUrl = (isMedia && typeof payload.mediaUrl === "string") ? sanitizeHTML(payload.mediaUrl).substring(0, 1000) : undefined;
+            const duration = (mediaType === "audio" && typeof payload.duration === "number") ? Math.round(payload.duration) : undefined;
 
             if (!isMedia && (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || "")))) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
@@ -2866,7 +2938,7 @@ async function startServer() {
             const msgObj = {
               id: msgId,
               sender: session.nickname,
-              text: text || (mediaType === "gif" ? "🎞️ GIF" : "🧸 Figurinha"),
+              text: text || (mediaType === "gif" ? "🎞️ GIF" : (mediaType === "audio" ? "🎤 Mensagem de voz" : "🧸 Figurinha")),
               time: getCurrentTime(),
               timestamp: Date.now(),
               isSystem: false,
@@ -2874,6 +2946,7 @@ async function startServer() {
               photoUrl: session.photoUrl || undefined,
               mediaType,
               mediaUrl,
+              duration,
               replyTo: payload.replyTo ? {
                 id: payload.replyTo.id,
                 sender: payload.replyTo.sender,
@@ -2905,9 +2978,10 @@ async function startServer() {
             const toNick = payload.to?.trim();
             const rawText = payload.text || "";
 
-            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker";
+            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker" || payload.mediaType === "audio";
             const mediaType = isMedia ? payload.mediaType : undefined;
             const mediaUrl = (isMedia && typeof payload.mediaUrl === "string") ? sanitizeHTML(payload.mediaUrl).substring(0, 1000) : undefined;
+            const duration = (mediaType === "audio" && typeof payload.duration === "number") ? Math.round(payload.duration) : undefined;
 
             if (!toNick || (!rawText && !isMedia)) return;
 
@@ -2954,13 +3028,14 @@ async function startServer() {
                 senderPhotoUrl: session.photoUrl || undefined,
                 recipientId: toNick,
                 recipientName: toNick,
-                content: text || (mediaType === "gif" ? "Enviou um GIF" : "Enviou uma figurinha"),
+                content: text || (mediaType === "gif" ? "Enviou um GIF" : (mediaType === "audio" ? "🎤 Mensagem de voz" : "Enviou uma figurinha")),
                 timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
                 color,
                 mediaType,
                 mediaUrl,
+                duration,
                 replyTo: payload.replyTo ? {
                   id: payload.replyTo.id || payload.replyTo.messageId,
                   messageId: payload.replyTo.messageId || payload.replyTo.id,
@@ -2990,13 +3065,14 @@ async function startServer() {
                   senderName: session.nickname,
                   recipientId: toNick,
                   recipientName: toNick,
-                  content: text || (mediaType === "gif" ? "Enviou um GIF" : "Enviou uma figurinha"),
+                  content: text || (mediaType === "gif" ? "Enviou um GIF" : (mediaType === "audio" ? "🎤 Mensagem de voz" : "Enviou uma figurinha")),
                   timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,
                   color,
                   mediaType,
                   mediaUrl,
+                  duration,
                   replyTo: payload.replyTo ? {
                     id: payload.replyTo.id || payload.replyTo.messageId,
                     messageId: payload.replyTo.messageId || payload.replyTo.id,

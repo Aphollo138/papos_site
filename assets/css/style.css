@@ -3437,5 +3437,31 @@ body.in-call-fullscreen {
   }
 }
 
+/* Estilos do Player de Mensagens de Voz do Papos */
+.papos-audio-player {
+  user-select: none;
+}
+.papos-audio-play-btn:hover {
+  transform: scale(1.06);
+  filter: brightness(1.1);
+}
+.papos-audio-play-btn:active {
+  transform: scale(0.96);
+}
+.recording-pulse-dot {
+  animation: paposPulse 1.2s infinite ease-in-out;
+}
+@keyframes paposPulse {
+  0% { transform: scale(0.85); opacity: 0.4; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.85); opacity: 0.4; }
+}
+[data-theme="light"] .papos-audio-player .text-white-50 {
+  color: #6b7280 !important;
+}
+[data-theme="light"] .papos-audio-progress {
+  background: rgba(0, 0, 0, 0.12) !important;
+}
+
 
 

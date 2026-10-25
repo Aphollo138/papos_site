@@ -142,6 +142,10 @@ export const MediaPicker: React.FC = () => {
   });
 
   const panelRef = useRef<HTMLDivElement>(null);
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
 
   // Buscar chaves atualizadas do servidor caso ainda não estejam injetadas no cliente
   useEffect(() => {
@@ -171,7 +175,7 @@ export const MediaPicker: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Expor controles na window para integração direta com botões desktop e mobile
+  // Expor controles na window para integração direta com botões desktop e mobile de forma estável e contínua
   useEffect(() => {
     window.PaposMediaPicker = {
       open: (tab = 'emojis') => {
@@ -181,23 +185,25 @@ export const MediaPicker: React.FC = () => {
       close: () => setIsOpen(false),
       toggle: (tab = 'emojis') => {
         setIsOpen(prev => {
-          if (!prev) setActiveTab(tab);
-          return !prev;
+          if (!prev) {
+            setActiveTab(tab);
+            return true;
+          }
+          if (activeTabRef.current !== tab) {
+            setActiveTab(tab);
+            return true;
+          }
+          return false;
         });
       },
-      isOpen: () => isOpen,
-      getActiveTab: () => activeTab
+      isOpen: () => isOpenRef.current,
+      getActiveTab: () => activeTabRef.current
     };
 
     window.insertEmojiAtCursor = (emoji: string) => {
       handleEmojiClick({ emoji } as any);
     };
-
-    return () => {
-      delete window.PaposMediaPicker;
-      delete window.insertEmojiAtCursor;
-    };
-  }, [isOpen, activeTab]);
+  }, []);
 
   // Click outside e tecla Escape
   useEffect(() => {
