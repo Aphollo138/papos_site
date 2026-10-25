@@ -13,7 +13,7 @@
   }
 
   function showZenitheCard() {
-    // Se estiver em chamada em tela cheia, não exibir sobrepondo a chamada
+    
     if (document.body.classList.contains('in-call-fullscreen')) {
       return;
     }
@@ -21,18 +21,18 @@
     const overlay = getOverlay();
     if (!overlay) return;
 
-    // Salvar elemento ativo antes de abrir o modal para devolver o foco após fechamento
+    
     if (document.activeElement && typeof document.activeElement.focus === 'function') {
       lastFocusedElement = document.activeElement;
     }
 
     overlay.removeAttribute('aria-hidden');
     overlay.classList.remove('d-none');
-    // Forçar reflow para acionar transição CSS suave
+    
     void overlay.offsetWidth;
     overlay.classList.add('zenithe-visible');
 
-    // Focar no botão CTA principal para acessibilidade
+    
     const ctaBtn = overlay.querySelector('#btnZenitheCta');
     if (ctaBtn) {
       setTimeout(() => {
@@ -45,7 +45,7 @@
     const overlay = getOverlay();
     if (!overlay) return;
 
-    // Se o foco ainda estiver dentro do modal, devolvê-lo antes de ocultar
+    
     if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
       try { lastFocusedElement.focus(); } catch (e) {}
     } else {
@@ -68,14 +68,14 @@
     const overlay = getOverlay();
     if (!overlay) return;
 
-    // Fechar ao clicar no backdrop (fora do card)
+    
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         closeZenitheCard();
       }
     });
 
-    // Armadilha de foco (Focus Trap acessível) quando modal estiver aberto
+    
     overlay.addEventListener('keydown', (e) => {
       if (e.key === 'Tab') {
         const focusableElements = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
@@ -97,7 +97,7 @@
       }
     });
 
-    // Botão Fechar (X)
+    
     const closeBtn = document.getElementById('btnZenitheClose');
     if (closeBtn) {
       closeBtn.addEventListener('click', (e) => {
@@ -164,7 +164,7 @@
       });
     }
 
-    // Observador para fechar automaticamente se uma chamada entrar em modo tela cheia
+    
     const bodyObserver = new MutationObserver(() => {
       if (document.body.classList.contains('in-call-fullscreen')) {
         closeZenitheCard();

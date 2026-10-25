@@ -177,9 +177,6 @@
                     </span>
                     <input type="text" class="form-control form-control-lg bg-dark border-secondary border-start-0 text-white" id="profile-nickname" placeholder="Novo apelido..." minlength="2" maxlength="15" required aria-describedby="user-icon-profile-addon">
                   </div>
-                  <div id="profile-nickname-conflict-error" class="d-none mt-2 small fw-semibold" style="color: #ef4444 !important; font-size: 0.82rem; line-height: 1.4;">
-                    Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.
-                  </div>
                   <div class="form-text small text-secondary">
                     Isso atualizará instantaneamente como as pessoas te veem em todas as salas.
                   </div>
@@ -232,39 +229,20 @@
                   </div>
                 </div>
 
-                <!-- Configurações de Preferências e Privacidade -->
+                <!-- Configurações de Privacidade: Bloquear Ligações -->
                 <div class="mb-4 pt-3 border-top border-secondary" id="privacy-settings-section">
-                  <label class="form-label fw-bold small text-secondary mb-2">Preferências e privacidade</label>
-                  <div class="d-flex flex-column gap-3">
-                    <!-- Configuração: Bloquear Ligações -->
-                    <div class="p-3 rounded border border-secondary" style="background-color: var(--surface-secondary, rgba(255, 255, 255, 0.03));">
-                      <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
-                        <div class="pe-3">
-                          <label class="form-check-label fw-bold text-white mb-1 d-block" for="profile-block-calls" style="cursor: pointer; font-size: 0.95rem;">
-                            Bloquear ligações
-                          </label>
-                          <span class="text-secondary small d-block" style="font-size: 0.82rem; line-height: 1.4;">
-                            Você não receberá chamadas de áudio de outros usuários.
-                          </span>
-                        </div>
-                        <input class="form-check-input ms-0 flex-shrink-0" type="checkbox" role="switch" id="profile-block-calls" style="width: 2.8em; height: 1.5em; cursor: pointer;">
+                  <label class="form-label fw-bold small text-secondary mb-2">Configurações de privacidade</label>
+                  <div class="p-3 rounded border border-secondary" style="background-color: var(--surface-secondary, rgba(255, 255, 255, 0.03));">
+                    <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
+                      <div class="pe-3">
+                        <label class="form-check-label fw-bold text-white mb-1 d-block" for="profile-block-calls" style="cursor: pointer; font-size: 0.95rem;">
+                          Bloquear ligações
+                        </label>
+                        <span class="text-secondary small d-block" style="font-size: 0.82rem; line-height: 1.4;">
+                          Você não receberá chamadas de áudio de outros usuários.
+                        </span>
                       </div>
-                    </div>
-
-                    <!-- Configuração: Silenciar boas-vindas dos bots -->
-                    <div class="p-3 rounded border border-secondary" style="background-color: var(--surface-secondary, rgba(255, 255, 255, 0.03));">
-                      <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
-                        <div class="pe-3">
-                          <label class="form-check-label fw-bold text-white mb-1 d-block" for="profile-mute-bot-welcome" style="cursor: pointer; font-size: 0.95rem;">
-                            Silenciar boas-vindas dos bots
-                          </label>
-                          <span class="text-secondary small d-block" style="font-size: 0.82rem; line-height: 1.4;">
-                            Não receber saudações e mensagens automáticas de boas-vindas dos bots ao entrar nas salas.
-                          </span>
-                          <span id="profile-mute-bot-status-badge" class="badge bg-secondary text-white px-2 py-0.5 mt-1 small d-inline-block" style="font-size: 0.72rem; font-weight: 500;">Desativado</span>
-                        </div>
-                        <input class="form-check-input ms-0 flex-shrink-0" type="checkbox" role="switch" id="profile-mute-bot-welcome" style="width: 2.8em; height: 1.5em; cursor: pointer;">
-                      </div>
+                      <input class="form-check-input ms-0 flex-shrink-0" type="checkbox" role="switch" id="profile-block-calls" style="width: 2.8em; height: 1.5em; cursor: pointer;">
                     </div>
                   </div>
                 </div>
@@ -326,14 +304,14 @@
     <script type="module" src="/firebase/auth.js"></script>
     <script type="module" src="/assets/js/auth-controller.js"></script>
 
-    <script type="module" src="/assets/js/main.js"></script>
+    <script src="/assets/js/main.js"></script>
 
-    <script type="module" src="/assets/js/monetization.js"></script>
+    <script src="/assets/js/monetization.js"></script>
 
-    <script type="module" src="/assets/js/feedback-controller.js"></script>
+    <script src="/assets/js/feedback-controller.js"></script>
 
-    <script type="module" src="/assets/js/blog-posts.js"></script>
-    <script type="module" src="/assets/js/blog.js"></script>
+    <script src="/assets/js/blog-posts.js"></script>
+    <script src="/assets/js/blog.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         if (window.BlogEngine) {
@@ -380,8 +358,6 @@
         const inputGender = document.getElementById("profile-gender");
         const genderErrorFeedback = document.getElementById("gender-error-feedback");
         const inputBlockCalls = document.getElementById("profile-block-calls");
-        const inputMuteBotWelcome = document.getElementById("profile-mute-bot-welcome");
-        const badgeMuteBotStatus = document.getElementById("profile-mute-bot-status-badge");
 
         // Elementos de Foto de Perfil
         const photoInput = document.getElementById("profile-photo-input");
@@ -399,7 +375,6 @@
         const savedAge = localStorage.getItem("papos_age") || "";
         const savedGender = localStorage.getItem("papos_gender") || "";
         const savedBlockCalls = localStorage.getItem("papos_block_calls") === "true" || localStorage.getItem("papos_blockCalls") === "true";
-        const savedMuteBotWelcome = localStorage.getItem("papos_mute_bot_welcome") === "true";
         
         inputBio.value = savedBio;
         bioCharCounter.textContent = `${savedBio.length}/400`;
@@ -407,51 +382,6 @@
         inputGender.value = savedGender;
         if (inputBlockCalls) {
           inputBlockCalls.checked = savedBlockCalls;
-        }
-
-        function updateMuteBotBadge(isMuted) {
-          if (!badgeMuteBotStatus) return;
-          if (isMuted) {
-            badgeMuteBotStatus.textContent = "Ativado";
-            badgeMuteBotStatus.className = "badge bg-success text-dark px-2 py-0.5 mt-1 small d-inline-block";
-          } else {
-            badgeMuteBotStatus.textContent = "Desativado";
-            badgeMuteBotStatus.className = "badge bg-secondary text-white px-2 py-0.5 mt-1 small d-inline-block";
-          }
-        }
-
-        if (inputMuteBotWelcome) {
-          inputMuteBotWelcome.checked = savedMuteBotWelcome;
-          updateMuteBotBadge(savedMuteBotWelcome);
-
-          inputMuteBotWelcome.addEventListener("change", async (e) => {
-            const isMuted = Boolean(e.target.checked);
-            updateMuteBotBadge(isMuted);
-            localStorage.setItem("papos_mute_bot_welcome", String(isMuted));
-
-            try {
-              const syncChannel = new BroadcastChannel("papos_profile_sync");
-              syncChannel.postMessage({
-                type: "mute_bot_welcome_changed",
-                muteBotWelcome: isMuted
-              });
-            } catch (err) {}
-
-            const curAuth = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
-            if (curAuth && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
-              try {
-                await window.FirebaseService.saveUserProfile({ muteBotWelcome: isMuted });
-              } catch (err) {}
-            }
-
-            try {
-              await fetch("/api/profile/validate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ muteBotWelcome: isMuted, uid: curAuth ? curAuth.uid : undefined, nickname: currentUser })
-              });
-            } catch (err) {}
-          });
         }
 
         // Usar o ID Permanente real se autenticado, caso contrário usar o ID persistente do usuário anônimo
@@ -475,14 +405,9 @@
           if (window.ChatEngine) {
             let photoToUse = customPhoto;
             if (photoToUse === null) {
-              const nickClean = (name || currentUser || "").trim().toLowerCase();
-              if (localStorage.getItem("papos_photo_removed") === "true" || localStorage.getItem(`papos_photo_removed_${nickClean}`) === "true") {
-                photoToUse = "";
-              } else {
-                photoToUse = localStorage.getItem("papos_photo") || localStorage.getItem(`papos_photo_${name}`) || "";
-              }
+              photoToUse = localStorage.getItem("papos_photo") || null;
             }
-            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse || "");
+            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse);
             
             // Gerenciar botão Remover
             if (photoToUse && typeof photoToUse === "string" && photoToUse.trim() !== "" && !photoToUse.includes("undefined") && !photoToUse.includes("null")) {
@@ -566,10 +491,6 @@
 
             // Armazenar URL no cache
             localStorage.setItem("papos_photo", finalUrl);
-            localStorage.setItem(`papos_photo_${currentNick}`, finalUrl);
-            localStorage.setItem(`papos_photo_${currentNick.toLowerCase()}`, finalUrl);
-            localStorage.removeItem("papos_photo_removed");
-            localStorage.removeItem(`papos_photo_removed_${currentNick.toLowerCase()}`);
 
             try {
               const syncChannel = new BroadcastChannel("papos_profile_sync");
@@ -587,8 +508,7 @@
             if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
               await window.FirebaseService.saveUserProfile({
                 photoURL: finalUrl,
-                profileImage: finalUrl,
-                photoUrl: finalUrl
+                profileImage: finalUrl
               });
             }
 
@@ -632,30 +552,13 @@
             const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
             const currentNick = inputNickname.value.trim() || currentUser;
 
-            // Obter token de autenticação se disponível para garantir autorização segura
-            let authToken = null;
-            if (currentAuthUser && typeof currentAuthUser.getIdToken === "function") {
-              authToken = await currentAuthUser.getIdToken().catch(() => null);
-            }
-
-            const reqHeaders = { "Content-Type": "application/json" };
-            if (authToken) {
-              reqHeaders["Authorization"] = `Bearer ${authToken}`;
-            }
-
             await fetch("/api/profile/remove-photo", {
               method: "POST",
-              headers: reqHeaders,
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ uid: currentUid, nickname: currentNick })
             }).catch(() => {});
 
-            // Limpar imediatamente todos os caches locais da foto
             localStorage.removeItem("papos_photo");
-            localStorage.removeItem("papos_photo_url");
-            localStorage.removeItem(`papos_photo_${currentNick}`);
-            localStorage.removeItem(`papos_photo_${currentNick.toLowerCase()}`);
-            localStorage.setItem("papos_photo_removed", "true");
-            localStorage.setItem(`papos_photo_removed_${currentNick.toLowerCase()}`, "true");
 
             try {
               const syncChannel = new BroadcastChannel("papos_profile_sync");
@@ -669,16 +572,13 @@
               });
             } catch (e) {}
 
-            // Persistir remoção no Firebase se autenticado
             if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
               await window.FirebaseService.saveUserProfile({
                 photoURL: "",
-                profileImage: "",
-                photoUrl: ""
+                profileImage: ""
               }).catch(() => {});
             }
 
-            // Atualizar imediatamente a interface e restaurar o avatar padrão do sistema
             updateAvatarPreview(currentNick, "");
 
             const toastFn = window.showToast || window.showAdminToast;
@@ -698,72 +598,11 @@
           }
         });
 
-        // Atualizar avatar ao digitação do usuário e validação em tempo real com debounce
-        let profileNickTimer = null;
-        let isProfileNickConflict = false;
-
-        function clearProfileNickConflict() {
-          isProfileNickConflict = false;
-          inputNickname.style.borderColor = "";
-          inputNickname.style.boxShadow = "";
-          const errEl = document.getElementById("profile-nickname-conflict-error");
-          if (errEl) errEl.classList.add("d-none");
-          const btnSave = document.getElementById("btn-save-profile");
-          if (btnSave) btnSave.disabled = false;
-        }
-
-        function showProfileNickConflict(msg) {
-          isProfileNickConflict = true;
-          inputNickname.style.borderColor = "#ef4444";
-          inputNickname.style.boxShadow = "0 0 0 1px #ef4444";
-          const errEl = document.getElementById("profile-nickname-conflict-error");
-          if (errEl) {
-            errEl.textContent = msg || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.";
-            errEl.classList.remove("d-none");
-          }
-          const btnSave = document.getElementById("btn-save-profile");
-          if (btnSave) btnSave.disabled = true;
-        }
-
-        async function checkProfileNickRealtime(val) {
-          const trimmed = (val || "").trim();
-          if (trimmed.length < 2) {
-            clearProfileNickConflict();
-            return;
-          }
-          if (trimmed.toLowerCase() === currentUser.toLowerCase()) {
-            clearProfileNickConflict();
-            return;
-          }
-
-          const curAuth = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
-          const currentUid = curAuth ? curAuth.uid : (localStorage.getItem("papos_uid") || "");
-          const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
-
-          try {
-            const res = await fetch(`/api/rooms/room-1/check-nickname?nickname=${encodeURIComponent(trimmed)}&guestId=${encodeURIComponent(guestId)}&uid=${encodeURIComponent(currentUid)}`);
-            const data = await res.json();
-            if (!res.ok || data.available === false) {
-              showProfileNickConflict(data.message || "Este apelido já está sendo utilizado por alguém nesta sala. Escolha outro para continuar.");
-            } else {
-              clearProfileNickConflict();
-            }
-          } catch (e) {}
-        }
-
+        // Atualizar avatar ao digitação do usuário
         inputNickname.addEventListener("input", (e) => {
           const val = e.target.value.trim() || "A";
           nameDisplay.textContent = val;
           updateAvatarPreview(val);
-
-          clearTimeout(profileNickTimer);
-          if (e.target.value.trim().length < 2) {
-            clearProfileNickConflict();
-            return;
-          }
-          profileNickTimer = setTimeout(() => {
-            checkProfileNickRealtime(e.target.value);
-          }, 400);
         });
 
         // Contador de caracteres da biografia
@@ -811,23 +650,10 @@
                       }
                     }
 
-                    if (photo && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
-                      const cleanP = photo.trim();
-                      localStorage.setItem("papos_photo", cleanP);
-                      localStorage.setItem(`papos_photo_${nick}`, cleanP);
-                      localStorage.setItem(`papos_photo_${nick.toLowerCase()}`, cleanP);
-                      localStorage.removeItem("papos_photo_removed");
-                      localStorage.removeItem(`papos_photo_removed_${nick.toLowerCase()}`);
-                      updateAvatarPreview(nick, cleanP);
-                    } else {
-                      localStorage.removeItem("papos_photo");
-                      localStorage.removeItem("papos_photo_url");
-                      localStorage.removeItem(`papos_photo_${nick}`);
-                      localStorage.removeItem(`papos_photo_${nick.toLowerCase()}`);
-                      localStorage.setItem("papos_photo_removed", "true");
-                      localStorage.setItem(`papos_photo_removed_${nick.toLowerCase()}`, "true");
-                      updateAvatarPreview(nick, "");
+                    if (photo) {
+                      localStorage.setItem("papos_photo", photo);
                     }
+                    updateAvatarPreview(nick, photo || null);
 
                     if (inputBlockCalls && profile.blockCalls !== undefined) {
                       inputBlockCalls.checked = Boolean(profile.blockCalls);
@@ -914,7 +740,6 @@
           genderErrorFeedback.classList.add("d-none");
 
           const blockCallsVal = inputBlockCalls ? Boolean(inputBlockCalls.checked) : false;
-          const muteBotWelcomeVal = inputMuteBotWelcome ? Boolean(inputMuteBotWelcome.checked) : false;
 
           try {
             // Validação no servidor
@@ -929,19 +754,12 @@
                 gender: genderVal,
                 nickname: newNick,
                 uid: currentUid,
-                blockCalls: blockCallsVal,
-                muteBotWelcome: muteBotWelcomeVal
+                blockCalls: blockCallsVal
               })
             });
 
             if (!validateRes.ok) {
               const errData = await validateRes.json();
-              if (errData.error && errData.error.includes("já está sendo utilizado")) {
-                showProfileNickConflict(errData.error);
-                inputNickname.focus();
-                if (btnSave) btnSave.disabled = false;
-                return;
-              }
               throw new Error(errData.error || "Erro de validação no servidor.");
             }
 
@@ -955,8 +773,7 @@
                 gender: genderVal,
                 photoURL: currentPhoto,
                 profileImage: currentPhoto,
-                blockCalls: blockCallsVal,
-                muteBotWelcome: muteBotWelcomeVal
+                blockCalls: blockCallsVal
               });
             }
 
@@ -974,7 +791,6 @@
             }
             localStorage.setItem("papos_block_calls", String(blockCallsVal));
             localStorage.setItem("papos_blockCalls", String(blockCallsVal));
-            localStorage.setItem("papos_mute_bot_welcome", String(muteBotWelcomeVal));
 
             // Notificar abas ativas do chat sobre a alteração
             try {

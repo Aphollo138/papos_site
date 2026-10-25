@@ -56,7 +56,7 @@ function containsLink(str) {
     "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
     "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
     "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
-    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
+    "it", "nl", "es", "pt", "ar", "mx", "cl", "pe", "uy"
   ];
   const tldPattern = tldList.join("|");
 
@@ -260,6 +260,14 @@ function getUserCurrentPhoto(name) {
     return "";
   }
 
+  // Check live room photos memory map
+  if (window.roomUserPhotos && typeof window.roomUserPhotos === "object") {
+    const roomP = window.roomUserPhotos[cleanLower] || window.roomUserPhotos[cleanName];
+    if (roomP && typeof roomP === "string" && roomP.trim() !== "" && !roomP.includes("null") && !roomP.includes("undefined")) {
+      return roomP.trim();
+    }
+  }
+
   const cache = window.profileCache || profileCache;
   if (cache) {
     const cached = cache.get(cleanLower) || cache.get(cleanName);
@@ -274,29 +282,28 @@ function getUserCurrentPhoto(name) {
     }
   }
 
-  const stored = localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanLower}`);
-  if (stored && typeof stored === "string" && stored.trim() !== "" && !stored.includes("null") && !stored.includes("undefined")) {
-    return stored.trim();
-  }
   return "";
 }
 window.getUserCurrentPhoto = getUserCurrentPhoto;
 
-// Pré-popular cache com dados locais do usuário ativo
+// Scrub legacy contaminated papos_photo_* keys from localStorage
 (function() {
+  try {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("papos_photo_")) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch (e) {}
+
   const myCurrentNick = localStorage.getItem("papos_nickname");
   if (!myCurrentNick) return;
-  let myCurrentPhoto = localStorage.getItem("papos_photo");
-  if (!myCurrentPhoto || myCurrentPhoto.trim() === "" || myCurrentPhoto.includes("null") || myCurrentPhoto.includes("undefined")) {
-    myCurrentPhoto = localStorage.getItem(`papos_photo_${myCurrentNick}`) || localStorage.getItem(`papos_photo_${myCurrentNick.toLowerCase()}`);
-    if (myCurrentPhoto && myCurrentPhoto.trim() !== "" && !myCurrentPhoto.includes("null") && !myCurrentPhoto.includes("undefined")) {
-      localStorage.setItem("papos_photo", myCurrentPhoto.trim());
-    }
-  }
+  const myCurrentPhoto = localStorage.getItem("papos_photo");
   if (myCurrentPhoto && myCurrentPhoto.trim() !== "" && !myCurrentPhoto.includes("null") && !myCurrentPhoto.includes("undefined")) {
     const cleanP = myCurrentPhoto.trim();
-    localStorage.setItem(`papos_photo_${myCurrentNick}`, cleanP);
-    localStorage.setItem(`papos_photo_${myCurrentNick.toLowerCase()}`, cleanP);
     profileCache.set(myCurrentNick.toLowerCase(), {
       data: {
         nickname: myCurrentNick,
@@ -799,6 +806,80 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   }
 
+  function showNicknameTakenModal(message) {
+    let modalEl = document.getElementById("nicknameTakenModal");
+    if (!modalEl) {
+      const modalHtml = `
+        <div class="modal fade" id="nicknameTakenModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="nicknameTakenModalLabel" aria-hidden="true" style="z-index: 1080;">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border border-secondary text-white shadow-lg">
+              <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold text-warning d-flex align-items-center gap-2" id="nicknameTakenModalLabel">
+                  <i class="bi bi-exclamation-triangle-fill"></i> Nome de Usuário em Uso
+                </h5>
+              </div>
+              <div class="modal-body py-4">
+                <p class="text-white-50 mb-3" id="nickname-taken-msg" style="font-size: 0.95rem; line-height: 1.5;">
+                  ${message || "Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar."}
+                </p>
+                <form id="form-retry-nickname">
+                  <div class="mb-3">
+                    <label for="new-room-nickname" class="form-label small fw-semibold text-white-50">Escolha outro apelido:</label>
+                    <input type="text" class="form-control bg-dark text-white border-secondary" id="new-room-nickname" minlength="2" maxlength="15" placeholder="Digite seu novo apelido" required />
+                  </div>
+                  <div class="d-flex flex-column flex-sm-row gap-2 mt-4">
+                    <button type="submit" class="btn btn-premium flex-grow-1 py-2 fw-semibold">
+                      Entrar com este nome
+                    </button>
+                    <a href="/salas" class="btn btn-secondary-custom py-2 px-3 text-center">
+                      Ver outras salas
+                    </a>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML("beforeend", modalHtml);
+      modalEl = document.getElementById("nicknameTakenModal");
+
+      const retryForm = document.getElementById("form-retry-nickname");
+      if (retryForm) {
+        retryForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const input = document.getElementById("new-room-nickname");
+          const newNick = (input ? input.value : "").trim();
+          if (newNick.length >= 2) {
+            localStorage.setItem("papos_nickname", newNick);
+            window.currentUser = newNick;
+            currentUser = newNick;
+            window.confirmedNickname = newNick;
+            if (window.bootstrap && window.bootstrap.Modal) {
+              const bsModal = window.bootstrap.Modal.getInstance(modalEl);
+              if (bsModal) bsModal.hide();
+            }
+            sendJoinRoom(activeRoomId);
+          }
+        });
+      }
+    }
+
+    const msgEl = document.getElementById("nickname-taken-msg");
+    if (msgEl && message) {
+      msgEl.textContent = message;
+    }
+    const inputEl = document.getElementById("new-room-nickname");
+    if (inputEl) {
+      inputEl.value = "";
+      setTimeout(() => inputEl.focus(), 300);
+    }
+    if (window.bootstrap && window.bootstrap.Modal) {
+      const bsModal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+      bsModal.show();
+    }
+  }
+
   function connect() {
     socket = ChatEngine.connectSocket();
     window.activeChatSocket = socket;
@@ -833,20 +914,17 @@ document.addEventListener("DOMContentLoaded", () => {
               onlineUsersList = data.onlineUsers;
             }
             if (data.userPhotos && typeof data.userPhotos === "object") {
+              window.roomUserPhotos = window.roomUserPhotos || {};
               const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim().toLowerCase();
               Object.entries(data.userPhotos).forEach(([nick, photo]) => {
                 if (!nick) return;
                 const cleanNick = nick.trim();
                 const cleanLower = cleanNick.toLowerCase();
-                const isMe = cleanLower === myNick;
 
                 if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
                   const validPhoto = photo.trim();
-                  localStorage.setItem(`papos_photo_${cleanNick}`, validPhoto);
-                  localStorage.setItem(`papos_photo_${cleanLower}`, validPhoto);
-                  if (isMe) {
-                    localStorage.setItem("papos_photo", validPhoto);
-                  }
+                  window.roomUserPhotos[cleanLower] = validPhoto;
+                  window.roomUserPhotos[cleanNick] = validPhoto;
                   if (profileCache) {
                     const cached = profileCache.get(cleanLower);
                     if (cached && cached.data) {
@@ -854,18 +932,9 @@ document.addEventListener("DOMContentLoaded", () => {
                       cached.data.profileImage = validPhoto;
                     }
                   }
-                } else if (isMe) {
-                  const mySavedPhoto = localStorage.getItem("papos_photo");
-                  if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
-                    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
-                    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-                      activeSocket.send(JSON.stringify({
-                        type: "update_photo",
-                        photoUrl: mySavedPhoto.trim(),
-                        profileImage: mySavedPhoto.trim()
-                      }));
-                    }
-                  }
+                } else {
+                  delete window.roomUserPhotos[cleanLower];
+                  delete window.roomUserPhotos[cleanNick];
                 }
               });
             }
@@ -879,20 +948,17 @@ document.addEventListener("DOMContentLoaded", () => {
             onlineUsersList = data.onlineUsers;
 
             if (data.userPhotos && typeof data.userPhotos === "object") {
+              window.roomUserPhotos = window.roomUserPhotos || {};
               const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim().toLowerCase();
               Object.entries(data.userPhotos).forEach(([nick, photo]) => {
                 if (!nick) return;
                 const cleanNick = nick.trim();
                 const cleanLower = cleanNick.toLowerCase();
-                const isMe = cleanLower === myNick;
 
                 if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
                   const validPhoto = photo.trim();
-                  localStorage.setItem(`papos_photo_${cleanNick}`, validPhoto);
-                  localStorage.setItem(`papos_photo_${cleanLower}`, validPhoto);
-                  if (isMe) {
-                    localStorage.setItem("papos_photo", validPhoto);
-                  }
+                  window.roomUserPhotos[cleanLower] = validPhoto;
+                  window.roomUserPhotos[cleanNick] = validPhoto;
                   if (profileCache) {
                     const cached = profileCache.get(cleanLower);
                     if (cached && cached.data) {
@@ -900,18 +966,9 @@ document.addEventListener("DOMContentLoaded", () => {
                       cached.data.profileImage = validPhoto;
                     }
                   }
-                } else if (isMe) {
-                  const mySavedPhoto = localStorage.getItem("papos_photo");
-                  if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
-                    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
-                    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-                      activeSocket.send(JSON.stringify({
-                        type: "update_photo",
-                        photoUrl: mySavedPhoto.trim(),
-                        profileImage: mySavedPhoto.trim()
-                      }));
-                    }
-                  }
+                } else {
+                  delete window.roomUserPhotos[cleanLower];
+                  delete window.roomUserPhotos[cleanNick];
                 }
               });
             }
@@ -1015,9 +1072,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
               if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
                 const validPhoto = photo.trim();
-                localStorage.setItem(`papos_photo_${uNick}`, validPhoto);
-                localStorage.setItem(`papos_photo_${uLower}`, validPhoto);
-                if (isMe) {
+                window.roomUserPhotos = window.roomUserPhotos || {};
+                window.roomUserPhotos[uLower] = validPhoto;
+                window.roomUserPhotos[uNick] = validPhoto;
+                if (isMe && localStorage.getItem("papos_uid")) {
                   localStorage.setItem("papos_photo", validPhoto);
                 }
                 if (profileCache) {
@@ -1077,7 +1135,15 @@ document.addEventListener("DOMContentLoaded", () => {
             break;
 
           case "error":
-            if (data.message && data.message.includes("Links não são permitidos")) {
+            if (data.code === "nickname_taken" || (data.message && data.message.includes("já está sendo utilizado nesta sala"))) {
+              const friendlyMsg = data.message || "Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar.";
+              showNicknameTakenModal(friendlyMsg);
+              if (typeof window.showToast === "function") {
+                window.showToast(friendlyMsg, "warning");
+              } else {
+                appendSystemMessage(friendlyMsg);
+              }
+            } else if (data.message && data.message.includes("Links não são permitidos")) {
               if (typeof window.showToast === "function") {
                 window.showToast("Links não são permitidos nas conversas.", "warning");
               } else {
@@ -2242,8 +2308,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (msg.sender && msg.photoUrl) {
-          localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
-          localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
+          window.roomUserPhotos = window.roomUserPhotos || {};
+          window.roomUserPhotos[msg.sender.toLowerCase()] = msg.photoUrl;
+          window.roomUserPhotos[msg.sender] = msg.photoUrl;
         }
 
         msgDiv.setAttribute("data-sender", msg.sender);
@@ -2364,8 +2431,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (msg.sender && msg.photoUrl) {
-      localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
-      localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
+      window.roomUserPhotos = window.roomUserPhotos || {};
+      window.roomUserPhotos[msg.sender.toLowerCase()] = msg.photoUrl;
+      window.roomUserPhotos[msg.sender] = msg.photoUrl;
     }
 
     msgDiv.innerHTML = `
@@ -2497,15 +2565,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Atualizar localStorage de forma segura
     if (isExplicitRemove) {
       effectivePhoto = "";
-      localStorage.removeItem(`papos_photo_${targetNick}`);
-      localStorage.removeItem(`papos_photo_${targetLower}`);
+      if (window.roomUserPhotos) {
+        delete window.roomUserPhotos[targetLower];
+        delete window.roomUserPhotos[targetNick];
+      }
       if (isMe) {
         localStorage.removeItem("papos_photo");
       }
     } else if (isValidPhotoString) {
       effectivePhoto = rawPhoto.trim();
-      localStorage.setItem(`papos_photo_${targetNick}`, effectivePhoto);
-      localStorage.setItem(`papos_photo_${targetLower}`, effectivePhoto);
+      window.roomUserPhotos = window.roomUserPhotos || {};
+      window.roomUserPhotos[targetNick] = effectivePhoto;
+      window.roomUserPhotos[targetLower] = effectivePhoto;
       if (isMe) {
         localStorage.setItem("papos_photo", effectivePhoto);
       }
@@ -2584,13 +2655,9 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch (e) {}
 
   window.addEventListener("storage", (e) => {
-    if (e.key === "papos_photo" || (e.key && e.key.startsWith("papos_photo_"))) {
+    if (e.key === "papos_photo") {
       const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
-      let nick = myNick;
-      if (e.key.startsWith("papos_photo_")) {
-        nick = e.key.replace("papos_photo_", "");
-      }
-      updateAvatarsInDOM(nick, e.newValue || "");
+      updateAvatarsInDOM(myNick, e.newValue || "");
     }
   });
 
@@ -3850,25 +3917,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const fetchProfileFromFirestore = async (nickname) => {
-    if (window.FirebaseService && typeof window.FirebaseService.getUserProfileByNickname === "function") {
-      try {
-        const firestoreData = await window.FirebaseService.getUserProfileByNickname(nickname);
-        if (firestoreData) {
-          return {
-            nickname: firestoreData.nickname || firestoreData.displayName || nickname,
-            photoUrl: firestoreData.photoUrl || firestoreData.photoURL || "",
-            bio: firestoreData.bio || "",
-            age: firestoreData.age !== undefined && firestoreData.age !== null && firestoreData.age !== "" ? Number(firestoreData.age) : null,
-            gender: firestoreData.gender || "",
-            online: firestoreData.online !== undefined ? firestoreData.online : false,
-            permanentId: firestoreData.permanentId || firestoreData.internalId || "USR-Membro",
-            admin: firestoreData.admin === true
-          };
-        }
-      } catch (e) {
-        console.warn("Erro ao buscar perfil no Firestore:", e);
-      }
-    }
+    // Identity & profile photos are strictly bound to verified UIDs.
+    // Display names are never used as proof of identity or photo ownership.
     return null;
   };
 
@@ -3970,9 +4020,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (photoToUse) {
-      localStorage.setItem(`papos_photo_${data.nickname}`, photoToUse);
-      localStorage.setItem(`papos_photo_${data.nickname.toLowerCase()}`, photoToUse);
-      if (isMe) {
+      window.roomUserPhotos = window.roomUserPhotos || {};
+      window.roomUserPhotos[data.nickname.toLowerCase()] = photoToUse;
+      window.roomUserPhotos[data.nickname] = photoToUse;
+      if (isMe && localStorage.getItem("papos_uid")) {
         localStorage.setItem("papos_photo", photoToUse);
       }
     }

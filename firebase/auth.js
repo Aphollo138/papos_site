@@ -189,10 +189,6 @@ const FirebaseService = {
           localStorage.setItem("papos_blockCalls", String(Boolean(data.blockCalls)));
         }
 
-        if (data.muteBotWelcome !== undefined) {
-          localStorage.setItem("papos_mute_bot_welcome", String(Boolean(data.muteBotWelcome)));
-        }
-
         try {
           const supportSnap = await getDoc(doc(db, "supportNames", user.uid));
           if (supportSnap.exists() && supportSnap.data().enabled === true) {
@@ -700,7 +696,6 @@ const FirebaseService = {
     const city = profileData.city !== undefined ? String(profileData.city).trim() : undefined;
     const country = profileData.country !== undefined ? String(profileData.country).trim() : undefined;
     const blockCalls = profileData.blockCalls !== undefined ? Boolean(profileData.blockCalls) : undefined;
-    const muteBotWelcome = profileData.muteBotWelcome !== undefined ? Boolean(profileData.muteBotWelcome) : undefined;
 
     const userDocRef = doc(db, "users", user.uid);
     const updatePayload = {
@@ -718,12 +713,10 @@ const FirebaseService = {
     if (photoURL !== undefined) {
       updatePayload.photoURL = photoURL;
       updatePayload.profileImage = photoURL;
-      updatePayload.photoUrl = photoURL;
     }
     if (city !== undefined) updatePayload.city = city;
     if (country !== undefined) updatePayload.country = country;
     if (blockCalls !== undefined) updatePayload.blockCalls = blockCalls;
-    if (muteBotWelcome !== undefined) updatePayload.muteBotWelcome = muteBotWelcome;
 
     if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
       updatePayload.admin = true;
@@ -751,23 +744,9 @@ const FirebaseService = {
   },
 
   async getUserProfileByNickname(nickname) {
-    if (!nickname) return null;
-    try {
-      const q = query(collection(db, "users"), where("nickname", "==", nickname));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        return snap.docs[0].data();
-      }
-      const q2 = query(collection(db, "users"), where("displayName", "==", nickname));
-      const snap2 = await getDocs(q2);
-      if (!snap2.empty) {
-        return snap2.docs[0].data();
-      }
-      return null;
-    } catch (err) {
-      console.error("Erro ao buscar perfil por apelido no Firestore:", err);
-      return null;
-    }
+    // Identity & profile photos belong strictly to verified UIDs.
+    // Querying by nickname is disabled to prevent attributing other users' photos or profiles.
+    return null;
   },
 
   async deleteSupportName(targetUid) {

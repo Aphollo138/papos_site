@@ -4,7 +4,7 @@ import http from "http";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, onSnapshot, runTransaction } from "firebase/firestore";
 import fs from "fs";
 import crypto from "crypto";
 import https from "https";
@@ -385,6 +385,7 @@ interface ClientSession {
   ws: WebSocket;
   nickname: string;
   roomId: string;
+  sessionId: string;
   lastMessageTime: number[]; 
   bio?: string;
   age?: number;
@@ -406,6 +407,156 @@ interface ClientSession {
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
+
+function normalizeNick(nickname: string): string {
+  if (!nickname || typeof nickname !== "string") return "";
+  return nickname
+    .replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase();
+}
+
+function getSessionIdentity(session: ClientSession): string {
+  if (session.uid && session.uid.trim() !== "") {
+    return `uid:${session.uid.trim()}`;
+  }
+  if (session.guestId && session.guestId.trim() !== "") {
+    return `guest:${session.guestId.trim()}`;
+  }
+  if (session.clientId && session.clientId.trim() !== "") {
+    return `client:${session.clientId.trim()}`;
+  }
+  if (session.fingerprint && session.fingerprint.trim() !== "") {
+    return `fp:${session.fingerprint.trim()}`;
+  }
+  return `session:${session.sessionId || "unknown"}`;
+}
+
+function getReservationDocId(roomId: string, normalizedNick: string): string {
+  const hex = Buffer.from(normalizedNick, "utf8").toString("hex");
+  return `${roomId}__${hex}`;
+}
+
+async function reserveRoomNickname(
+  roomId: string,
+  rawNickname: string,
+  session: ClientSession,
+  ws: WebSocket
+): Promise<{ success: boolean; reason?: string }> {
+  const normalized = normalizeNick(rawNickname);
+  if (!normalized || !roomId) {
+    return { success: false, reason: "invalid_nickname" };
+  }
+
+  const callerIdentity = getSessionIdentity(session);
+
+  // 1. In-memory check: reject if another user already occupies this nickname in this room
+  for (const [otherWs, otherSession] of activeSessions.entries()) {
+    if (otherWs === ws) continue;
+    if (otherSession.roomId === roomId && otherSession.nickname) {
+      if (normalizeNick(otherSession.nickname) === normalized) {
+        const otherIdentity = getSessionIdentity(otherSession);
+        if (otherIdentity === callerIdentity) {
+          // Legitimate reconnection by the EXACT SAME user identity (e.g. page refresh / socket handoff)
+          // Safely terminate old socket without rejecting the returning occupant
+          try {
+            otherWs.close();
+          } catch (e) {}
+          activeSessions.delete(otherWs);
+          break;
+        } else {
+          // Different user trying to enter with the same nickname in the same room
+          return { success: false, reason: "nickname_taken" };
+        }
+      }
+    }
+  }
+
+  // 2. Distributed atomic reservation in Firestore (cross-instance consistency)
+  const docId = getReservationDocId(roomId, normalized);
+  const reservationRef = doc(db, "roomReservations", docId);
+
+  try {
+    const reservationSuccess = await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(reservationRef);
+      const now = Date.now();
+      if (snap.exists()) {
+        const data = snap.data();
+        const isExpired = typeof data.expiresAt === "number" && data.expiresAt < now;
+        const isSameIdentity = data.identity === callerIdentity;
+
+        if (!isExpired && !isSameIdentity) {
+          return false;
+        }
+      }
+
+      transaction.set(reservationRef, {
+        roomId,
+        normalizedNick: normalized,
+        originalNick: rawNickname,
+        identity: callerIdentity,
+        holderSessionId: session.sessionId,
+        lastHeartbeat: now,
+        expiresAt: now + 45000
+      });
+      return true;
+    });
+
+    if (!reservationSuccess) {
+      return { success: false, reason: "nickname_taken" };
+    }
+  } catch (err) {
+    console.warn("[Reservation] Firestore transaction fallback to memory:", err);
+  }
+
+  return { success: true };
+}
+
+async function releaseRoomNickname(roomId: string, rawNickname: string, session: ClientSession) {
+  if (!roomId || !rawNickname) return;
+  const normalized = normalizeNick(rawNickname);
+  if (!normalized) return;
+
+  const docId = getReservationDocId(roomId, normalized);
+  try {
+    const callerIdentity = getSessionIdentity(session);
+    const reservationRef = doc(db, "roomReservations", docId);
+    const snap = await getDoc(reservationRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.identity === callerIdentity || data.holderSessionId === session.sessionId) {
+        await deleteDoc(reservationRef);
+      }
+    }
+  } catch (e) {}
+}
+
+// Periodically refresh active room reservations in Firestore
+setInterval(() => {
+  const now = Date.now();
+  const seenReservations = new Set<string>();
+
+  activeSessions.forEach((s) => {
+    if (s.roomId && s.nickname && s.ws.readyState === WebSocket.OPEN) {
+      const norm = normalizeNick(s.nickname);
+      const docId = getReservationDocId(s.roomId, norm);
+      if (!seenReservations.has(docId)) {
+        seenReservations.add(docId);
+        const resRef = doc(db, "roomReservations", docId);
+        setDoc(resRef, {
+          roomId: s.roomId,
+          normalizedNick: norm,
+          originalNick: s.nickname,
+          identity: getSessionIdentity(s),
+          holderSessionId: s.sessionId,
+          lastHeartbeat: now,
+          expiresAt: now + 45000
+        }, { merge: true }).catch(() => {});
+      }
+    }
+  });
+}, 20000);
 
 interface ActiveCallSession {
   callId: string;
@@ -445,7 +596,11 @@ function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?:
 
   // 1. Atualizar sessões ativas com o novo estado em tempo real
   activeSessions.forEach((session) => {
-    if (session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase()) {
+    if (uid && session.uid) {
+      if (session.uid === uid) {
+        session.photoUrl = cleanPhotoUrl;
+      }
+    } else if (!uid && !session.uid && session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase()) {
       session.photoUrl = cleanPhotoUrl;
     }
   });
@@ -1176,14 +1331,6 @@ async function startServer() {
         } catch (e) {
           console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", e);
         }
-      } else if (nickname) {
-        try {
-          const q = query(collection(db, "users"), where("nickname", "==", nickname));
-          const snap = await getDocs(q);
-          snap.forEach(async (d) => {
-            await setDoc(doc(db, "users", d.id), { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
-          });
-        } catch (e) {}
       }
 
       if (nickname && typeof nickname === "string") {
@@ -1301,10 +1448,12 @@ async function startServer() {
   wss.on("connection", (ws: WebSocket, req: any) => {
     const clientIp = (req && req.headers ? (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "") : "").split(",")[0].trim();
     
+    const sessionId = crypto.randomUUID();
     activeSessions.set(ws, {
       ws,
       nickname: "",
       roomId: "",
+      sessionId,
       ip: clientIp,
       lastMessageTime: [],
       connectedAt: Date.now()
@@ -2362,28 +2511,25 @@ async function startServer() {
               }
             }
 
-            activeSessions.forEach((s, key) => {
-              if (key !== ws && s.nickname && s.nickname.toLowerCase() === nickname.toLowerCase()) {
-                try {
-                  key.close();
-                } catch (err) {}
-                activeSessions.delete(key);
-              }
-            });
+            // ATOMIC DUPLICATE NICKNAME VALIDATION (PER ROOM)
+            const resResult = await reserveRoomNickname(roomId, nickname, session, ws);
+            if (!resResult.success) {
+              sendToClient(ws, "error", {
+                code: "nickname_taken",
+                message: "Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar."
+              });
+              return;
+            }
 
-            let taken = false;
-            activeSessions.forEach((s, key) => {
-              if (key !== ws && s.roomId === roomId && s.nickname.toLowerCase() === nickname.toLowerCase()) {
-                taken = true;
-              }
-            });
-
-            const finalNickname = taken ? `${nickname}#${Math.floor(100 + Math.random() * 900)}` : nickname;
+            // Release any previous reservation if this session had one under another room/nickname
+            if (session.roomId && session.nickname && (session.roomId !== roomId || session.nickname !== nickname)) {
+              releaseRoomNickname(session.roomId, session.nickname, session).catch(() => {});
+            }
 
             const oldRoomId = session.roomId;
             const oldNickname = session.nickname;
 
-            session.nickname = finalNickname;
+            session.nickname = nickname;
             session.roomId = roomId;
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
@@ -2392,13 +2538,23 @@ async function startServer() {
               session.blockCalls = Boolean(payload.blockCalls);
             }
             
+            // STRICT PHOTO BINDING: ONLY VERIFIED ACCOUNTS GET THEIR PHOTO, GUESTS NEVER INHERIT
             const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
             if (isExplicitRemove) {
               session.photoUrl = "";
+            } else if (session.isAuthenticated && session.uid) {
+              try {
+                const uDoc = await getDoc(doc(db, "users", session.uid));
+                if (uDoc.exists()) {
+                  const uData = uDoc.data();
+                  session.photoUrl = uData.photoURL || uData.profileImage || uData.photoUrl || "";
+                }
+              } catch (e) {}
             } else {
-              const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
-              if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
-                session.photoUrl = sanitizeHTML(incomingPhoto.trim());
+              // Anonymous guest: do NOT accept arbitrary photos from other registered accounts
+              // If the guest has a photo previously set in this session, keep it, otherwise default to empty string
+              if (!session.photoUrl) {
+                session.photoUrl = "";
               }
             }
 
@@ -2430,7 +2586,7 @@ async function startServer() {
 
             sendToClient(ws, "room_state", {
               roomId,
-              nickname: finalNickname,
+              nickname: nickname,
               messages: messages[roomId],
               onlineUsers: getRoomOnlineUsers(roomId),
               userPhotos,
@@ -2446,7 +2602,7 @@ async function startServer() {
             });
 
             broadcastToRoom(roomId, "user_joined", {
-              nickname: finalNickname,
+              nickname: nickname,
               photoUrl: session.photoUrl || "",
               profileImage: session.photoUrl || null,
               time: getCurrentTime(),
@@ -2472,7 +2628,7 @@ async function startServer() {
                   isTyping: false
                 });
 
-                const text = `👋 Olá, ${finalNickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
+                const text = `👋 Olá, ${nickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
                 
                 const welcomeMsgId = "bot-welcome-" + Date.now();
                 const welcomeMsg = {
@@ -2521,11 +2677,11 @@ async function startServer() {
                   id: "pm-welcome-" + Date.now(),
                   senderId: "Bot_Papos",
                   senderName: "Bot_Papos",
-                  recipientId: finalNickname,
-                  recipientName: finalNickname,
+                  recipientId: nickname,
+                  recipientName: nickname,
                   content: welcomeText,
                   timestamp: Date.now(),
-                  conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
+                  conversationId: ["bot_papos", nickname.toLowerCase()].sort().join("--"),
                   isDeleted: false,
                   isBot: true,
                   botId: "bot_papos"
@@ -2543,15 +2699,33 @@ async function startServer() {
             const oldRoomId = session.roomId;
             if (oldRoomId === roomId) return;
 
+            // ATOMIC DUPLICATE NICKNAME VALIDATION (PER TARGET ROOM)
+            const resResult = await reserveRoomNickname(roomId, session.nickname, session, ws);
+            if (!resResult.success) {
+              sendToClient(ws, "error", {
+                code: "nickname_taken",
+                message: "Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar."
+              });
+              return;
+            }
+
+            if (oldRoomId) {
+              releaseRoomNickname(oldRoomId, session.nickname, session).catch(() => {});
+            }
+
             session.roomId = roomId;
 
-            if (payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null) {
+            const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
+            if (isExplicitRemove) {
               session.photoUrl = "";
-            } else {
-              const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
-              if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
-                session.photoUrl = sanitizeHTML(incomingPhoto.trim());
-              }
+            } else if (session.isAuthenticated && session.uid && !session.photoUrl) {
+              try {
+                const uDoc = await getDoc(doc(db, "users", session.uid));
+                if (uDoc.exists()) {
+                  const uData = uDoc.data();
+                  session.photoUrl = uData.photoURL || uData.profileImage || uData.photoUrl || "";
+                }
+              } catch (e) {}
             }
 
             if (oldRoomId) {
@@ -3355,31 +3529,33 @@ async function startServer() {
             const isOnline = !!foundSession;
 
             if (foundSession) {
-              bio = (foundSession as ClientSession).bio || "";
-              age = (foundSession as ClientSession).age || null;
-              gender = (foundSession as ClientSession).gender || "";
-              photoUrl = (foundSession as ClientSession).photoUrl || "";
-              permanentId = (foundSession as ClientSession).permanentId || "";
+              const fs = foundSession as ClientSession;
+              bio = fs.bio || "";
+              age = fs.age !== undefined && fs.age !== null ? fs.age : null;
+              gender = fs.gender || "";
+              photoUrl = fs.photoUrl || "";
+              permanentId = fs.permanentId || "";
 
-              if (!bio || age === null || !gender || !permanentId) {
+              // Only query verified user document if the active user is actually authenticated
+              if (fs.uid) {
                 try {
-                  const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
-                  const snap = await getDocs(q);
-                  if (!snap.empty) {
-                    const userData = snap.docs[0].data();
+                  const uDoc = await getDoc(doc(db, "users", fs.uid));
+                  if (uDoc.exists()) {
+                    const userData = uDoc.data();
                     if (!bio) bio = userData.bio || "";
                     if (age === null) age = userData.age || null;
                     if (!gender) gender = userData.gender || "";
+                    if (!photoUrl) photoUrl = userData.photoURL || userData.profileImage || userData.photoUrl || "";
                     if (!permanentId) permanentId = userData.permanentId || "";
                   }
                 } catch (err) {}
               }
-            } else {
+            } else if (payload.uid && typeof payload.uid === "string") {
+              // Direct query ONLY when explicit verified UID is provided, NEVER by nickname
               try {
-                const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                  const userData = snap.docs[0].data();
+                const uDoc = await getDoc(doc(db, "users", payload.uid));
+                if (uDoc.exists()) {
+                  const userData = uDoc.data();
                   bio = userData.bio || "";
                   age = userData.age || null;
                   gender = userData.gender || "";
@@ -3387,7 +3563,7 @@ async function startServer() {
                   permanentId = userData.permanentId || "";
                 }
               } catch (err) {
-                console.error("[Firestore] Error fetching profile:", err);
+                console.error("[Firestore] Error fetching profile by UID:", err);
               }
             }
 
@@ -3465,6 +3641,20 @@ async function startServer() {
                   if (!isAuth) {
                     sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
                     break;
+                  }
+                }
+
+                if (session.roomId) {
+                  const resResult = await reserveRoomNickname(session.roomId, newNickname, session, ws);
+                  if (!resResult.success) {
+                    sendToClient(ws, "error", {
+                      code: "nickname_taken",
+                      message: "Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar."
+                    });
+                    break;
+                  }
+                  if (oldNickname) {
+                    releaseRoomNickname(session.roomId, oldNickname, session).catch(() => {});
                   }
                 }
                 session.nickname = newNickname;
@@ -3576,7 +3766,7 @@ async function startServer() {
         }
 
         if (nickname && roomId) {
-          
+          releaseRoomNickname(roomId, nickname, session).catch(() => {});
           const leftUsers = getRoomOnlineUsers(roomId);
           broadcastToRoom(roomId, "user_left", {
             nickname,
