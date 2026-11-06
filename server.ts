@@ -4,7 +4,7 @@ import http from "http";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, onSnapshot, runTransaction } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, onSnapshot } from "firebase/firestore";
 import fs from "fs";
 import crypto from "crypto";
 import https from "https";
@@ -283,7 +283,7 @@ const INITIAL_MESSAGES: Record<string, any[]> = {
   ],
   "room-2": [
     { id: "m-init-4", sender: "Guilherme", text: "Alguém aí já experimentou o novo motor do Node ou está focado em Bun?", time: "14:10", isSystem: false },
-    { id: "m-init-5", sender: "Mariana Tech", text: "Eu uso muito Node em produção, mas Bun é absurdamente rápido em testes locais.", time: "14:15", isSystem: false, isBot: true, botId: "mariana_tech" }
+    { id: "m-init-5", sender: "Mariana Tech", text: "Eu uso muito Node em produção, mas Bun é absurdamente rápido em testes locais.", time: "14:15", isSystem: false }
   ],
   "room-10": [
     { id: "m-init-6", sender: "Gabriel_Coruja", text: "Alguém aí acordado ainda?", time: "02:15", isSystem: false },
@@ -385,7 +385,6 @@ interface ClientSession {
   ws: WebSocket;
   nickname: string;
   roomId: string;
-  sessionId: string;
   lastMessageTime: number[]; 
   bio?: string;
   age?: number;
@@ -407,156 +406,6 @@ interface ClientSession {
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
-
-function normalizeNick(nickname: string): string {
-  if (!nickname || typeof nickname !== "string") return "";
-  return nickname
-    .replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "")
-    .normalize("NFKC")
-    .trim()
-    .toLowerCase();
-}
-
-function getSessionIdentity(session: ClientSession): string {
-  if (session.uid && session.uid.trim() !== "") {
-    return `uid:${session.uid.trim()}`;
-  }
-  if (session.guestId && session.guestId.trim() !== "") {
-    return `guest:${session.guestId.trim()}`;
-  }
-  if (session.clientId && session.clientId.trim() !== "") {
-    return `client:${session.clientId.trim()}`;
-  }
-  if (session.fingerprint && session.fingerprint.trim() !== "") {
-    return `fp:${session.fingerprint.trim()}`;
-  }
-  return `session:${session.sessionId || "unknown"}`;
-}
-
-function getReservationDocId(roomId: string, normalizedNick: string): string {
-  const hex = Buffer.from(normalizedNick, "utf8").toString("hex");
-  return `${roomId}__${hex}`;
-}
-
-async function reserveRoomNickname(
-  roomId: string,
-  rawNickname: string,
-  session: ClientSession,
-  ws: WebSocket
-): Promise<{ success: boolean; reason?: string }> {
-  const normalized = normalizeNick(rawNickname);
-  if (!normalized || !roomId) {
-    return { success: false, reason: "invalid_nickname" };
-  }
-
-  const callerIdentity = getSessionIdentity(session);
-
-  // 1. In-memory check: reject if another user already occupies this nickname in this room
-  for (const [otherWs, otherSession] of activeSessions.entries()) {
-    if (otherWs === ws) continue;
-    if (otherSession.roomId === roomId && otherSession.nickname) {
-      if (normalizeNick(otherSession.nickname) === normalized) {
-        const otherIdentity = getSessionIdentity(otherSession);
-        if (otherIdentity === callerIdentity) {
-          // Legitimate reconnection by the EXACT SAME user identity (e.g. page refresh / socket handoff)
-          // Safely terminate old socket without rejecting the returning occupant
-          try {
-            otherWs.close();
-          } catch (e) {}
-          activeSessions.delete(otherWs);
-          break;
-        } else {
-          // Different user trying to enter with the same nickname in the same room
-          return { success: false, reason: "nickname_taken" };
-        }
-      }
-    }
-  }
-
-  // 2. Distributed atomic reservation in Firestore (cross-instance consistency)
-  const docId = getReservationDocId(roomId, normalized);
-  const reservationRef = doc(db, "roomReservations", docId);
-
-  try {
-    const reservationSuccess = await runTransaction(db, async (transaction) => {
-      const snap = await transaction.get(reservationRef);
-      const now = Date.now();
-      if (snap.exists()) {
-        const data = snap.data();
-        const isExpired = typeof data.expiresAt === "number" && data.expiresAt < now;
-        const isSameIdentity = data.identity === callerIdentity;
-
-        if (!isExpired && !isSameIdentity) {
-          return false;
-        }
-      }
-
-      transaction.set(reservationRef, {
-        roomId,
-        normalizedNick: normalized,
-        originalNick: rawNickname,
-        identity: callerIdentity,
-        holderSessionId: session.sessionId,
-        lastHeartbeat: now,
-        expiresAt: now + 45000
-      });
-      return true;
-    });
-
-    if (!reservationSuccess) {
-      return { success: false, reason: "nickname_taken" };
-    }
-  } catch (err) {
-    console.warn("[Reservation] Firestore transaction fallback to memory:", err);
-  }
-
-  return { success: true };
-}
-
-async function releaseRoomNickname(roomId: string, rawNickname: string, session: ClientSession) {
-  if (!roomId || !rawNickname) return;
-  const normalized = normalizeNick(rawNickname);
-  if (!normalized) return;
-
-  const docId = getReservationDocId(roomId, normalized);
-  try {
-    const callerIdentity = getSessionIdentity(session);
-    const reservationRef = doc(db, "roomReservations", docId);
-    const snap = await getDoc(reservationRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data.identity === callerIdentity || data.holderSessionId === session.sessionId) {
-        await deleteDoc(reservationRef);
-      }
-    }
-  } catch (e) {}
-}
-
-// Periodically refresh active room reservations in Firestore
-setInterval(() => {
-  const now = Date.now();
-  const seenReservations = new Set<string>();
-
-  activeSessions.forEach((s) => {
-    if (s.roomId && s.nickname && s.ws.readyState === WebSocket.OPEN) {
-      const norm = normalizeNick(s.nickname);
-      const docId = getReservationDocId(s.roomId, norm);
-      if (!seenReservations.has(docId)) {
-        seenReservations.add(docId);
-        const resRef = doc(db, "roomReservations", docId);
-        setDoc(resRef, {
-          roomId: s.roomId,
-          normalizedNick: norm,
-          originalNick: s.nickname,
-          identity: getSessionIdentity(s),
-          holderSessionId: s.sessionId,
-          lastHeartbeat: now,
-          expiresAt: now + 45000
-        }, { merge: true }).catch(() => {});
-      }
-    }
-  });
-}, 20000);
 
 interface ActiveCallSession {
   callId: string;
@@ -596,11 +445,7 @@ function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?:
 
   // 1. Atualizar sessões ativas com o novo estado em tempo real
   activeSessions.forEach((session) => {
-    if (uid && session.uid) {
-      if (session.uid === uid) {
-        session.photoUrl = cleanPhotoUrl;
-      }
-    } else if (!uid && !session.uid && session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase()) {
+    if (session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase()) {
       session.photoUrl = cleanPhotoUrl;
     }
   });
@@ -740,7 +585,7 @@ function containsLink(str: string): boolean {
     "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
     "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
     "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
-    "it", "nl", "es", "pt", "ar", "mx", "cl", "pe", "uy"
+    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
   ];
   const tldPattern = tldList.join("|");
 
@@ -777,11 +622,35 @@ async function startServer() {
   }
   app.use("/uploads", express.static(uploadsPublicDir));
 
+  function injectCspNonceIntoHtml(html: string, nonce: string): string {
+    if (!html || !nonce) return html;
+
+    // 1. Substituir eventuais placeholders explícitos
+    let result = html.replace(/__CSP_NONCE__/g, nonce);
+
+    // 2. Injetar o atributo nonce nas tags <script> legítimas (exceto metadados type="application/ld+json")
+    result = result.replace(
+      /<script\b(?![^>]*\btype=["']application\/ld\+json["'])([^>]*)>/gi,
+      (match, attrs) => {
+        if (/\bnonce=(["'])[^"']*\1/i.test(attrs)) {
+          return `<script${attrs.replace(/\bnonce=(["'])[^"']*\1/i, `nonce="${nonce}"`)}>`;
+        }
+        return `<script nonce="${nonce}"${attrs}>`;
+      }
+    );
+
+    return result;
+  }
+
   // Desativar identificação do servidor para dificultar reconhecimento de versão/tecnologia
   app.disable("x-powered-by");
 
   // Injetar Security Headers de alta segurança (OWASP / Mozilla Observatory / SecurityHeaders A+)
   app.use((req, res, next) => {
+    // Nonce criptograficamente seguro gerado por resposta HTTP (AdSense Strict CSP)
+    const nonce = crypto.randomBytes(16).toString("base64");
+    res.locals.cspNonce = nonce;
+
     // Content-Type Sniffing Protection
     res.setHeader("X-Content-Type-Options", "nosniff");
 
@@ -802,18 +671,17 @@ async function startServer() {
       res.setHeader("Strict-Transport-Security", "max-age=31536000");
     }
 
-    // Content-Security-Policy estrita e autorizada para integrações legítimas (Monetag, Google Analytics, Firebase, Bootstrap, WebSockets, WebRTC)
+    // Content-Security-Policy estrita baseada em nonce compatível com Google AdSense (suporte oficial strict-dynamic)
     const cspDirectives = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://apis.google.com https://accounts.google.com https://www.googletagmanager.com https://nap5k.com https://n6wxm.com",
-      "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://apis.google.com https://accounts.google.com https://www.googletagmanager.com https://nap5k.com https://n6wxm.com",
+      `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'strict-dynamic' https: http: https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://adservice.google.com https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://apis.google.com https://accounts.google.com https://www.googletagmanager.com https://nap5k.com https://n6wxm.com`,
       "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
       "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
       "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https: http:",
-      "media-src 'self' blob: data: https: http:",
-      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com https://api.klipy.com https://*.klipy.com https://api.giphy.com https://*.giphy.com",
-      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com",
+      "media-src 'self' blob: data:",
+      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.googleadservices.com https://googleads.g.doubleclick.net",
+      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net",
       "object-src 'none'",
       "base-uri 'self'",
       "frame-ancestors 'self'"
@@ -859,56 +727,6 @@ async function startServer() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
-  });
-
-  app.get("/api/media-config", (req, res) => {
-    const klipyKey =
-      process.env.VITE_KLIPY_API_KEY ||
-      process.env.KLIPY_API_KEY ||
-      process.env.KLIPY_APP_KEY ||
-      process.env.KLIPY_KEY ||
-      process.env.KLIPY_TOKEN ||
-      process.env.VITE_KLIPY_KEY ||
-      process.env.VITE_KLIPY_APP_KEY ||
-      "";
-    const giphyKey =
-      process.env.VITE_GIPHY_API_KEY ||
-      process.env.GIPHY_API_KEY ||
-      "";
-    res.json({ klipyKey, giphyKey });
-  });
-
-  app.get("/api/klipy/stickers", async (req, res) => {
-    try {
-      const key =
-        (req.query.key as string) ||
-        process.env.VITE_KLIPY_API_KEY ||
-        process.env.KLIPY_API_KEY ||
-        process.env.KLIPY_APP_KEY ||
-        process.env.KLIPY_KEY ||
-        process.env.KLIPY_TOKEN ||
-        process.env.VITE_KLIPY_KEY ||
-        process.env.VITE_KLIPY_APP_KEY ||
-        "";
-
-      if (!key) {
-        res.status(400).json({ error: "missing_key", message: "Chave KLIPY não configurada no servidor." });
-        return;
-      }
-
-      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-      const page = typeof req.query.page === "string" ? req.query.page : "1";
-      const perPage = typeof req.query.per_page === "string" ? req.query.per_page : "40";
-      const targetUrl = q
-        ? `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/stickers/search?q=${encodeURIComponent(q)}&page=${page}&per_page=${perPage}`
-        : `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/stickers/trending?page=${page}&per_page=${perPage}`;
-
-      const klipyRes = await fetch(targetUrl);
-      const klipyData = await klipyRes.json();
-      res.status(klipyRes.status).json(klipyData);
-    } catch (err: any) {
-      res.status(502).json({ error: "gateway_error", message: err?.message || "Falha na comunicação com a API KLIPY." });
-    }
   });
 
   app.get("/api/webrtc-config", (req, res) => {
@@ -1305,77 +1123,6 @@ async function startServer() {
   app.post("/api/profile/upload-photo", upload.single("image"), handleProfilePhotoUpload);
   app.post("/api/profile/upload-image", upload.single("image"), handleProfilePhotoUpload);
 
-  // Endpoint dedicado para upload seguro e armazenamento de mensagens de voz/áudio
-  const audioUploadDir = path.join(process.cwd(), "public", "uploads", "audio");
-  if (!fs.existsSync(audioUploadDir)) {
-    fs.mkdirSync(audioUploadDir, { recursive: true });
-  }
-
-  const audioMulter = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 15 * 1024 * 1024 } // 15MB máximo para áudios
-  });
-
-  const uploadAudioAnyMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    audioMulter.any()(req, res, (err) => {
-      if (err) {
-        return res.status(400).json({ success: false, error: "Falha no upload do áudio: " + (err.message || "Tamanho excedido") });
-      }
-      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-        req.file = req.files[0];
-      }
-      next();
-    });
-  };
-
-  async function handleAudioUpload(req: express.Request, res: express.Response) {
-    try {
-      const file = req.file;
-      if (!file || !file.buffer || file.buffer.length === 0) {
-        return res.status(400).json({ success: false, error: "Nenhum arquivo de áudio foi recebido pelo servidor." });
-      }
-
-      const mime = (file.mimetype || "").toLowerCase();
-      // Validação de segurança MIME
-      const isValidMime = mime.startsWith("audio/") || mime === "video/webm" || mime === "application/octet-stream";
-      if (!isValidMime) {
-        return res.status(400).json({ success: false, error: "Tipo de arquivo inválido. Apenas mensagens de áudio são permitidas." });
-      }
-
-      // Extensão compatível com navegadores e iOS Safari / Android Chrome
-      let ext = "webm";
-      if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) {
-        ext = "mp4";
-      } else if (mime.includes("ogg")) {
-        ext = "ogg";
-      } else if (mime.includes("wav")) {
-        ext = "wav";
-      } else if (mime.includes("mpeg") || mime.includes("mp3")) {
-        ext = "mp3";
-      }
-
-      const filename = `voice_${Date.now()}_${crypto.randomBytes(6).toString("hex")}.${ext}`;
-      const targetFilePath = path.join(audioUploadDir, filename);
-
-      await fs.promises.writeFile(targetFilePath, file.buffer);
-      const audioUrl = `/uploads/audio/${filename}`;
-
-      return res.json({
-        success: true,
-        url: audioUrl,
-        filename,
-        size: file.buffer.length,
-        mimetype: file.mimetype
-      });
-    } catch (err: any) {
-      console.error("[AudioUpload] Erro ao salvar arquivo de áudio:", err);
-      return res.status(500).json({ success: false, error: "Erro interno no servidor ao processar áudio." });
-    }
-  }
-
-  app.post("/api/upload-audio", uploadAudioAnyMiddleware, handleAudioUpload);
-  app.post("/api/messages/upload-audio", uploadAudioAnyMiddleware, handleAudioUpload);
-
   app.post("/api/profile/remove-photo", async (req, res) => {
     try {
       let { uid, nickname } = req.body;
@@ -1402,6 +1149,14 @@ async function startServer() {
         } catch (e) {
           console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", e);
         }
+      } else if (nickname) {
+        try {
+          const q = query(collection(db, "users"), where("nickname", "==", nickname));
+          const snap = await getDocs(q);
+          snap.forEach(async (d) => {
+            await setDoc(doc(db, "users", d.id), { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
+          });
+        } catch (e) {}
       }
 
       if (nickname && typeof nickname === "string") {
@@ -1519,12 +1274,10 @@ async function startServer() {
   wss.on("connection", (ws: WebSocket, req: any) => {
     const clientIp = (req && req.headers ? (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "") : "").split(",")[0].trim();
     
-    const sessionId = crypto.randomUUID();
     activeSessions.set(ws, {
       ws,
       nickname: "",
       roomId: "",
-      sessionId,
       ip: clientIp,
       lastMessageTime: [],
       connectedAt: Date.now()
@@ -2582,25 +2335,28 @@ async function startServer() {
               }
             }
 
-            // ATOMIC DUPLICATE NICKNAME VALIDATION (PER ROOM)
-            const resResult = await reserveRoomNickname(roomId, nickname, session, ws);
-            if (!resResult.success) {
-              sendToClient(ws, "error", {
-                code: "nickname_taken",
-                message: "Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar."
-              });
-              return;
-            }
+            activeSessions.forEach((s, key) => {
+              if (key !== ws && s.nickname && s.nickname.toLowerCase() === nickname.toLowerCase()) {
+                try {
+                  key.close();
+                } catch (err) {}
+                activeSessions.delete(key);
+              }
+            });
 
-            // Release any previous reservation if this session had one under another room/nickname
-            if (session.roomId && session.nickname && (session.roomId !== roomId || session.nickname !== nickname)) {
-              releaseRoomNickname(session.roomId, session.nickname, session).catch(() => {});
-            }
+            let taken = false;
+            activeSessions.forEach((s, key) => {
+              if (key !== ws && s.roomId === roomId && s.nickname.toLowerCase() === nickname.toLowerCase()) {
+                taken = true;
+              }
+            });
+
+            const finalNickname = taken ? `${nickname}#${Math.floor(100 + Math.random() * 900)}` : nickname;
 
             const oldRoomId = session.roomId;
             const oldNickname = session.nickname;
 
-            session.nickname = nickname;
+            session.nickname = finalNickname;
             session.roomId = roomId;
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
@@ -2609,23 +2365,13 @@ async function startServer() {
               session.blockCalls = Boolean(payload.blockCalls);
             }
             
-            // STRICT PHOTO BINDING: ONLY VERIFIED ACCOUNTS GET THEIR PHOTO, GUESTS NEVER INHERIT
             const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
             if (isExplicitRemove) {
               session.photoUrl = "";
-            } else if (session.isAuthenticated && session.uid) {
-              try {
-                const uDoc = await getDoc(doc(db, "users", session.uid));
-                if (uDoc.exists()) {
-                  const uData = uDoc.data();
-                  session.photoUrl = uData.photoURL || uData.profileImage || uData.photoUrl || "";
-                }
-              } catch (e) {}
             } else {
-              // Anonymous guest: do NOT accept arbitrary photos from other registered accounts
-              // If the guest has a photo previously set in this session, keep it, otherwise default to empty string
-              if (!session.photoUrl) {
-                session.photoUrl = "";
+              const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
+              if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
+                session.photoUrl = sanitizeHTML(incomingPhoto.trim());
               }
             }
 
@@ -2657,7 +2403,7 @@ async function startServer() {
 
             sendToClient(ws, "room_state", {
               roomId,
-              nickname: nickname,
+              nickname: finalNickname,
               messages: messages[roomId],
               onlineUsers: getRoomOnlineUsers(roomId),
               userPhotos,
@@ -2673,7 +2419,7 @@ async function startServer() {
             });
 
             broadcastToRoom(roomId, "user_joined", {
-              nickname: nickname,
+              nickname: finalNickname,
               photoUrl: session.photoUrl || "",
               profileImage: session.photoUrl || null,
               time: getCurrentTime(),
@@ -2699,7 +2445,7 @@ async function startServer() {
                   isTyping: false
                 });
 
-                const text = `👋 Olá, ${nickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
+                const text = `👋 Olá, ${finalNickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
                 
                 const welcomeMsgId = "bot-welcome-" + Date.now();
                 const welcomeMsg = {
@@ -2709,8 +2455,6 @@ async function startServer() {
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
-                  isBot: true,
-                  botId: "bot_papos",
                   reactions: {}
                 };
 
@@ -2748,14 +2492,12 @@ async function startServer() {
                   id: "pm-welcome-" + Date.now(),
                   senderId: "Bot_Papos",
                   senderName: "Bot_Papos",
-                  recipientId: nickname,
-                  recipientName: nickname,
+                  recipientId: finalNickname,
+                  recipientName: finalNickname,
                   content: welcomeText,
                   timestamp: Date.now(),
-                  conversationId: ["bot_papos", nickname.toLowerCase()].sort().join("--"),
-                  isDeleted: false,
-                  isBot: true,
-                  botId: "bot_papos"
+                  conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
+                  isDeleted: false
                 };
                 sendToClient(ws, "private_message", pmPayload);
               }, 4000);
@@ -2770,33 +2512,15 @@ async function startServer() {
             const oldRoomId = session.roomId;
             if (oldRoomId === roomId) return;
 
-            // ATOMIC DUPLICATE NICKNAME VALIDATION (PER TARGET ROOM)
-            const resResult = await reserveRoomNickname(roomId, session.nickname, session, ws);
-            if (!resResult.success) {
-              sendToClient(ws, "error", {
-                code: "nickname_taken",
-                message: "Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar."
-              });
-              return;
-            }
-
-            if (oldRoomId) {
-              releaseRoomNickname(oldRoomId, session.nickname, session).catch(() => {});
-            }
-
             session.roomId = roomId;
 
-            const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
-            if (isExplicitRemove) {
+            if (payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null) {
               session.photoUrl = "";
-            } else if (session.isAuthenticated && session.uid && !session.photoUrl) {
-              try {
-                const uDoc = await getDoc(doc(db, "users", session.uid));
-                if (uDoc.exists()) {
-                  const uData = uDoc.data();
-                  session.photoUrl = uData.photoURL || uData.profileImage || uData.photoUrl || "";
-                }
-              } catch (e) {}
+            } else {
+              const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
+              if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
+                session.photoUrl = sanitizeHTML(incomingPhoto.trim());
+              }
             }
 
             if (oldRoomId) {
@@ -2870,8 +2594,6 @@ async function startServer() {
                   time: getCurrentTime(),
                   timestamp: Date.now(),
                   isSystem: false,
-                  isBot: true,
-                  botId: welcomeBot.nickname.toLowerCase(),
                   reactions: {}
                 };
 
@@ -2915,18 +2637,13 @@ async function startServer() {
             session.lastMessageTime.push(now);
 
             const rawText = payload.text || "";
-            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker" || payload.mediaType === "audio";
-            const mediaType = isMedia ? payload.mediaType : undefined;
-            const mediaUrl = (isMedia && typeof payload.mediaUrl === "string") ? sanitizeHTML(payload.mediaUrl).substring(0, 1000) : undefined;
-            const duration = (mediaType === "audio" && typeof payload.duration === "number") ? Math.round(payload.duration) : undefined;
-
-            if (!isMedia && (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || "")))) {
+            if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
             }
 
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
-            if (!text && !isMedia) return;
+            if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
             const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
@@ -2938,15 +2655,12 @@ async function startServer() {
             const msgObj = {
               id: msgId,
               sender: session.nickname,
-              text: text || (mediaType === "gif" ? "🎞️ GIF" : (mediaType === "audio" ? "🎤 Mensagem de voz" : "🧸 Figurinha")),
+              text,
               time: getCurrentTime(),
               timestamp: Date.now(),
               isSystem: false,
               color,
               photoUrl: session.photoUrl || undefined,
-              mediaType,
-              mediaUrl,
-              duration,
               replyTo: payload.replyTo ? {
                 id: payload.replyTo.id,
                 sender: payload.replyTo.sender,
@@ -2978,12 +2692,7 @@ async function startServer() {
             const toNick = payload.to?.trim();
             const rawText = payload.text || "";
 
-            const isMedia = payload.mediaType === "gif" || payload.mediaType === "sticker" || payload.mediaType === "audio";
-            const mediaType = isMedia ? payload.mediaType : undefined;
-            const mediaUrl = (isMedia && typeof payload.mediaUrl === "string") ? sanitizeHTML(payload.mediaUrl).substring(0, 1000) : undefined;
-            const duration = (mediaType === "audio" && typeof payload.duration === "number") ? Math.round(payload.duration) : undefined;
-
-            if (!toNick || (!rawText && !isMedia)) return;
+            if (!toNick || !rawText) return;
 
             // Proteção contra flood de mensagens privadas (máximo 5 mensagens a cada 4 segundos)
             const now = Date.now();
@@ -2994,13 +2703,13 @@ async function startServer() {
             }
             session.lastMessageTime.push(now);
 
-            if (!isMedia && containsLink(rawText)) {
+            if (containsLink(rawText)) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
             }
 
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
-            if (!text && !isMedia) return;
+            if (!text) return;
 
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 
@@ -3028,14 +2737,11 @@ async function startServer() {
                 senderPhotoUrl: session.photoUrl || undefined,
                 recipientId: toNick,
                 recipientName: toNick,
-                content: text || (mediaType === "gif" ? "Enviou um GIF" : (mediaType === "audio" ? "🎤 Mensagem de voz" : "Enviou uma figurinha")),
+                content: text,
                 timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
                 color,
-                mediaType,
-                mediaUrl,
-                duration,
                 replyTo: payload.replyTo ? {
                   id: payload.replyTo.id || payload.replyTo.messageId,
                   messageId: payload.replyTo.messageId || payload.replyTo.id,
@@ -3065,14 +2771,11 @@ async function startServer() {
                   senderName: session.nickname,
                   recipientId: toNick,
                   recipientName: toNick,
-                  content: text || (mediaType === "gif" ? "Enviou um GIF" : (mediaType === "audio" ? "🎤 Mensagem de voz" : "Enviou uma figurinha")),
+                  content: text,
                   timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,
                   color,
-                  mediaType,
-                  mediaUrl,
-                  duration,
                   replyTo: payload.replyTo ? {
                     id: payload.replyTo.id || payload.replyTo.messageId,
                     messageId: payload.replyTo.messageId || payload.replyTo.id,
@@ -3605,33 +3308,31 @@ async function startServer() {
             const isOnline = !!foundSession;
 
             if (foundSession) {
-              const fs = foundSession as ClientSession;
-              bio = fs.bio || "";
-              age = fs.age !== undefined && fs.age !== null ? fs.age : null;
-              gender = fs.gender || "";
-              photoUrl = fs.photoUrl || "";
-              permanentId = fs.permanentId || "";
+              bio = (foundSession as ClientSession).bio || "";
+              age = (foundSession as ClientSession).age || null;
+              gender = (foundSession as ClientSession).gender || "";
+              photoUrl = (foundSession as ClientSession).photoUrl || "";
+              permanentId = (foundSession as ClientSession).permanentId || "";
 
-              // Only query verified user document if the active user is actually authenticated
-              if (fs.uid) {
+              if (!bio || age === null || !gender || !permanentId) {
                 try {
-                  const uDoc = await getDoc(doc(db, "users", fs.uid));
-                  if (uDoc.exists()) {
-                    const userData = uDoc.data();
+                  const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
+                  const snap = await getDocs(q);
+                  if (!snap.empty) {
+                    const userData = snap.docs[0].data();
                     if (!bio) bio = userData.bio || "";
                     if (age === null) age = userData.age || null;
                     if (!gender) gender = userData.gender || "";
-                    if (!photoUrl) photoUrl = userData.photoURL || userData.profileImage || userData.photoUrl || "";
                     if (!permanentId) permanentId = userData.permanentId || "";
                   }
                 } catch (err) {}
               }
-            } else if (payload.uid && typeof payload.uid === "string") {
-              // Direct query ONLY when explicit verified UID is provided, NEVER by nickname
+            } else {
               try {
-                const uDoc = await getDoc(doc(db, "users", payload.uid));
-                if (uDoc.exists()) {
-                  const userData = uDoc.data();
+                const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                  const userData = snap.docs[0].data();
                   bio = userData.bio || "";
                   age = userData.age || null;
                   gender = userData.gender || "";
@@ -3639,7 +3340,7 @@ async function startServer() {
                   permanentId = userData.permanentId || "";
                 }
               } catch (err) {
-                console.error("[Firestore] Error fetching profile by UID:", err);
+                console.error("[Firestore] Error fetching profile:", err);
               }
             }
 
@@ -3717,20 +3418,6 @@ async function startServer() {
                   if (!isAuth) {
                     sendToClient(ws, "error", { message: "Este nome é reservado pela equipe do Papo.net.br." });
                     break;
-                  }
-                }
-
-                if (session.roomId) {
-                  const resResult = await reserveRoomNickname(session.roomId, newNickname, session, ws);
-                  if (!resResult.success) {
-                    sendToClient(ws, "error", {
-                      code: "nickname_taken",
-                      message: "Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar."
-                    });
-                    break;
-                  }
-                  if (oldNickname) {
-                    releaseRoomNickname(session.roomId, oldNickname, session).catch(() => {});
                   }
                 }
                 session.nickname = newNickname;
@@ -3842,7 +3529,7 @@ async function startServer() {
         }
 
         if (nickname && roomId) {
-          releaseRoomNickname(roomId, nickname, session).catch(() => {});
+          
           const leftUsers = getRoomOnlineUsers(roomId);
           broadcastToRoom(roomId, "user_left", {
             nickname,
@@ -3887,23 +3574,12 @@ async function startServer() {
         const fs = await import("fs");
         if (fs.existsSync(filePath)) {
           let html = fs.readFileSync(filePath, "utf-8");
-          const klipyKey =
-            process.env.VITE_KLIPY_API_KEY ||
-            process.env.KLIPY_API_KEY ||
-            process.env.KLIPY_APP_KEY ||
-            process.env.KLIPY_KEY ||
-            process.env.KLIPY_TOKEN ||
-            process.env.VITE_KLIPY_KEY ||
-            process.env.VITE_KLIPY_APP_KEY ||
-            "";
-          if (klipyKey && html.includes("</head>")) {
-            html = html.replace(
-              "</head>",
-              `<script>window.__KLIPY_API_KEY__ = window.__KLIPY_API_KEY__ || ${JSON.stringify(klipyKey)};</script></head>`
-            );
-          }
           html = await vite.transformIndexHtml(req.originalUrl || req.url, html);
-          res.status(200).set({ "Content-Type": "text/html" }).end(html);
+          const nonce = (res.locals && res.locals.cspNonce) || "";
+          if (nonce) {
+            html = injectCspNonceIntoHtml(html, nonce);
+          }
+          res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).end(html);
         } else {
           res.status(404).end("Not Found");
         }
@@ -3974,78 +3650,95 @@ async function startServer() {
 
     app.use("/assets", express.static(path.join(process.cwd(), "assets")));
 
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, { index: false }));
+
+    const serveProductionTemplate = (req: express.Request, res: express.Response, filePath: string) => {
+      try {
+        if (fs.existsSync(filePath)) {
+          let html = fs.readFileSync(filePath, "utf-8");
+          const nonce = (res.locals && res.locals.cspNonce) || "";
+          if (nonce) {
+            html = injectCspNonceIntoHtml(html, nonce);
+          }
+          res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).send(html);
+        } else {
+          res.status(404).set({ "Content-Type": "text/plain" }).send("Not Found");
+        }
+      } catch (e) {
+        res.status(500).set({ "Content-Type": "text/plain" }).send("Internal Server Error");
+      }
+    };
 
     app.get("/", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "index.html"));
     });
     app.get("/pagina-inicial", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "index.html"));
     });
     app.get("/salas", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "rooms.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "rooms.html"));
     });
     app.get("/chat", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "chat.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "chat.html"));
     });
     app.get("/perfil", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "profile.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "profile.html"));
     });
     app.get("/privacidade", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "privacy.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "privacy.html"));
     });
     app.get("/termos", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "terms.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "terms.html"));
     });
     app.get("/sobre", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "about.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "about.html"));
     });
     app.get("/avaliacoes", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "avaliacoes.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "avaliacoes.html"));
     });
     app.get("/contato", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "contact.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "contact.html"));
     });
     app.get("/regras", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", "rules.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", "rules.html"));
     });
     app.get("/reset-password", (req, res) => {
-      res.sendFile(path.join(distPath, "reset-password.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "reset-password.html"));
     });
     app.get("/reset-password.html", (req, res) => {
-      res.sendFile(path.join(distPath, "reset-password.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "reset-password.html"));
     });
     app.get("/verify-email", (req, res) => {
-      res.sendFile(path.join(distPath, "verify-email.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "verify-email.html"));
     });
     app.get("/verify-email.html", (req, res) => {
-      res.sendFile(path.join(distPath, "verify-email.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "verify-email.html"));
     });
 
     app.get("/blog", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "index.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "blog", "index.html"));
     });
     app.get("/blog/", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "index.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "blog", "index.html"));
     });
     app.get("/blog/index.html", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "index.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "blog", "index.html"));
     });
     app.get("/blog/categoria.html", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "categoria.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "blog", "categoria.html"));
     });
     app.get("/blog/artigo.html", (req, res) => {
-      res.sendFile(path.join(distPath, "blog", "artigo.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "blog", "artigo.html"));
     });
     app.get("/blog/:slug", (req, res) => {
       const slug = req.params.slug;
       if (slug === "index.html" || slug === "categoria.html" || slug === "artigo.html") {
-        return res.sendFile(path.join(distPath, "blog", slug));
+        return serveProductionTemplate(req, res, path.join(distPath, "blog", slug));
       }
       if (slug.endsWith(".html")) {
-        return res.sendFile(path.join(distPath, "blog", slug));
+        return serveProductionTemplate(req, res, path.join(distPath, "blog", slug));
       }
-      res.sendFile(path.join(distPath, "blog", "artigo.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "blog", "artigo.html"));
     });
     app.get(["/login", "/entrar"], (req, res) => {
       const mode = req.query.mode;
@@ -4064,7 +3757,7 @@ async function startServer() {
     });
 
     app.get("/pages/:page.html", (req, res) => {
-      res.sendFile(path.join(distPath, "pages", `${req.params.page}.html`));
+      serveProductionTemplate(req, res, path.join(distPath, "pages", `${req.params.page}.html`));
     });
     
     app.use((req, res, next) => {
@@ -4077,7 +3770,7 @@ async function startServer() {
     });
 
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      serveProductionTemplate(req, res, path.join(distPath, "index.html"));
     });
   }
 
@@ -4108,8 +3801,6 @@ async function startServer() {
       time: getCurrentTime(),
       timestamp: Date.now(),
       isSystem: false,
-      isBot: true,
-      botId: "bot_papos",
       reactions: {}
     };
 
@@ -4186,8 +3877,6 @@ async function startServer() {
       time: getCurrentTime(),
       timestamp: Date.now(),
       isSystem: false,
-      isBot: true,
-      botId: bot.nickname.toLowerCase(),
       reactions: {}
     };
 

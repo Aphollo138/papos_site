@@ -20,6 +20,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Papo.net — Chat Online Grátis | Bate-Papo Brasileiro em Tempo Real</title>
+
+    
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2574967450380022" crossorigin="anonymous"></script>
     
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -592,25 +595,12 @@
       }
 
       document.addEventListener("DOMContentLoaded", () => {
-        // Display error if redirected because nickname is occupied
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get("error") === "nickname_taken") {
-          const formEl = document.getElementById("nickname-form");
-          if (formEl) {
-            const alertDiv = document.createElement("div");
-            alertDiv.className = "alert alert-warning border border-warning border-opacity-50 text-warning bg-dark p-3 rounded-3 mb-3 d-flex align-items-center gap-2";
-            alertDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i> <span>Este nome de usuário já está sendo utilizado nesta sala. Escolha outro nome para entrar.</span>';
-            formEl.parentNode.insertBefore(alertDiv, formEl);
-            const anchor = document.getElementById("login-anchor");
-            if (anchor) anchor.scrollIntoView({ behavior: "smooth" });
-          }
-        } else {
-          const savedName = window.ChatEngine ? window.ChatEngine.getUser() : null;
-          if (savedName) {
-            const nameInput = document.getElementById("user-nickname");
-            if (nameInput) {
-              nameInput.value = savedName;
-            }
+        // Autofill nickname if already saved
+        const savedName = window.ChatEngine ? window.ChatEngine.getUser() : null;
+        if (savedName) {
+          const nameInput = document.getElementById("user-nickname");
+          if (nameInput) {
+            nameInput.value = savedName;
           }
         }
 
