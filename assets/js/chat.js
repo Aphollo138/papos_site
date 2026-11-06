@@ -1,0 +1,4052 @@
+
+function containsLink(str) {
+  if (!str || typeof str !== "string") return false;
+
+  let text = str;
+
+  try {
+    if (text.includes("%")) {
+      text = decodeURIComponent(text);
+    }
+  } catch (e) {
+    text = text
+      .replace(/%3a/gi, ":")
+      .replace(/%2f/gi, "/")
+      .replace(/%2e/gi, ".")
+      .replace(/%20/gi, " ");
+  }
+
+  try {
+    text = text.normalize("NFKC");
+  } catch (e) {}
+
+  text = text.replace(/[\u200B-\u200D\uFEFF\u00AD\u2060\u200E\u200F\u202A-\u202E\u0000-\u001F\u007F-\u009F]/g, "");
+
+  const lower = text.toLowerCase();
+
+  if (/(?:https?|ftp|file|wss?):\/\/|www\./i.test(lower)) {
+    return true;
+  }
+
+  if (/\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/.test(lower)) {
+    return true;
+  }
+  if (/(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{1,4}|::1|fe80::/i.test(lower)) {
+    return true;
+  }
+
+  let normalized = lower
+    .replace(/\s*(?:\[|\(|\{|<)\s*(?:dot|ponto|\.)\s*(?:\]|\)|\}|>)\s*/gi, ".")
+    .replace(/\s+(?:dot|ponto)\s+/gi, ".")
+    .replace(/\s*(?:\[|\(|\{|<)\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk|pt|ar|mx)\s*(?:\]|\)|\}|>)\s*/gi, ".$1");
+
+  normalized = normalized
+    .replace(/([a-z0-9])\s*,\s*([a-z]{2,10})\b/gi, "$1.$2")
+    .replace(/([a-z0-9])\s*\/\s*(com|net|org|br|io|gg|gov|edu|app|dev|xyz|me|info|site|online|store|tech|link|live|tv|cc|to|tk)\b/gi, "$1.$2");
+
+  const collapsedSpaces = normalized
+    .replace(/([a-z0-9])\s+\.\s+([a-z0-9])/gi, "$1.$2")
+    .replace(/([a-z0-9])\.\s+([a-z0-9])/gi, "$1.$2")
+    .replace(/([a-z0-9])\s+\.([a-z0-9])/gi, "$1.$2");
+
+  const tldList = [
+    "com", "net", "org", "gov", "edu", "mil", "br", "io", "gg", "co", "app", "dev",
+    "xyz", "me", "info", "online", "site", "store", "top", "tk", "ml", "ga", "cf",
+    "gq", "link", "live", "tech", "space", "club", "fun", "icu", "vip", "shop", "pro",
+    "biz", "tv", "cc", "cx", "to", "ws", "mobi", "asia", "cat", "jobs", "tel", "travel",
+    "work", "life", "world", "page", "run", "blog", "cloud", "digital", "email", "games",
+    "group", "media", "news", "ones", "zone", "ru", "cn", "uk", "de", "us", "fr", "ca",
+    "it", "nl", "es", "eu", "pt", "ar", "mx", "cl", "pe", "uy"
+  ];
+  const tldPattern = tldList.join("|");
+
+  const domainRegex = new RegExp(`\\b[a-z0-9\\-]+\\.(?:${tldPattern})(?:\\.[a-z]{2,4})?(?:\\/[^\\s]*)?\\b`, "i");
+
+  if (domainRegex.test(collapsedSpaces)) {
+    return true;
+  }
+
+  const noSpaces = lower.replace(/\s+/g, "");
+  if (noSpaces.includes(".") && domainRegex.test(noSpaces)) {
+    return true;
+  }
+
+  return false;
+}
+window.containsLink = containsLink;
+
+function formatMessageTime(msg) {
+  if (!msg) return "";
+  if (msg.timestamp) {
+    const ts = Number(msg.timestamp);
+    if (!isNaN(ts)) {
+      try {
+        return new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      } catch (e) {
+        console.error("Error formatting timestamp:", e);
+      }
+    } else {
+      try {
+        const d = new Date(msg.timestamp);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        }
+      } catch (e) {
+        console.error("Error parsing date string:", e);
+      }
+    }
+  }
+  if (msg.time) {
+    if (!isNaN(Number(msg.time))) {
+      try {
+        return new Date(Number(msg.time)).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      } catch (e) {}
+    }
+    return msg.time;
+  }
+  return "";
+}
+
+let replyTargetMsg = null;
+let blockedUsers = JSON.parse(localStorage.getItem("papos_blocked_users") || "[]");
+let muteBots = localStorage.getItem("papos_mute_bots") === "true";
+
+const KNOWN_BOTS = new Set([
+  "bot_papos",
+  "mariana_tech",
+  "carlos_meme",
+  "lucas_gamer",
+  "beatriz_vibes",
+  "thiago_melo",
+  "aline_viajante",
+  "rafa_relacionamentos"
+]);
+
+function isBotMessage(msg) {
+  if (!msg) return false;
+  if (msg.isBot) return true;
+  if (typeof msg.id === "string" && msg.id.startsWith("bot-m-")) return true;
+  if (typeof msg.sender === "string" && KNOWN_BOTS.has(msg.sender.trim().toLowerCase())) return true;
+  return false;
+}
+
+window.adminUsersSet = window.adminUsersSet || new Set();
+window.isAdminUser = function(nickname) {
+  if (!nickname) return false;
+  const lower = String(nickname).toLowerCase();
+  if (window.adminUsersSet && window.adminUsersSet.has(lower)) return true;
+  if (lower.includes("admin") || lower.includes("mod") || lower === "sistema") return true;
+  return false;
+};
+let activePrivateRecipient = null; 
+let chatMode = "public"; 
+
+let savedMsgColor = "";
+try {
+  savedMsgColor = localStorage.getItem("papo_message_color") || "";
+} catch (e) {}
+
+let activeMessageColor = savedMsgColor;
+
+window.updateColorCircleActiveState = (color) => {
+  const normalized = (color || "").toUpperCase();
+  const circleBtns = document.querySelectorAll(".color-circle-btn");
+  circleBtns.forEach(btn => {
+    const btnColor = (btn.getAttribute("data-color") || "").toUpperCase();
+    if (btnColor === normalized) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+};
+
+window.setMessageColor = (color, indicatorColor) => {
+  activeMessageColor = color || "";
+  try {
+    if (activeMessageColor) {
+      localStorage.setItem("papo_message_color", activeMessageColor);
+    } else {
+      localStorage.removeItem("papo_message_color");
+    }
+  } catch (e) {}
+
+  if (window.updateColorCircleActiveState) {
+    window.updateColorCircleActiveState(activeMessageColor);
+  }
+
+  const indicator = document.getElementById("selected-color-indicator");
+  if (indicator) {
+    indicator.style.setProperty("color", activeMessageColor || "var(--text-primary)", "important");
+  }
+  const messageInput = document.getElementById("message-input");
+  if (messageInput) {
+    messageInput.style.setProperty("color", activeMessageColor || "var(--text-primary)", "important");
+    messageInput.focus();
+  }
+};
+
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", () => {
+    if (activeMessageColor) {
+      window.setMessageColor(activeMessageColor, activeMessageColor);
+    } else if (window.updateColorCircleActiveState) {
+      window.updateColorCircleActiveState("");
+    }
+  });
+}
+
+window.getUsernameColor = (username) => {
+  if (username === "Sistema" || username === "System" || username === "Você") {
+    return "var(--accent-color)";
+  }
+  
+  const isLight = document.documentElement.getAttribute("data-theme") === "light";
+  
+  const darkThemeColors = [
+    "#38bdf8", 
+    "#34d399", 
+    "#f472b6", 
+    "#fbbf24", 
+    "#a78bfa", 
+    "#fb7185", 
+    "#60a5fa", 
+    "#fb923c", 
+    "#2dd4bf", 
+    "#a3e635"  
+  ];
+
+  const lightThemeColors = [
+    "#0369a1", 
+    "#047857", 
+    "#be185d", 
+    "#b45309", 
+    "#6d28d9", 
+    "#be123c", 
+    "#1d4ed8", 
+    "#c2410c", 
+    "#0f766e"  
+  ];
+
+  const colors = isLight ? lightThemeColors : darkThemeColors;
+  
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+    hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
+window.profileCache = window.profileCache || new Map();
+const profileCache = window.profileCache;
+const CACHE_TTL_MS = 30000;
+
+function getUserCurrentPhoto(name) {
+  if (!name) return "";
+  const cleanName = name.trim();
+  const cleanLower = cleanName.toLowerCase();
+  const cUser = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
+  const isMe = cleanLower === cUser.toLowerCase() || cleanName === "Você";
+
+  if (isMe) {
+    const myPhoto = localStorage.getItem("papos_photo");
+    if (myPhoto && typeof myPhoto === "string" && myPhoto.trim() !== "" && !myPhoto.includes("null") && !myPhoto.includes("undefined")) {
+      return myPhoto.trim();
+    }
+    return "";
+  }
+
+  const cache = window.profileCache || profileCache;
+  if (cache) {
+    const cached = cache.get(cleanLower) || cache.get(cleanName);
+    if (cached && cached.data) {
+      const pPhoto = cached.data.photoUrl || cached.data.photoURL || cached.data.profileImage;
+      if (pPhoto && typeof pPhoto === "string" && pPhoto.trim() !== "" && !pPhoto.includes("null") && !pPhoto.includes("undefined")) {
+        return pPhoto.trim();
+      }
+      if (pPhoto === null || pPhoto === "") {
+        return "";
+      }
+    }
+  }
+
+  const stored = localStorage.getItem(`papos_photo_${cleanName}`) || localStorage.getItem(`papos_photo_${cleanLower}`);
+  if (stored && typeof stored === "string" && stored.trim() !== "" && !stored.includes("null") && !stored.includes("undefined")) {
+    return stored.trim();
+  }
+  return "";
+}
+window.getUserCurrentPhoto = getUserCurrentPhoto;
+
+// Pré-popular cache com dados locais do usuário ativo
+(function() {
+  const myCurrentNick = localStorage.getItem("papos_nickname");
+  if (!myCurrentNick) return;
+  let myCurrentPhoto = localStorage.getItem("papos_photo");
+  if (!myCurrentPhoto || myCurrentPhoto.trim() === "" || myCurrentPhoto.includes("null") || myCurrentPhoto.includes("undefined")) {
+    myCurrentPhoto = localStorage.getItem(`papos_photo_${myCurrentNick}`) || localStorage.getItem(`papos_photo_${myCurrentNick.toLowerCase()}`);
+    if (myCurrentPhoto && myCurrentPhoto.trim() !== "" && !myCurrentPhoto.includes("null") && !myCurrentPhoto.includes("undefined")) {
+      localStorage.setItem("papos_photo", myCurrentPhoto.trim());
+    }
+  }
+  if (myCurrentPhoto && myCurrentPhoto.trim() !== "" && !myCurrentPhoto.includes("null") && !myCurrentPhoto.includes("undefined")) {
+    const cleanP = myCurrentPhoto.trim();
+    localStorage.setItem(`papos_photo_${myCurrentNick}`, cleanP);
+    localStorage.setItem(`papos_photo_${myCurrentNick.toLowerCase()}`, cleanP);
+    profileCache.set(myCurrentNick.toLowerCase(), {
+      data: {
+        nickname: myCurrentNick,
+        photoUrl: cleanP,
+        photoURL: cleanP,
+        profileImage: cleanP,
+        bio: localStorage.getItem("papos_bio") || "",
+        age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
+        gender: localStorage.getItem("papos_gender") || "",
+        permanentId: localStorage.getItem("papos_permanent_id") || localStorage.getItem("papo_guest_id") || "USR-Membro"
+      },
+      timestamp: Date.now()
+    });
+  }
+})();
+
+let socket = null;
+window.socket = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  const ChatEngine = window.ChatEngine || {
+    getUser: () => localStorage.getItem("papos_nickname") || null,
+    renderAvatar: (name, sizeClass = "", customPhotoUrl = null) => {
+      if (window.ChatEngine && window.ChatEngine !== ChatEngine && typeof window.ChatEngine.renderAvatar === "function") {
+        return window.ChatEngine.renderAvatar(name, sizeClass, customPhotoUrl);
+      }
+      if (window.ChatApp && typeof window.ChatApp.renderAvatar === "function") {
+        return window.ChatApp.renderAvatar(name, sizeClass);
+      }
+      const cleanName = name ? name.trim() : "A";
+      const initial = cleanName.charAt(0).toUpperCase();
+      let photoUrl = customPhotoUrl;
+      if (photoUrl === null || photoUrl === undefined) {
+        photoUrl = getUserCurrentPhoto(cleanName);
+      }
+      if (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "" && !photoUrl.includes("undefined") && !photoUrl.includes("null")) {
+        const safeUrl = photoUrl.replace(/"/g, '&quot;');
+        return `<img src="${safeUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover; aspect-ratio: 1 / 1;" />`;
+      }
+      return `<div class="avatar-circle ${sizeClass}" title="${cleanName}" aria-label="Avatar de ${cleanName}" role="img">${initial}</div>`;
+    },
+    connectSocket: () => {
+      const wsUrl = (window.CHAT_CONFIG && window.CHAT_CONFIG.getWebSocketUrl()) || 
+                     ((window.location.protocol === "https:" ? "wss:" : "ws:") + "//" + window.location.host);
+      return new WebSocket(wsUrl);
+    }
+  };
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const isActionLogin = urlParams.get("action") === "login" || urlParams.get("auth") === "login";
+
+  let currentUser = ChatEngine.getUser();
+  if (!currentUser) {
+    if (!isActionLogin) {
+      window.location.href = "/?error=name_required";
+    }
+    return;
+  }
+
+  let activeRoomId = urlParams.get("room") || "room-1";
+  let activeRoomName = "Canal Geral";
+  let activeRoomDesc = "Bate-papo público livre.";
+
+  const chatMessagesContainer = document.getElementById("chat-messages-container");
+  const messageInput = document.getElementById("message-input");
+  const sendButton = document.getElementById("btn-send");
+  const sidebarUsername = document.getElementById("sidebar-username");
+  const sidebarAvatarPlaceholder = document.getElementById("sidebar-user-avatar-placeholder");
+  const btnClearChat = document.getElementById("btn-clear-chat");
+  
+  const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
+  const chatSidebar = document.getElementById("chat-sidebar");
+  
+  const btnToggleSearch = document.getElementById("btn-toggle-search");
+  const searchBarWrapper = document.getElementById("chat-search-bar-wrapper");
+  const searchMessagesInput = document.getElementById("chat-search-messages-input");
+  const btnCloseSearch = document.getElementById("btn-close-search");
+  
+  const modalRoomsContainer = document.getElementById("modal-rooms-container");
+  const searchRoomsModal = document.getElementById("search-rooms-modal");
+  
+  const membersListContainer = document.getElementById("members-list-container");
+  const searchMembersInput = document.getElementById("search-members-input");
+  
+  const privateConversationsList = document.getElementById("private-conversations-list");
+  const totalPrivateUnreadBadge = document.getElementById("total-private-unread");
+  
+  const replyReferenceBar = document.getElementById("reply-reference-bar");
+  const replyReferenceText = document.getElementById("reply-reference-text");
+  const btnCancelReply = document.getElementById("btn-cancel-reply");
+  const typingIndicatorBar = document.getElementById("typing-indicator-bar");
+  
+  const btnBackToPublic = document.getElementById("btn-back-to-public");
+
+  let typingTimeout = null;
+  let isCurrentlyTyping = false;
+  
+  let publicRoomMessages = [];
+  let cachedRooms = [];
+  let onlineUsersList = [];
+  let activeTypingUsers = new Set();
+  
+  let privateChats = JSON.parse(localStorage.getItem(`papos_pms_${currentUser}`) || "{}");
+
+  const notifiedPrivateMessageIds = new Set();
+  let isInitialSyncDone = false;
+
+  function markExistingMessagesAsNotified() {
+    if (!privateChats) return;
+    Object.keys(privateChats).forEach(partner => {
+      const history = privateChats[partner];
+      if (Array.isArray(history)) {
+        history.forEach(m => {
+          if (m && m.id) {
+            notifiedPrivateMessageIds.add(m.id);
+          }
+        });
+      }
+    });
+  }
+
+  function playPrivateNotificationSound() {
+    const audioEl = document.getElementById("privateMessageSound") || document.querySelector("audio#privateMessageSound");
+    if (!audioEl) return;
+    try {
+      audioEl.volume = 1.0;
+      audioEl.currentTime = 0;
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          
+        });
+      }
+    } catch (e) {
+      
+    }
+  }
+
+  function triggerBadgePulse(badgeElement, isCentered = true) {
+    if (!badgeElement) return;
+    const className = isCentered ? "badge-pulse" : "badge-pulse-simple";
+    badgeElement.classList.remove(className);
+    void badgeElement.offsetWidth; 
+    badgeElement.classList.add(className);
+    setTimeout(() => {
+      badgeElement.classList.remove(className);
+    }, 750);
+  }
+
+  function getUnreadConversationsCount() {
+    if (!privateChats) return 0;
+    const partners = Object.keys(privateChats);
+    let unreadConversations = 0;
+    partners.forEach(partner => {
+      const history = privateChats[partner];
+      if (Array.isArray(history) && history.some(m => m.unread === true)) {
+        unreadConversations++;
+      }
+    });
+    return unreadConversations;
+  }
+
+  function updatePrivateUnreadBadge(triggerPulse = false) {
+    const unreadConversationsCount = getUnreadConversationsCount();
+    
+    const sidebarToggleBadge = document.getElementById("sidebar-toggle-badge");
+    const totalPrivateUnreadBadge = document.getElementById("total-private-unread");
+
+    if (sidebarToggleBadge) {
+      if (unreadConversationsCount > 0) {
+        sidebarToggleBadge.classList.remove("d-none");
+        sidebarToggleBadge.textContent = unreadConversationsCount;
+        if (triggerPulse) {
+          triggerBadgePulse(sidebarToggleBadge, true);
+        }
+      } else {
+        sidebarToggleBadge.classList.add("d-none");
+        sidebarToggleBadge.textContent = "0";
+      }
+    }
+
+    if (totalPrivateUnreadBadge) {
+      if (unreadConversationsCount > 0) {
+        totalPrivateUnreadBadge.classList.remove("d-none");
+        totalPrivateUnreadBadge.textContent = unreadConversationsCount;
+        if (triggerPulse) {
+          triggerBadgePulse(totalPrivateUnreadBadge, false);
+        }
+      } else {
+        totalPrivateUnreadBadge.classList.add("d-none");
+        totalPrivateUnreadBadge.textContent = "0";
+      }
+    }
+  }
+
+  markExistingMessagesAsNotified();
+  setTimeout(() => {
+    updatePrivateUnreadBadge(false);
+    isInitialSyncDone = true;
+  }, 500);
+
+  let profileUnsubscribe = null;
+  let privateMessagesUnsubscribe = null;
+  let adminsUnsubscribe = null;
+
+  function cleanupFirebaseListeners() {
+    if (profileUnsubscribe) {
+      try { profileUnsubscribe(); } catch (e) {}
+      profileUnsubscribe = null;
+    }
+    if (privateMessagesUnsubscribe) {
+      try { privateMessagesUnsubscribe(); } catch (e) {}
+      privateMessagesUnsubscribe = null;
+    }
+    if (adminsUnsubscribe) {
+      try { adminsUnsubscribe(); } catch (e) {}
+      adminsUnsubscribe = null;
+    }
+  }
+
+  function updateDOMUserInfo(nick, profile) {
+    const desktopUserName = document.getElementById("desktop-user-name");
+    const desktopDropdownName = document.getElementById("desktop-dropdown-user-name");
+    const mobileDropdownName = document.getElementById("mobile-dropdown-user-name");
+    const mobileMenuUserNick = document.getElementById("mobile-menu-user-nick");
+    const desktopAvatarContainer = document.getElementById("desktop-user-avatar-container");
+    const mobileAvatarContainer = document.getElementById("mobile-user-avatar-container");
+
+    if (desktopUserName) desktopUserName.textContent = nick;
+    if (desktopDropdownName) desktopDropdownName.textContent = nick;
+    if (mobileDropdownName) mobileDropdownName.textContent = nick;
+    if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${nick}`;
+
+    if (desktopAvatarContainer && window.ChatEngine) {
+      desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-xs");
+    }
+    if (mobileAvatarContainer && window.ChatEngine) {
+      mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-xs");
+    }
+
+    if (sidebarUsername) sidebarUsername.textContent = nick;
+    if (sidebarAvatarPlaceholder && window.ChatEngine) {
+      sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-lg mx-auto mb-2");
+    }
+  }
+
+  const initializeFirebaseSync = () => {
+    if (window.FirebaseService) {
+      window.FirebaseService.subscribeToAuth((user) => {
+        cleanupFirebaseListeners();
+
+        if (user) {
+          const uid = user.uid;
+          
+          privateMessagesUnsubscribe = window.FirebaseService.subscribeToPrivateMessages((syncedChats) => {
+            let hasNewIncomingUnread = false;
+
+            if (syncedChats) {
+              Object.keys(syncedChats).forEach(partner => {
+                const history = syncedChats[partner];
+                if (Array.isArray(history)) {
+                  history.forEach(m => {
+                    if (m && m.id) {
+                      if (!notifiedPrivateMessageIds.has(m.id)) {
+                        notifiedPrivateMessageIds.add(m.id);
+                        if (isInitialSyncDone && m.sender !== currentUser && m.unread) {
+                          hasNewIncomingUnread = true;
+                        }
+                      }
+                    }
+                  });
+                }
+              });
+            }
+
+            privateChats = syncedChats;
+            localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+
+            if (!isInitialSyncDone) {
+              markExistingMessagesAsNotified();
+              isInitialSyncDone = true;
+            } else if (hasNewIncomingUnread) {
+              playPrivateNotificationSound();
+            }
+
+            updatePrivateUnreadBadge(hasNewIncomingUnread);
+            renderPrivateConversationsSidebar();
+            if (chatMode === "private") {
+              renderMessages();
+            }
+          });
+
+          if (typeof window.FirebaseService.subscribeToAdmins === "function") {
+            adminsUnsubscribe = window.FirebaseService.subscribeToAdmins((admins) => {
+              window.adminUsersSet = new Set(admins.map(a => String(a).toLowerCase()));
+              if (typeof renderMembers === "function") {
+                renderMembers();
+              }
+            });
+          }
+
+          window.FirebaseService.syncUserProfile().then((initialProfile) => {
+            
+            if (initialProfile) {
+              const isAdmin = Boolean(initialProfile.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2");
+              const isAdsDisabled = Boolean(initialProfile.adsDisabled === true || isAdmin);
+
+              if (isAdmin) {
+                if (typeof window.mostrarPainelAdmin === "function") window.mostrarPainelAdmin();
+                localStorage.setItem("papos_is_admin", "true");
+              } else {
+                if (typeof window.esconderPainelAdmin === "function") window.esconderPainelAdmin();
+                localStorage.setItem("papos_is_admin", "false");
+              }
+
+              if (isAdsDisabled) {
+                if (typeof window.desabilitarMonetag === "function") window.desabilitarMonetag();
+                if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: true, admin: isAdmin });
+              } else {
+                if (typeof window.habilitarMonetag === "function") window.habilitarMonetag();
+                if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: false, admin: false });
+              }
+
+              const nick = initialProfile.displayName || initialProfile.nickname || initialProfile.name || user.email.split("@")[0];
+              currentUser = nick;
+              localStorage.setItem("papos_nickname", nick);
+              localStorage.setItem("papos_bio", initialProfile.bio || "");
+              localStorage.setItem("papos_age", String(initialProfile.age !== undefined && initialProfile.age !== null ? initialProfile.age : ""));
+              localStorage.setItem("papos_gender", initialProfile.gender || "");
+              localStorage.setItem("papos_permanent_id", initialProfile.permanentId || initialProfile.internalId || "");
+
+              updateDOMUserInfo(nick, initialProfile);
+            }
+
+            if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
+              profileUnsubscribe = window.FirebaseService.subscribeToUserProfile(uid, (profile) => {
+                if (profile) {
+                  
+                  const isAdmin = Boolean(profile.admin === true || uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2");
+                  const isAdsDisabled = Boolean(profile.adsDisabled === true || isAdmin);
+
+                  if (profile.banned) {
+                    window.FirebaseService.logout().then(() => {
+                      localStorage.clear();
+                      window.location.href = "/?error=banned";
+                    });
+                    return;
+                  }
+                  if (profile.suspendedUntil && profile.suspendedUntil > Date.now()) {
+                    const remaining = Math.ceil((profile.suspendedUntil - Date.now()) / 60000);
+                    window.FirebaseService.logout().then(() => {
+                      localStorage.clear();
+                      window.location.href = `/?error=suspended&remaining=${remaining}`;
+                    });
+                    return;
+                  }
+
+                  if (isAdmin) {
+                    if (typeof window.mostrarPainelAdmin === "function") window.mostrarPainelAdmin();
+                    localStorage.setItem("papos_is_admin", "true");
+                  } else {
+                    if (typeof window.esconderPainelAdmin === "function") window.esconderPainelAdmin();
+                    localStorage.setItem("papos_is_admin", "false");
+                  }
+
+                  if (isAdsDisabled) {
+                    if (typeof window.desabilitarMonetag === "function") window.desabilitarMonetag();
+                    if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: true, admin: isAdmin });
+                  } else {
+                    if (typeof window.habilitarMonetag === "function") window.habilitarMonetag();
+                    if (typeof window.checkAdsStatus === "function") window.checkAdsStatus({ adsDisabled: false, admin: false });
+                  }
+
+                  const newNick = profile.displayName || profile.nickname || profile.name || user.email.split("@")[0];
+                  const newBio = profile.bio || "";
+                  const newAge = profile.age !== undefined && profile.age !== null ? profile.age : "";
+                  const newGender = profile.gender || "";
+                  const permanentId = profile.permanentId || profile.internalId || "";
+
+                  currentUser = newNick;
+                  localStorage.setItem("papos_nickname", newNick);
+                  localStorage.setItem("papos_bio", newBio);
+                  localStorage.setItem("papos_age", String(newAge));
+                  localStorage.setItem("papos_gender", newGender);
+                  localStorage.setItem("papos_permanent_id", permanentId);
+
+                  updateDOMUserInfo(newNick, profile);
+
+                  const inputNickname = document.getElementById("input-nickname");
+                  const nameDisplay = document.getElementById("profile-display-name");
+                  const inputBio = document.getElementById("input-bio");
+                  const inputAge = document.getElementById("input-age");
+                  const inputGender = document.getElementById("input-gender");
+                  if (inputNickname) inputNickname.value = newNick;
+                  if (nameDisplay) nameDisplay.textContent = newNick;
+                  if (inputBio) inputBio.value = newBio;
+                  if (inputAge) inputAge.value = newAge;
+                  if (inputGender) inputGender.value = newGender;
+
+                  if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                      type: "update_profile",
+                      nickname: newNick,
+                      bio: newBio,
+                      age: newAge,
+                      gender: newGender,
+                      uid: uid,
+                      roomId: currentRoomId
+                    }));
+                  } else {
+                    user.getIdToken(true).then((token) => {
+                      if (socket && socket.readyState === WebSocket.OPEN) {
+                        const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
+                        const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || "");
+                        const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
+                        socket.send(JSON.stringify({ type: "sync_auth", token, clientId, guestId, fingerprint }));
+                      }
+                    }).catch(() => {});
+                  }
+
+                  if (typeof renderMembers === "function") {
+                    renderMembers();
+                  }
+                  if (typeof renderPrivateConversationsSidebar === "function") {
+                    renderPrivateConversationsSidebar();
+                  }
+                }
+              });
+            }
+          }).catch(err => {
+            console.error("Error during profile sync:", err);
+          });
+        } else {
+          cleanupFirebaseListeners();
+          if (typeof window.esconderPainelAdmin === "function") {
+            window.esconderPainelAdmin();
+          }
+          localStorage.setItem("papos_is_admin", "false");
+        }
+      });
+    } else {
+      setTimeout(initializeFirebaseSync, 50);
+    }
+  };
+  initializeFirebaseSync();
+
+  if (sidebarUsername && sidebarAvatarPlaceholder) {
+    sidebarUsername.textContent = currentUser;
+    sidebarAvatarPlaceholder.innerHTML = ChatEngine.renderAvatar(currentUser, "avatar-lg mx-auto mb-2");
+  }
+
+  function isValidPrivateMessage(pm) {
+    if (!pm) return false;
+    if (typeof pm !== "object") return false;
+    if (!pm.id) return false;
+    
+    const sender = pm.senderName || pm.from;
+    const recipient = pm.recipientName || pm.to;
+    const content = pm.content !== undefined ? pm.content : pm.text;
+    const timestamp = pm.timestamp || pm.time;
+    
+    if (!sender || !recipient) return false;
+    if (content === undefined || content === null) return false;
+    if (!timestamp) return false;
+    
+    return true;
+  }
+
+  function sendJoinRoom(roomId) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    const isCurrentUserAuthorized = Boolean(
+      localStorage.getItem("papos_is_admin") === "true" ||
+      localStorage.getItem("papos_is_support_authorized") === "true" ||
+      (window.isAdminUser && window.isAdminUser(currentUser))
+    );
+    if (!isCurrentUserAuthorized && window.isReservedNickname && window.isReservedNickname(currentUser)) {
+      if (typeof window.showToast === "function") {
+        window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
+      }
+      return;
+    }
+    const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
+    const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id") || "");
+    const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
+    const myPhoto = localStorage.getItem("papos_photo") || "";
+
+    socket.send(JSON.stringify({
+      type: "join",
+      nickname: currentUser,
+      roomId: roomId,
+      bio: localStorage.getItem("papos_bio") || "",
+      age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
+      gender: localStorage.getItem("papos_gender") || "",
+      photoUrl: myPhoto,
+      profileImage: myPhoto,
+      clientId: clientId,
+      guestId: guestId,
+      fingerprint: fingerprint,
+      blockCalls: localStorage.getItem("papos_block_calls") === "true"
+    }));
+  }
+
+  function connect() {
+    socket = ChatEngine.connectSocket();
+    window.activeChatSocket = socket;
+    window.socket = socket;
+
+    socket.onopen = () => {
+      
+      sendJoinRoom(activeRoomId);
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (!data) return;
+
+        if (Array.isArray(data.adminUsers)) {
+          data.adminUsers.forEach(a => {
+            if (a) window.adminUsersSet.add(String(a).toLowerCase());
+          });
+        }
+
+        // WebRTC 1-on-1 Audio Call signaling
+        if (data.type && data.type.startsWith("call:") && window.AudioCallManager) {
+          const handled = window.AudioCallManager.handleSocketMessage(data);
+          if (handled) return;
+        }
+
+        switch (data.type) {
+          case "room_members_update":
+            if (data.onlineUsers) {
+              onlineUsersList = data.onlineUsers;
+            }
+            if (data.userPhotos && typeof data.userPhotos === "object") {
+              const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim().toLowerCase();
+              Object.entries(data.userPhotos).forEach(([nick, photo]) => {
+                if (!nick) return;
+                const cleanNick = nick.trim();
+                const cleanLower = cleanNick.toLowerCase();
+                const isMe = cleanLower === myNick;
+
+                if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
+                  const validPhoto = photo.trim();
+                  localStorage.setItem(`papos_photo_${cleanNick}`, validPhoto);
+                  localStorage.setItem(`papos_photo_${cleanLower}`, validPhoto);
+                  if (isMe) {
+                    localStorage.setItem("papos_photo", validPhoto);
+                  }
+                  if (profileCache) {
+                    const cached = profileCache.get(cleanLower);
+                    if (cached && cached.data) {
+                      cached.data.photoUrl = validPhoto;
+                      cached.data.profileImage = validPhoto;
+                    }
+                  }
+                } else if (isMe) {
+                  const mySavedPhoto = localStorage.getItem("papos_photo");
+                  if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
+                    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+                    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+                      activeSocket.send(JSON.stringify({
+                        type: "update_photo",
+                        photoUrl: mySavedPhoto.trim(),
+                        profileImage: mySavedPhoto.trim()
+                      }));
+                    }
+                  }
+                }
+              });
+            }
+            renderMembers();
+            break;
+
+          case "room_state":
+            activeRoomId = data.roomId;
+            window.confirmedNickname = data.nickname;
+            publicRoomMessages = data.messages;
+            onlineUsersList = data.onlineUsers;
+
+            if (data.userPhotos && typeof data.userPhotos === "object") {
+              const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim().toLowerCase();
+              Object.entries(data.userPhotos).forEach(([nick, photo]) => {
+                if (!nick) return;
+                const cleanNick = nick.trim();
+                const cleanLower = cleanNick.toLowerCase();
+                const isMe = cleanLower === myNick;
+
+                if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
+                  const validPhoto = photo.trim();
+                  localStorage.setItem(`papos_photo_${cleanNick}`, validPhoto);
+                  localStorage.setItem(`papos_photo_${cleanLower}`, validPhoto);
+                  if (isMe) {
+                    localStorage.setItem("papos_photo", validPhoto);
+                  }
+                  if (profileCache) {
+                    const cached = profileCache.get(cleanLower);
+                    if (cached && cached.data) {
+                      cached.data.photoUrl = validPhoto;
+                      cached.data.profileImage = validPhoto;
+                    }
+                  }
+                } else if (isMe) {
+                  const mySavedPhoto = localStorage.getItem("papos_photo");
+                  if (mySavedPhoto && mySavedPhoto.trim() !== "" && !mySavedPhoto.includes("null") && !mySavedPhoto.includes("undefined")) {
+                    const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+                    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+                      activeSocket.send(JSON.stringify({
+                        type: "update_photo",
+                        photoUrl: mySavedPhoto.trim(),
+                        profileImage: mySavedPhoto.trim()
+                      }));
+                    }
+                  }
+                }
+              });
+            }
+            
+            activeRoomName = data.roomName || "Canal Geral";
+            activeRoomDesc = data.roomDesc || "Bate-papo público livre.";
+            updateActiveHeader(activeRoomName, activeRoomDesc);
+            renderMessages();
+            renderMembers();
+            break;
+
+          case "room_list":
+            cachedRooms = data.rooms;
+            renderModalRooms();
+            break;
+
+          case "message":
+            publicRoomMessages.push(data.message);
+            if (chatMode === "public") {
+              appendSingleMessage(data.message);
+            }
+            break;
+
+          case "message_deleted": {
+            const delId = String(data.messageId || "");
+            publicRoomMessages = publicRoomMessages.filter(m => String(m.id) !== delId);
+            const msgEl = document.getElementById(`msg-id-${delId}`) || document.getElementById(`msg-id-${data.messageId}`);
+            if (msgEl) {
+              msgEl.style.transition = "all 0.3s ease";
+              msgEl.style.opacity = "0";
+              msgEl.style.height = "0";
+              msgEl.style.padding = "0";
+              msgEl.style.margin = "0";
+              setTimeout(() => {
+                msgEl.remove();
+              }, 300);
+            }
+            break;
+          }
+
+          case "private_message_deleted": {
+            const pPartner = data.partner;
+            const delId = String(data.messageId || "");
+            if (pPartner && privateChats[pPartner]) {
+              privateChats[pPartner] = privateChats[pPartner].filter(m => String(m.id) !== delId);
+              localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+            }
+            if (window.FirebaseService && window.FirebaseService.getCurrentUser()) {
+              window.FirebaseService.deletePrivateMessage(data.messageId).catch(err => {
+                console.error("[Firestore] Erro ao excluir mensagem:", err);
+              });
+            }
+            if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === (pPartner || "").toLowerCase()) {
+              const pmsgEl = document.getElementById(`msg-id-${delId}`) || document.getElementById(`msg-id-${data.messageId}`);
+              if (pmsgEl) {
+                pmsgEl.style.transition = "all 0.3s ease";
+                pmsgEl.style.opacity = "0";
+                pmsgEl.style.height = "0";
+                pmsgEl.style.padding = "0";
+                pmsgEl.style.margin = "0";
+                setTimeout(() => {
+                  pmsgEl.remove();
+                }, 300);
+              }
+            }
+            renderPrivateConversationsSidebar();
+            break;
+          }
+
+          case "private_conversation_deleted": {
+            const pPartner = data.partner;
+            if (pPartner && privateChats[pPartner]) {
+              delete privateChats[pPartner];
+              localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+            }
+            if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === (pPartner || "").toLowerCase()) {
+              chatMode = "public";
+              activePrivateRecipient = null;
+              if (typeof updateActiveHeader === "function") {
+                updateActiveHeader(activeRoomName || "Papos", "Buscando informações...");
+              }
+              renderMessages();
+            }
+            renderPrivateConversationsSidebar();
+            break;
+          }
+
+          case "private_message":
+            if (!isValidPrivateMessage(data)) {
+              
+              break;
+            }
+            handleIncomingPrivateMessage(data);
+            break;
+
+          case "user_joined":
+            onlineUsersList = data.onlineUsers;
+            if (data.nickname) {
+              const uNick = data.nickname.trim();
+              const uLower = uNick.toLowerCase();
+              const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim().toLowerCase();
+              const isMe = uLower === myNick;
+              const photo = data.photoUrl || data.profileImage;
+
+              if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
+                const validPhoto = photo.trim();
+                localStorage.setItem(`papos_photo_${uNick}`, validPhoto);
+                localStorage.setItem(`papos_photo_${uLower}`, validPhoto);
+                if (isMe) {
+                  localStorage.setItem("papos_photo", validPhoto);
+                }
+                if (profileCache) {
+                  const cached = profileCache.get(uLower);
+                  if (cached && cached.data) {
+                    cached.data.photoUrl = validPhoto;
+                    cached.data.profileImage = validPhoto;
+                  }
+                }
+              }
+            }
+            if (chatMode === "public") {
+              appendSystemMessage(`${data.nickname} entrou na sala.`);
+              updateActiveHeader(activeRoomName, activeRoomDesc);
+            }
+            renderMembers();
+            break;
+
+          case "user_left":
+            onlineUsersList = data.onlineUsers;
+            if (chatMode === "public") {
+              appendSystemMessage(`${data.nickname} saiu da sala.`);
+              updateActiveHeader(activeRoomName, activeRoomDesc);
+            }
+            renderMembers();
+            break;
+
+          case "typing":
+            if (chatMode === "public") {
+              toggleTypingIndicator(data.nickname, data.isTyping);
+            }
+            break;
+
+          case "private_typing":
+            if (data && data.from && chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === data.from.toLowerCase()) {
+              toggleTypingIndicator(data.from, data.isTyping);
+            }
+            break;
+
+          case "reaction_update":
+            updateSingleMessageReactions(data.messageId, data.reactions);
+            break;
+
+          case "private_reaction_update":
+            handlePrivateReactionUpdate(data);
+            break;
+
+          case "maintenance_status":
+          case "maintenance_mode":
+            handleMaintenanceUpdate(data);
+            break;
+
+          case "error":
+            if (data.message && data.message.includes("Links não são permitidos")) {
+              if (typeof window.showToast === "function") {
+                window.showToast("Links não são permitidos nas conversas.", "warning");
+              } else {
+                appendSystemMessage("Links não são permitidos nas conversas.");
+              }
+            } else {
+              appendSystemMessage(`Erro do servidor: ${data.message}`);
+            }
+            break;
+
+          case "profile_data":
+            if (window.handleProfileDataResponse) {
+              window.handleProfileDataResponse(data);
+            }
+            break;
+
+          case "profile_updated":
+          case "profile_photo_updated":
+            if (typeof handleProfileUpdateEvent === "function") {
+              handleProfileUpdateEvent(data);
+            }
+            break;
+
+          case "user-permissions": {
+            
+            if (data.admin) {
+              if (typeof window.mostrarPainelAdmin === "function") {
+                window.mostrarPainelAdmin();
+              } else if (typeof mostrarPainelAdmin === "function") {
+                mostrarPainelAdmin();
+              }
+            } else {
+              if (typeof window.esconderPainelAdmin === "function") {
+                window.esconderPainelAdmin();
+              } else if (typeof esconderPainelAdmin === "function") {
+                esconderPainelAdmin();
+              }
+            }
+
+            if (data.adsDisabled) {
+              if (typeof window.desabilitarMonetag === "function") {
+                window.desabilitarMonetag();
+              } else if (typeof desabilitarMonetag === "function") {
+                desabilitarMonetag();
+              }
+            } else {
+              if (typeof window.habilitarMonetag === "function") {
+                window.habilitarMonetag();
+              } else if (typeof habilitarMonetag === "function") {
+                habilitarMonetag();
+              }
+            }
+            break;
+          }
+
+          case "admin-status":
+          case "admin_verified": {
+            const isAdmin = data.admin === true || data.isAdmin === true;
+            const trigger = document.getElementById("admin-trigger-container");
+            if (isAdmin) {
+              if (!window.injectAdminPanelUI) {
+                const s = document.createElement("script");
+                s.src = "/assets/js/admin-controller.js";
+                document.head.appendChild(s);
+              } else {
+                window.injectAdminPanelUI();
+              }
+              if (trigger) trigger.classList.remove("d-none");
+            } else {
+              if (trigger) trigger.classList.add("d-none");
+              const modalEl = document.getElementById("adminModal");
+              if (modalEl && window.bootstrap && window.bootstrap.Modal) {
+                const inst = window.bootstrap.Modal.getInstance(modalEl);
+                if (inst) inst.hide();
+              }
+            }
+            break;
+          }
+
+          case "ads-status":
+            window.MONETAG_DISABLED = data.disabled === true || data.adsDisabled === true;
+            
+            break;
+
+          case "admin_online_users":
+            if (window.handleAdminOnlineUsers) {
+              window.handleAdminOnlineUsers(data.users);
+            }
+            break;
+
+          case "admin_online_guests":
+            if (window.handleAdminOnlineGuests) {
+              window.handleAdminOnlineGuests(data.guests);
+            }
+            break;
+
+          case "admin_audit_logs":
+            if (window.handleAdminAuditLogs) {
+              window.handleAdminAuditLogs(data.logs);
+            }
+            break;
+
+          case "success":
+          case "admin_action_success":
+            if (window.showAdminLoading) {
+              window.showAdminLoading(false);
+            }
+            if (window.showAdminToast) {
+              window.showAdminToast(data.message, "success");
+            }
+            if (window.refreshAdminData) {
+              window.refreshAdminData();
+            }
+            break;
+
+          case "admin_action_error":
+            if (window.showAdminLoading) {
+              window.showAdminLoading(false);
+            }
+            if (window.showAdminToast) {
+              window.showAdminToast(data.message || "Erro na ação administrativa.", "error");
+            }
+            break;
+
+          case "admin:broadcast":
+          case "admin:private":
+          case "admin-global-message":
+          case "admin-private-message":
+          case "global_warning":
+          case "individual_warning":
+            
+            if (typeof window.showIncomingAdminWarningModal === "function") {
+              window.showIncomingAdminWarningModal(
+                data.message || data.text,
+                data.title || "Mensagem da Administração"
+              );
+            } else if (typeof window.showAdminWarningModal === "function") {
+              window.showAdminWarningModal(
+                data.message || data.text,
+                data.title || "Mensagem da Administração"
+              );
+            } else {
+              alert((data.title || "Mensagem da Administração") + "\n\n" + (data.message || data.text));
+            }
+            break;
+
+          case "kicked_by_moderation":
+            if (window.showAdminWarningModal) {
+              window.showAdminWarningModal(
+                data.message || "Sua conexão foi encerrada pela moderação.",
+                "Conexão Encerrada",
+                () => {
+                  window.location.href = "/";
+                }
+              );
+            } else {
+              alert(data.message || "Sua conexão foi encerrada pela moderação.");
+              window.location.href = "/";
+            }
+            break;
+
+          case "suspended": {
+            const until = data.until ? new Date(data.until).toLocaleString("pt-BR") : "algum tempo";
+            if (window.showAdminWarningModal) {
+              window.showAdminWarningModal(
+                `Sua conta foi suspensa pela administração até: ${until}. Você será desconectado.`,
+                "Conta Suspensa",
+                () => {
+                  localStorage.removeItem("papos_nickname");
+                  window.location.href = "/";
+                }
+              );
+            } else {
+              localStorage.removeItem("papos_nickname");
+              window.location.href = "/";
+            }
+            break;
+          }
+
+          case "banned":
+            if (window.showAdminWarningModal) {
+              window.showAdminWarningModal(
+                "Você foi banido permanentemente pela administração deste chat.",
+                "Conta Banida",
+                () => {
+                  localStorage.removeItem("papos_nickname");
+                  window.location.href = "/";
+                }
+              );
+            } else {
+              localStorage.removeItem("papos_nickname");
+              window.location.href = "/";
+            }
+            break;
+        }
+      } catch (err) {
+        console.error("[Chat] Error parsing server frame:", err);
+      }
+    };
+
+    socket.onclose = () => {
+      
+      appendSystemMessage("Conexão instável. Restabelecendo canal criptografado...");
+      setTimeout(connect, 3000);
+    };
+
+    socket.onerror = (err) => {
+      console.error("[Chat] Socket error:", err);
+    };
+  }
+
+  function updateActiveHeader(name, desc) {
+    const headerName = document.getElementById("active-room-name");
+    const headerDesc = document.getElementById("active-room-description");
+    const headerAvatarContainer = document.getElementById("active-chat-avatar-container");
+    const headerStatus = document.getElementById("active-chat-status");
+    const desktopActions = document.getElementById("desktop-header-actions");
+    const mobileMenuToggle = document.getElementById("btn-mobile-menu-toggle");
+    const privateActions = document.getElementById("private-header-actions");
+
+    if (chatMode === "public") {
+      if (privateActions) {
+        privateActions.classList.add("d-none");
+        privateActions.classList.remove("d-flex");
+      }
+      if (headerName) {
+        headerName.textContent = name || "Canal Geral";
+        headerName.removeAttribute("onclick");
+        headerName.removeAttribute("role");
+        headerName.removeAttribute("tabindex");
+        headerName.style.cursor = "default";
+        headerName.className = "h6 fw-bold mb-0 text-white text-truncate";
+      }
+      if (headerDesc) {
+        headerDesc.textContent = desc || "Bate-papo público livre.";
+      }
+      if (btnBackToPublic) btnBackToPublic.classList.add("d-none");
+      if (headerAvatarContainer) {
+        headerAvatarContainer.classList.add("d-none");
+        headerAvatarContainer.innerHTML = "";
+      }
+      if (headerStatus) headerStatus.classList.remove("d-none");
+
+      if (desktopActions) {
+        desktopActions.classList.remove("d-none");
+        desktopActions.classList.add("d-none", "d-md-flex");
+      }
+      if (mobileMenuToggle) {
+        mobileMenuToggle.classList.remove("d-none");
+        mobileMenuToggle.classList.add("d-flex", "d-md-none");
+      }
+    } else {
+      if (headerName) {
+        headerName.innerHTML = `<span id="active-chat-recipient-name" class="hover:underline text-success" data-action="open-profile" data-nickname="${activePrivateRecipient}" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
+        headerName.style.cursor = "default";
+      }
+      if (headerDesc) headerDesc.textContent = "Chat privado de ponta-a-ponta. Conversas salvas localmente.";
+      if (btnBackToPublic) btnBackToPublic.classList.remove("d-none");
+      
+      if (headerAvatarContainer) {
+        headerAvatarContainer.classList.remove("d-none");
+        headerAvatarContainer.innerHTML = `
+          <button class="btn p-0 border-0" data-action="open-profile" data-nickname="${activePrivateRecipient}" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
+            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm")}
+          </button>
+        `;
+      }
+      if (headerStatus) headerStatus.classList.add("d-none");
+
+      if (desktopActions) {
+        desktopActions.classList.add("d-none");
+        desktopActions.classList.remove("d-md-flex");
+      }
+      if (mobileMenuToggle) {
+        mobileMenuToggle.classList.add("d-none");
+        mobileMenuToggle.classList.remove("d-flex");
+      }
+
+      const mobileMenuEl = document.getElementById("offcanvasMobileMenu");
+      if (mobileMenuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+        const bsMenu = bootstrap.Offcanvas.getInstance(mobileMenuEl);
+        if (bsMenu) bsMenu.hide();
+      }
+
+      if (privateActions) {
+        privateActions.classList.remove("d-none");
+        privateActions.classList.add("d-flex");
+      }
+      if (window.AudioCallManager && typeof window.AudioCallManager.updateHeaderCallButton === "function") {
+        window.AudioCallManager.updateHeaderCallButton();
+      }
+    }
+  }
+
+  function initMobileMenuInteractions() {
+    
+    const btnMembers = document.getElementById("mobile-menu-members");
+    if (btnMembers) {
+      btnMembers.addEventListener("click", () => {
+        const menuEl = document.getElementById("offcanvasMobileMenu");
+        if (menuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMenu = bootstrap.Offcanvas.getInstance(menuEl);
+          if (bsMenu) bsMenu.hide();
+        }
+        const membersEl = document.getElementById("offcanvasMembers");
+        if (membersEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMembers = bootstrap.Offcanvas.getOrCreateInstance(membersEl);
+          bsMembers.show();
+        }
+      });
+    }
+
+    const btnSearch = document.getElementById("mobile-menu-search");
+    if (btnSearch) {
+      btnSearch.addEventListener("click", () => {
+        const menuEl = document.getElementById("offcanvasMobileMenu");
+        if (menuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMenu = bootstrap.Offcanvas.getInstance(menuEl);
+          if (bsMenu) bsMenu.hide();
+        }
+        const searchWrapper = document.getElementById("chat-search-bar-wrapper");
+        if (searchWrapper) {
+          searchWrapper.classList.remove("d-none");
+          const searchInput = document.getElementById("chat-search-messages-input");
+          if (searchInput) searchInput.focus();
+        }
+      });
+    }
+
+
+    const btnAdmin = document.getElementById("mobile-menu-admin");
+    if (btnAdmin) {
+      btnAdmin.addEventListener("click", (e) => {
+        e.preventDefault();
+        const menuEl = document.getElementById("offcanvasMobileMenu");
+        if (menuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+          const bsMenu = bootstrap.Offcanvas.getInstance(menuEl);
+          if (bsMenu) bsMenu.hide();
+        }
+        const adminTrigger = document.getElementById("btn-admin-panel-trigger");
+        if (adminTrigger) {
+          adminTrigger.click();
+        } else {
+          const adminModal = document.getElementById("adminPanelModal") || document.getElementById("adminModal");
+          if (adminModal && typeof bootstrap !== "undefined" && bootstrap.Modal) {
+            const bsAdmin = bootstrap.Modal.getOrCreateInstance(adminModal);
+            bsAdmin.show();
+          } else {
+            window.location.href = "/admin";
+          }
+        }
+      });
+    }
+
+    const muteBotsSwitch = document.getElementById("mobile-menu-mute-bots-switch");
+    const muteBotsContainer = document.getElementById("mobile-menu-mute-bots-container");
+    if (muteBotsSwitch) {
+      muteBotsSwitch.checked = muteBots;
+      muteBotsSwitch.addEventListener("change", (e) => {
+        muteBots = e.target.checked;
+        localStorage.setItem("papos_mute_bots", muteBots ? "true" : "false");
+        renderMessages();
+      });
+      if (muteBotsContainer) {
+        muteBotsContainer.addEventListener("click", (e) => {
+          if (e.target === muteBotsSwitch || (e.target && e.target.closest && e.target.closest(".form-switch"))) return;
+          muteBotsSwitch.checked = !muteBotsSwitch.checked;
+          muteBots = muteBotsSwitch.checked;
+          localStorage.setItem("papos_mute_bots", muteBots ? "true" : "false");
+          renderMessages();
+        });
+      }
+    }
+  }
+
+  initMobileMenuInteractions();
+
+  window.refreshMembersList = function() {
+    const icon1 = document.getElementById("btn-refresh-members-icon");
+    const icon2 = document.getElementById("btn-refresh-members-icon-canvas");
+
+    if (icon1) icon1.classList.add("spinning-icon");
+    if (icon2) icon2.classList.add("spinning-icon");
+
+    setTimeout(() => {
+      if (icon1) icon1.classList.remove("spinning-icon");
+      if (icon2) icon2.classList.remove("spinning-icon");
+    }, 700);
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        action: "get_room_members",
+        roomId: currentRoomId
+      }));
+
+      const isUserAdmin = window.isAdminUser || localStorage.getItem("papos_is_admin") === "true";
+      if (isUserAdmin) {
+        ws.send(JSON.stringify({
+          action: "get_online_guests"
+        }));
+      }
+    }
+  };
+
+  function initDesktopSidebarInteractions() {
+    const btnDesktopSidebarToggle = document.getElementById("btn-desktop-sidebar-toggle");
+    const btnCloseDesktopSidebar = document.getElementById("btn-close-desktop-sidebar");
+    const desktopNavSidebar = document.getElementById("desktop-nav-sidebar");
+
+    const btnDesktopDonateToggle = document.getElementById("btn-desktop-donate-toggle");
+    const btnCloseDonateSidebar = document.getElementById("btn-close-donate-sidebar");
+    const desktopDonateSidebar = document.getElementById("desktop-donate-sidebar");
+
+    if (btnDesktopSidebarToggle && desktopNavSidebar) {
+      btnDesktopSidebarToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (desktopDonateSidebar) desktopDonateSidebar.classList.remove("open");
+        desktopNavSidebar.classList.toggle("open");
+      });
+    }
+
+    if (btnDesktopDonateToggle && desktopDonateSidebar) {
+      btnDesktopDonateToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (desktopNavSidebar) desktopNavSidebar.classList.remove("open");
+        desktopDonateSidebar.classList.toggle("open");
+      });
+    }
+
+    if (btnCloseDesktopSidebar && desktopNavSidebar) {
+      btnCloseDesktopSidebar.addEventListener("click", () => {
+        desktopNavSidebar.classList.remove("open");
+      });
+    }
+
+    if (btnCloseDonateSidebar && desktopDonateSidebar) {
+      btnCloseDonateSidebar.addEventListener("click", () => {
+        desktopDonateSidebar.classList.remove("open");
+      });
+    }
+
+    const mobileDonateEl = document.getElementById("offcanvasMobileDonate");
+    if (mobileDonateEl) {
+      let touchStartY = 0;
+      mobileDonateEl.addEventListener("touchstart", (e) => {
+        if (e.touches && e.touches[0]) touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      mobileDonateEl.addEventListener("touchend", (e) => {
+        if (e.changedTouches && e.changedTouches[0]) {
+          const touchEndY = e.changedTouches[0].clientY;
+          if (touchEndY - touchStartY > 60) {
+            if (typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+              const bsOffcanvas = bootstrap.Offcanvas.getInstance(mobileDonateEl);
+              if (bsOffcanvas) bsOffcanvas.hide();
+            }
+          }
+        }
+      }, { passive: true });
+    }
+
+    document.addEventListener("click", (e) => {
+      if (desktopNavSidebar && desktopNavSidebar.classList.contains("open")) {
+        if (!desktopNavSidebar.contains(e.target) && btnDesktopSidebarToggle && !btnDesktopSidebarToggle.contains(e.target)) {
+          desktopNavSidebar.classList.remove("open");
+        }
+      }
+      if (desktopDonateSidebar && desktopDonateSidebar.classList.contains("open")) {
+        if (!desktopDonateSidebar.contains(e.target) && btnDesktopDonateToggle && !btnDesktopDonateToggle.contains(e.target)) {
+          desktopDonateSidebar.classList.remove("open");
+        }
+      }
+    });
+
+    const btnSearch = document.getElementById("sidebar-item-search");
+    if (btnSearch) {
+      btnSearch.addEventListener("click", () => {
+        const searchWrapper = document.getElementById("chat-search-bar-wrapper");
+        if (searchWrapper) {
+          searchWrapper.classList.remove("d-none");
+          const searchInput = document.getElementById("chat-search-messages-input");
+          if (searchInput) searchInput.focus();
+        }
+      });
+    }
+
+  }
+
+  initDesktopSidebarInteractions();
+
+  function handleIncomingPrivateMessage(pm) {
+    if (!pm) return;
+
+    const id = pm.id;
+    const sender = pm.senderName || pm.from;
+    const recipient = pm.recipientName || pm.to;
+    const content = pm.content !== undefined ? pm.content : pm.text;
+    const timestamp = pm.timestamp || pm.time;
+    const color = pm.color || "";
+    const replyTo = pm.replyTo || null;
+    const reactions = pm.reactions || {};
+
+    if (!sender || !recipient) return;
+
+    const partner = sender === currentUser ? recipient : sender;
+    
+    if (!privateChats[partner]) {
+      privateChats[partner] = [];
+    }
+
+    let isNew = false;
+    if (!privateChats[partner].some(m => m.id === id)) {
+      privateChats[partner].push({
+        id: id,
+        sender: sender,
+        text: content,
+        time: timestamp,
+        color: color,
+        replyTo: replyTo,
+        reactions: reactions,
+        unread: (partner !== activePrivateRecipient)
+      });
+      
+      localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+      isNew = true;
+
+      const isFromOther = (sender !== currentUser);
+      if (isFromOther && !notifiedPrivateMessageIds.has(id)) {
+        notifiedPrivateMessageIds.add(id);
+        if (isInitialSyncDone) {
+          playPrivateNotificationSound();
+          updatePrivateUnreadBadge(true);
+        } else {
+          updatePrivateUnreadBadge(false);
+        }
+      } else {
+        notifiedPrivateMessageIds.add(id);
+        updatePrivateUnreadBadge(false);
+      }
+
+      if (
+        partner !== "Bot_Papos" &&
+        sender !== "Bot_Papos" &&
+        recipient !== "Bot_Papos" &&
+        window.FirebaseService &&
+        window.FirebaseService.getCurrentUser()
+      ) {
+        window.FirebaseService.savePrivateMessage(partner, {
+          id: id,
+          sender: sender,
+          recipient: recipient,
+          text: content,
+          timestamp: typeof timestamp === "number" ? timestamp : Date.now(),
+          time: formatMessageTime({ timestamp: typeof timestamp === "number" ? timestamp : Date.now() }),
+          unread: (partner !== activePrivateRecipient),
+          color: color,
+          replyTo: replyTo,
+          reactions: reactions
+        }).catch(err => {
+          console.error("[Firestore] Erro ao salvar mensagem:", err);
+        });
+      }
+    }
+
+    if (isNew && chatMode === "private" && activePrivateRecipient === partner) {
+      appendSingleMessage({
+        id: id,
+        sender: sender,
+        text: content,
+        time: timestamp,
+        color: color,
+        replyTo: replyTo,
+        reactions: reactions
+      });
+    }
+
+    renderPrivateConversationsSidebar();
+  }
+
+  function sendPrivateMessage(text, msgId, replyTo) {
+    if (!activePrivateRecipient || !socket || socket.readyState !== WebSocket.OPEN) return;
+    
+    const myPhoto = getUserCurrentPhoto(window.confirmedNickname || currentUser) || undefined;
+    socket.send(JSON.stringify({
+      type: "private_message",
+      id: msgId,
+      to: activePrivateRecipient,
+      text: text,
+      color: activeMessageColor || undefined,
+      photoUrl: myPhoto,
+      replyTo: replyTo ? {
+        id: replyTo.id || replyTo.messageId,
+        messageId: replyTo.messageId || replyTo.id,
+        sender: replyTo.sender || replyTo.senderId,
+        senderId: replyTo.senderId || replyTo.sender,
+        text: replyTo.text
+      } : undefined
+    }));
+  }
+
+  window.startPrivateChat = (partnerName) => {
+    if (partnerName === currentUser) {
+      alert("Você não pode iniciar um chat privado com você mesmo!");
+      return;
+    }
+
+    const offcanvasEl = document.getElementById("offcanvasMembers");
+    if (offcanvasEl) {
+      const offcanvasInstance = bootstrap.Offcanvas.getInstance(offcanvasEl);
+      if (offcanvasInstance) offcanvasInstance.hide();
+    }
+
+    if (chatSidebar && chatSidebar.classList.contains("active")) {
+      chatSidebar.classList.remove("active");
+    }
+
+    chatMode = "private";
+    activePrivateRecipient = partnerName;
+    window.activePrivateRecipient = partnerName;
+
+    activeTypingUsers.clear();
+    if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
+
+    if (!privateChats[partnerName]) {
+      privateChats[partnerName] = [];
+    }
+
+    privateChats[partnerName].forEach(m => m.unread = false);
+    localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+
+    if (window.FirebaseService && window.FirebaseService.getCurrentUser()) {
+      window.FirebaseService.markMessagesAsRead(partnerName).catch(err => {
+        console.error("[Firestore] Erro ao marcar mensagens como lidas:", err);
+      });
+    }
+
+    updateActiveHeader();
+    renderMessages();
+    updatePrivateUnreadBadge(false);
+    renderPrivateConversationsSidebar();
+
+    if (messageInput) messageInput.focus();
+  };
+
+  window.openPrivateChat = window.startPrivateChat;
+
+  if (btnBackToPublic) {
+    btnBackToPublic.addEventListener("click", () => {
+      chatMode = "public";
+      activePrivateRecipient = null;
+      window.activePrivateRecipient = null;
+      updateActiveHeader("Papos", "Buscando informações...");
+      
+      activeTypingUsers.clear();
+      if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
+      
+      sendJoinRoom(activeRoomId);
+    });
+  }
+
+  function renderPrivateConversationsSidebar() {
+    if (!privateConversationsList) return;
+    
+    const partners = Object.keys(privateChats);
+    if (partners.length === 0) {
+      privateConversationsList.innerHTML = `
+        <div class="text-center py-5 small" id="no-private-chats-placeholder" style="color: #FFFFFF;">
+          <div class="fs-4 mb-2"><i class="bi bi-chat-left-dots text-white"></i></div>
+          <div class="empty-title fw-bold text-white mb-1">Nenhuma conversa privada</div>
+          <div class="empty-desc" style="color: #D1D5DB; font-size: 0.78rem;">Clique em um membro na lista lateral para abrir um chat seguro.</div>
+        </div>
+      `;
+      updatePrivateUnreadBadge(false);
+      return;
+    }
+
+    privateConversationsList.innerHTML = "";
+
+    partners.forEach(partner => {
+      const history = privateChats[partner];
+      const lastMsg = history[history.length - 1] || { text: "Sem mensagens", time: "" };
+      const unreadCount = history.filter(m => m.unread).length;
+
+      const isActive = (chatMode === "private" && activePrivateRecipient === partner);
+
+      const threadDiv = document.createElement("div");
+      threadDiv.className = `private-chat-item ${isActive ? 'active' : ''} d-flex align-items-center justify-content-between p-2`;
+      threadDiv.onclick = () => window.startPrivateChat(partner);
+
+      threadDiv.innerHTML = `
+        <div class="d-flex align-items-center gap-2 text-truncate flex-grow-1" style="min-width: 0;">
+          ${window.ChatEngine.renderAvatar(partner, "avatar-sm")}
+          <div class="text-start text-truncate flex-grow-1" style="min-width: 0;">
+            <div class="d-flex align-items-center justify-content-between">
+              <span class="fw-bold text-white small text-truncate me-1">${partner}</span>
+              <span class="text-secondary font-mono" style="font-size: 0.65rem;">${formatMessageTime(lastMsg)}</span>
+            </div>
+            <p class="mb-0 text-secondary text-truncate small" style="font-size: 0.78rem;">${lastMsg.text}</p>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
+          ${unreadCount > 0 ? `<span class="badge rounded-pill bg-danger me-1">${unreadCount}</span>` : ''}
+          <button type="button" 
+            class="btn btn-sm btn-link p-0 text-danger btn-delete-private-chat" 
+            onclick="event.stopPropagation(); window.confirmDeletePrivateChat('${partner}')" 
+            title="Excluir conversa com ${partner}" 
+            aria-label="Excluir conversa com ${partner}"
+            style="width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; border: none; background: transparent; cursor: pointer;">
+            <i class="bi bi-trash-fill" style="font-size: 0.85rem;"></i>
+          </button>
+        </div>
+      `;
+
+      privateConversationsList.appendChild(threadDiv);
+    });
+
+    updatePrivateUnreadBadge(false);
+  }
+
+  if (!window.showToast) {
+    window.showToast = function (message, type = "success") {
+      let container = document.getElementById("global-toast-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "global-toast-container";
+        container.className = "toast-container position-fixed bottom-0 end-0 p-3";
+        container.style.zIndex = "1150";
+        document.body.appendChild(container);
+      }
+
+      const bgClass = type === "success" ? "bg-success text-white" : (type === "error" ? "bg-danger text-white" : "bg-warning text-dark");
+      const iconClass = type === "success" ? "bi-check-circle-fill" : (type === "error" ? "bi-exclamation-octagon-fill" : "bi-exclamation-triangle-fill");
+
+      const toastEl = document.createElement("div");
+      toastEl.className = `toast align-items-center ${bgClass} border-0 shadow-lg`;
+      toastEl.role = "alert";
+      toastEl.ariaLive = "assertive";
+      toastEl.ariaAtomic = "true";
+      toastEl.style.borderRadius = "var(--radius-sm)";
+
+      toastEl.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body d-flex align-items-center gap-2 fw-semibold">
+            <i class="bi ${iconClass} fs-5"></i>
+            <span>${message}</span>
+          </div>
+          <button type="button" class="btn-close ${type === 'warning' ? '' : 'btn-close-white'} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      `;
+
+      container.appendChild(toastEl);
+      if (window.bootstrap && window.bootstrap.Toast) {
+        const bsToast = new bootstrap.Toast(toastEl, { delay: 4000 });
+        bsToast.show();
+      }
+      toastEl.addEventListener("hidden.bs.toast", () => {
+        toastEl.remove();
+      });
+    };
+  }
+
+  window.partnerToDeletePrivateChat = null;
+  window.confirmDeletePrivateChat = (partnerName) => {
+    window.partnerToDeletePrivateChat = partnerName;
+    const modalEl = document.getElementById("deletePrivateChatModal");
+    if (modalEl) {
+      const bModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+      bModal.show();
+    }
+  };
+
+  const btnConfirmDeletePrivate = document.getElementById("btn-confirm-delete-private-chat");
+  if (btnConfirmDeletePrivate) {
+    btnConfirmDeletePrivate.addEventListener("click", async () => {
+      const partner = window.partnerToDeletePrivateChat;
+      if (!partner) return;
+
+      const spinner = document.getElementById("delete-private-spinner");
+      const btnText = document.getElementById("delete-private-btn-text");
+
+      if (spinner) spinner.classList.remove("d-none");
+      if (btnText) btnText.textContent = "Excluindo...";
+      btnConfirmDeletePrivate.disabled = true;
+
+      try {
+        
+        if (window.FirebaseService && typeof window.FirebaseService.deletePrivateConversation === "function") {
+          await window.FirebaseService.deletePrivateConversation(partner);
+        }
+
+        if (privateChats[partner]) {
+          delete privateChats[partner];
+        }
+        if (currentUser) {
+          localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+        }
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: "delete_private_conversation",
+            partner: partner
+          }));
+        }
+
+        if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === partner.toLowerCase()) {
+          chatMode = "public";
+          activePrivateRecipient = null;
+          if (typeof updateActiveHeader === "function") {
+            updateActiveHeader(activeRoomName || "Papos", "Buscando informações...");
+          }
+          renderMessages();
+        }
+
+        renderPrivateConversationsSidebar();
+
+        const modalEl = document.getElementById("deletePrivateChatModal");
+        if (modalEl) {
+          const bModal = bootstrap.Modal.getInstance(modalEl);
+          if (bModal) bModal.hide();
+        }
+
+        const toastFn = window.showToast || window.showAdminToast;
+        if (typeof toastFn === "function") {
+          toastFn("Conversa excluída com sucesso.", "success");
+        }
+      } catch (err) {
+        console.error("Erro ao excluir conversa privada:", err);
+        const toastFn = window.showToast || window.showAdminToast;
+        if (typeof toastFn === "function") {
+          toastFn("Não foi possível excluir a conversa.", "error");
+        }
+      } finally {
+        if (spinner) spinner.classList.add("d-none");
+        if (btnText) btnText.textContent = "Excluir conversa";
+        btnConfirmDeletePrivate.disabled = false;
+        window.partnerToDeletePrivateChat = null;
+      }
+    });
+  }
+
+  window.copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Texto copiado para a área de transferência!");
+    }).catch(err => console.error("Clipboard failure:", err));
+  };
+
+  function handlePrivateReactionUpdate(data) {
+    if (!data || !data.messageId) return;
+    const { messageId, emoji, from, partner, to, reactions } = data;
+
+    if (reactions && typeof reactions === "object") {
+      updateSingleMessageReactions(messageId, reactions, partner || to);
+      return;
+    }
+
+    if (emoji && from) {
+      const pKey = partner || to || from;
+      let targetMsg = null;
+      let actualPartner = pKey;
+
+      if (pKey && privateChats[pKey]) {
+        targetMsg = privateChats[pKey].find(m => m.id === messageId);
+      }
+      if (!targetMsg) {
+        Object.keys(privateChats).forEach(p => {
+          const f = privateChats[p].find(m => m.id === messageId);
+          if (f) {
+            targetMsg = f;
+            actualPartner = p;
+          }
+        });
+      }
+
+      if (targetMsg) {
+        if (!targetMsg.reactions) targetMsg.reactions = {};
+        if (!targetMsg.reactions[emoji]) targetMsg.reactions[emoji] = [];
+        const reactors = targetMsg.reactions[emoji];
+        const idx = reactors.indexOf(from);
+        if (idx > -1) {
+          reactors.splice(idx, 1);
+          if (reactors.length === 0) {
+            delete targetMsg.reactions[emoji];
+          }
+        } else {
+          reactors.push(from);
+        }
+        localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+        updateSingleMessageReactions(messageId, targetMsg.reactions, actualPartner);
+      }
+    }
+  }
+
+  function updateSingleMessageReactions(messageId, reactions, partner) {
+    if (!messageId) return;
+
+    const msgObj = publicRoomMessages.find(m => m.id === messageId);
+    if (msgObj) {
+      msgObj.reactions = reactions;
+    }
+
+    if (partner && privateChats[partner]) {
+      const pMsg = privateChats[partner].find(m => m.id === messageId);
+      if (pMsg) {
+        pMsg.reactions = reactions;
+        localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+      }
+    } else {
+      Object.keys(privateChats).forEach(p => {
+        const pMsg = privateChats[p].find(m => m.id === messageId);
+        if (pMsg) {
+          pMsg.reactions = reactions;
+          localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+        }
+      });
+    }
+
+    if (!chatMessagesContainer) return;
+
+    const msgDiv = document.getElementById(`msg-id-${messageId}`);
+    if (!msgDiv) return;
+
+    const msgContent = msgDiv.querySelector(".msg-content");
+    if (!msgContent) return;
+
+    let reactionsHtml = "";
+    if (reactions && typeof reactions === "object" && Object.keys(reactions).length > 0) {
+      const activeUser = window.confirmedNickname || currentUser;
+      reactionsHtml = '<div class="reactions-list">';
+      Object.entries(reactions).forEach(([emoji, list]) => {
+        if (Array.isArray(list) && list.length > 0) {
+          const activeClass = list.includes(activeUser) ? 'active' : '';
+          reactionsHtml += `
+            <button type="button" class="reaction-pill ${activeClass}" onclick="event.stopPropagation(); window.sendReaction('${messageId}', '${emoji}')">
+              <span>${emoji}</span>
+              <span class="ms-1 font-mono">${list.length}</span>
+            </button>
+          `;
+        }
+      });
+      reactionsHtml += '</div>';
+    }
+
+    const existingList = msgContent.querySelector(".reactions-list");
+    if (reactionsHtml) {
+      if (existingList) {
+        existingList.outerHTML = reactionsHtml;
+      } else {
+        msgContent.insertAdjacentHTML("beforeend", reactionsHtml);
+      }
+    } else if (existingList) {
+      existingList.remove();
+    }
+  }
+
+  function renderMessages(filterText = "") {
+    if (!chatMessagesContainer) return;
+    chatMessagesContainer.innerHTML = "";
+
+    const activeList = chatMode === "public" ? publicRoomMessages : (privateChats[activePrivateRecipient] || []);
+
+    const filtered = activeList.filter(msg => {
+      if (msg.isSystem) return true;
+      if (muteBots && isBotMessage(msg)) return false;
+      const isBlocked = blockedUsers.includes(msg.sender);
+      if (isBlocked) return false;
+      if (filterText.trim() === "") return true;
+      return msg.text.toLowerCase().includes(filterText.toLowerCase());
+    });
+
+    if (filtered.length === 0) {
+      chatMessagesContainer.innerHTML = `
+        <div class="text-center text-secondary py-5">
+          <i class="bi bi-chat-dots fs-1 mb-2 d-block text-white"></i>
+          <p class="mb-0 fw-semibold text-white">Nenhuma mensagem por aqui.</p>
+          <p class="small">Use a caixa abaixo para iniciar o diálogo!</p>
+        </div>
+      `;
+      return;
+    }
+
+    let lastSender = null;
+
+    filtered.forEach(msg => {
+      if (msg.isSystem) {
+        const sysDiv = document.createElement("div");
+        sysDiv.className = "msg-system";
+        sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${msg.text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${formatMessageTime(msg)})</span>`;
+        chatMessagesContainer.appendChild(sysDiv);
+        lastSender = null; 
+      } else {
+        const isMe = msg.sender === (window.confirmedNickname || currentUser);
+        
+        const isGrouped = (msg.sender === lastSender);
+
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `msg-container ${isMe ? 'msg-me' : ''} ${isGrouped ? 'msg-grouped' : ''}`;
+        msgDiv.id = `msg-id-${msg.id}`;
+
+        let reactionsHtml = "";
+        if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+          reactionsHtml = '<div class="reactions-list">';
+          Object.entries(msg.reactions).forEach(([emoji, list]) => {
+            const activeClass = list.includes(window.confirmedNickname || currentUser) ? 'active' : '';
+            reactionsHtml += `
+              <button type="button" class="reaction-pill ${activeClass}" onclick="event.stopPropagation(); window.sendReaction('${msg.id}', '${emoji}')">
+                <span>${emoji}</span>
+                <span class="ms-1 font-mono">${list.length}</span>
+              </button>
+            `;
+          });
+          reactionsHtml += '</div>';
+        }
+
+        let replyHtml = "";
+        if (msg.replyTo) {
+          const rSender = msg.replyTo.sender || msg.replyTo.senderName || msg.replyTo.senderId || "Usuário";
+          const rText = msg.replyTo.text || msg.replyTo.content || "";
+          replyHtml = `
+            <div class="small text-secondary mb-1 ps-2 border-start border-secondary" style="font-size: 0.75rem; border-left: 2px solid var(--accent-color, #22c55e) !important;">
+              <i class="bi bi-reply-fill text-white-50"></i> Em resposta a <strong>${rSender}</strong>: <span class="text-white-50 text-truncate d-inline-block align-bottom" style="max-width: 220px;">${rText}</span>
+            </div>
+          `;
+        }
+
+        const activeAdminCheck = (window.isAdminUser && window.isAdminUser(window.confirmedNickname || currentUser)) || localStorage.getItem("papos_is_admin") === "true";
+        const canDelete = isMe || activeAdminCheck;
+        let deleteBtnHtml = canDelete ? `
+          <button type="button" class="btn-action-msg text-danger btn-delete-message" data-action="delete-message" data-message-id="${msg.id}" onclick="window.deleteMessage('${msg.id}')" title="Excluir Mensagem">
+            <i class="bi bi-trash-fill text-danger" style="pointer-events: none;"></i>
+          </button>
+        ` : "";
+
+        if (chatMode === "public") {
+          actionsHtml = `
+            <div class="message-actions-menu">
+              <button class="btn-action-msg" onclick="setReplyTarget('${msg.id}', '${msg.sender}', '${msg.text.replace(/'/g, "\\'")}')" title="Responder">
+                <i class="bi bi-reply-fill"></i>
+              </button>
+              <button class="btn-action-msg" onclick="sendReaction('${msg.id}', '👍')" title="Curtir (👍)">👍</button>
+              <button class="btn-action-msg" onclick="sendReaction('${msg.id}', '❤️')" title="Amei (❤️)">❤️</button>
+              <button class="btn-action-msg" onclick="copyToClipboard('${msg.text.replace(/'/g, "\\'")}')" title="Copiar"><i class="bi bi-clipboard"></i></button>
+              ${deleteBtnHtml}
+              <button class="btn-action-msg" onclick="toggleBlockUser('${msg.sender}')" title="Bloquear"><i class="bi bi-shield-slash-fill text-danger"></i></button>
+              <button class="btn-action-msg" onclick="reportUser('${msg.sender}')" title="Denunciar"><i class="bi bi-flag-fill text-warning"></i></button>
+            </div>
+          `;
+        } else {
+          actionsHtml = `
+            <div class="message-actions-menu">
+              <button class="btn-action-msg" onclick="setReplyTarget('${msg.id}', '${msg.sender}', '${msg.text.replace(/'/g, "\\'")}')" title="Responder">
+                <i class="bi bi-reply-fill"></i>
+              </button>
+              <button class="btn-action-msg" onclick="sendReaction('${msg.id}', '👍')" title="Curtir (👍)">👍</button>
+              <button class="btn-action-msg" onclick="sendReaction('${msg.id}', '❤️')" title="Amei (❤️)">❤️</button>
+              <button class="btn-action-msg" onclick="copyToClipboard('${msg.text.replace(/'/g, "\\'")}')" title="Copiar"><i class="bi bi-clipboard"></i></button>
+              ${deleteBtnHtml}
+              <button class="btn-action-msg" onclick="toggleBlockUser('${msg.sender}')" title="Bloquear"><i class="bi bi-shield-slash-fill text-danger"></i></button>
+            </div>
+          `;
+        }
+
+        if (msg.sender && msg.photoUrl) {
+          localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
+          localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
+        }
+
+        msgDiv.setAttribute("data-sender", msg.sender);
+        msgDiv.innerHTML = `
+          ${actionsHtml}
+          <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-action="open-profile" data-nickname="${msg.sender}" data-sender="${msg.sender}" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+            ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", msg.photoUrl || null)}
+          </button>
+          <div class="msg-content">
+            ${replyHtml}
+            <div class="msg-header">
+              <span class="msg-username" data-action="open-profile" data-nickname="${msg.sender}" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
+              <span class="msg-meta">${formatMessageTime(msg)}</span>
+            </div>
+            <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
+            ${reactionsHtml}
+          </div>
+        `;
+
+        chatMessagesContainer.appendChild(msgDiv);
+        lastSender = msg.sender;
+      }
+    });
+
+    scrollToBottom();
+  }
+
+  function appendSingleMessage(msg) {
+    if (!chatMessagesContainer) return;
+    if (muteBots && isBotMessage(msg)) return;
+    const isBlocked = blockedUsers.includes(msg.sender);
+    if (isBlocked) return;
+
+    if (msg.id && chatMessagesContainer.querySelector(`#msg-id-${msg.id}`)) {
+      return;
+    }
+
+    if (chatMessagesContainer.querySelector(".text-center")) {
+      chatMessagesContainer.innerHTML = "";
+    }
+
+    const isMe = msg.sender === (window.confirmedNickname || currentUser);
+    
+    const lastMsgDiv = chatMessagesContainer.lastElementChild;
+    const isGrouped = lastMsgDiv && lastMsgDiv.classList.contains("msg-container") && 
+                      !lastMsgDiv.classList.contains("msg-system") &&
+                      lastMsgDiv.querySelector(".msg-username") &&
+                      (lastMsgDiv.querySelector(".msg-username").textContent === (isMe ? 'Você' : msg.sender));
+
+    const msgDiv = document.createElement("div");
+    msgDiv.className = `msg-container ${isMe ? 'msg-me' : ''} ${isGrouped ? 'msg-grouped' : ''}`;
+    msgDiv.id = `msg-id-${msg.id}`;
+    msgDiv.setAttribute("data-sender", msg.sender);
+
+    let replyHtml = "";
+    if (msg.replyTo) {
+      const rSender = msg.replyTo.sender || msg.replyTo.senderName || msg.replyTo.senderId || "Usuário";
+      const rText = msg.replyTo.text || msg.replyTo.content || "";
+      replyHtml = `
+        <div class="small text-secondary mb-1 ps-2 border-start border-secondary" style="font-size: 0.75rem; border-left: 2px solid var(--accent-color, #22c55e) !important;">
+          <i class="bi bi-reply-fill text-white-50"></i> Em resposta a <strong>${rSender}</strong>: <span class="text-white-50 text-truncate d-inline-block align-bottom" style="max-width: 220px;">${rText}</span>
+        </div>
+      `;
+    }
+
+    const activeAdminCheck = (window.isAdminUser && window.isAdminUser(window.confirmedNickname || currentUser)) || localStorage.getItem("papos_is_admin") === "true";
+    const canDelete = isMe || activeAdminCheck;
+    let deleteBtnHtml = canDelete ? `
+      <button type="button" class="btn-action-msg text-danger btn-delete-message" data-action="delete-message" data-message-id="${msg.id}" onclick="window.deleteMessage('${msg.id}')" title="Excluir Mensagem">
+        <i class="bi bi-trash-fill text-danger" style="pointer-events: none;"></i>
+      </button>
+    ` : "";
+
+    if (chatMode === "public") {
+      actionsHtml = `
+        <div class="message-actions-menu">
+          <button class="btn-action-msg" onclick="setReplyTarget('${msg.id}', '${msg.sender}', '${msg.text.replace(/'/g, "\\'")}')" title="Responder">
+            <i class="bi bi-reply-fill"></i>
+          </button>
+          <button class="btn-action-msg" onclick="sendReaction('${msg.id}', '👍')" title="Curtir">👍</button>
+          <button class="btn-action-msg" onclick="sendReaction('${msg.id}', '❤️')" title="Amei">❤️</button>
+          <button class="btn-action-msg" onclick="copyToClipboard('${msg.text.replace(/'/g, "\\'")}')" title="Copiar"><i class="bi bi-clipboard"></i></button>
+          ${deleteBtnHtml}
+          <button class="btn-action-msg" onclick="toggleBlockUser('${msg.sender}')" title="Bloquear"><i class="bi bi-shield-slash-fill text-danger"></i></button>
+          <button class="btn-action-msg" onclick="reportUser('${msg.sender}')" title="Denunciar"><i class="bi bi-flag-fill text-warning"></i></button>
+        </div>
+      `;
+    } else {
+      actionsHtml = `
+        <div class="message-actions-menu">
+          <button class="btn-action-msg" onclick="setReplyTarget('${msg.id}', '${msg.sender}', '${msg.text.replace(/'/g, "\\'")}')" title="Responder">
+            <i class="bi bi-reply-fill"></i>
+          </button>
+          <button class="btn-action-msg" onclick="sendReaction('${msg.id}', '👍')" title="Curtir">👍</button>
+          <button class="btn-action-msg" onclick="sendReaction('${msg.id}', '❤️')" title="Amei">❤️</button>
+          <button class="btn-action-msg" onclick="copyToClipboard('${msg.text.replace(/'/g, "\\'")}')" title="Copiar"><i class="bi bi-clipboard"></i></button>
+          ${deleteBtnHtml}
+          <button class="btn-action-msg" onclick="toggleBlockUser('${msg.sender}')" title="Bloquear"><i class="bi bi-shield-slash-fill text-danger"></i></button>
+        </div>
+      `;
+    }
+
+    let reactionsHtml = "";
+    if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+      const activeUser = window.confirmedNickname || currentUser;
+      reactionsHtml = '<div class="reactions-list">';
+      Object.entries(msg.reactions).forEach(([emoji, list]) => {
+        if (Array.isArray(list) && list.length > 0) {
+          const activeClass = list.includes(activeUser) ? 'active' : '';
+          reactionsHtml += `
+            <button type="button" class="reaction-pill ${activeClass}" onclick="event.stopPropagation(); window.sendReaction('${msg.id}', '${emoji}')">
+              <span>${emoji}</span>
+              <span class="ms-1 font-mono">${list.length}</span>
+            </button>
+          `;
+        }
+      });
+      reactionsHtml += '</div>';
+    }
+
+    if (msg.sender && msg.photoUrl) {
+      localStorage.setItem(`papos_photo_${msg.sender}`, msg.photoUrl);
+      localStorage.setItem(`papos_photo_${msg.sender.toLowerCase()}`, msg.photoUrl);
+    }
+
+    msgDiv.innerHTML = `
+      ${actionsHtml}
+      <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-action="open-profile" data-nickname="${msg.sender}" data-sender="${msg.sender}" onclick="window.openUserProfile('${msg.sender}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+        ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", msg.photoUrl || null)}
+      </button>
+      <div class="msg-content">
+        ${replyHtml}
+        <div class="msg-header">
+          <span class="msg-username" data-action="open-profile" data-nickname="${msg.sender}" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
+          <span class="msg-meta">${formatMessageTime(msg)}</span>
+        </div>
+        <div class="msg-bubble" style="${msg.color ? `color: ${msg.color} !important; font-weight: 500;` : ''}">${msg.text}</div>
+        ${reactionsHtml}
+      </div>
+    `;
+
+    chatMessagesContainer.appendChild(msgDiv);
+    scrollToBottom();
+  }
+
+  function appendSystemMessage(text) {
+    if (!chatMessagesContainer) return;
+    const sysDiv = document.createElement("div");
+    sysDiv.className = "msg-system";
+    sysDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> ${text} <span class="ms-1 text-secondary" style="font-size:0.65rem;">(${formatMessageTime({timestamp: Date.now()})})</span>`;
+    chatMessagesContainer.appendChild(sysDiv);
+    scrollToBottom();
+  }
+
+  function updateAvatarsInDOM(nickname, newPhotoUrl) {
+    if (!nickname) return;
+    const targetNick = nickname.trim();
+    const targetLower = targetNick.toLowerCase();
+    const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
+    const isMe = targetLower === myNick.toLowerCase();
+    const resolvedPhoto = (newPhotoUrl !== undefined) ? newPhotoUrl : getUserCurrentPhoto(targetNick);
+
+    // 1. Atualizar todas as mensagens exibidas no container de mensagens
+    if (chatMessagesContainer) {
+      const msgContainers = chatMessagesContainer.querySelectorAll(".msg-container");
+      msgContainers.forEach(container => {
+        let sender = container.getAttribute("data-sender");
+        if (!sender) {
+          const usernameEl = container.querySelector(".msg-username");
+          if (usernameEl) {
+            const uText = usernameEl.textContent.trim();
+            if (uText === "Você" && isMe) {
+              sender = myNick;
+            } else if (uText.toLowerCase() === targetLower) {
+              sender = uText;
+            }
+          }
+        }
+
+        if (sender && sender.toLowerCase() === targetLower) {
+          const avatarBtn = container.querySelector(".msg-avatar-btn") || container.querySelector("button.btn.flex-shrink-0");
+          if (avatarBtn) {
+            avatarBtn.innerHTML = window.ChatEngine.renderAvatar(sender, "avatar-sm", resolvedPhoto);
+          }
+        }
+      });
+    }
+
+    // 2. Atualizar lista de membros online
+    if (typeof renderMembers === "function") {
+      renderMembers();
+    }
+
+    // 3. Atualizar sidebar de conversas privadas
+    if (typeof renderPrivateConversationsSidebar === "function") {
+      renderPrivateConversationsSidebar();
+    }
+
+    // 4. Se estiver em conversa privada ativa com o usuário, atualizar avatar do cabeçalho
+    if (chatMode === "private" && activePrivateRecipient && activePrivateRecipient.toLowerCase() === targetLower) {
+      const headerAvatarContainer = document.getElementById("active-chat-avatar-container");
+      if (headerAvatarContainer) {
+        headerAvatarContainer.innerHTML = `
+          <button class="btn p-0 border-0" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
+            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm", resolvedPhoto)}
+          </button>
+        `;
+      }
+    }
+
+    // 5. Se o modal de perfil de usuário estiver aberto exibindo este usuário, atualizar avatar
+    const modalEl = document.getElementById("userProfileModal");
+    if (modalEl && modalEl.classList.contains("show")) {
+      const modalNickEl = document.getElementById("modal-profile-nickname");
+      if (modalNickEl && modalNickEl.textContent.trim().toLowerCase() === targetLower) {
+        const modalAvatarContainer = document.getElementById("modal-profile-avatar-container");
+        if (modalAvatarContainer) {
+          modalAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(targetNick, "avatar-xl mx-auto", resolvedPhoto);
+        }
+      }
+    }
+
+    // 6. Se for o próprio usuário conectado, atualizar cards da interface
+    if (isMe) {
+      if (sidebarAvatarPlaceholder && window.ChatEngine) {
+        sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-lg mx-auto mb-2", resolvedPhoto);
+      }
+      const mobileAvatarContainer = document.getElementById("mobile-nav-user-avatar");
+      if (mobileAvatarContainer && window.ChatEngine) {
+        mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", resolvedPhoto);
+      }
+      const desktopAvatarContainer = document.getElementById("desktop-nav-user-avatar");
+      if (desktopAvatarContainer && window.ChatEngine) {
+        desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", resolvedPhoto);
+      }
+    }
+  }
+
+  function handleProfileUpdateEvent(data) {
+    if (!data || !data.nickname) return;
+    const targetNick = data.nickname.trim();
+    const targetLower = targetNick.toLowerCase();
+    const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
+    const isMe = targetLower === myNick.toLowerCase();
+
+    const isExplicitRemove = data.action === "remove_photo" || data.photoUrl === null || data.profileImage === null;
+    const rawPhoto = data.photoUrl !== undefined ? data.photoUrl : (data.profileImage !== undefined ? data.profileImage : "");
+    const isValidPhotoString = typeof rawPhoto === "string" && rawPhoto.trim() !== "" && !rawPhoto.includes("null") && !rawPhoto.includes("undefined");
+
+    let effectivePhoto = null;
+
+    // 1. Atualizar localStorage de forma segura
+    if (isExplicitRemove) {
+      effectivePhoto = "";
+      localStorage.removeItem(`papos_photo_${targetNick}`);
+      localStorage.removeItem(`papos_photo_${targetLower}`);
+      if (isMe) {
+        localStorage.removeItem("papos_photo");
+      }
+    } else if (isValidPhotoString) {
+      effectivePhoto = rawPhoto.trim();
+      localStorage.setItem(`papos_photo_${targetNick}`, effectivePhoto);
+      localStorage.setItem(`papos_photo_${targetLower}`, effectivePhoto);
+      if (isMe) {
+        localStorage.setItem("papos_photo", effectivePhoto);
+      }
+    } else {
+      // Preservar foto existente do usuário
+      effectivePhoto = getUserCurrentPhoto(targetNick);
+    }
+
+    // 2. Atualizar ou invalidar profileCache em memória
+    const cache = window.profileCache || (typeof profileCache !== "undefined" ? profileCache : null);
+    if (cache) {
+      const cached = cache.get(targetLower);
+      if (cached && cached.data) {
+        if (effectivePhoto !== null) {
+          cached.data.photoUrl = effectivePhoto || "";
+          cached.data.photoURL = effectivePhoto || "";
+          cached.data.profileImage = effectivePhoto || null;
+        }
+        if (data.bio !== undefined) cached.data.bio = data.bio;
+        if (data.age !== undefined) cached.data.age = data.age;
+        if (data.gender !== undefined) cached.data.gender = data.gender;
+      }
+    }
+
+    // 3. Atualizar mensagens públicas em memória
+    if (effectivePhoto !== null && Array.isArray(publicRoomMessages)) {
+      publicRoomMessages.forEach(m => {
+        if (m.sender && m.sender.toLowerCase() === targetLower) {
+          m.photoUrl = effectivePhoto || undefined;
+        }
+      });
+    }
+
+    // 4. Atualizar mensagens privadas em memória e no localStorage
+    if (effectivePhoto !== null && typeof privateChats === "object" && privateChats) {
+      let pmChanged = false;
+      Object.keys(privateChats).forEach(partner => {
+        if (Array.isArray(privateChats[partner])) {
+          privateChats[partner].forEach(m => {
+            if (m.sender && m.sender.toLowerCase() === targetLower) {
+              m.photoUrl = effectivePhoto || undefined;
+              pmChanged = true;
+            }
+          });
+        }
+      });
+      if (pmChanged && myNick) {
+        try {
+          localStorage.setItem(`papos_pms_${myNick}`, JSON.stringify(privateChats));
+        } catch (e) {}
+      }
+    }
+
+    // 5. Atualizar todo o DOM visualmente em tempo real
+    updateAvatarsInDOM(targetNick, effectivePhoto);
+  }
+  window.handleProfileUpdateEvent = handleProfileUpdateEvent;
+  window.updateAvatarsInDOM = updateAvatarsInDOM;
+
+  try {
+    const syncChannel = new BroadcastChannel("papos_profile_sync");
+    syncChannel.onmessage = (event) => {
+      if (event && event.data && (event.data.type === "profile_updated" || event.data.type === "profile_photo_updated")) {
+        handleProfileUpdateEvent(event.data);
+        if (event.data.blockCalls !== undefined) {
+          const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+          if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+            activeSocket.send(JSON.stringify({
+              type: "update_call_settings",
+              blockCalls: Boolean(event.data.blockCalls)
+            }));
+          }
+        }
+      }
+    };
+  } catch (e) {}
+
+  window.addEventListener("storage", (e) => {
+    if (e.key === "papos_photo" || (e.key && e.key.startsWith("papos_photo_"))) {
+      const myNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
+      let nick = myNick;
+      if (e.key.startsWith("papos_photo_")) {
+        nick = e.key.replace("papos_photo_", "");
+      }
+      updateAvatarsInDOM(nick, e.newValue || "");
+    }
+  });
+
+  const setupSearchToggle = (btn) => {
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      searchBarWrapper.classList.toggle("d-none");
+      if (!searchBarWrapper.classList.contains("d-none")) {
+        searchMessagesInput.focus();
+      } else {
+        searchMessagesInput.value = "";
+        renderMessages();
+      }
+    });
+  };
+
+  if (searchBarWrapper && searchMessagesInput) {
+    setupSearchToggle(btnToggleSearch);
+    setupSearchToggle(document.getElementById("btn-toggle-search-mobile"));
+  }
+
+  if (btnCloseSearch && searchBarWrapper && searchMessagesInput) {
+    btnCloseSearch.addEventListener("click", () => {
+      searchBarWrapper.classList.add("d-none");
+      searchMessagesInput.value = "";
+      renderMessages();
+    });
+  }
+
+  if (searchMessagesInput) {
+    searchMessagesInput.addEventListener("input", (e) => {
+      renderMessages(e.target.value);
+    });
+  }
+
+  function renderModalRooms(filterText = "") {
+    if (!modalRoomsContainer) return;
+    modalRoomsContainer.innerHTML = "";
+
+    const filtered = cachedRooms.filter(room => {
+      return room.name.toLowerCase().includes(filterText.toLowerCase()) ||
+             room.desc.toLowerCase().includes(filterText.toLowerCase());
+    });
+
+    if (filtered.length === 0) {
+      modalRoomsContainer.innerHTML = `
+        <div class="col-12 text-center py-4 text-secondary">
+          <p class="mb-0 small">Nenhuma sala correspondente.</p>
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(room => {
+      const isCurrent = room.id === activeRoomId && chatMode === "public";
+      const count = room.count || 0;
+      const col = document.createElement("div");
+      col.className = "col-md-6";
+      
+      const countLabel = count === 1 ? "1 pessoa" : `${count} pessoas`;
+      const countBadge = `<span class="badge bg-dark border border-secondary text-secondary rounded-pill d-block mb-2 small" style="font-size: 0.65rem;">${countLabel}</span>`;
+
+      col.innerHTML = `
+        <div class="card p-3 h-100 d-flex flex-row align-items-center justify-content-between ${isCurrent ? 'border-success' : ''}" style="background-color: var(--surface-secondary) !important;">
+          <div class="text-start text-truncate me-2" style="flex: 1; min-width: 0;">
+            <h6 class="text-white fw-bold mb-1 text-truncate">${room.name}</h6>
+            <p class="text-secondary mb-0 small text-truncate" style="font-size: 0.72rem; max-width: 220px;">${room.desc}</p>
+          </div>
+          <div class="text-end flex-shrink-0 ms-2">
+            ${countBadge}
+            ${isCurrent ? 
+              `<span class="badge bg-success text-black py-1.5 px-2.5 rounded d-block" style="font-size: 0.72rem;">Atual</span>` : 
+              `<button class="btn btn-secondary-custom btn-sm py-1 px-3 d-block" onclick="switchPublicRoom('${room.id}')" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">Entrar</button>`
+            }
+          </div>
+        </div>
+      `;
+      modalRoomsContainer.appendChild(col);
+    });
+  }
+
+  window.switchPublicRoom = (roomId) => {
+    
+    const modalEl = document.getElementById("roomsModal");
+    if (modalEl) {
+      const modalInstance = bootstrap.Modal.getInstance(modalEl);
+      if (modalInstance) modalInstance.hide();
+    }
+
+    chatMode = "public";
+    activePrivateRecipient = null;
+    activeRoomId = roomId;
+
+    activeTypingUsers.clear();
+    if (typingIndicatorBar) typingIndicatorBar.classList.add("d-none");
+
+    const newUrl = `${window.location.pathname}?room=${roomId}`;
+    window.history.pushState({ path: newUrl }, "", newUrl);
+
+    sendJoinRoom(roomId);
+  };
+
+  if (searchRoomsModal) {
+    searchRoomsModal.addEventListener("input", (e) => {
+      renderModalRooms(e.target.value);
+    });
+  }
+
+  function renderMembers(filterText = "") {
+    if (!membersListContainer) return;
+    membersListContainer.innerHTML = "";
+
+    const filteredUsers = onlineUsersList.filter(u => {
+      return u.toLowerCase().includes(filterText.toLowerCase());
+    });
+
+    if (filteredUsers.length === 0) {
+      membersListContainer.innerHTML = `
+        <div class="text-center py-4 text-secondary small">
+          Nenhum membro encontrado.
+        </div>
+      `;
+      return;
+    }
+
+    filteredUsers.forEach(u => {
+      const isMe = u === (window.confirmedNickname || currentUser);
+      const isAdmin = window.isAdminUser ? window.isAdminUser(u) : (u.toLowerCase().includes("admin") || u.toLowerCase().includes("mod") || u === "Sistema");
+      const isMod = !isAdmin && (u.toLowerCase().includes("mod") || u === "Sistema");
+      
+      const avatarHtml = window.ChatEngine ? window.ChatEngine.renderAvatar(u, "avatar-member") : `<div class="avatar-member bg-secondary">P</div>`;
+      
+      const isThemeLight = document.documentElement.getAttribute("data-theme") === "light";
+      let uColor = isThemeLight ? '#111111' : '#ffffff';
+      if (isAdmin) {
+        uColor = '#ff3b30';
+      } else if (isMe) {
+        const cachedProfile = window.profileCache && (window.profileCache.get(u.toLowerCase()) || window.profileCache.get(u));
+        const customColor = (cachedProfile && (cachedProfile.nameColor || cachedProfile.color || (cachedProfile.data && (cachedProfile.data.nameColor || cachedProfile.data.color)))) || localStorage.getItem("papos_name_color");
+        uColor = customColor || (isThemeLight ? '#111111' : '#ffffff');
+      } else {
+        const cachedProfile = window.profileCache && (window.profileCache.get(u.toLowerCase()) || window.profileCache.get(u));
+        const customColor = cachedProfile && (cachedProfile.nameColor || cachedProfile.color || (cachedProfile.data && (cachedProfile.data.nameColor || cachedProfile.data.color)));
+        uColor = customColor || (isThemeLight ? '#111111' : '#ffffff');
+      }
+
+      const nameColorStyle = isAdmin 
+        ? 'color: #ff3b30 !important; font-weight: 700 !important;' 
+        : (isMe ? `color: ${uColor} !important; font-weight: 700 !important;` : `color: ${uColor} !important; font-weight: 600 !important;`);
+      const adminIconSvg = `<span class="admin-logo-badge me-1" title="Administrador do Papo.net" aria-label="Administrador do Papo.net"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><mask id="logo-mask-admin-member-${u.replace(/[^a-zA-Z0-9_-]/g, '_')}"><rect x="0" y="0" width="100" height="100" fill="white" /><line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" /></mask><g mask="url(#logo-mask-admin-member-${u.replace(/[^a-zA-Z0-9_-]/g, '_')})"><path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="#ffffff" /><path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="#ffffff" /></g><line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="#ffffff" fill="none" /><circle cx="78" cy="26" r="6" fill="#ffffff" /></g></svg></span>`;
+      const adminBadgeHtml = isAdmin ? `
+        <img
+          src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADXklEQVR4nO2Zy0tVURTGf4mTO4zUBvkg7SEhETXJqNQ7apQRDa7/gL0cWQP9DwqkIBokmWhaUEQ1Kwt6gGavYUXmxIpeDmoSSlDd2PBt2Ni95557POeeY/nBAblnr7XX59mP9a0Fy/g/0AoMAtPAvJ5p/dbCEkAtcAfIFnjGgBoSis3AZyfYe0An0KanU7/Z95+AJhKGSuC9AvyipZUPrRpjxr4FKogBK4BtwHHgNNAHdAE3FNg3oN6Hn3qNNTbX5cP4Mj6PaQ4zVyTYB7wssPY7ivCXKeDrBdAeJoFut4B454A3w3Xw4/1vC3c0xJpE24lzZ4R2xSXVpMIn5A344d5o3OsbzXpMKnN4p9c4qHqIChE1yVRUfCR4031d2R5qS3M/o4C783/i+XwY1O34d0wE3vI/X/T7o2K/m5T6s8M351O25tC3uS9yE1C2S9S3/y6vA85x/02S1/7c2s0/R1m/c60c8eNfXjX4/oG3fA=="
+          alt="Administrador Verificado"
+          aria-label="Administrador Verificado"
+          class="verified-admin-badge"
+          loading="lazy"
+          decoding="async"
+          width="16"
+          height="16"
+          style="width: 16px; height: 16px; vertical-align: middle; flex-shrink: 0; display: inline-block; margin-left: 3px;"
+        >
+      ` : '';
+
+      const memberEl = document.createElement("div");
+      memberEl.className = "member-item d-flex align-items-center justify-content-between p-2 rounded-2";
+      memberEl.innerHTML = `
+        <button type="button" class="btn p-0 border-0 d-flex align-items-center gap-2 text-truncate text-start" data-action="open-profile" data-nickname="${u.replace(/"/g, '&quot;')}" onclick="window.openUserProfile('${u}')" style="cursor: pointer; background: transparent; color: inherit; min-width: 0; flex: 1;" tabindex="0" aria-label="Ver perfil de ${u}">
+          ${avatarHtml}
+          <span class="small text-truncate d-inline-flex align-items-center gap-1.5" title="${u}" style="min-width: 0; pointer-events: none; white-space: nowrap;">
+            ${isAdmin ? adminIconSvg : ''}
+            <span class="text-truncate" style="${nameColorStyle}">${u}</span>
+            ${adminBadgeHtml}
+            ${isMod ? '<span class="badge bg-danger-subtle text-danger flex-shrink-0" style="font-size:0.55rem; padding: 2px 4px;">MOD</span>' : ''}
+          </span>
+        </button>
+        
+        ${!isMe ? `
+          <div class="d-flex gap-1 flex-shrink-0 ms-2">
+            <button class="btn btn-sm btn-secondary-custom p-1" onclick="startPrivateChat('${u}')" title="Conversar Privado" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">
+              <i class="bi bi-chat-left-text text-white"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger p-1" onclick="toggleBlockUser('${u}')" title="Bloquear" style="font-size: 0.72rem !important; border-radius: var(--radius-sm) !important;">
+              <i class="bi bi-shield-slash-fill"></i>
+            </button>
+          </div>
+        ` : ''}
+      `;
+      membersListContainer.appendChild(memberEl);
+    });
+  }
+  window.renderMembers = renderMembers;
+
+  if (searchMembersInput) {
+    searchMembersInput.addEventListener("input", (e) => {
+      renderMembers(e.target.value);
+    });
+  }
+
+  function toggleTypingIndicator(nickname, isTyping) {
+    if (!typingIndicatorBar) return;
+    
+    if (nickname === currentUser) return;
+
+    if (isTyping) {
+      activeTypingUsers.add(nickname);
+    } else {
+      activeTypingUsers.delete(nickname);
+    }
+
+    if (activeTypingUsers.size > 0) {
+      typingIndicatorBar.classList.remove("d-none");
+      
+      const usersArray = Array.from(activeTypingUsers);
+      const coloredNames = usersArray.map(name => {
+        const color = window.getUsernameColor(name);
+        return `<span style="color: ${color} !important; font-weight: 700;">${name}</span>`;
+      });
+      
+      let namesHtml = "";
+      if (coloredNames.length === 1) {
+        namesHtml = coloredNames[0];
+      } else if (coloredNames.length === 2) {
+        namesHtml = `${coloredNames[0]} e ${coloredNames[1]}`;
+      } else {
+        const last = coloredNames.pop();
+        namesHtml = `${coloredNames.join(", ")} e ${last}`;
+      }
+      
+      const verb = activeTypingUsers.size > 1 ? "estão digitando" : "está digitando";
+      
+      typingIndicatorBar.innerHTML = `
+        ${namesHtml} ${verb}
+        <span class="typing-indicator-dots">
+          <span></span><span></span><span></span>
+        </span>
+      `;
+    } else {
+      typingIndicatorBar.classList.add("d-none");
+    }
+  }
+
+  function scrollToBottom() {
+    if (!chatMessagesContainer) return;
+    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+  }
+
+  function handleSendMessage() {
+    if (!messageInput || !socket) return;
+    const text = messageInput.value.trim();
+    if (text === "") return;
+
+    if (containsLink(text) || (replyTargetMsg && containsLink(replyTargetMsg.text))) {
+      if (typeof window.showToast === "function") {
+        window.showToast("Links não são permitidos nas conversas.", "warning");
+      } else {
+        alert("Links não são permitidos nas conversas.");
+      }
+      return;
+    }
+
+    if (socket.readyState !== WebSocket.OPEN) {
+      alert("Sua conexão foi fechada. Aguarde restabelecer.");
+      return;
+    }
+
+    if (chatMode === "public") {
+      const clientMsgId = "m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+      const replyData = replyTargetMsg ? {
+        id: replyTargetMsg.id || replyTargetMsg.messageId,
+        messageId: replyTargetMsg.messageId || replyTargetMsg.id,
+        sender: replyTargetMsg.sender || replyTargetMsg.senderId,
+        senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
+        text: replyTargetMsg.text
+      } : null;
+
+      const senderNick = window.confirmedNickname || currentUser;
+      const myPhoto = getUserCurrentPhoto(senderNick) || undefined;
+      const msgObj = {
+        id: clientMsgId,
+        sender: senderNick,
+        text: text,
+        time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        timestamp: Date.now(),
+        isSystem: false,
+        color: activeMessageColor || undefined,
+        photoUrl: myPhoto,
+        replyTo: replyData,
+        reactions: {}
+      };
+
+      publicRoomMessages.push(msgObj);
+      appendSingleMessage(msgObj);
+
+      socket.send(JSON.stringify({
+        type: "message",
+        id: clientMsgId,
+        text: text,
+        color: activeMessageColor || undefined,
+        photoUrl: myPhoto,
+        replyTo: replyData
+      }));
+      clearReplyTarget();
+    } else {
+      
+      const msgId = "pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+      const replyData = replyTargetMsg ? {
+        id: replyTargetMsg.id || replyTargetMsg.messageId,
+        messageId: replyTargetMsg.messageId || replyTargetMsg.id,
+        sender: replyTargetMsg.sender || replyTargetMsg.senderId,
+        senderId: replyTargetMsg.senderId || replyTargetMsg.sender,
+        text: replyTargetMsg.text
+      } : null;
+
+      sendPrivateMessage(text, msgId, replyData);
+      
+      handleIncomingPrivateMessage({
+        id: msgId,
+        senderName: currentUser,
+        recipientName: activePrivateRecipient,
+        content: text,
+        color: activeMessageColor || undefined,
+        timestamp: Date.now(),
+        replyTo: replyData,
+        reactions: {}
+      });
+      clearReplyTarget();
+    }
+
+    messageInput.value = "";
+    adjustMessageInputHeight();
+    messageInput.focus();
+
+    if (isCurrentlyTyping) {
+      isCurrentlyTyping = false;
+      if (chatMode === "public") {
+        socket.send(JSON.stringify({ type: "typing", isTyping: false }));
+      } else {
+        socket.send(JSON.stringify({ type: "private_typing", to: activePrivateRecipient, isTyping: false }));
+      }
+    }
+  }
+
+  const adjustMessageInputHeight = () => {
+    if (!messageInput) return;
+    const minHeight = 40;
+    const maxHeight = 120;
+
+    if (!messageInput.value || messageInput.value.length === 0) {
+      messageInput.style.height = minHeight + "px";
+      messageInput.style.overflowY = "hidden";
+      messageInput.scrollTop = 0;
+      return;
+    }
+
+    messageInput.style.height = minHeight + "px";
+    const scrollH = messageInput.scrollHeight;
+
+    if (scrollH > maxHeight) {
+      messageInput.style.height = maxHeight + "px";
+      messageInput.style.overflowY = "auto";
+    } else if (scrollH > minHeight) {
+      messageInput.style.height = scrollH + "px";
+      messageInput.style.overflowY = "hidden";
+      messageInput.scrollTop = 0;
+    } else {
+      messageInput.style.height = minHeight + "px";
+      messageInput.style.overflowY = "hidden";
+      messageInput.scrollTop = 0;
+    }
+  };
+
+  if (messageInput) {
+    adjustMessageInputHeight();
+
+    messageInput.addEventListener("focus", () => {
+      if (!messageInput.value || messageInput.value.length === 0) {
+        messageInput.scrollTop = 0;
+      }
+    });
+
+    messageInput.addEventListener("input", () => {
+      adjustMessageInputHeight();
+
+      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+      if (!isCurrentlyTyping) {
+        isCurrentlyTyping = true;
+        if (chatMode === "public") {
+          socket.send(JSON.stringify({ type: "typing", isTyping: true }));
+        } else {
+          socket.send(JSON.stringify({ type: "private_typing", to: activePrivateRecipient, isTyping: true }));
+        }
+      }
+
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        isCurrentlyTyping = false;
+        if (chatMode === "public") {
+          socket.send(JSON.stringify({ type: "typing", isTyping: false }));
+        } else {
+          socket.send(JSON.stringify({ type: "private_typing", to: activePrivateRecipient, isTyping: false }));
+        }
+      }, 1500);
+    });
+
+    messageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const isMobile = window.innerWidth <= 768;
+        if (!isMobile) {
+          if (!e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+          }
+        }
+      }
+    });
+  }
+
+  if (sendButton) {
+    sendButton.addEventListener("click", handleSendMessage);
+  }
+
+  if (btnToggleSidebar && chatSidebar) {
+    btnToggleSidebar.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isActive = chatSidebar.classList.toggle("active");
+      document.body.classList.toggle("sidebar-open", isActive);
+    });
+  }
+
+  if (chatMessagesContainer && chatSidebar) {
+    chatMessagesContainer.addEventListener("click", () => {
+      if (chatSidebar.classList.contains("active")) {
+        chatSidebar.classList.remove("active");
+        document.body.classList.remove("sidebar-open");
+      }
+    });
+  }
+
+  const setupClearChat = (btn) => {
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      if (confirm("Deseja mesmo limpar as mensagens locais exibidas atualmente?")) {
+        chatMessagesContainer.innerHTML = "";
+        appendSystemMessage("O histórico local do chat foi limpo com sucesso.");
+      }
+    });
+  };
+
+  setupClearChat(btnClearChat);
+  setupClearChat(document.getElementById("btn-clear-chat-mobile"));
+
+  if (btnCancelReply) {
+    btnCancelReply.addEventListener("click", clearReplyTarget);
+  }
+
+  connect();
+  renderPrivateConversationsSidebar();
+
+  window.sendReaction = (messageId, emoji = "👍") => {
+    if (!messageId) return;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      if (chatMode === "public") {
+        socket.send(JSON.stringify({
+          type: "reaction",
+          messageId,
+          emoji
+        }));
+      } else if (activePrivateRecipient) {
+        socket.send(JSON.stringify({
+          type: "private_reaction",
+          messageId,
+          to: activePrivateRecipient,
+          emoji
+        }));
+      }
+    }
+  };
+
+  let maintenanceIntervalId = null;
+
+  function parseDateTimeToTimestamp(dateStr, timeStr) {
+    if (!dateStr && !timeStr) return null;
+    let d = dateStr ? String(dateStr).trim() : "";
+    let t = timeStr ? String(timeStr).trim() : "00:00";
+
+    if (!d && t.includes("/")) {
+      const parts = t.split(" ");
+      d = parts[0];
+      t = parts[1] || "00:00";
+    }
+
+    if (!d) {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      d = `${yyyy}-${mm}-${dd}`;
+    } else if (d.includes("/")) {
+      const parts = d.split("/");
+      if (parts.length === 3) {
+        d = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+      }
+    }
+
+    if (!t.includes(":")) {
+      t = "00:00";
+    }
+    const timeParts = t.split(":");
+    const hours = (timeParts[0] || "0").padStart(2, "0");
+    const minutes = (timeParts[1] || "0").padStart(2, "0");
+    const seconds = (timeParts[2] || "0").padStart(2, "0");
+
+    const isoString = `${d}T${hours}:${minutes}:${seconds}`;
+    const ts = Date.parse(isoString);
+    return isNaN(ts) ? null : ts;
+  }
+
+  function handleMaintenanceUpdate(settings) {
+    if (!settings) return;
+    const isMaintenance = settings.enabled === true || settings.active === true || settings.maintenanceEnabled === true;
+    const title = settings.title || settings.maintenanceTitle || "Sistema em Manutenção";
+    const message = settings.message || settings.maintenanceMessage || "Estamos realizando melhorias na plataforma. Voltamos em instantes!";
+    const startDate = settings.startDate || settings.maintenanceStartDate || "";
+    const startTime = settings.startTime || settings.maintenanceStartTime || "";
+    const endDate = settings.endDate || settings.maintenanceEndDate || "";
+    const endTime = settings.endTime || settings.maintenanceEndTime || "";
+
+    const overlay = document.getElementById("maintenanceOverlay");
+    if (!overlay) return;
+
+    if (maintenanceIntervalId) {
+      clearInterval(maintenanceIntervalId);
+      maintenanceIntervalId = null;
+    }
+
+    const isAdmin = localStorage.getItem("papos_is_admin") === "true" || window.isAdmin === true;
+
+    if (isMaintenance && !isAdmin) {
+      overlay.classList.remove("d-none");
+      const titleEl = document.getElementById("maintenanceTitle");
+      const messageEl = document.getElementById("maintenanceMessage");
+      const timeContainer = document.getElementById("maintenanceTimeContainer");
+      const startText = document.getElementById("maintenanceStartText");
+      const endText = document.getElementById("maintenanceEndText");
+      const countdownRow = document.getElementById("maintenanceCountdownRow");
+      const countdownText = document.getElementById("maintenanceCountdownText");
+      const progressBar = document.getElementById("maintenanceProgressBar");
+      const progressPercent = document.getElementById("maintenanceProgressPercent");
+
+      if (titleEl) titleEl.textContent = title;
+      if (messageEl) messageEl.textContent = message;
+
+      const startTimestamp = parseDateTimeToTimestamp(startDate, startTime);
+      const endTimestamp = parseDateTimeToTimestamp(endDate, endTime);
+
+      const hasSchedule = Boolean(startDate || startTime || endDate || endTime);
+
+      if (timeContainer) {
+        if (hasSchedule) {
+          timeContainer.classList.remove("d-none");
+          if (startText) {
+            let sStr = "-";
+            if (startDate && startTime) sStr = `${startDate} às ${startTime}`;
+            else if (startTime) sStr = startTime;
+            else if (startDate) sStr = startDate;
+            startText.textContent = sStr;
+          }
+          if (endText) {
+            let eStr = "-";
+            if (endDate && endTime) eStr = `${endDate} às ${endTime}`;
+            else if (endTime) eStr = endTime;
+            else if (endDate) eStr = endDate;
+            endText.textContent = eStr;
+          }
+        } else {
+          timeContainer.classList.add("d-none");
+        }
+      }
+
+      function updateTick() {
+        const now = Date.now();
+
+        if (!endTimestamp) {
+          if (countdownRow) countdownRow.classList.add("d-none");
+          if (progressBar) progressBar.style.width = "100%";
+          if (progressPercent) progressPercent.textContent = "Em andamento";
+          return;
+        }
+
+        if (countdownRow) countdownRow.classList.remove("d-none");
+
+        const diffMs = endTimestamp - now;
+        if (diffMs <= 0) {
+          if (countdownText) {
+            countdownText.textContent = "Finalizando manutenção...";
+            countdownText.className = "badge bg-success bg-opacity-20 text-success border border-success border-opacity-30 px-2.5 py-1 font-monospace fw-bold";
+          }
+          if (progressBar) {
+            progressBar.style.width = "100%";
+            progressBar.className = "progress-bar bg-success";
+          }
+          if (progressPercent) progressPercent.textContent = "100% concluído";
+          return;
+        }
+
+        const totalSecs = Math.floor(diffMs / 1000);
+        const hours = Math.floor(totalSecs / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const secs = totalSecs % 60;
+
+        let formatted = "";
+        if (hours > 0) {
+          formatted += `${String(hours).padStart(2, "0")}h `;
+        }
+        formatted += `${String(mins).padStart(2, "0")}min ${String(secs).padStart(2, "0")}s`;
+
+        if (countdownText) {
+          countdownText.textContent = formatted;
+        }
+
+        if (startTimestamp && endTimestamp > startTimestamp) {
+          const totalDuration = endTimestamp - startTimestamp;
+          const elapsed = now - startTimestamp;
+          const pct = Math.min(99, Math.max(5, Math.round((elapsed / totalDuration) * 100)));
+          if (progressBar) progressBar.style.width = `${pct}%`;
+          if (progressPercent) progressPercent.textContent = `${pct}% concluído`;
+        } else {
+          if (progressBar) progressBar.style.width = "85%";
+          if (progressPercent) progressPercent.textContent = "Em andamento";
+        }
+      }
+
+      updateTick();
+      if (endTimestamp) {
+        maintenanceIntervalId = setInterval(updateTick, 1000);
+      }
+    } else {
+      overlay.classList.add("d-none");
+    }
+  }
+
+  if (window.FirebaseService && typeof window.FirebaseService.subscribeToSystemSettings === "function") {
+    window.FirebaseService.subscribeToSystemSettings((settings) => {
+      handleMaintenanceUpdate(settings);
+    });
+  } else {
+    const checkFbSettings = setInterval(() => {
+      if (window.FirebaseService && typeof window.FirebaseService.subscribeToSystemSettings === "function") {
+        clearInterval(checkFbSettings);
+        window.FirebaseService.subscribeToSystemSettings((settings) => {
+          handleMaintenanceUpdate(settings);
+        });
+      }
+    }, 200);
+  }
+
+  window.likeMessage = (messageId) => {
+    window.sendReaction(messageId, "👍");
+  };
+
+  window.toggleLike = (messageId, emoji = "👍") => {
+    window.sendReaction(messageId, emoji);
+  };
+
+  window.deleteMessage = (messageId) => {
+    if (!messageId) return;
+    if (confirm("Deseja realmente excluir esta mensagem permanentemente para todos?")) {
+      const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+      if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) {
+        const toastFn = window.showToast || window.showAdminToast;
+        if (typeof toastFn === "function") {
+          toastFn("Conexão perdida. Não foi possível excluir a mensagem no momento.", "error");
+        }
+        return;
+      }
+      if (chatMode === "public") {
+        activeSocket.send(JSON.stringify({
+          type: "delete_message",
+          messageId: String(messageId)
+        }));
+      } else {
+        activeSocket.send(JSON.stringify({
+          type: "delete_private_message",
+          messageId: String(messageId),
+          to: activePrivateRecipient
+        }));
+      }
+    }
+  };
+
+  window.toggleBlockUser = (username) => {
+    if (username === currentUser) return;
+    if (confirm(`Bloquear o usuário '${username}'? Você não receberá mais as mensagens dele.`)) {
+      blockedUsers.push(username);
+      localStorage.setItem("papos_blocked_users", JSON.stringify(blockedUsers));
+      window.location.reload();
+    }
+  };
+
+  window.reportUser = (username) => {
+    alert(`Usuário '${username}' denunciado. Nossa equipe de moderação avaliará o comportamento nas últimas conversas.`);
+  };
+
+  const privateToggleHeader = document.getElementById("private-chats-toggle");
+  const privateList = document.getElementById("private-conversations-list");
+  const privateArrow = document.getElementById("private-chats-arrow");
+
+  if (privateToggleHeader && privateList) {
+    const isCollapsed = localStorage.getItem("papos_private_collapsed") === "true";
+    if (isCollapsed) {
+      privateList.classList.add("collapsed");
+      if (privateArrow) privateArrow.classList.add("rotate-180");
+    }
+
+    privateToggleHeader.addEventListener("click", () => {
+      const currentlyCollapsed = privateList.classList.toggle("collapsed");
+      if (privateArrow) {
+        privateArrow.classList.toggle("rotate-180", currentlyCollapsed);
+      }
+      localStorage.setItem("papos_private_collapsed", currentlyCollapsed ? "true" : "false");
+    });
+  }
+
+  const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+  if (sidebarBackdrop && chatSidebar) {
+    sidebarBackdrop.addEventListener("click", () => {
+      chatSidebar.classList.remove("active");
+      document.body.classList.remove("sidebar-open");
+    });
+  }
+
+  const resizer = document.getElementById("sidebar-resizer");
+  const sidebar = document.getElementById("chat-sidebar");
+  let isResizing = false;
+
+  if (resizer && sidebar) {
+    const applySidebarWidth = () => {
+      if (window.innerWidth > 768) {
+        let savedWidth = parseInt(localStorage.getItem("papos_sidebar_width"), 10);
+        const minSidebarWidth = 220;
+        const minChatWidth = 400;
+        const maxSidebarWidth = Math.min(450, window.innerWidth - minChatWidth);
+
+        if (savedWidth) {
+          if (savedWidth < minSidebarWidth) savedWidth = minSidebarWidth;
+          if (savedWidth > maxSidebarWidth) savedWidth = maxSidebarWidth;
+          sidebar.style.width = savedWidth + "px";
+        } else {
+          sidebar.style.width = "280px"; 
+        }
+      } else {
+        sidebar.style.width = ""; 
+      }
+    };
+
+    applySidebarWidth();
+
+    window.addEventListener("resize", applySidebarWidth);
+
+    const startResize = (clientX) => {
+      isResizing = true;
+      resizer.classList.add("dragging");
+      sidebar.style.transition = "none"; 
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    };
+
+    const doResize = (clientX) => {
+      if (!isResizing) return;
+      const minSidebarWidth = 220;
+      const minChatWidth = 400;
+      const maxSidebarWidth = Math.min(450, window.innerWidth - minChatWidth);
+
+      let newWidth = clientX;
+      if (newWidth < minSidebarWidth) newWidth = minSidebarWidth;
+      if (newWidth > maxSidebarWidth) newWidth = maxSidebarWidth;
+
+      sidebar.style.width = newWidth + "px";
+    };
+
+    const stopResize = () => {
+      if (isResizing) {
+        isResizing = false;
+        resizer.classList.remove("dragging");
+        sidebar.style.transition = ""; 
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        localStorage.setItem("papos_sidebar_width", sidebar.offsetWidth);
+      }
+    };
+
+    resizer.addEventListener("mousedown", (e) => {
+      if (window.innerWidth <= 768) return;
+      e.preventDefault();
+      startResize(e.clientX);
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!isResizing) return;
+      doResize(e.clientX);
+    });
+
+    document.addEventListener("mouseup", stopResize);
+
+    resizer.addEventListener("touchstart", (e) => {
+      if (window.innerWidth <= 768) return;
+      if (e.touches.length > 0) {
+        startResize(e.touches[0].clientX);
+      }
+    }, { passive: true });
+
+    document.addEventListener("touchmove", (e) => {
+      if (!isResizing) return;
+      if (e.touches.length > 0) {
+        doResize(e.touches[0].clientX);
+      }
+    }, { passive: false });
+
+    document.addEventListener("touchend", stopResize);
+  }
+});
+
+function setReplyTarget(id, sender, text) {
+  replyTargetMsg = {
+    id: id,
+    messageId: id,
+    sender: sender,
+    senderId: sender,
+    text: text
+  };
+  const bar = document.getElementById("reply-reference-bar");
+  const referenceText = document.getElementById("reply-reference-text");
+  const input = document.getElementById("message-input");
+
+  if (bar && referenceText) {
+    bar.classList.remove("d-none");
+    referenceText.innerHTML = `Respondendo a <strong>${sender}</strong>: <span class="opacity-75">${text}</span>`;
+  }
+  if (input) input.focus();
+}
+
+function clearReplyTarget() {
+  replyTargetMsg = null;
+  const bar = document.getElementById("reply-reference-bar");
+  if (bar) bar.classList.add("d-none");
+}
+
+window.setReplyTarget = setReplyTarget;
+window.clearReplyTarget = clearReplyTarget;
+
+window.addEventListener("papos_theme_change", () => {
+  if (typeof renderMembers === "function") {
+    renderMembers();
+  }
+});
+
+const EMOJI_CATEGORIES = {
+  faces: [
+    "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","😈","👿","👹","👺","💀","☠️","👻","👽","👾","🤖","💩","😺","😸","😹","😻","😼","😽","🙀","😿","😾","👋","🤚","🖐️","✋","🖖","👌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✍️","💅","🤳","💪","🦾","🧠","🧡"
+  ],
+  animals: [
+    "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐽","🐸","🐵","🙈","🙉","🙊","🐒","🐔","🐧","🐦","🐤","🐣","🐥","🦆","🦢","🦉","🦚","🦜","🐢","🐍","🦎","🦖","🦕","🐙","🦑","🦞","🦀","🐡","🐠","🐟","🐬","🐳","🐋","🦈","🐊","🐅","🐆","🦓","🦍","🦧","🐘","🦛","🦏","🐪","🐫","🦒","🦘","🐃","🐂","🐄","🐎","🐖","🐏","🐑","🐐","🦌","🐕","🐩","🐈","🐓","🦃","🕊️","🐇","🐁","🐀","🐿️","🦥","🦦","🦨","🦡","🐾","🌲","🌳","🌴","🌵","🌾","🌿","🍀","🍁","🍂","🍃","🌸","🌹","🌺","🌻","🌼","🌷","🌱"
+  ],
+  food: [
+    "🍏","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🍈","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🌽","🥕","🥔","🍠","🥐","🥯","🍞","🥖","🥨","🧀","🥚","🍳","🥞","🥓","🥩","🍗","🍖","🌭","🍔","🍟","🍕","🥪","🌮","🌯","🥗","🥘","🍲","🍜","🍝","🍣","🍤","🥟","🍦","🍧","🍨","🍩","🍪","🎂","🍰","🧁","🥧","🍫","🍬","🍭","🍮","🍯","☕","🍵","🥤","🥛","🍼","🍺","🍻","🥂","🍷","🥃","🍹","🧉","🍾","🍿","🧂"
+  ],
+  activities: [
+    "⚽","🏀","🏈","⚾","🥎","👑","🏆","🥇","🥈","🥉","🏅","🎖️","🎟️","🎫","🎪","🤹","🎭","🎨","🎬","🎤","🎧","🎼","🎹","🥁","🎷","🎺","🎸","🪕","🎮","🕹️","👾","🎰","🎲","♟️","🧩","🎯","🎳","🏌️","🏄","🏊","🏋️","🚴","🧗","🥋","🥊","🏂","⛷️","🛹","🛷","⛸️"
+  ],
+  travel: [
+    "🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🛻","🚚","🚛","🚜","🛵","🏍️","🛺","🚲","🛴","🛹","🚂","🚊","✈️","🛫","𛲢","𛲣","🚁","🛰️","🚀","🛸","⛵","🚢","⚓","⛽","🚧","🗺️","🗿","🗼","🗽","🎡","🎢","⛰️","🌋","🏕️","🏖️","🏜️","🏝️","🏞️","🏟️","🏛️","🏢","🏪","🏫","🏨","🏥","🏦","⛪","🕌","🌅","🌄","🌌","🌉","🌆","🌇","🎈","🎉","🎊","🇯🇵","🇧🇷","🇺🇸","🇪🇸","🇫🇷","🇮🇹","🇩🇪","🇬🇧","🇵🇹","🇦🇷","🇨🇦","🇲🇽"
+  ],
+  objects: [
+    "⌚","📱","💻","⌨️","🖥️","🖨️","🖱️","🖲️","💾","💿","📀","📷","📸","📹","🎥","📽️","📞","📟","📠","📺","📻","🎙️","🧭","⏰","⏳","🔋","🔌","💡","🔦","🕯️","🗑️","💸","💵","💴","💶","💷","🪙","💰","💳","💎","⚖️","🔧","🔨","⚒️","⛏️","⚙️","⛓️","🔫","💣","🪓","🔪","🛡️","🚬","⚰️","🔮","🔭","🔬","💊","🩹","🩺","🩸","🔑","🔒","🔓","📦","✉️","📧","📮","📝","📅","📂","📎","📌","✂️"
+  ],
+  hearts: [
+    "❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","💌","💋","👥","👤","💬","💭","🗯️","💯","🔥","✨","🌟","⭐","💥","💢","💦","💤","🌀","🔔","📣","📢","🔴","🔵","🟢","🟡","⚫","⚪","🏁","🚩","⚠️","✅","❌","ℹ️"
+  ]
+};
+
+const EMOJI_TAGS = {
+  "😀": "sorriso rir alegre feliz dente papos", "😃": "sorriso rir alegre feliz dente", "😄": "sorriso rir alegre feliz olho", "😁": "sorriso rindo alegre dente",
+  "😆": "gargalhada rir risada engraçado", "😅": "suor rir alivio tenso", "😂": "chorar de rir riso gargalhada engraçado", "🤣": "rolar de rir risada hilario",
+  "😊": "feliz tímido corado sorriso", "😇": "anjo inocente santo", "🙂": "sorriso leve ok", "🙃": "de ponta cabeça ironia bobo",
+  "😉": "piscadela piscando cumplicidade", "😌": "aliviado calmo paz", "😍": "apaixonado amor coracao olhos", "🥰": "apaixonado amor carinho coracoes",
+  "😘": "beijo amor coracao carinho", "😋": "delicia gostoso comida lingua", "😛": "lingua bobo brincadeira", "😜": "piscando lingua bobo brincadeira",
+  "🤪": "louco bobo divertido", "😎": "legal oculos sol estilo", "🤩": "estrela impressionado uau", "🥳": "festa comemorar aniversario",
+  "😏": "malicioso ironia desconfiado", "😒": "desgosto chateado desanimado", "😞": "triste decepcionado", "😔": "triste pensativo melancolico",
+  "😟": "preocupado ansioso", "😕": "confuso duvida", "🥺": "por favor pidão choro fofo", "😢": "triste choro lagrima",
+  "😭": "chorando muito pranto lagrimas", "😤": "bravo triunfo raiva orgulho", "😠": "bravo raiva irritado", "😡": "furioso raiva bravo",
+  "🤬": "xingando palavrão raiva", "🤯": "mente explodindo uau chocado", "😳": "vergonha chocado corado", "🥵": "calor quente fogo",
+  "🥶": "frio gelo neve", "😱": "pânico medo susto chocado", "😴": "dormindo sono cansado", "🤮": "vomitando nojo doente",
+  "🤒": "doente febre termometro", "🤕": "machucado curativo dor", "😈": "diabo malicia sorriso", "💀": "caveira morte perigo",
+  "👻": "fantasma susto halloween", "👽": "alien extraterrestre space", "🤖": "robo tecnologia", "💩": "coco bosta divertido",
+  "👍": "joinha sim gostei aprovo legal", "👎": "não gostei ruim desaprovo", "👏": "palmas parabens", "🙌": "comemorar festa amem",
+  "🙏": "por favor rezar oração agradecido grato", "❤️": "coracao vermelho amor", "🧡": "coracao laranja amor", "💛": "coracao amarelo amor",
+  "💚": "coracao verde amor", "💙": "coracao azul amor", "💜": "coracao roxo amor", "🖤": "coracao preto luto",
+  "🤍": "coracao branco paz", "💔": "coracao partido tristeza dor", "🔥": "fogo quente sucesso incrivel", "✨": "brilho magica estrelas",
+  "🌟": "estrela brilho ouro", "⭐": "estrela", "💥": "explosao impacto", "💤": "sono dormindo", "🎉": "festa confete comemorar",
+  "🎁": "presente aniversario natal", "💡": "ideia luz lampada", "💻": "computador pc notebook tecnologia", "📱": "celular telefone smartphone",
+  "🎮": "jogo games controle", "⚽": "futebol bola esporte", "🐱": "gato miado felino pet", "🐶": "cachorro cao pet latido",
+  "🚀": "foguete espaco subir voar", "🍕": "pizza comida queijo", "🍔": "hamburguer comida lanche", "🍺": "cerveja chopp bebida bar",
+  "☕": "cafe xicara quente bebida", "💖": "coracao brilhante amor", "💘": "cupido amor flecha"
+};
+
+window.currentEmojiCategory = "faces";
+
+window.renderEmojiGrid = function(emojis, targetContainer, isMobile) {
+  if (!targetContainer) return;
+  targetContainer.innerHTML = "";
+  
+  emojis.forEach(emoji => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn p-1 border-0 m-0 btn-hover-emoji";
+    btn.style.width = "38px";
+    btn.style.height = "38px";
+    btn.style.fontSize = isMobile ? "1.45rem" : "1.35rem";
+    btn.style.lineHeight = "1";
+    btn.style.background = "none";
+    btn.style.transition = "transform 0.1s ease";
+    btn.innerText = emoji;
+    
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("message-input");
+      if (input) {
+        const startPos = input.selectionStart || 0;
+        const endPos = input.selectionEnd || 0;
+        const text = input.value;
+        input.value = text.substring(0, startPos) + emoji + text.substring(endPos);
+        input.selectionStart = input.selectionEnd = startPos + emoji.length;
+        input.focus();
+        
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+    
+    btn.addEventListener("mouseenter", () => {
+      btn.style.transform = "scale(1.2)";
+    });
+    btn.addEventListener("mouseleave", () => {
+      btn.style.transform = "scale(1)";
+    });
+    
+    targetContainer.appendChild(btn);
+  });
+};
+
+window.filterEmojis = function(query, containerId, isMobile) {
+  const container = document.getElementById(containerId);
+  if (!container || container.dataset.reactMounted === "true") return;
+  container.innerHTML = "";
+  
+  const cleanQuery = query.toLowerCase().trim();
+  
+  if (cleanQuery === "") {
+    
+    const category = window.currentEmojiCategory || "faces";
+    const emojis = EMOJI_CATEGORIES[category] || [];
+    window.renderEmojiGrid(emojis, container, isMobile);
+    
+    let parent = container.parentElement;
+    if (parent) {
+      const tabs = parent.querySelector(".emoji-tabs");
+      if (tabs) {
+        tabs.style.setProperty("display", "flex", "important");
+      }
+    }
+    return;
+  }
+  
+  const matchedEmojis = [];
+  
+  for (const cat in EMOJI_CATEGORIES) {
+    const emojis = EMOJI_CATEGORIES[cat] || [];
+    emojis.forEach(emoji => {
+      const tags = EMOJI_TAGS[emoji] || "";
+      const matchesCategory = cat.toLowerCase().includes(cleanQuery);
+      const matchesTags = tags.includes(cleanQuery);
+      if (matchesCategory || matchesTags || emoji === cleanQuery) {
+        if (!matchedEmojis.includes(emoji)) {
+          matchedEmojis.push(emoji);
+        }
+      }
+    });
+  }
+  
+  if (matchedEmojis.length === 0) {
+    const noResults = document.createElement("span");
+    noResults.className = "text-secondary small py-3 d-block text-center w-100";
+    noResults.innerText = "Nenhum emoji encontrado";
+    container.appendChild(noResults);
+  } else {
+    window.renderEmojiGrid(matchedEmojis, container, isMobile);
+  }
+  
+  let parent = container.parentElement;
+  if (parent) {
+    const tabs = parent.querySelector(".emoji-tabs");
+    if (tabs) {
+      tabs.style.setProperty("display", "none", "important");
+    }
+  }
+};
+
+window.closeMobileDropdown = function() {
+  const btnMobileActions = document.getElementById("btn-mobile-actions");
+  if (btnMobileActions) {
+    const dropdownInstance = bootstrap.Dropdown.getInstance(btnMobileActions);
+    if (dropdownInstance) {
+      dropdownInstance.hide();
+    }
+  }
+};
+
+window.switchEmojiCategory = function(category) {
+  window.currentEmojiCategory = category;
+  
+  const container = document.getElementById("emoji-grid-container");
+  const mobileContainer = document.getElementById("mobile-emoji-grid-container");
+  if (!container && !mobileContainer) return;
+
+  const emojis = EMOJI_CATEGORIES[category] || [];
+  
+  if (container && container.dataset.reactMounted !== "true") {
+    window.renderEmojiGrid(emojis, container, false);
+    const desktopTabs = container.parentElement ? container.parentElement.querySelector(".emoji-tabs") : null;
+    if (desktopTabs) desktopTabs.style.setProperty("display", "flex", "important");
+  }
+  if (mobileContainer && mobileContainer.dataset.reactMounted !== "true") {
+    window.renderEmojiGrid(emojis, mobileContainer, true);
+    const mobileTabs = mobileContainer.parentElement ? mobileContainer.parentElement.querySelector(".emoji-tabs") : null;
+    if (mobileTabs) mobileTabs.style.setProperty("display", "flex", "important");
+  }
+
+  const updateTabs = (dropdownId) => {
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+      const tabs = dropdown.querySelectorAll(".emoji-tabs button");
+      tabs.forEach(tab => {
+        const onclickAttr = tab.getAttribute("onclick") || "";
+        const isClicked = onclickAttr.includes(category);
+        if (isClicked) {
+          tab.classList.add("active-emoji-tab");
+          tab.style.opacity = "1";
+          tab.style.fontWeight = "bold";
+        } else {
+          tab.classList.remove("active-emoji-tab");
+          tab.style.opacity = "0.5";
+          tab.style.fontWeight = "normal";
+        }
+      });
+    }
+  };
+
+  updateTabs("emoji-picker-dropdown");
+  updateTabs("mobile-actions-dropdown");
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const searchDesktop = document.getElementById("emoji-search-desktop");
+  const searchMobile = document.getElementById("emoji-search-mobile");
+  
+  if (searchDesktop) {
+    searchDesktop.addEventListener("input", (e) => {
+      window.filterEmojis(e.target.value, "emoji-grid-container", false);
+    });
+  }
+  
+  if (searchMobile) {
+    searchMobile.addEventListener("input", (e) => {
+      window.filterEmojis(e.target.value, "mobile-emoji-grid-container", true);
+    });
+  }
+
+  const btnMobileOpenEmojis = document.getElementById("btn-mobile-open-emojis");
+  const btnMobileOpenColors = document.getElementById("btn-mobile-open-colors");
+  const btnMobileEmojiBack = document.getElementById("btn-mobile-emoji-back");
+  const btnMobileColorBack = document.getElementById("btn-mobile-color-back");
+
+  const step1 = document.getElementById("mobile-menu-step-1");
+  const menuEmojis = document.getElementById("mobile-menu-emojis");
+  const menuColors = document.getElementById("mobile-menu-colors");
+
+  if (btnMobileOpenEmojis) {
+    btnMobileOpenEmojis.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (step1) step1.classList.add("d-none");
+      if (menuEmojis) menuEmojis.classList.remove("d-none");
+      setTimeout(() => { if (searchMobile) searchMobile.focus(); }, 100);
+    });
+  }
+
+  if (btnMobileOpenColors) {
+    btnMobileOpenColors.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (step1) step1.classList.add("d-none");
+      if (menuColors) menuColors.classList.remove("d-none");
+    });
+  }
+
+  if (btnMobileEmojiBack) {
+    btnMobileEmojiBack.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (menuEmojis) menuEmojis.classList.add("d-none");
+      if (step1) step1.classList.remove("d-none");
+    });
+  }
+
+  if (btnMobileColorBack) {
+    btnMobileColorBack.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (menuColors) menuColors.classList.add("d-none");
+      if (step1) step1.classList.remove("d-none");
+    });
+  }
+
+  const btnMobileActions = document.getElementById("btn-mobile-actions");
+  if (btnMobileActions) {
+    btnMobileActions.addEventListener("click", () => {
+      if (step1) step1.classList.remove("d-none");
+      if (menuEmojis) menuEmojis.classList.add("d-none");
+      if (menuColors) menuColors.classList.add("d-none");
+      if (searchMobile) searchMobile.value = "";
+      window.switchEmojiCategory("faces");
+    });
+  }
+
+  const fetchProfileFromFirestore = async (nickname) => {
+    if (window.FirebaseService && typeof window.FirebaseService.getUserProfileByNickname === "function") {
+      try {
+        const firestoreData = await window.FirebaseService.getUserProfileByNickname(nickname);
+        if (firestoreData) {
+          return {
+            nickname: firestoreData.nickname || firestoreData.displayName || nickname,
+            photoUrl: firestoreData.photoUrl || firestoreData.photoURL || "",
+            bio: firestoreData.bio || "",
+            age: firestoreData.age !== undefined && firestoreData.age !== null && firestoreData.age !== "" ? Number(firestoreData.age) : null,
+            gender: firestoreData.gender || "",
+            online: firestoreData.online !== undefined ? firestoreData.online : false,
+            permanentId: firestoreData.permanentId || firestoreData.internalId || "USR-Membro",
+            admin: firestoreData.admin === true
+          };
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar perfil no Firestore:", e);
+      }
+    }
+    return null;
+  };
+
+  window.openUserProfile = (nickname) => {
+    if (!nickname) return;
+    
+    if (nickname === "Sistema" || nickname === "System") return;
+    
+    const currentNick = window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname"));
+    const realName = (nickname === "Você") ? currentNick : nickname;
+    if (!realName) return;
+    const isMe = currentNick && (realName.toLowerCase() === currentNick.toLowerCase());
+
+    const cache = window.profileCache || profileCache;
+    const cached = cache.get(realName.toLowerCase());
+    
+    // 1. Immediately construct instantaneous profile data (< 5ms)
+    let initialProfile = null;
+    if (cached && cached.data) {
+      initialProfile = cached.data;
+    } else if (isMe) {
+      const mySavedPhoto = localStorage.getItem("papos_photo") || "";
+      initialProfile = {
+        nickname: realName,
+        photoUrl: mySavedPhoto,
+        profileImage: mySavedPhoto,
+        bio: localStorage.getItem("papos_bio") || "",
+        age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
+        gender: localStorage.getItem("papos_gender") || "",
+        online: true,
+        permanentId: localStorage.getItem("papos_permanent_id") || localStorage.getItem("papo_guest_id") || "USR-Membro"
+      };
+      cache.set(realName.toLowerCase(), { data: initialProfile, timestamp: Date.now() });
+    } else {
+      const knownPhoto = getUserCurrentPhoto(realName);
+      initialProfile = {
+        nickname: realName,
+        photoUrl: knownPhoto,
+        profileImage: knownPhoto,
+        bio: "",
+        age: null,
+        gender: "",
+        online: true,
+        permanentId: "USR-Membro"
+      };
+    }
+
+    // 2. Open modal IMMEDIATELY (< 50ms)
+    displayUserProfileModal(initialProfile, isMe);
+
+    // 3. Fetch fresh profile in background (non-blocking)
+    const now = Date.now();
+    if (!cached || (now - cached.timestamp >= CACHE_TTL_MS)) {
+      const activeSocket = window.activeChatSocket || window.socket || (typeof socket !== "undefined" ? socket : null);
+      if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+        window.pendingProfileRequest = {
+          nickname: realName,
+          isMe: isMe,
+          timestamp: now
+        };
+        activeSocket.send(JSON.stringify({
+          type: "get_profile",
+          nickname: realName
+        }));
+      } else {
+        fetchProfileFromFirestore(realName).then((data) => {
+          if (data) {
+            cache.set(realName.toLowerCase(), { data, timestamp: Date.now() });
+            const modalEl = document.getElementById("userProfileModal");
+            if (modalEl && modalEl.classList.contains("show")) {
+              displayUserProfileModal(data, isMe);
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+  };
+
+  window.handleProfileDataResponse = (data) => {
+    if (!data || !data.nickname) return;
+    
+    const currentNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
+    const reqInfo = window.pendingProfileRequest;
+    const isMe = reqInfo ? (data.nickname.toLowerCase() === currentNick.toLowerCase()) : (data.nickname.toLowerCase() === currentNick.toLowerCase());
+    
+    const cache = window.profileCache || profileCache;
+
+    // Preservar foto se payload veio sem foto
+    let photoToUse = data.photoUrl || data.photoURL || data.profileImage;
+    if (!photoToUse || typeof photoToUse !== "string" || photoToUse.trim() === "" || photoToUse.includes("null") || photoToUse.includes("undefined")) {
+      photoToUse = getUserCurrentPhoto(data.nickname);
+    }
+    data.photoUrl = photoToUse || "";
+    data.profileImage = photoToUse || null;
+
+    cache.set(data.nickname.toLowerCase(), {
+      data: data,
+      timestamp: Date.now()
+    });
+
+    if (photoToUse) {
+      localStorage.setItem(`papos_photo_${data.nickname}`, photoToUse);
+      localStorage.setItem(`papos_photo_${data.nickname.toLowerCase()}`, photoToUse);
+      if (isMe) {
+        localStorage.setItem("papos_photo", photoToUse);
+      }
+    }
+
+    const modalEl = document.getElementById("userProfileModal");
+    if (modalEl && modalEl.classList.contains("show")) {
+      displayUserProfileModal(data, isMe);
+    }
+    window.pendingProfileRequest = null;
+  };
+
+  function displayUserProfileModal(profile, isMe) {
+    const modalEl = document.getElementById("userProfileModal");
+    if (!modalEl) return;
+
+    const avatarContainer = document.getElementById("modal-profile-avatar-container");
+    const onlineIndicator = document.getElementById("modal-profile-online-indicator");
+    const nicknameEl = document.getElementById("modal-profile-nickname");
+    const permanentIdEl = document.getElementById("modal-profile-permanent-id");
+    const statusTextEl = document.getElementById("modal-profile-status-text");
+    const ageEl = document.getElementById("modal-profile-age");
+    const genderEl = document.getElementById("modal-profile-gender");
+    const bioEl = document.getElementById("modal-profile-bio");
+    const actionBtn = document.getElementById("btn-modal-profile-action");
+
+    if (avatarContainer) {
+      const pPhoto = (profile.photoUrl || profile.photoURL || profile.profileImage || "");
+      const engine = window.ChatEngine || (typeof ChatEngine !== "undefined" ? ChatEngine : null);
+      if (engine && typeof engine.renderAvatar === "function") {
+        avatarContainer.innerHTML = engine.renderAvatar(profile.nickname, "avatar-xl mx-auto", pPhoto ? pPhoto : "");
+      } else {
+        const initial = (profile.nickname ? profile.nickname.charAt(0) : "P").toUpperCase();
+        avatarContainer.innerHTML = `<div class="avatar-circle avatar-xl mx-auto">${initial}</div>`;
+      }
+    }
+
+    if (onlineIndicator) {
+      if (profile.online !== false) {
+        onlineIndicator.classList.remove("d-none");
+      } else {
+        onlineIndicator.classList.add("d-none");
+      }
+    }
+
+    if (nicknameEl) {
+      const logoSvgHtml = `<svg class="papo-logo-svg align-middle ms-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="18" height="18" aria-hidden="true"><g><mask id="logo-mask-profile-user"><rect x="0" y="0" width="100" height="100" fill="white" /><line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" /></mask><g mask="url(#logo-mask-profile-user)"><path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="currentColor" /><path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="currentColor" /></g><line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="currentColor" fill="none" /><circle cx="78" cy="26" r="6" fill="currentColor" /></g></svg>`;
+      if (isMe) {
+        nicknameEl.innerHTML = `${profile.nickname} <span class="small text-secondary fw-normal ms-1">(Você)</span> ${logoSvgHtml}`;
+      } else {
+        nicknameEl.textContent = profile.nickname;
+      }
+
+      const isProfileAdmin = profile.admin === true || (window.isAdminUser && window.isAdminUser(profile.nickname));
+      let badgeEl = document.getElementById("modal-profile-admin-badge");
+      if (isProfileAdmin) {
+        nicknameEl.style.color = "#ff3b30";
+        if (!badgeEl) {
+          badgeEl = document.createElement("div");
+          badgeEl.id = "modal-profile-admin-badge";
+          badgeEl.className = "mt-1 mb-2 text-center";
+          badgeEl.innerHTML = `
+            <span style="background:#ff3b30; color:#ffffff; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:700; display:inline-block;">
+              Administrador
+            </span>
+          `;
+          if (nicknameEl.parentNode) {
+            nicknameEl.parentNode.insertBefore(badgeEl, nicknameEl.nextSibling);
+          }
+        } else {
+          badgeEl.style.display = "block";
+        }
+      } else {
+        nicknameEl.style.color = "";
+        if (badgeEl) badgeEl.style.display = "none";
+      }
+    }
+
+    if (permanentIdEl) {
+      permanentIdEl.textContent = profile.permanentId || "USR-Membro";
+    }
+
+    if (statusTextEl) {
+      statusTextEl.textContent = profile.online !== false ? "Membro conectado" : "Offline no momento";
+      statusTextEl.className = profile.online !== false ? "text-success small mb-4" : "text-secondary small mb-4";
+    }
+
+    if (ageEl) {
+      if (profile.age !== null && profile.age !== undefined && profile.age !== "") {
+        ageEl.textContent = `${profile.age} anos`;
+        ageEl.className = "fw-semibold";
+      } else {
+        ageEl.textContent = "Idade não informada";
+        ageEl.className = "text-secondary small";
+      }
+    }
+
+    if (genderEl) {
+      if (profile.gender && profile.gender.trim() !== "") {
+        genderEl.textContent = profile.gender;
+        genderEl.className = "fw-semibold";
+      } else {
+        genderEl.textContent = "Sexo não informado";
+        genderEl.className = "text-secondary small";
+      }
+    }
+
+    if (bioEl) {
+      if (profile.bio && profile.bio.trim() !== "") {
+        bioEl.textContent = profile.bio;
+        bioEl.className = "small text-break";
+      } else {
+        bioEl.textContent = "Sem biografia ainda";
+        bioEl.className = "text-secondary small italic";
+      }
+    }
+
+    if (actionBtn) {
+      actionBtn.classList.remove("d-none");
+      if (isMe) {
+        actionBtn.textContent = "Editar meu perfil";
+        actionBtn.className = "btn btn-secondary-custom w-100 py-2.5";
+        actionBtn.onclick = () => {
+          if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+          }
+          window.location.href = "/perfil";
+        };
+      } else {
+        actionBtn.textContent = "Conversar no privado";
+        actionBtn.className = "btn btn-premium w-100 py-2.5";
+        actionBtn.onclick = () => {
+          if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+          }
+          window.startPrivateChat(profile.nickname);
+        };
+      }
+    }
+
+    if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
+      const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+      modalInstance.show();
+    } else {
+      modalEl.classList.add("show");
+      modalEl.style.display = "block";
+      modalEl.removeAttribute("aria-hidden");
+      modalEl.setAttribute("aria-modal", "true");
+      document.body.classList.add("modal-open");
+      let backdrop = document.getElementById("custom-modal-backdrop");
+      if (!backdrop) {
+        backdrop = document.createElement("div");
+        backdrop.id = "custom-modal-backdrop";
+        backdrop.className = "modal-backdrop fade show";
+        document.body.appendChild(backdrop);
+      }
+    }
+
+    if (!modalEl.dataset.fallbackDismissReady) {
+      modalEl.dataset.fallbackDismissReady = "true";
+      modalEl.addEventListener("click", (e) => {
+        if (e.target.closest('[data-bs-dismiss="modal"]') || e.target === modalEl) {
+          if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
+            const inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst) {
+              inst.hide();
+              return;
+            }
+          }
+          modalEl.classList.remove("show");
+          modalEl.style.display = "none";
+          modalEl.setAttribute("aria-hidden", "true");
+          modalEl.removeAttribute("aria-modal");
+          document.body.classList.remove("modal-open");
+          const backdrop = document.getElementById("custom-modal-backdrop");
+          if (backdrop) backdrop.remove();
+        }
+      });
+    }
+  }
+
+  function setupGlobalChatDelegatedEvents() {
+    // 1. Mensagens: Exclusão e Perfil (desktop e mobile)
+    const msgContainer = document.getElementById("chat-messages-container");
+    if (msgContainer && !msgContainer.dataset.delegatedEventsAttached) {
+      msgContainer.dataset.delegatedEventsAttached = "true";
+
+      msgContainer.addEventListener("click", (e) => {
+        // Excluir mensagem
+        const deleteBtn = e.target.closest('[data-action="delete-message"], .btn-action-msg.text-danger, .btn-delete-message');
+        if (deleteBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const msgId = deleteBtn.getAttribute("data-message-id") || deleteBtn.dataset.messageId;
+          if (msgId && typeof window.deleteMessage === "function") {
+            window.deleteMessage(msgId);
+          }
+          return;
+        }
+
+        // Abrir perfil (avatar, nome de usuário ou badge)
+        const profileBtn = e.target.closest('[data-action="open-profile"], .msg-avatar-btn, .msg-username');
+        if (profileBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const nickname = profileBtn.getAttribute("data-nickname") || 
+                           profileBtn.getAttribute("data-sender") || 
+                           profileBtn.dataset.nickname || 
+                           profileBtn.dataset.sender || 
+                           profileBtn.textContent.trim();
+          if (nickname && typeof window.openUserProfile === "function") {
+            window.openUserProfile(nickname);
+          }
+          return;
+        }
+
+        // Toque em mobile na mensagem para exibir menu de ações
+        const msgItem = e.target.closest(".msg-container");
+        if (msgItem && !e.target.closest(".message-actions-menu") && !e.target.closest("button") && !e.target.closest("a")) {
+          const wasOpen = msgItem.classList.contains("show-actions");
+          document.querySelectorAll(".msg-container.show-actions").forEach(el => {
+            if (el !== msgItem) el.classList.remove("show-actions");
+          });
+          msgItem.classList.toggle("show-actions", !wasOpen);
+        }
+      });
+    }
+
+    // 2. Lista de Usuários Online (sidebar)
+    const usersList = document.getElementById("chat-users-list");
+    if (usersList && !usersList.dataset.delegatedEventsAttached) {
+      usersList.dataset.delegatedEventsAttached = "true";
+
+      usersList.addEventListener("click", (e) => {
+        const profileBtn = e.target.closest('[data-action="open-profile"], .member-item button');
+        if (profileBtn && !e.target.closest(".btn-secondary-custom") && !e.target.closest(".btn-outline-danger")) {
+          e.preventDefault();
+          e.stopPropagation();
+          const nickname = profileBtn.getAttribute("data-nickname") || 
+                           profileBtn.dataset.nickname || 
+                           profileBtn.querySelector(".text-truncate")?.textContent.trim() ||
+                           profileBtn.textContent.trim();
+          if (nickname && typeof window.openUserProfile === "function") {
+            window.openUserProfile(nickname);
+          }
+        }
+      });
+    }
+
+    // 3. Cabeçalho da conversa privada ativa
+    const chatHeader = document.getElementById("active-chat-header");
+    if (chatHeader && !chatHeader.dataset.delegatedEventsAttached) {
+      chatHeader.dataset.delegatedEventsAttached = "true";
+
+      chatHeader.addEventListener("click", (e) => {
+        const trigger = e.target.closest('[data-action="open-profile"], #active-chat-avatar-container button, #active-chat-recipient-name');
+        if (trigger) {
+          e.preventDefault();
+          e.stopPropagation();
+          const recipient = trigger.getAttribute("data-nickname") || 
+                            trigger.dataset.nickname || 
+                            window.activePrivateRecipient;
+          if (recipient && typeof window.openUserProfile === "function") {
+            window.openUserProfile(recipient);
+          }
+        }
+      });
+    }
+
+    // 4. Card de perfil do próprio usuário na sidebar
+    const userSidebarCard = document.getElementById("user-profile-sidebar-card");
+    if (userSidebarCard && !userSidebarCard.dataset.delegatedEventsAttached) {
+      userSidebarCard.dataset.delegatedEventsAttached = "true";
+
+      userSidebarCard.addEventListener("click", (e) => {
+        const avatarTrigger = e.target.closest("#sidebar-user-avatar-placeholder, #sidebar-username");
+        if (avatarTrigger) {
+          e.preventDefault();
+          e.stopPropagation();
+          const myNick = window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname"));
+          if (myNick && typeof window.openUserProfile === "function") {
+            window.openUserProfile(myNick);
+          }
+        }
+      });
+    }
+  }
+  window.setupGlobalChatDelegatedEvents = setupGlobalChatDelegatedEvents;
+  setupGlobalChatDelegatedEvents();
+
+});
+
+if (typeof exports !== 'undefined') {
+  try {
+    exports.EmojiPickerReact = require('emoji-picker-react');
+  } catch (e) {
+    
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(() => { window.switchEmojiCategory("faces"); }, 200);
+  });
+} else {
+  setTimeout(() => { window.switchEmojiCategory("faces"); }, 200);
+}

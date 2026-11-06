@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to check if user is the administrator
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('admin', false) == true;
+    }
+
+    // Rules for user profile documents in collection 'users'
+    match /users/{userId} {
+      // Authenticated users can view member profiles (necessary for directory & chat)
+      allow read: if isAuthenticated();
+      // Users can only write their own profile document, AND cannot self-escalate the 'admin' field
+      allow write: if isAuthenticated() && (
+        (request.auth.uid == userId && (
+          // In creates, admin must default to false
+          (!request.resource.data.keys().hasAny(['admin'])) || 
+          request.resource.data.admin == false || 
+          (resource != null && resource.data.get('admin', false) == request.resource.data.admin)
+        )) || isAdmin()
+      );
+      
+      // Subcollection privateChats
+      match /privateChats/{messageId} {
+        allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      }
+    }
+
+    // Rules for optional top-level privateChats collection (strictly user-isolated)
+    match /privateChats/{conversationId} {
+      allow read, write: if isAuthenticated() && (
+        conversationId.matches('.*' + request.auth.uid + '.*') || isAdmin()
+      );
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated() && (
+          conversationId.matches('.*' + request.auth.uid + '.*') || isAdmin()
+        );
+      }
+    }
+
+    // Notifications directed to a specific UID
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Rules for audit logs - strictly administrative
+    match /audits/{auditId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Rules for administrative messages history - strictly administrative
+    match /adminMessages/{msgId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Rules for authorized support names - readable by authenticated users, writable only by admin
+    match /supportNames/{supportId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Rules for system settings collection - readable by all, write only by admin
+    match /system/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Rules for feedbacks collection - public read and validated create, admin update/delete
+    match /feedbacks/{feedbackId} {
+      allow read: if true;
+      allow create: if request.resource.data.stars is number &&
+                       request.resource.data.stars >= 1 && request.resource.data.stars <= 5 &&
+                       request.resource.data.comment is string &&
+                       request.resource.data.comment.size() <= 400 &&
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() <= 60;
+      allow update, delete: if isAdmin();
+    }
+
+    // Rules for news/novidades collection - readable by all, writable only by admin
+    match /news/{newsId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Rules for security collection (bans/suspensions multicamadas) - read by system/admin only
+    match /security/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Rules for guest sessions collection - restricted to admin
+    match /guestSessions/{sessionId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Rules for guest bans and suspensions collections - read by system, write only by admin
+    match /guestBans/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /guestSuspensions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

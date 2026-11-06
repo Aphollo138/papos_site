@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    
+    <script>document.documentElement.classList.add('js-enabled');</script>
+    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meu Perfil - Papos</title>
+    
+    <meta name="description" content="Altere seu apelido e confira suas estatísticas locais de conversação no Papos." />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/mstile-150x150.png?v=5">
+
+    <meta property="og:title" content="Perfil de Usuário - Papo.net.br" />
+    <meta property="og:description" content="Altere seu apelido e confira suas estatísticas de conversação no Papo.net.br." />
+    <meta property="og:url" content="https://papo.net.br/perfil" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://papo.net.br/assets/img/og-image.png?v=5" />
+    <meta property="og:site_name" content="Papo.net.br" />
+    <meta property="og:locale" content="pt_BR" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Perfil - Papo.net.br" />
+    <meta name="twitter:description" content="Altere seu apelido e configurações no Papo.net.br." />
+    <meta name="twitter:image" content="https://papo.net.br/assets/img/og-image.png?v=5" />
+
+    <script type="application/ld+json">
+    [
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Papo.net.br",
+        "url": "https://papo.net.br",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://papo.net.br/assets/icons/logo-square.png",
+          "width": 512,
+          "height": 512
+        },
+        "image": "https://papo.net.br/assets/icons/logo-square.png"
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Papo.net.br",
+        "url": "https://papo.net.br",
+        "logo": "https://papo.net.br/assets/icons/logo-square.png"
+      }
+    ]
+    </script>
+
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#111111">
+
+    <link rel="manifest" href="/site.webmanifest">
+
+    <meta name="theme-color" content="#111111">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <link rel="stylesheet" href="/assets/css/style.css" />
+  </head>
+  <body>
+
+    <header class="navbar navbar-expand-lg fixed-top navbar-custom" id="profile-header">
+      <div class="container">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="/" id="profile-logo-brand">
+          <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg class="papo-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 100%; height: 100%;" aria-hidden="true">
+              <mask id="logo-mask-profile">
+                <rect x="0" y="0" width="100" height="100" fill="white" />
+                <line x1="18" y1="74" x2="78" y2="26" stroke="black" stroke-width="10" stroke-linecap="round" />
+              </mask>
+              <g mask="url(#logo-mask-profile)">
+                <path d="M 50,14 A 36,36 0 1,1 24.5,75.5 L 14,86 L 28.5,79.5 A 36,36 0 0,1 50,14 Z M 50,22 A 28,28 0 1,0 50,78 A 28,28 0 1,0 50,22 Z" fill-rule="evenodd" fill="currentColor" />
+                <path d="M 35,66 L 45,32 L 62,32 C 70,32 70,49 60,49 L 47,49 L 42,66 Z M 49,39 L 56,39 C 60,39 60,44 56,44 L 47,44 Z" fill-rule="evenodd" fill="currentColor" />
+              </g>
+              <line x1="18" y1="74" x2="78" y2="26" stroke-width="5" stroke-linecap="round" stroke="currentColor" fill="none" />
+              <circle cx="78" cy="26" r="6" fill="currentColor" />
+            </svg>
+          </div>
+          <span class="font-display fw-extrabold fs-4 tracking-tight">Papos</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Alternar navegação" id="btn-profile-nav-toggle" style="filter: invert(1);">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarText">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
+            <li class="nav-item">
+              <a class="nav-link text-secondary" href="/salas">Salas Ativas</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active fw-semibold text-white" href="/perfil">Editar Perfil</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link text-secondary" href="/blog/">Blog</a>
+            </li>
+            <li class="nav-item">
+              <button type="button" class="nav-link text-secondary border-0 bg-transparent text-start d-flex align-items-center gap-1.5" onclick="window.openFeedbackModal && window.openFeedbackModal()" style="cursor: pointer;">
+                <i class="bi bi-star-fill text-warning"></i>
+                <span>Avaliar</span>
+              </button>
+            </li>
+          </ul>
+          <div class="d-flex align-items-center gap-3">
+            
+            <div class="theme-switch-container d-flex align-items-center gap-2" role="button" tabindex="0" onclick="window.ChatEngine.toggleTheme()" style="cursor: pointer;" title="Alternar tema" aria-label="Alternar tema">
+              <i class="bi bi-sun-fill theme-sun-icon" style="font-size: 0.95rem; color: #ffb300;"></i>
+              <img src="/assets/img/toggle-off.svg" class="theme-toggle-img" alt="Alternar tema" style="width: 38px; height: 22px; display: block;" />
+              <i class="bi bi-moon-fill theme-moon-icon" style="font-size: 0.95rem; color: #7e57c2;"></i>
+            </div>
+
+            <a href="/salas" class="btn btn-secondary-custom btn-sm py-2 px-3" id="btn-back-rooms-nav">
+              <i class="bi bi-arrow-left-short"></i> Voltar para Salas
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="py-5" style="margin-top: 60px;">
+      <section class="container py-5">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 col-xl-7">
+            
+            <article class="p-4 p-md-5 border border-secondary rounded" style="background-color: var(--surface);">
+              
+              <div class="text-center mb-5">
+                <div class="position-relative d-inline-block">
+                  <div id="avatar-preview-container">
+                    
+                  </div>
+                  <span class="status-indicator status-online position-absolute" style="width: 20px; height: 20px; bottom: 6px; right: 6px; border: 3px solid var(--surface);"></span>
+                </div>
+
+                <div class="mt-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
+                  <input type="file" id="profile-photo-input" accept="image/jpeg,image/png,image/webp,image/jpg" class="d-none" />
+                  <button type="button" class="btn btn-outline-light btn-sm rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5" id="btn-select-photo">
+                    <i class="bi bi-camera-fill text-success"></i> <span>Alterar Foto</span>
+                  </button>
+                  <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 d-none" id="btn-remove-photo">
+                    <i class="bi bi-trash-fill"></i> <span>Remover Foto</span>
+                  </button>
+                </div>
+                <div class="text-secondary small mt-1" style="font-size: 0.76rem;" id="photo-helper-text">Formatos: JPG, PNG ou WebP (máx. 5MB)</div>
+                <div id="photo-upload-loading" class="d-none mt-2 text-success small">
+                  <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando foto...
+                </div>
+                <div id="photo-upload-error" class="alert alert-danger d-none py-1.5 px-3 small mt-2 d-inline-block" style="font-size: 0.8rem; background-color: rgba(255, 77, 77, 0.1); color: #ff4d4d; border-color: #ff4d4d;"></div>
+
+                <h1 class="h3 fw-extrabold text-white mt-3" id="username-display-name">Carregando...</h1>
+                <p class="text-secondary small mb-2">ID de Usuário Local: <span class="font-mono text-xs text-white-50" id="user-local-id">#local</span></p>
+              </div>
+
+              <form id="profile-form">
+                <div class="mb-4">
+                  <label for="profile-nickname" class="form-label fw-bold small text-secondary">Alterar Apelido</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-dark border-secondary text-secondary" id="user-icon-profile-addon">
+                      <i class="bi bi-person-fill"></i>
+                    </span>
+                    <input type="text" class="form-control form-control-lg bg-dark border-secondary border-start-0 text-white" id="profile-nickname" placeholder="Novo apelido..." minlength="2" maxlength="15" required aria-describedby="user-icon-profile-addon">
+                  </div>
+                  <div class="form-text small text-secondary">
+                    Isso atualizará instantaneamente como as pessoas te veem em todas as salas.
+                  </div>
+                </div>
+
+                <div class="mb-4">
+                  <label for="profile-bio" class="form-label fw-bold small text-secondary">Biografia</label>
+                  <textarea class="form-control bg-dark border-secondary text-white" id="profile-bio" rows="4" placeholder="Fale um pouco sobre você... (máximo 400 caracteres)" maxlength="400" style="resize: none;"></textarea>
+                  <div class="d-flex justify-content-between mt-1">
+                    <span class="form-text small text-secondary">Sua biografia será vista por outros membros no chat.</span>
+                    <span class="form-text small text-secondary" id="bio-char-counter" style="font-weight: 500;">0/400</span>
+                  </div>
+                </div>
+
+                <div class="mb-4">
+                  <label for="profile-age" class="form-label fw-bold small text-secondary">Idade</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-dark border-secondary text-secondary" id="age-profile-addon">
+                      <i class="bi bi-calendar-event-fill"></i>
+                    </span>
+                    <input type="number" class="form-control bg-dark border-secondary border-start-0 text-white" id="profile-age" placeholder="Sua idade (entre 17 e 80 anos)" min="17" max="80" aria-describedby="age-profile-addon">
+                  </div>
+                  <div class="form-text small text-secondary">
+                    Apenas membros de 17 a 80 anos podem utilizar o Papos.
+                  </div>
+                  <div class="invalid-feedback d-none mt-2" id="age-error-feedback" style="color: #ff4a4a; font-size: 0.8rem;">
+                    A idade deve ser um número inteiro entre 17 e 80 anos.
+                  </div>
+                </div>
+
+                <div class="mb-5">
+                  <label for="profile-gender" class="form-label fw-bold small text-secondary">Sexo</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-dark border-secondary text-secondary" id="gender-profile-addon">
+                      <i class="bi bi-gender-ambiguous"></i>
+                    </span>
+                    <select class="form-select bg-dark border-secondary border-start-0 text-white" id="profile-gender" aria-describedby="gender-profile-addon">
+                      <option value="">Selecione seu sexo...</option>
+                      <option value="Masculino">Masculino</option>
+                      <option value="Feminino">Feminino</option>
+                      <option value="Outro">Outro</option>
+                      <option value="Prefiro não informar">Prefiro não informar</option>
+                    </select>
+                  </div>
+                  <div class="form-text small text-secondary">
+                    Seu sexo será visível no seu perfil público.
+                  </div>
+                  <div class="invalid-feedback d-none mt-2" id="gender-error-feedback" style="color: #ff4a4a; font-size: 0.8rem;">
+                    Selecione uma opção válida para o campo sexo.
+                  </div>
+                </div>
+
+                <!-- Configurações de Privacidade: Bloquear Ligações -->
+                <div class="mb-4 pt-3 border-top border-secondary" id="privacy-settings-section">
+                  <label class="form-label fw-bold small text-secondary mb-2">Configurações de privacidade</label>
+                  <div class="p-3 rounded border border-secondary" style="background-color: var(--surface-secondary, rgba(255, 255, 255, 0.03));">
+                    <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
+                      <div class="pe-3">
+                        <label class="form-check-label fw-bold text-white mb-1 d-block" for="profile-block-calls" style="cursor: pointer; font-size: 0.95rem;">
+                          Bloquear ligações
+                        </label>
+                        <span class="text-secondary small d-block" style="font-size: 0.82rem; line-height: 1.4;">
+                          Você não receberá chamadas de áudio de outros usuários.
+                        </span>
+                      </div>
+                      <input class="form-check-input ms-0 flex-shrink-0" type="checkbox" role="switch" id="profile-block-calls" style="width: 2.8em; height: 1.5em; cursor: pointer;">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="d-flex flex-column flex-sm-row gap-3">
+                  <button type="submit" class="btn btn-premium w-100 py-3 font-display fw-bold" id="btn-save-profile">
+                    Salvar Alterações <i class="bi bi-save2 ms-2"></i>
+                  </button>
+                  <a href="/salas" class="btn btn-secondary-custom w-100 py-3 font-display fw-bold text-center" id="btn-cancel-profile">
+                    Voltar para Salas
+                  </a>
+                </div>
+
+              </form>
+
+              <div class="mt-4 pt-4 border-top border-secondary">
+                <h3 class="h6 fw-bold text-danger mb-2">Apagar todos os dados</h3>
+                <p class="text-secondary small">Deletar todas as suas preferências e histórico armazenado localmente no navegador. Esta ação é irreversível.</p>
+                <button class="btn btn-outline-danger btn-sm" id="btn-reset-all" type="button">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Apagar LocalStorage
+                </button>
+              </div>
+
+            </article>
+
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="py-5 mt-5" style="background-color: var(--background); border-top: 1px solid var(--border);">
+      <div class="container py-3">
+        <div class="row gy-4 justify-content-between">
+          <div class="col-md-3">
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Navegação</h3>
+            <ul class="list-unstyled footer-nav-container">
+              <li><a href="/" class="footer-link">Início</a></li>
+              <li><a href="/salas" class="footer-link">Salas Ativas</a></li>
+              <li><a href="/perfil" class="footer-link fw-semibold text-white">Editar Perfil</a></li>
+              <li><a href="/blog/" class="footer-link">Blog</a></li>
+            </ul>
+          </div>
+          <div class="col-md-4">
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Artigos Populares</h3>
+            <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
+              
+            </ul>
+          </div>
+        </div>
+        <hr class="my-4 border-secondary opacity-25">
+        <div class="text-center text-md-start">
+          <p class="mb-0 text-secondary small">&copy; 2026 Papos (papos.net.br). Seus dados são salvos apenas no seu próprio computador.</p>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <script type="module" src="/firebase/auth.js"></script>
+    <script type="module" src="/assets/js/auth-controller.js"></script>
+
+    <script src="/assets/js/main.js"></script>
+
+    <script src="/assets/js/monetization.js"></script>
+
+    <script src="/assets/js/feedback-controller.js"></script>
+
+    <script src="/assets/js/blog-posts.js"></script>
+    <script src="/assets/js/blog.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        if (window.BlogEngine) {
+          const footerPopular = document.getElementById("footer-popular-posts");
+          if (footerPopular) {
+            const popular = window.BlogEngine.getPopularPosts(3);
+            let html = "";
+            popular.forEach(post => {
+              html += `
+                <li>
+                  <a href="/blog/artigo.html?slug=${post.slug}" class="text-secondary text-decoration-none small hover:text-success d-block text-truncate" style="max-width: 280px;">
+                    &bull; ${post.title}
+                  </a>
+                </li>
+              `;
+            });
+            footerPopular.innerHTML = html;
+          }
+        }
+      });
+    </script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const currentUser = window.ChatEngine ? window.ChatEngine.getUser() : null;
+        if (!currentUser) {
+          window.location.href = "/?error=name_required";
+          return;
+        }
+
+        // Elementos DOM
+        const inputNickname = document.getElementById("profile-nickname");
+        const avatarContainer = document.getElementById("avatar-preview-container");
+        const nameDisplay = document.getElementById("username-display-name");
+        const profileForm = document.getElementById("profile-form");
+        const btnResetAll = document.getElementById("btn-reset-all");
+        const localIdEl = document.getElementById("user-local-id");
+
+        // Novos Elementos DOM
+        const inputBio = document.getElementById("profile-bio");
+        const bioCharCounter = document.getElementById("bio-char-counter");
+        const inputAge = document.getElementById("profile-age");
+        const ageErrorFeedback = document.getElementById("age-error-feedback");
+        const inputGender = document.getElementById("profile-gender");
+        const genderErrorFeedback = document.getElementById("gender-error-feedback");
+        const inputBlockCalls = document.getElementById("profile-block-calls");
+
+        // Elementos de Foto de Perfil
+        const photoInput = document.getElementById("profile-photo-input");
+        const btnSelectPhoto = document.getElementById("btn-select-photo");
+        const btnRemovePhoto = document.getElementById("btn-remove-photo");
+        const photoLoading = document.getElementById("photo-upload-loading");
+        const photoError = document.getElementById("photo-upload-error");
+
+        // Inicializar Valores
+        inputNickname.value = currentUser;
+        nameDisplay.textContent = currentUser;
+        
+        // Carregar Biografia, Idade, Sexo e Configuração de Chamadas do LocalStorage
+        const savedBio = localStorage.getItem("papos_bio") || "";
+        const savedAge = localStorage.getItem("papos_age") || "";
+        const savedGender = localStorage.getItem("papos_gender") || "";
+        const savedBlockCalls = localStorage.getItem("papos_block_calls") === "true" || localStorage.getItem("papos_blockCalls") === "true";
+        
+        inputBio.value = savedBio;
+        bioCharCounter.textContent = `${savedBio.length}/400`;
+        inputAge.value = savedAge;
+        inputGender.value = savedGender;
+        if (inputBlockCalls) {
+          inputBlockCalls.checked = savedBlockCalls;
+        }
+
+        // Usar o ID Permanente real se autenticado, caso contrário usar o ID persistente do usuário anônimo
+        const savedPermanentId = localStorage.getItem("papos_permanent_id") || localStorage.getItem("papo_guest_id");
+        if (savedPermanentId) {
+          localIdEl.textContent = savedPermanentId;
+          const labelEl = localIdEl.closest("p");
+          if (labelEl) {
+            labelEl.innerHTML = `Identificador Único: <span class="font-mono text-xs text-white-50" id="user-local-id">${savedPermanentId}</span>`;
+          }
+        } else {
+          let hash = 1000;
+          for (let i = 0; i < currentUser.length; i++) {
+            hash += currentUser.charCodeAt(i);
+          }
+          localIdEl.textContent = `#${hash}-local`;
+        }
+
+        // Função de Preview de Avatar em Tempo Real
+        function updateAvatarPreview(name, customPhoto = null) {
+          if (window.ChatEngine) {
+            let photoToUse = customPhoto;
+            if (photoToUse === null) {
+              photoToUse = localStorage.getItem("papos_photo") || null;
+            }
+            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse);
+            
+            // Gerenciar botão Remover
+            if (photoToUse && typeof photoToUse === "string" && photoToUse.trim() !== "" && !photoToUse.includes("undefined") && !photoToUse.includes("null")) {
+              btnRemovePhoto.classList.remove("d-none");
+            } else {
+              btnRemovePhoto.classList.add("d-none");
+            }
+          }
+        }
+
+        updateAvatarPreview(currentUser);
+
+        // Upload e Seleção de Foto de Perfil
+        btnSelectPhoto.addEventListener("click", () => {
+          photoError.classList.add("d-none");
+          photoError.textContent = "";
+          photoInput.click();
+        });
+
+        photoInput.addEventListener("change", async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+
+          const validTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+          if (!validTypes.includes(file.type)) {
+            photoError.textContent = "Formato de imagem não suportado. Utilize JPG, PNG ou WebP.";
+            photoError.classList.remove("d-none");
+            photoInput.value = "";
+            return;
+          }
+
+          if (file.size > 5 * 1024 * 1024) {
+            photoError.textContent = "A imagem selecionada é muito grande. O limite é de 5MB.";
+            photoError.classList.remove("d-none");
+            photoInput.value = "";
+            return;
+          }
+
+          photoError.classList.add("d-none");
+          photoLoading.classList.remove("d-none");
+          btnSelectPhoto.disabled = true;
+          btnRemovePhoto.disabled = true;
+
+          // Preview local instantâneo
+          const reader = new FileReader();
+          reader.onload = (re) => {
+            updateAvatarPreview(inputNickname.value.trim() || currentUser, re.target.result);
+          };
+          reader.readAsDataURL(file);
+
+          try {
+            const formData = new FormData();
+            formData.append("image", file);
+
+            const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
+            const currentNick = inputNickname.value.trim() || currentUser;
+
+            if (currentUid) {
+              formData.append("uid", currentUid);
+            }
+            formData.append("nickname", currentNick);
+
+            const res = await fetch("/api/profile/upload-photo", {
+              method: "POST",
+              headers: currentUid ? { "x-user-uid": currentUid } : {},
+              body: formData
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || "Falha ao enviar a foto para o servidor.");
+            }
+
+            const data = await res.json();
+            const finalUrl = data.url || data.link;
+
+            if (!finalUrl) {
+              throw new Error("URL da foto não recebida.");
+            }
+
+            // Armazenar URL no cache
+            localStorage.setItem("papos_photo", finalUrl);
+            localStorage.setItem(`papos_photo_${currentNick}`, finalUrl);
+            localStorage.setItem(`papos_photo_${currentNick.toLowerCase()}`, finalUrl);
+
+            try {
+              const syncChannel = new BroadcastChannel("papos_profile_sync");
+              syncChannel.postMessage({
+                type: "profile_updated",
+                nickname: currentNick,
+                photoUrl: finalUrl,
+                profileImage: finalUrl,
+                action: "update_photo",
+                userId: currentUid
+              });
+            } catch (e) {}
+
+            // Se autenticado no Firebase, salvar no perfil
+            if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
+              await window.FirebaseService.saveUserProfile({
+                photoURL: finalUrl,
+                profileImage: finalUrl
+              });
+            }
+
+            updateAvatarPreview(currentNick, finalUrl);
+
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn("Foto de perfil atualizada com sucesso!", "success");
+            }
+          } catch (err) {
+            console.error("Erro no upload da foto:", err);
+            photoError.textContent = err.message || "Erro ao processar envio da foto.";
+            photoError.classList.remove("d-none");
+            
+            // Reverter preview
+            const prevPhoto = localStorage.getItem("papos_photo") || null;
+            updateAvatarPreview(inputNickname.value.trim() || currentUser, prevPhoto);
+
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn(err.message || "Erro ao fazer upload da foto de perfil.", "error");
+            }
+          } finally {
+            photoLoading.classList.add("d-none");
+            btnSelectPhoto.disabled = false;
+            btnRemovePhoto.disabled = false;
+            photoInput.value = "";
+          }
+        });
+
+        // Remover Foto de Perfil
+        btnRemovePhoto.addEventListener("click", async () => {
+          if (!confirm("Tem certeza que deseja remover sua foto de perfil?")) return;
+
+          btnRemovePhoto.disabled = true;
+          btnSelectPhoto.disabled = true;
+          photoLoading.classList.remove("d-none");
+
+          try {
+            const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
+            const currentNick = inputNickname.value.trim() || currentUser;
+
+            await fetch("/api/profile/remove-photo", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ uid: currentUid, nickname: currentNick })
+            }).catch(() => {});
+
+            localStorage.removeItem("papos_photo");
+            localStorage.removeItem(`papos_photo_${currentNick}`);
+            localStorage.removeItem(`papos_photo_${currentNick.toLowerCase()}`);
+
+            try {
+              const syncChannel = new BroadcastChannel("papos_profile_sync");
+              syncChannel.postMessage({
+                type: "profile_updated",
+                nickname: currentNick,
+                photoUrl: "",
+                profileImage: null,
+                action: "remove_photo",
+                userId: currentUid
+              });
+            } catch (e) {}
+
+            if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
+              await window.FirebaseService.saveUserProfile({
+                photoURL: "",
+                profileImage: ""
+              }).catch(() => {});
+            }
+
+            updateAvatarPreview(currentNick, "");
+
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn("Foto de perfil removida com sucesso!", "success");
+            }
+          } catch (err) {
+            console.error("Erro ao remover foto:", err);
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn("Erro ao remover foto de perfil.", "error");
+            }
+          } finally {
+            photoLoading.classList.add("d-none");
+            btnSelectPhoto.disabled = false;
+            btnRemovePhoto.disabled = false;
+          }
+        });
+
+        // Atualizar avatar ao digitação do usuário
+        inputNickname.addEventListener("input", (e) => {
+          const val = e.target.value.trim() || "A";
+          nameDisplay.textContent = val;
+          updateAvatarPreview(val);
+        });
+
+        // Contador de caracteres da biografia
+        inputBio.addEventListener("input", () => {
+          let val = inputBio.value;
+          if (val.length > 400) {
+            val = val.substring(0, 400);
+            inputBio.value = val;
+          }
+          bioCharCounter.textContent = `${val.length}/400`;
+        });
+
+        // Escutar perfil em tempo real se o usuário estiver autenticado no Firebase
+        let activeProfileUnsub = null;
+        if (window.FirebaseService) {
+          window.FirebaseService.subscribeToAuth((user) => {
+            if (activeProfileUnsub) {
+              activeProfileUnsub();
+              activeProfileUnsub = null;
+            }
+
+            if (user) {
+              if (typeof window.FirebaseService.subscribeToUserProfile === "function") {
+                activeProfileUnsub = window.FirebaseService.subscribeToUserProfile(user.uid, (profile) => {
+                  if (profile) {
+                    const nick = profile.displayName || profile.nickname || profile.name || user.email.split("@")[0];
+                    const bio = profile.bio || "";
+                    const age = profile.age !== undefined && profile.age !== null ? profile.age : "";
+                    const gender = profile.gender || "";
+                    const permId = profile.permanentId || profile.internalId || "USR-000000";
+                    const photo = profile.photoURL || profile.profileImage || "";
+
+                    inputNickname.value = nick;
+                    nameDisplay.textContent = nick;
+                    inputBio.value = bio;
+                    bioCharCounter.textContent = `${bio.length}/400`;
+                    inputAge.value = age;
+                    inputGender.value = gender;
+                    
+                    if (localIdEl) {
+                      localIdEl.textContent = permId;
+                      const labelEl = localIdEl.closest("p");
+                      if (labelEl) {
+                        labelEl.innerHTML = `Identificador Único: <span class="font-mono text-xs text-white-50" id="user-local-id">${permId}</span>`;
+                      }
+                    }
+
+                    if (photo) {
+                      localStorage.setItem("papos_photo", photo);
+                      localStorage.setItem(`papos_photo_${nick}`, photo);
+                    }
+                    updateAvatarPreview(nick, photo || null);
+
+                    if (inputBlockCalls && profile.blockCalls !== undefined) {
+                      inputBlockCalls.checked = Boolean(profile.blockCalls);
+                      localStorage.setItem("papos_block_calls", String(Boolean(profile.blockCalls)));
+                      localStorage.setItem("papos_blockCalls", String(Boolean(profile.blockCalls)));
+                    }
+
+                    // Sincronizar Cache no LocalStorage
+                    localStorage.setItem("papos_nickname", nick);
+                    localStorage.setItem("papos_bio", bio);
+                    localStorage.setItem("papos_age", String(age));
+                    localStorage.setItem("papos_gender", gender);
+                    localStorage.setItem("papos_permanent_id", permId);
+                    localStorage.setItem("papos_is_admin", (profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") ? "true" : "false");
+                  }
+                });
+              }
+            }
+          });
+        }
+
+        // Salvar Modificações
+        profileForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const btnSave = document.getElementById("btn-save-profile");
+          if (btnSave) btnSave.disabled = true;
+
+          const newNick = inputNickname.value.trim();
+          if (newNick === "") {
+            if (btnSave) btnSave.disabled = false;
+            return;
+          }
+
+          const bioVal = inputBio.value.trim();
+          const ageValStr = inputAge.value.trim();
+          const ageVal = ageValStr ? Number(ageValStr) : null;
+          const genderVal = inputGender.value;
+
+          const validGenders = ["Masculino", "Feminino", "Outro", "Prefiro não informar"];
+
+          // Validação no cliente
+          const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
+          const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
+
+          const isCurrentUserAuthorized = Boolean(
+            currentUid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2" ||
+            localStorage.getItem("papos_is_admin") === "true" ||
+            localStorage.getItem("papos_is_support_authorized") === "true" ||
+            (window.isAdminUser && window.isAdminUser(currentUser))
+          );
+
+          if (!isCurrentUserAuthorized && window.isReservedNickname && window.isReservedNickname(newNick)) {
+            if (typeof window.showToast === "function") {
+              window.showToast("Este nome é reservado pela equipe do Papo.net.br.", "warning");
+            } else {
+              alert("Este nome é reservado pela equipe do Papo.net.br.");
+            }
+            if (btnSave) btnSave.disabled = false;
+            return;
+          }
+
+          if (bioVal.length > 400) {
+            alert("A biografia não pode ter mais de 400 caracteres.");
+            if (btnSave) btnSave.disabled = false;
+            return;
+          }
+
+          if (ageVal !== null) {
+            if (isNaN(ageVal) || ageVal < 17 || ageVal > 80 || !Number.isInteger(ageVal)) {
+              ageErrorFeedback.classList.remove("d-none");
+              inputAge.focus();
+              if (btnSave) btnSave.disabled = false;
+              return;
+            }
+          }
+          ageErrorFeedback.classList.add("d-none");
+
+          if (genderVal !== "" && !validGenders.includes(genderVal)) {
+            genderErrorFeedback.classList.remove("d-none");
+            inputGender.focus();
+            if (btnSave) btnSave.disabled = false;
+            return;
+          }
+          genderErrorFeedback.classList.add("d-none");
+
+          const blockCallsVal = inputBlockCalls ? Boolean(inputBlockCalls.checked) : false;
+
+          try {
+            // Validação no servidor
+            const validateRes = await fetch("/api/profile/validate", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                bio: bioVal,
+                age: ageVal,
+                gender: genderVal,
+                nickname: newNick,
+                uid: currentUid,
+                blockCalls: blockCallsVal
+              })
+            });
+
+            if (!validateRes.ok) {
+              const errData = await validateRes.json();
+              throw new Error(errData.error || "Erro de validação no servidor.");
+            }
+
+            // Se autenticado, salvar diretamente no Firestore
+            const currentPhoto = localStorage.getItem("papos_photo") || "";
+            if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
+              await window.FirebaseService.saveUserProfile({
+                nickname: newNick,
+                bio: bioVal,
+                age: ageVal,
+                gender: genderVal,
+                photoURL: currentPhoto,
+                profileImage: currentPhoto,
+                blockCalls: blockCallsVal
+              });
+            }
+
+            // Atualizar cache local
+            localStorage.setItem("papos_bio", bioVal);
+            if (ageVal !== null) {
+              localStorage.setItem("papos_age", String(ageVal));
+            } else {
+              localStorage.removeItem("papos_age");
+            }
+            if (genderVal) {
+              localStorage.setItem("papos_gender", genderVal);
+            } else {
+              localStorage.removeItem("papos_gender");
+            }
+            localStorage.setItem("papos_block_calls", String(blockCallsVal));
+            localStorage.setItem("papos_blockCalls", String(blockCallsVal));
+
+            // Notificar abas ativas do chat sobre a alteração
+            try {
+              const syncChannel = new BroadcastChannel("papos_profile_sync");
+              syncChannel.postMessage({
+                type: "profile_updated",
+                nickname: newNick,
+                blockCalls: blockCallsVal,
+                action: "update_call_settings",
+                userId: currentUid
+              });
+            } catch (e) {}
+
+            if (window.ChatEngine) {
+              window.ChatEngine.saveUser(newNick);
+            }
+
+            // Exibir mensagem de sucesso via toast verde existente
+            const toastFn = window.showToast || window.showAdminToast;
+            if (typeof toastFn === "function") {
+              toastFn("Configurações do perfil salvas com sucesso!", "success");
+            }
+          } catch (err) {
+            if (typeof window.showToast === "function") {
+              window.showToast(err.message || "Não foi possível validar seus dados no servidor.", "error");
+            } else {
+              alert(err.message || "Não foi possível validar seus dados no servidor.");
+            }
+          } finally {
+            if (btnSave) btnSave.disabled = false;
+          }
+        });
+
+        // Deletar Tudo do LocalStorage
+        btnResetAll.addEventListener("click", () => {
+          if (confirm("ATENÇÃO: Deseja apagar todas as configurações? Isso irá apagar seu apelido e preferências definitivamente.")) {
+            localStorage.clear();
+            alert("LocalStorage limpo com sucesso! Redirecionando...");
+            window.location.href = "/";
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

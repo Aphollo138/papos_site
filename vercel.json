@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/pagina-inicial", "destination": "/index.html" },
+    { "source": "/salas", "destination": "/pages/rooms.html" },
+    { "source": "/chat", "destination": "/pages/chat.html" },
+    { "source": "/perfil", "destination": "/pages/profile.html" },
+    { "source": "/privacidade", "destination": "/pages/privacy.html" },
+    { "source": "/termos", "destination": "/pages/terms.html" },
+    { "source": "/entrar", "destination": "/index.html" }
+  ]
+}
