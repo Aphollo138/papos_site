@@ -622,35 +622,11 @@ async function startServer() {
   }
   app.use("/uploads", express.static(uploadsPublicDir));
 
-  function injectCspNonceIntoHtml(html: string, nonce: string): string {
-    if (!html || !nonce) return html;
-
-    // 1. Substituir eventuais placeholders explícitos
-    let result = html.replace(/__CSP_NONCE__/g, nonce);
-
-    // 2. Injetar o atributo nonce nas tags <script> legítimas (exceto metadados type="application/ld+json")
-    result = result.replace(
-      /<script\b(?![^>]*\btype=["']application\/ld\+json["'])([^>]*)>/gi,
-      (match, attrs) => {
-        if (/\bnonce=(["'])[^"']*\1/i.test(attrs)) {
-          return `<script${attrs.replace(/\bnonce=(["'])[^"']*\1/i, `nonce="${nonce}"`)}>`;
-        }
-        return `<script nonce="${nonce}"${attrs}>`;
-      }
-    );
-
-    return result;
-  }
-
   // Desativar identificação do servidor para dificultar reconhecimento de versão/tecnologia
   app.disable("x-powered-by");
 
   // Injetar Security Headers de alta segurança (OWASP / Mozilla Observatory / SecurityHeaders A+)
   app.use((req, res, next) => {
-    // Nonce criptograficamente seguro gerado por resposta HTTP (AdSense Strict CSP)
-    const nonce = crypto.randomBytes(16).toString("base64");
-    res.locals.cspNonce = nonce;
-
     // Content-Type Sniffing Protection
     res.setHeader("X-Content-Type-Options", "nosniff");
 
@@ -670,24 +646,6 @@ async function startServer() {
     if (req.secure || req.headers["x-forwarded-proto"] === "https") {
       res.setHeader("Strict-Transport-Security", "max-age=31536000");
     }
-
-    // Content-Security-Policy estrita baseada em nonce compatível com Google AdSense (suporte oficial strict-dynamic)
-    const cspDirectives = [
-      "default-src 'self'",
-      `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'strict-dynamic' https: http: https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://adservice.google.com https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://apis.google.com https://accounts.google.com https://www.googletagmanager.com https://nap5k.com https://n6wxm.com`,
-      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-      "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-      "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https: http:",
-      "media-src 'self' blob: data:",
-      "connect-src 'self' wss: ws: https://cdn.jsdelivr.net https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.imgur.com https://zenithe.net.br https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.googleadservices.com https://googleads.g.doubleclick.net",
-      "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.nap5k.com https://nap5k.com https://*.n6wxm.com https://n6wxm.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "frame-ancestors 'self'"
-    ].join("; ");
-
-    res.setHeader("Content-Security-Policy", cspDirectives);
 
     next();
   });
@@ -3575,10 +3533,6 @@ async function startServer() {
         if (fs.existsSync(filePath)) {
           let html = fs.readFileSync(filePath, "utf-8");
           html = await vite.transformIndexHtml(req.originalUrl || req.url, html);
-          const nonce = (res.locals && res.locals.cspNonce) || "";
-          if (nonce) {
-            html = injectCspNonceIntoHtml(html, nonce);
-          }
           res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).end(html);
         } else {
           res.status(404).end("Not Found");
@@ -3656,10 +3610,6 @@ async function startServer() {
       try {
         if (fs.existsSync(filePath)) {
           let html = fs.readFileSync(filePath, "utf-8");
-          const nonce = (res.locals && res.locals.cspNonce) || "";
-          if (nonce) {
-            html = injectCspNonceIntoHtml(html, nonce);
-          }
           res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).send(html);
         } else {
           res.status(404).set({ "Content-Type": "text/plain" }).send("Not Found");
