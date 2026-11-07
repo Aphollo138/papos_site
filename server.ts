@@ -10,6 +10,7 @@ import crypto from "crypto";
 import https from "https";
 import multer from "multer";
 import sharp from "sharp";
+import { getStorage } from "firebase-admin/storage";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
 
 const firebaseConfig = {
@@ -50,6 +51,33 @@ function sendToClient(ws: WebSocket, type: string, payload: any) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type, ...payload }));
   }
+}
+
+function getMessageMediaPayload(payload: any): { mediaType?: string; mediaUrl?: string; duration?: number } | null {
+  if (!payload.mediaType) return {};
+  if (!["audio", "gif", "sticker"].includes(payload.mediaType)) return null;
+  if (typeof payload.mediaUrl !== "string" || payload.mediaUrl.length > 2048) return null;
+
+  let mediaUrl: string;
+  if (payload.mediaUrl.startsWith("/uploads/audio/")) {
+    if (!/^\/uploads\/audio\/[A-Za-z0-9_-]+\.(webm|mp4|ogg|wav|aac|mp3|3gp)$/i.test(payload.mediaUrl)) return null;
+    mediaUrl = payload.mediaUrl;
+  } else {
+    try {
+      const parsedUrl = new URL(payload.mediaUrl);
+      if (parsedUrl.protocol !== "https:") return null;
+      mediaUrl = parsedUrl.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  const duration = Number(payload.duration);
+  return {
+    mediaType: payload.mediaType,
+    mediaUrl,
+    ...(Number.isFinite(duration) && duration > 0 ? { duration: Math.min(duration, 300) } : {})
+  };
 }
 
 try {
@@ -614,13 +642,30 @@ async function startServer() {
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 }
   });
+  const allowedAudioTypes: Record<string, string> = {
+    "audio/webm": "webm",
+    "audio/mp4": "mp4",
+    "audio/ogg": "ogg",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/aac": "aac",
+    "audio/mpeg": "mp3",
+    "audio/3gpp": "3gp"
+  };
 
   // Servir arquivos estáticos de uploads se salvos localmente
   const uploadsPublicDir = path.join(process.cwd(), "public", "uploads");
   if (!fs.existsSync(uploadsPublicDir)) {
     fs.mkdirSync(uploadsPublicDir, { recursive: true });
   }
-  app.use("/uploads", express.static(uploadsPublicDir));
+  app.use("/uploads", express.static(uploadsPublicDir, {
+    setHeaders: (res, filePath) => {
+      if (path.dirname(filePath) !== path.join(uploadsPublicDir, "audio")) return;
+      const contentType = Object.entries(allowedAudioTypes)
+        .find(([, extension]) => path.extname(filePath).toLowerCase() === `.${extension}`)?.[0];
+      if (contentType) res.setHeader("Content-Type", contentType);
+    }
+  }));
 
   // Desativar identificação do servidor para dificultar reconhecimento de versão/tecnologia
   app.disable("x-powered-by");
@@ -1080,6 +1125,68 @@ async function startServer() {
 
   app.post("/api/profile/upload-photo", upload.single("image"), handleProfilePhotoUpload);
   app.post("/api/profile/upload-image", upload.single("image"), handleProfilePhotoUpload);
+
+  app.post("/api/upload-audio", (req, res, next) => {
+    upload.single("audio")(req, res, (err) => {
+      if (!err) {
+        next();
+        return;
+      }
+
+      const status = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+      res.status(status).json({
+        success: false,
+        error: status === 413 ? "O áudio excede o limite de 10MB." : "Não foi possível receber o arquivo de áudio."
+      });
+    });
+  }, async (req, res) => {
+    const audio = req.file;
+    if (!audio || audio.size === 0) {
+      res.status(400).json({ success: false, error: "Nenhum áudio válido foi enviado." });
+      return;
+    }
+
+    const contentType = audio.mimetype.toLowerCase().split(";")[0];
+    const extension = allowedAudioTypes[contentType];
+    if (!extension) {
+      res.status(415).json({ success: false, error: "Formato de áudio não suportado." });
+      return;
+    }
+
+    const filename = `voice-${crypto.randomBytes(16).toString("hex")}.${extension}`;
+    const storageBucketName = firebaseConfig.storageBucket;
+
+    try {
+      if (storageBucketName) {
+        try {
+          const bucket = getStorage().bucket(storageBucketName);
+          const objectPath = `audio/${filename}`;
+          const downloadToken = crypto.randomUUID();
+          await bucket.file(objectPath).save(audio.buffer, {
+            resumable: false,
+            metadata: {
+              contentType,
+              metadata: { firebaseStorageDownloadTokens: downloadToken }
+            }
+          });
+
+          const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(objectPath)}?alt=media&token=${downloadToken}`;
+          res.json({ success: true, url, contentType, size: audio.size });
+          return;
+        } catch (storageError) {
+          console.error("[AudioUpload] Firebase Storage indisponível; usando armazenamento local:", storageError);
+        }
+      }
+
+      const audioDirectory = path.join(uploadsPublicDir, "audio");
+      await fs.promises.mkdir(audioDirectory, { recursive: true });
+      await fs.promises.writeFile(path.join(audioDirectory, filename), audio.buffer, { flag: "wx" });
+      res.json({ success: true, url: `/uploads/audio/${filename}`, contentType, size: audio.size });
+    } catch (err) {
+      console.error("[AudioUpload] Erro ao salvar áudio:", err);
+      res.status(500).json({ success: false, error: "Não foi possível salvar o áudio no servidor." });
+    }
+  });
 
   app.post("/api/profile/remove-photo", async (req, res) => {
     try {
@@ -2603,6 +2710,12 @@ async function startServer() {
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
             if (!text) return;
 
+            const mediaPayload = getMessageMediaPayload(payload);
+            if (!mediaPayload) {
+              sendToClient(ws, "error", { message: "O arquivo de mídia da mensagem é inválido." });
+              return;
+            }
+
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
             const msgId = payload.id || payload.clientMsgId || ("m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
 
@@ -2617,6 +2730,7 @@ async function startServer() {
               time: getCurrentTime(),
               timestamp: Date.now(),
               isSystem: false,
+              ...mediaPayload,
               color,
               photoUrl: session.photoUrl || undefined,
               replyTo: payload.replyTo ? {
@@ -2669,6 +2783,12 @@ async function startServer() {
             const text = sanitizeHTML(rawText).trim().substring(0, 250);
             if (!text) return;
 
+            const mediaPayload = getMessageMediaPayload(payload);
+            if (!mediaPayload) {
+              sendToClient(ws, "error", { message: "O arquivo de mídia da mensagem é inválido." });
+              return;
+            }
+
             const color = payload.color ? sanitizeHTML(payload.color).substring(0, 15) : undefined;
 
             if (!session.photoUrl && payload.photoUrl && typeof payload.photoUrl === "string" && payload.photoUrl.trim() !== "" && !payload.photoUrl.includes("null") && !payload.photoUrl.includes("undefined")) {
@@ -2696,6 +2816,7 @@ async function startServer() {
                 recipientId: toNick,
                 recipientName: toNick,
                 content: text,
+                ...mediaPayload,
                 timestamp: Date.now(),
                 conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                 isDeleted: false,
@@ -2730,6 +2851,7 @@ async function startServer() {
                   recipientId: toNick,
                   recipientName: toNick,
                   content: text,
+                  ...mediaPayload,
                   timestamp: Date.now(),
                   conversationId: [session.nickname.toLowerCase(), toNick.toLowerCase()].sort().join("--"),
                   isDeleted: false,

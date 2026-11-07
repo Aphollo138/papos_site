@@ -8,10 +8,6 @@
   let btnRemoveAdsParent = null;
   let btnRemoveAdsNextSibling = null;
 
-  let btnMobileRemoveAdsElement = null;
-  let btnMobileRemoveAdsParent = null;
-  let btnMobileRemoveAdsNextSibling = null;
-
   function getAuthUser() {
     if (window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function") {
       return window.FirebaseService.getCurrentUser();
@@ -22,17 +18,11 @@
   function checkAdsStatus(userData) {
     currentUserData = userData;
     const btnRemoveAds = document.getElementById("btn-remove-ads");
-    const mobileBtnRemoveAds = document.getElementById("mobile-menu-remove-ads");
 
     if (btnRemoveAds && !btnRemoveAdsElement) {
       btnRemoveAdsElement = btnRemoveAds;
       btnRemoveAdsParent = btnRemoveAds.parentNode;
       btnRemoveAdsNextSibling = btnRemoveAds.nextSibling;
-    }
-    if (mobileBtnRemoveAds && !btnMobileRemoveAdsElement) {
-      btnMobileRemoveAdsElement = mobileBtnRemoveAds;
-      btnMobileRemoveAdsParent = mobileBtnRemoveAds.parentNode;
-      btnMobileRemoveAdsNextSibling = mobileBtnRemoveAds.nextSibling;
     }
 
     const isAdsDisabled = Boolean(userData && (userData.adsDisabled === true || userData.admin === true));
@@ -56,13 +46,6 @@
         targetBtn.remove();
       }
 
-      const targetMobileBtn = document.getElementById("mobile-menu-remove-ads");
-      if (targetMobileBtn) {
-        if (!btnMobileRemoveAdsParent) btnMobileRemoveAdsParent = targetMobileBtn.parentNode;
-        if (!btnMobileRemoveAdsNextSibling) btnMobileRemoveAdsNextSibling = targetMobileBtn.nextSibling;
-        if (!btnMobileRemoveAdsElement) btnMobileRemoveAdsElement = targetMobileBtn;
-        targetMobileBtn.remove();
-      }
     }
   }
 

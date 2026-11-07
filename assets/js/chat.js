@@ -1371,14 +1371,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (headerName) {
         headerName.textContent = name || "Canal Geral";
+        headerName.onclick = null;
+        headerName.onkeydown = null;
         headerName.removeAttribute("onclick");
         headerName.removeAttribute("role");
         headerName.removeAttribute("tabindex");
+        headerName.removeAttribute("aria-label");
         headerName.style.cursor = "default";
         headerName.className = "h6 fw-bold mb-0 text-white text-truncate";
       }
       if (headerDesc) {
         headerDesc.textContent = desc || "Bate-papo público livre.";
+        headerDesc.classList.remove("d-none");
       }
       if (btnBackToPublic) btnBackToPublic.classList.add("d-none");
       if (headerAvatarContainer) {
@@ -1397,10 +1401,25 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } else {
       if (headerName) {
-        headerName.innerHTML = `Conversa com <span class="hover:underline text-success" style="cursor: pointer;" onclick="window.openUserProfile('${activePrivateRecipient}')" tabindex="0" role="button" aria-label="Ver perfil de ${activePrivateRecipient}">${activePrivateRecipient}</span>`;
-        headerName.style.cursor = "default";
+        headerName.textContent = activePrivateRecipient || "";
+        headerName.onclick = () => {
+          if (activePrivateRecipient) window.openUserProfile(activePrivateRecipient);
+        };
+        headerName.onkeydown = (event) => {
+          if ((event.key === "Enter" || event.key === " ") && activePrivateRecipient) {
+            event.preventDefault();
+            window.openUserProfile(activePrivateRecipient);
+          }
+        };
+        headerName.setAttribute("role", "button");
+        headerName.setAttribute("tabindex", "0");
+        headerName.setAttribute("aria-label", `Ver perfil de ${activePrivateRecipient || "usuário"}`);
+        headerName.style.cursor = "pointer";
       }
-      if (headerDesc) headerDesc.textContent = "Chat privado de ponta-a-ponta. Conversas salvas localmente.";
+      if (headerDesc) {
+        headerDesc.textContent = "";
+        headerDesc.classList.add("d-none");
+      }
       if (btnBackToPublic) btnBackToPublic.classList.remove("d-none");
       
       if (headerAvatarContainer) {
@@ -1494,27 +1513,6 @@ document.addEventListener("DOMContentLoaded", () => {
           searchWrapper.classList.remove("d-none");
           const searchInput = document.getElementById("chat-search-messages-input");
           if (searchInput) searchInput.focus();
-        }
-      });
-    }
-
-    const btnRemoveAds = document.getElementById("mobile-menu-remove-ads");
-    if (btnRemoveAds) {
-      btnRemoveAds.addEventListener("click", () => {
-        const menuEl = document.getElementById("offcanvasMobileMenu");
-        if (menuEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
-          const bsMenu = bootstrap.Offcanvas.getInstance(menuEl);
-          if (bsMenu) bsMenu.hide();
-        }
-        const targetBtn = document.getElementById("btn-remove-ads");
-        if (targetBtn) {
-          targetBtn.click();
-        } else {
-          const removeModal = document.getElementById("removeAdsModal");
-          if (removeModal && typeof bootstrap !== "undefined" && bootstrap.Modal) {
-            const bsRemove = bootstrap.Modal.getOrCreateInstance(removeModal);
-            bsRemove.show();
-          }
         }
       });
     }
@@ -1684,16 +1682,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    const btnRemoveAds = document.getElementById("sidebar-item-remove-ads");
-    if (btnRemoveAds) {
-      btnRemoveAds.addEventListener("click", () => {
-        const removeModal = document.getElementById("removeAdsModal");
-        if (removeModal && typeof bootstrap !== "undefined" && bootstrap.Modal) {
-          const bsRemove = bootstrap.Modal.getOrCreateInstance(removeModal);
-          bsRemove.show();
-        }
-      });
-    }
   }
 
   initDesktopSidebarInteractions();
@@ -1768,6 +1756,7 @@ document.addEventListener("DOMContentLoaded", () => {
           text: content,
           mediaType: pm.mediaType,
           mediaUrl: pm.mediaUrl,
+          duration: pm.duration,
           timestamp: typeof timestamp === "number" ? timestamp : Date.now(),
           time: formatMessageTime({ timestamp: typeof timestamp === "number" ? timestamp : Date.now() }),
           unread: (partner !== activePrivateRecipient),
@@ -1788,6 +1777,7 @@ document.addEventListener("DOMContentLoaded", () => {
           text: content,
           mediaType: pm.mediaType,
           mediaUrl: pm.mediaUrl,
+          duration: pm.duration,
           time: timestamp,
           color: color,
           replyTo: replyTo,
@@ -3185,37 +3175,13 @@ document.addEventListener("DOMContentLoaded", () => {
   async function finishAndSendVoiceRecording() {
     if (!isRecordingVoice || !voiceMediaRecorder) return;
 
+    const recorder = voiceMediaRecorder;
     const recordedDuration = Math.max(1, voiceRecordingSeconds);
-    const mimeType = voiceMediaRecorder.mimeType || getSupportedAudioMimeType() || "audio/webm";
-
-    try {
-      if (voiceMediaRecorder.state !== "inactive") {
-        voiceMediaRecorder.stop();
-      }
-    } catch (e) {}
-
-    if (voiceMediaStream) {
-      try {
-        voiceMediaStream.getTracks().forEach(track => track.stop());
-      } catch (e) {}
-      voiceMediaStream = null;
-    }
-
+    const mimeType = recorder.mimeType || getSupportedAudioMimeType() || "audio/webm";
+    isRecordingVoice = false;
+    isAudioUploading = true;
     clearInterval(voiceRecordingTimer);
     voiceRecordingTimer = null;
-    isRecordingVoice = false;
-
-    await new Promise(r => setTimeout(r, 150));
-
-    if (voiceAudioChunks.length === 0) {
-      cleanupVoiceRecordingUI();
-      return;
-    }
-
-    const audioBlob = new Blob(voiceAudioChunks, { type: mimeType });
-    voiceAudioChunks = [];
-
-    isAudioUploading = true;
     const btnSend = document.getElementById("btn-send");
     if (btnSend) {
       btnSend.disabled = true;
@@ -3223,6 +3189,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
+      if (recorder.state !== "inactive") {
+        const stopped = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
+        recorder.stop();
+        await stopped;
+      }
+
+      if (voiceMediaStream) {
+        voiceMediaStream.getTracks().forEach(track => track.stop());
+        voiceMediaStream = null;
+      }
+
+      const audioChunks = voiceAudioChunks.splice(0);
+      if (audioChunks.length === 0) {
+        throw new Error("A gravação não produziu dados de áudio.");
+      }
+
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
       let ext = "webm";
       if (mimeType.includes("mp4") || mimeType.includes("m4a") || mimeType.includes("aac")) {
         ext = "mp4";
@@ -3259,12 +3242,17 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error(result.error || "URL do áudio não retornada pelo servidor.");
       }
 
-      window.sendMediaMessage("audio", result.url, "🎤 Mensagem de voz", recordedDuration);
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        window.sendMediaMessage("audio", result.url, "🎤 Mensagem de voz", recordedDuration);
+      } else {
+        throw new Error("A conexão do chat foi perdida antes do envio da mensagem.");
+      }
 
     } catch (err) {
       console.error("[AudioVoice] Erro no upload do áudio:", err);
       const toast = window.showToast || alert;
-      toast("Não foi possível enviar o áudio. Verifique sua conexão e tente novamente.", "error");
+      const message = err instanceof Error ? err.message : "Falha inesperada no envio do áudio.";
+      toast(`Não foi possível enviar o áudio: ${message}`, "error");
     } finally {
       isAudioUploading = false;
       if (btnSend) {

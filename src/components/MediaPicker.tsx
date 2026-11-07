@@ -179,18 +179,14 @@ export const MediaPicker: React.FC = () => {
   useEffect(() => {
     window.PaposMediaPicker = {
       open: (tab = 'emojis') => {
-        setActiveTab(tab);
+        setActiveTab('emojis');
         setIsOpen(true);
       },
       close: () => setIsOpen(false),
       toggle: (tab = 'emojis') => {
         setIsOpen(prev => {
           if (!prev) {
-            setActiveTab(tab);
-            return true;
-          }
-          if (activeTabRef.current !== tab) {
-            setActiveTab(tab);
+            setActiveTab('emojis');
             return true;
           }
           return false;
@@ -478,9 +474,9 @@ export const MediaPicker: React.FC = () => {
         transition: 'opacity 0.18s ease, transform 0.18s ease'
       }}
       role="dialog"
-      aria-label="Seletor de Emojis, GIFs e Figurinhas"
+      aria-label="Seletor de emojis"
     >
-      {/* CABEÇALHO DO PAINEL COM 3 ABAS INDEPENDENTES */}
+      {/* Cabeçalho do seletor de emojis */}
       <div
         style={{
           display: 'flex',
@@ -492,10 +488,8 @@ export const MediaPicker: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', gap: '6px' }}>
-          {/* Aba Emojis */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('emojis')}
+          <div
+            aria-current="page"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -505,61 +499,15 @@ export const MediaPicker: React.FC = () => {
               border: 'none',
               fontSize: '0.84rem',
               fontWeight: 600,
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'emojis' ? '#22c55e' : 'transparent',
-              color: activeTab === 'emojis' ? '#ffffff' : (isDark ? '#9ca3af' : '#4b5563'),
+              cursor: 'default',
+              backgroundColor: '#22c55e',
+              color: '#ffffff',
               transition: 'all 0.15s ease'
             }}
           >
             <span>😀</span>
             <span>Emojis</span>
-          </button>
-
-          {/* Aba GIFs */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('gifs')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              border: 'none',
-              fontSize: '0.84rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'gifs' ? '#22c55e' : 'transparent',
-              color: activeTab === 'gifs' ? '#ffffff' : (isDark ? '#9ca3af' : '#4b5563'),
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span>🎞️</span>
-            <span>GIFs</span>
-          </button>
-
-          {/* Aba Figurinhas */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('stickers')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              border: 'none',
-              fontSize: '0.84rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'stickers' ? '#22c55e' : 'transparent',
-              color: activeTab === 'stickers' ? '#ffffff' : (isDark ? '#9ca3af' : '#4b5563'),
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span>🧸</span>
-            <span>Figurinhas</span>
-          </button>
+          </div>
         </div>
 
         {/* Botão de Fechar */}

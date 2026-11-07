@@ -448,6 +448,9 @@ const FirebaseService = {
       sender: messageObj.sender,
       recipient: messageObj.recipient || partnerNickname,
       text: messageObj.text,
+      mediaType: messageObj.mediaType || null,
+      mediaUrl: messageObj.mediaUrl || null,
+      duration: messageObj.duration || null,
       timestamp: messageObj.timestamp || Date.now(),
       time: messageObj.time || new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       unread: messageObj.unread !== undefined ? messageObj.unread : false
@@ -533,6 +536,9 @@ const FirebaseService = {
           sender: data.sender,
           recipient: data.recipient,
           text: data.text,
+          mediaType: data.mediaType,
+          mediaUrl: data.mediaUrl,
+          duration: data.duration,
           time: data.time,
           timestamp: data.timestamp,
           unread: data.unread
