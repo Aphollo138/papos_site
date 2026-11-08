@@ -20,7 +20,7 @@ const firebaseConfig = {
   storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
   messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
   appId: process.env.VITE_FIREBASE_APP_ID || "",
-  firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
+  firestoreDatabaseId: process.env.FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_DATABASE_ID || "(default)"
 };
 
 const firebaseApp = initializeApp({
@@ -1008,6 +1008,26 @@ async function startServer() {
   });
 
   async function uploadToImgur(imageBuffer: Buffer): Promise<{ success: boolean; url?: string; error?: string }> {
+    const storageBucketName = firebaseConfig.storageBucket;
+    if (storageBucketName) {
+      try {
+        const bucket = getStorage().bucket(storageBucketName);
+        const objectPath = `avatars/${crypto.randomUUID()}.jpg`;
+        const downloadToken = crypto.randomUUID();
+        await bucket.file(objectPath).save(imageBuffer, {
+          resumable: false,
+          metadata: {
+            contentType: "image/jpeg",
+            metadata: { firebaseStorageDownloadTokens: downloadToken }
+          }
+        });
+        const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(objectPath)}?alt=media&token=${downloadToken}`;
+        return { success: true, url };
+      } catch (error) {
+        console.error("[AvatarStorage] Firebase Storage indisponível:", error);
+      }
+    }
+
     const clientId = process.env.IMGUR_CLIENT_ID;
     if (clientId && clientId.trim() !== "") {
       try {
@@ -1038,21 +1058,51 @@ async function startServer() {
       }
     }
 
-    // Fallback: save to public/uploads/avatars so it always works seamlessly
-    try {
-      const avatarsDir = path.join(process.cwd(), "public", "uploads", "avatars");
-      if (!fs.existsSync(avatarsDir)) {
-        fs.mkdirSync(avatarsDir, { recursive: true });
-      }
-      const filename = `avatar-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
-      const filepath = path.join(avatarsDir, filename);
-      await fs.promises.writeFile(filepath, imageBuffer);
-      const localUrl = `/uploads/avatars/${filename}`;
-      return { success: true, url: localUrl };
-    } catch (err: any) {
-      console.error("[AvatarFallback] Error:", err);
-      return { success: false, error: "Erro ao salvar imagem localmente." };
+    if (imageBuffer.length > 600 * 1024) {
+      return { success: false, error: "A imagem excede o limite de armazenamento. Tente uma imagem menor." };
     }
+
+    return {
+      success: true,
+      url: `data:image/jpeg;base64,${imageBuffer.toString("base64")}`
+    };
+  }
+
+  function getGuestPhotoDocumentId(fingerprint: unknown): string | null {
+    if (typeof fingerprint !== "string" || fingerprint.length < 8 || fingerprint.length > 256) return null;
+    return crypto.createHash("sha256").update(fingerprint).digest("hex");
+  }
+
+  function broadcastGuestProfileUpdate(fingerprint: string, photoUrl: string) {
+    const userId = `fingerprint:${fingerprint}`;
+    let nickname = "";
+    activeSessions.forEach((session) => {
+      if (session.fingerprint === fingerprint) {
+        session.photoUrl = photoUrl;
+        nickname = nickname || session.nickname;
+      }
+    });
+    if (!nickname) return;
+
+    Object.values(messages).forEach((roomMessages) => {
+      if (Array.isArray(roomMessages)) {
+        roomMessages.forEach((message) => {
+          if (message.userId === userId) message.photoUrl = photoUrl || undefined;
+        });
+      }
+    });
+
+    const payload = JSON.stringify({
+      type: "profile_updated",
+      nickname,
+      userId,
+      photoUrl,
+      profileImage: photoUrl || null,
+      action: photoUrl ? "update_photo" : "remove_photo"
+    });
+    activeSessions.forEach((session, ws) => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    });
   }
 
   async function handleProfilePhotoUpload(req: express.Request, res: express.Response) {
@@ -1087,6 +1137,12 @@ async function startServer() {
         res.status(401).json({ success: false, error: "Faça login para salvar a foto no perfil." });
         return;
       }
+      const fingerprint = typeof req.body?.fingerprint === "string" ? req.body.fingerprint : "";
+      const guestPhotoDocumentId = uid ? null : getGuestPhotoDocumentId(fingerprint);
+      if (!uid && !guestPhotoDocumentId) {
+        res.status(400).json({ success: false, error: "Não foi possível identificar este navegador para salvar a foto." });
+        return;
+      }
 
       let fileBuffer: Buffer | null = null;
 
@@ -1107,9 +1163,8 @@ async function startServer() {
         return;
       }
 
-      // Validar tamanho máximo (5MB)
-      if (fileBuffer.length > 5 * 1024 * 1024) {
-        res.status(400).json({ success: false, error: "A imagem deve ter no máximo 5MB." });
+      if (fileBuffer.length > 10 * 1024 * 1024) {
+        res.status(413).json({ success: false, error: "A imagem deve ter no máximo 10MB." });
         return;
       }
 
@@ -1120,6 +1175,12 @@ async function startServer() {
           .resize(400, 400, { fit: "cover" })
           .jpeg({ quality: 85 })
           .toBuffer();
+        if (optimizedBuffer.length > 600 * 1024) {
+          optimizedBuffer = await sharp(fileBuffer)
+            .resize(320, 320, { fit: "cover" })
+            .jpeg({ quality: 70 })
+            .toBuffer();
+        }
       } catch (err) {
         res.status(400).json({ success: false, error: "Arquivo inválido. Envie uma imagem válida (JPG, PNG ou WebP)." });
         return;
@@ -1133,34 +1194,63 @@ async function startServer() {
 
       const photoUrl = uploadResult.url;
       const nickname = (req.body.nickname || "") as string;
+      const isEmbeddedPhoto = photoUrl.startsWith("data:image/jpeg;base64,");
+      const resolvedPhotoUrl = isEmbeddedPhoto
+        ? uid
+          ? `/api/profile/photo?uid=${encodeURIComponent(uid)}`
+          : `/api/profile/guest-photo-image?fingerprint=${encodeURIComponent(fingerprint)}`
+        : photoUrl;
+      if (isEmbeddedPhoto) {
+        const ownerDocumentId = uid ? `user_${uid}` : `guest_${guestPhotoDocumentId}`;
+        try {
+          await adminDb.collection("profilePhotos").doc(ownerDocumentId).set({
+            image: photoUrl.slice("data:image/jpeg;base64,".length),
+            contentType: "image/jpeg",
+            updatedAt: Date.now()
+          });
+        } catch (error) {
+          console.error("[UploadPhoto] Erro ao salvar imagem no Firestore:", error);
+          res.status(500).json({ success: false, error: "Não foi possível salvar sua foto. Tente novamente." });
+          return;
+        }
+      }
+      const photoFields = photoUrl.startsWith("data:image/")
+        ? { photoURL: resolvedPhotoUrl, updatedAt: Date.now() }
+        : { photoURL: resolvedPhotoUrl, profileImage: resolvedPhotoUrl, photoUrl: resolvedPhotoUrl, updatedAt: Date.now() };
 
       // Se houver Authorization Bearer token, valida e extrai UID verificado com segurança
       if (uid) {
         try {
-          const userRef = doc(db, "users", uid);
-          await setDoc(userRef, {
-            photoURL: photoUrl,
-            profileImage: photoUrl,
-            photoUrl: photoUrl,
-            updatedAt: Date.now()
-          }, { merge: true });
+          await adminDb.collection("users").doc(uid).set(photoFields, { merge: true });
         } catch (error) {
           console.error("[UploadPhoto] Erro ao sincronizar foto com Firestore:", error);
           res.status(500).json({ success: false, error: "Não foi possível salvar a foto no perfil. Tente novamente." });
           return;
         }
+      } else if (guestPhotoDocumentId) {
+        try {
+          await adminDb.collection("guestProfiles").doc(guestPhotoDocumentId).set({
+            photoURL: resolvedPhotoUrl,
+            updatedAt: Date.now()
+          });
+        } catch (error) {
+          console.error("[UploadPhoto] Erro ao salvar foto do visitante:", error);
+          res.status(500).json({ success: false, error: "Não foi possível salvar sua foto. Tente novamente." });
+          return;
+        }
+        broadcastGuestProfileUpdate(fingerprint, resolvedPhotoUrl);
       }
 
       if (uid) {
-        const userSnapshot = await getDoc(doc(db, "users", uid));
+        const userSnapshot = await adminDb.collection("users").doc(uid).get();
         const profileNickname = userSnapshot.data()?.nickname || userSnapshot.data()?.displayName || nickname;
-        if (profileNickname) broadcastProfileUpdate(profileNickname, photoUrl, uid);
+        if (profileNickname) broadcastProfileUpdate(profileNickname, resolvedPhotoUrl, uid);
       }
 
       res.json({
         success: true,
-        url: photoUrl,
-        link: photoUrl
+        url: resolvedPhotoUrl,
+        link: resolvedPhotoUrl
       });
     } catch (err: any) {
       console.error("[UploadPhoto] Erro inesperado:", err);
@@ -1168,8 +1258,105 @@ async function startServer() {
     }
   }
 
-  app.post("/api/profile/upload-photo", upload.single("image"), handleProfilePhotoUpload);
-  app.post("/api/profile/upload-image", upload.single("image"), handleProfilePhotoUpload);
+  const receiveProfilePhoto = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    upload.single("image")(req, res, (error) => {
+      if (!error) {
+        next();
+        return;
+      }
+      const tooLarge = error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE";
+      res.status(tooLarge ? 413 : 400).json({
+        success: false,
+        error: tooLarge ? "A imagem deve ter no máximo 10MB." : "Não foi possível receber a imagem."
+      });
+    });
+  };
+  app.post("/api/profile/upload-photo", receiveProfilePhoto, handleProfilePhotoUpload);
+  app.post("/api/profile/upload-image", receiveProfilePhoto, handleProfilePhotoUpload);
+
+  app.get("/api/profile/guest-photo", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const profileId = getGuestPhotoDocumentId(req.query.fingerprint);
+    if (!profileId) {
+      res.status(400).json({ success: false, error: "Identificador do navegador inválido." });
+      return;
+    }
+    try {
+      const snapshot = await adminDb.collection("guestProfiles").doc(profileId).get();
+      const data = snapshot.data();
+      res.json({ url: data?.photoURL || data?.photoUrl || "" });
+    } catch (error) {
+      console.error("[GuestPhoto] Erro ao carregar foto:", error);
+      res.status(500).json({ success: false, error: "Não foi possível carregar sua foto salva." });
+    }
+  });
+
+  app.get("/api/profile/guest-photo-image", async (req, res) => {
+    const fingerprint = typeof req.query.fingerprint === "string" ? req.query.fingerprint : "";
+    const profileId = getGuestPhotoDocumentId(fingerprint);
+    if (!profileId) {
+      res.status(400).end();
+      return;
+    }
+    try {
+      const snapshot = await adminDb.collection("profilePhotos").doc(`guest_${profileId}`).get();
+      const image = snapshot.data()?.image;
+      if (typeof image !== "string") {
+        res.status(404).end();
+        return;
+      }
+      res.setHeader("Cache-Control", "no-store");
+      res.type("image/jpeg").send(Buffer.from(image, "base64"));
+    } catch (error) {
+      console.error("[GuestPhoto] Erro ao servir imagem:", error);
+      res.status(500).end();
+    }
+  });
+
+  app.get("/api/profile/photo", async (req, res) => {
+    const uid = typeof req.query.uid === "string" ? req.query.uid : "";
+    if (!uid || uid.length > 128) {
+      res.status(400).end();
+      return;
+    }
+    try {
+      const userSnapshot = await adminDb.collection("users").doc(uid).get();
+      const expectedUrl = `/api/profile/photo?uid=${encodeURIComponent(uid)}`;
+      if (userSnapshot.data()?.photoURL !== expectedUrl) {
+        res.status(404).end();
+        return;
+      }
+      const photoSnapshot = await adminDb.collection("profilePhotos").doc(`user_${uid}`).get();
+      const image = photoSnapshot.data()?.image;
+      if (typeof image !== "string") {
+        res.status(404).end();
+        return;
+      }
+      res.setHeader("Cache-Control", "no-store");
+      res.type("image/jpeg").send(Buffer.from(image, "base64"));
+    } catch (error) {
+      console.error("[ProfilePhoto] Erro ao servir imagem:", error);
+      res.status(500).end();
+    }
+  });
+
+  app.delete("/api/profile/guest-photo", async (req, res) => {
+    const fingerprint = typeof req.query.fingerprint === "string" ? req.query.fingerprint : "";
+    const profileId = getGuestPhotoDocumentId(fingerprint);
+    if (!profileId) {
+      res.status(400).json({ success: false, error: "Identificador do navegador inválido." });
+      return;
+    }
+    try {
+      await adminDb.collection("guestProfiles").doc(profileId).delete();
+      await adminDb.collection("profilePhotos").doc(`guest_${profileId}`).delete();
+      broadcastGuestProfileUpdate(fingerprint, "");
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[GuestPhoto] Erro ao remover foto:", error);
+      res.status(500).json({ success: false, error: "Não foi possível remover sua foto salva." });
+    }
+  });
 
   app.post("/api/upload-audio", (req, res, next) => {
     upload.single("audio")(req, res, (err) => {
@@ -1258,21 +1445,22 @@ async function startServer() {
       }
 
       const uid = decodedUser.uid as string;
-      const userRef = doc(db, "users", uid);
+      const userRef = adminDb.collection("users").doc(uid);
       try {
-        await setDoc(userRef, {
+        await userRef.set({
           photoURL: "",
           profileImage: "",
           photoUrl: "",
           updatedAt: Date.now()
         }, { merge: true });
+        await adminDb.collection("profilePhotos").doc(`user_${uid}`).delete();
       } catch (error) {
         console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", error);
         res.status(500).json({ success: false, error: "Não foi possível remover a foto do perfil." });
         return;
       }
 
-      const userSnapshot = await getDoc(userRef);
+      const userSnapshot = await userRef.get();
       const nickname = userSnapshot.data()?.nickname || userSnapshot.data()?.displayName;
       if (nickname) broadcastProfileUpdate(nickname, "", uid);
 
@@ -2496,6 +2684,20 @@ async function startServer() {
                 session.photoUrl = sanitizeHTML(incomingPhoto.trim());
               }
             }
+            if (!session.uid && session.fingerprint) {
+              const guestPhotoDocumentId = getGuestPhotoDocumentId(session.fingerprint);
+              if (guestPhotoDocumentId) {
+                try {
+                  const guestProfile = await adminDb.collection("guestProfiles").doc(guestPhotoDocumentId).get();
+                  const savedPhoto = guestProfile.data()?.photoURL || guestProfile.data()?.photoUrl;
+                  if (typeof savedPhoto === "string" && savedPhoto.trim()) {
+                    session.photoUrl = savedPhoto.trim();
+                  }
+                } catch (error) {
+                  console.error("[GuestPhoto] Erro ao restaurar foto na entrada da sala:", error);
+                }
+              }
+            }
 
             if (!session.uid) {
               notifyAdminsGuestList();
@@ -2783,7 +2985,7 @@ async function startServer() {
             const msgObj = {
               id: msgId,
               sender: session.nickname,
-              userId: session.uid || undefined,
+              userId: session.uid || (session.fingerprint ? `fingerprint:${session.fingerprint}` : undefined),
               text,
               time: getCurrentTime(),
               timestamp: Date.now(),

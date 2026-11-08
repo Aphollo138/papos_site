@@ -252,10 +252,16 @@ function getLocalPhotoOwnerId() {
     ? window.FirebaseService.getCurrentUser()
     : null;
   if (authUser) return `uid:${authUser.uid}`;
+  const photoOwnerId = window.SecurityIdentity && typeof window.SecurityIdentity.getPhotoOwnerId === "function"
+    ? window.SecurityIdentity.getPhotoOwnerId()
+    : "";
   const guestId = window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function"
     ? window.SecurityIdentity.getGuestId()
     : localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id");
-  return guestId ? `guest:${guestId}` : "";
+  if (guestId && localStorage.getItem("papos_photo_owner_id") === `guest:${guestId}` && localStorage.getItem("papos_photo")) {
+    localStorage.setItem("papos_photo_owner_id", photoOwnerId);
+  }
+  return photoOwnerId;
 }
 
 function getUserCurrentPhoto(name) {
@@ -269,9 +275,9 @@ function getUserCurrentPhoto(name) {
     const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
       ? window.FirebaseService.getCurrentUser()
       : null;
+    const expectedOwnerId = getLocalPhotoOwnerId();
     const ownerId = localStorage.getItem("papos_photo_owner_id");
     const legacyOwnerUid = localStorage.getItem("papos_photo_owner_uid");
-    const expectedOwnerId = getLocalPhotoOwnerId();
     const isLegacyAuthPhoto = authUser && legacyOwnerUid === authUser.uid;
     if (!expectedOwnerId || (ownerId !== expectedOwnerId && !isLegacyAuthPhoto)) return "";
     const myPhoto = localStorage.getItem("papos_photo");
@@ -826,12 +832,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const clientId = window.SecurityIdentity ? window.SecurityIdentity.getClientId() : "";
     const guestId = window.SecurityIdentity ? window.SecurityIdentity.getGuestId() : (localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id") || "");
     const fingerprint = window.SecurityIdentity ? window.SecurityIdentity.getFingerprint() : "";
+    const expectedOwnerId = getLocalPhotoOwnerId();
     const photoOwnerId = localStorage.getItem("papos_photo_owner_id");
     const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
       ? window.FirebaseService.getCurrentUser()
       : null;
     const isLegacyAuthPhoto = authUser && !photoOwnerId && localStorage.getItem("papos_photo_owner_uid") === authUser.uid;
-    const myPhoto = (photoOwnerId && photoOwnerId === getLocalPhotoOwnerId()) || isLegacyAuthPhoto
+    const myPhoto = (photoOwnerId && photoOwnerId === expectedOwnerId) || isLegacyAuthPhoto
       ? localStorage.getItem("papos_photo") || ""
       : "";
 
@@ -2782,7 +2789,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
       ? window.FirebaseService.getCurrentUser()
       : null;
-    if (isMe && (authUser ? data.userId !== authUser.uid : Boolean(data.userId))) return;
+    const expectedUserId = authUser
+      ? authUser.uid
+      : `fingerprint:${window.SecurityIdentity?.getFingerprint?.() || ""}`;
+    if (isMe && (authUser ? data.userId !== authUser.uid : Boolean(data.userId && data.userId !== expectedUserId))) return;
     const isLocalPhotoOwner = isMe && (
       authUser
         ? localStorage.getItem("papos_photo_owner_id") === `uid:${authUser.uid}` ||
@@ -2818,6 +2828,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (authUser) {
           localStorage.setItem("papos_photo_owner_uid", authUser.uid);
           localStorage.setItem("papos_photo_owner_id", `uid:${authUser.uid}`);
+        } else {
+          localStorage.setItem("papos_photo_owner_id", expectedUserId);
         }
       }
     } else {

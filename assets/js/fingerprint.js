@@ -132,7 +132,89 @@
 
   const clientId = getOrCreateClientId();
   const guestId = getOrCreateGuestId();
-  const fingerprint = computeFingerprint();
+  let fingerprint;
+  try {
+    fingerprint = localStorage.getItem("papo_fingerprint_id");
+    if (!fingerprint) {
+      fingerprint = computeFingerprint();
+      localStorage.setItem("papo_fingerprint_id", fingerprint);
+    }
+  } catch (e) {
+    fingerprint = computeFingerprint();
+  }
+  const photoOwnerId = `fingerprint:${fingerprint}`;
+  let photoDatabasePromise;
+
+  function openPhotoDatabase() {
+    if (!("indexedDB" in window)) {
+      return Promise.reject(new Error("O navegador não oferece armazenamento local para fotos."));
+    }
+    if (!photoDatabasePromise) {
+      photoDatabasePromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open("papos-profile-storage", 1);
+        request.onupgradeneeded = () => {
+          const database = request.result;
+          if (!database.objectStoreNames.contains("photos")) {
+            database.createObjectStore("photos");
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error("Não foi possível abrir o armazenamento local de fotos."));
+        request.onblocked = () => reject(new Error("O armazenamento local de fotos está bloqueado por outra aba."));
+      });
+    }
+    return photoDatabasePromise;
+  }
+
+  async function savePhoto(ownerId, file) {
+    if (!ownerId || !(file instanceof Blob)) {
+      throw new Error("A foto ou o identificador do proprietário é inválido.");
+    }
+    const database = await openPhotoDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction("photos", "readwrite");
+      transaction.objectStore("photos").put({
+        blob: file,
+        type: file.type || "image/jpeg",
+        savedAt: Date.now()
+      }, ownerId);
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error || new Error("Não foi possível salvar a foto neste navegador."));
+      transaction.onabort = () => reject(transaction.error || new Error("O armazenamento local da foto foi cancelado."));
+    });
+  }
+
+  async function getSavedPhoto(ownerId) {
+    if (!ownerId) return null;
+    const database = await openPhotoDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction("photos", "readonly");
+      const request = transaction.objectStore("photos").get(ownerId);
+      request.onsuccess = () => resolve(request.result?.blob instanceof Blob ? request.result.blob : null);
+      request.onerror = () => reject(request.error || new Error("Não foi possível ler a foto salva neste navegador."));
+    });
+  }
+
+  async function removeSavedPhoto(ownerId) {
+    if (!ownerId) return;
+    const database = await openPhotoDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction("photos", "readwrite");
+      transaction.objectStore("photos").delete(ownerId);
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error || new Error("Não foi possível remover a foto deste navegador."));
+      transaction.onabort = () => reject(transaction.error || new Error("A remoção da foto local foi cancelada."));
+    });
+  }
+
+  async function restoreAvatarImage(image) {
+    const ownerId = image && image.dataset ? image.dataset.photoOwnerId : "";
+    if (!ownerId) throw new Error("A imagem não possui proprietário local.");
+    const blob = await getSavedPhoto(ownerId);
+    if (!blob) throw new Error("Não há uma cópia local desta foto.");
+    image.onerror = null;
+    image.src = URL.createObjectURL(blob);
+  }
 
   // Iniciar obtenção do token assinado do servidor em segundo plano
   if (!getGuestToken()) {
@@ -145,6 +227,11 @@
     getGuestToken: function() { return getGuestToken(); },
     setGuestToken: setGuestToken,
     initGuestToken: initGuestToken,
-    getFingerprint: function() { return fingerprint; }
+    getFingerprint: function() { return fingerprint; },
+    getPhotoOwnerId: function(uid) { return uid ? `uid:${uid}` : photoOwnerId; },
+    savePhoto: savePhoto,
+    getSavedPhoto: getSavedPhoto,
+    removeSavedPhoto: removeSavedPhoto,
+    restoreAvatarImage: restoreAvatarImage
   };
 })();

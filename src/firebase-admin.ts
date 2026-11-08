@@ -35,7 +35,10 @@ if (!getApps().length) {
 }
 
 export const adminAuth = getAuth();
-export const adminDb = getFirestore();
+const firestoreDatabaseId = process.env.FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_DATABASE_ID;
+export const adminDb = firestoreDatabaseId && firestoreDatabaseId !== "(default)"
+  ? getFirestore(firestoreDatabaseId)
+  : getFirestore();
 export const adminMessaging = getMessaging();
 export const isFirebaseAdminConfigured = Boolean(
   process.env.FIREBASE_PRIVATE_KEY,

@@ -290,11 +290,17 @@ const ChatEngine = {
     const guestId = window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function"
       ? window.SecurityIdentity.getGuestId()
       : localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id");
+    const guestPhotoOwnerId = window.SecurityIdentity && typeof window.SecurityIdentity.getPhotoOwnerId === "function"
+      ? window.SecurityIdentity.getPhotoOwnerId()
+      : "";
     const photoOwnerId = localStorage.getItem("papos_photo_owner_id");
     const photoOwnerUid = localStorage.getItem("papos_photo_owner_uid");
+    if (!currentAuth && guestId && photoOwnerId === `guest:${guestId}` && localStorage.getItem("papos_photo")) {
+      localStorage.setItem("papos_photo_owner_id", guestPhotoOwnerId);
+    }
     const hasMatchingOwner = currentAuth
       ? photoOwnerId === `uid:${currentAuth.uid}` || (!photoOwnerId && photoOwnerUid === currentAuth.uid)
-      : Boolean(guestId && photoOwnerId === `guest:${guestId}`);
+      : Boolean(guestPhotoOwnerId && (photoOwnerId === guestPhotoOwnerId || photoOwnerId === `guest:${guestId}`));
     if ((photoOwnerId || photoOwnerUid) && !hasMatchingOwner) {
       localStorage.removeItem("papos_photo");
       localStorage.removeItem("papos_photo_owner_uid");
@@ -368,6 +374,20 @@ const ChatEngine = {
   createFallbackAvatarElement(name, sizeClass = "") {
     const cleanName = (name && name.trim()) || "A";
     const initial = cleanName.charAt(0).toUpperCase();
+    const currentNickname = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
+    const isOwnAvatar = cleanName === "Você" || (currentNickname && cleanName.toLowerCase() === currentNickname.toLowerCase());
+    const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
+      ? window.FirebaseService.getCurrentUser()
+      : null;
+    const photoOwnerId = isOwnAvatar && window.SecurityIdentity && typeof window.SecurityIdentity.getPhotoOwnerId === "function"
+      ? window.SecurityIdentity.getPhotoOwnerId(authUser ? authUser.uid : "")
+      : "";
+    if (photoOwnerId) {
+      const safeName = cleanName.replace(/"/g, "&quot;").replace(/'/g, "\\'");
+      const safeOwnerId = photoOwnerId.replace(/"/g, "&quot;");
+      return `<img src="data:image/jpeg;base64,invalid" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" data-photo-owner-id="${safeOwnerId}" style="object-fit: cover; aspect-ratio: 1 / 1;" onerror="if(window.SecurityIdentity&&window.SecurityIdentity.restoreAvatarImage){window.SecurityIdentity.restoreAvatarImage(this).catch(()=>{this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement)this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}'));});}" />`;
+    }
+
     const bgColor = this.getAvatarColor(cleanName);
     const div = document.createElement("div");
     div.className = `avatar-circle ${sizeClass}`;
@@ -401,7 +421,13 @@ const ChatEngine = {
         const guestId = window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function"
           ? window.SecurityIdentity.getGuestId()
           : localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id");
-        const expectedOwnerId = authUser ? `uid:${authUser.uid}` : guestId ? `guest:${guestId}` : "";
+        const guestPhotoOwnerId = window.SecurityIdentity && typeof window.SecurityIdentity.getPhotoOwnerId === "function"
+          ? window.SecurityIdentity.getPhotoOwnerId()
+          : "";
+        if (!authUser && guestId && photoOwnerId === `guest:${guestId}` && localStorage.getItem("papos_photo")) {
+          localStorage.setItem("papos_photo_owner_id", guestPhotoOwnerId);
+        }
+        const expectedOwnerId = authUser ? `uid:${authUser.uid}` : guestPhotoOwnerId;
         const isLegacyAuthPhoto = authUser && !photoOwnerId && localStorage.getItem("papos_photo_owner_uid") === authUser.uid;
         photoUrl = (photoOwnerId === expectedOwnerId || isLegacyAuthPhoto) ? localStorage.getItem("papos_photo") || "" : "";
         } else {
@@ -417,7 +443,16 @@ const ChatEngine = {
     if (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "" && !photoUrl.includes("undefined") && !photoUrl.includes("null")) {
       const safeUrl = photoUrl.replace(/"/g, '&quot;');
       const safeName = cleanName.replace(/"/g, '&quot;').replace(/'/g, "\\'");
-      return `<img src="${safeUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover; aspect-ratio: 1 / 1;" onerror="this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement){this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}'));}" />`;
+      const currentNickname = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
+      const isOwnAvatar = cleanName === "Você" || (currentNickname && cleanName.toLowerCase() === currentNickname.toLowerCase());
+      const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
+        ? window.FirebaseService.getCurrentUser()
+        : null;
+      const photoOwnerId = isOwnAvatar && window.SecurityIdentity && typeof window.SecurityIdentity.getPhotoOwnerId === "function"
+        ? window.SecurityIdentity.getPhotoOwnerId(authUser ? authUser.uid : "")
+        : "";
+      const safeOwnerId = photoOwnerId.replace(/"/g, "&quot;");
+      return `<img src="${safeUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover; aspect-ratio: 1 / 1;" ${safeOwnerId ? `data-photo-owner-id="${safeOwnerId}"` : ""} onerror="if(this.dataset.photoOwnerId&&window.SecurityIdentity&&window.SecurityIdentity.restoreAvatarImage){window.SecurityIdentity.restoreAvatarImage(this).catch(()=>{this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement)this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}'));});}else{this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement)this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}'));}" />`;
     }
     
     const bgColor = this.getAvatarColor(cleanName);
