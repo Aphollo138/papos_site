@@ -474,21 +474,24 @@ function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?:
 
   // 1. Atualizar sessões ativas com o novo estado em tempo real
   activeSessions.forEach((session) => {
-    if (session.nickname && session.nickname.toLowerCase() === cleanNick.toLowerCase()) {
+    const sameOwner = uid ? session.uid === uid : session.nickname?.toLowerCase() === cleanNick.toLowerCase();
+    if (sameOwner) {
       session.photoUrl = cleanPhotoUrl;
     }
   });
 
-  // 2. Atualizar mensagens em memória para que novos membros recebam o estado correto
-  Object.keys(messages).forEach((roomId) => {
-    if (Array.isArray(messages[roomId])) {
-      messages[roomId].forEach((msg) => {
-        if (msg.sender && msg.sender.toLowerCase() === cleanNick.toLowerCase()) {
-          msg.photoUrl = cleanPhotoUrl ? cleanPhotoUrl : undefined;
-        }
-      });
-    }
-  });
+  // Mensagens só podem ser atualizadas quando ainda identificam o dono da foto.
+  if (uid) {
+    Object.keys(messages).forEach((roomId) => {
+      if (Array.isArray(messages[roomId])) {
+        messages[roomId].forEach((msg) => {
+          if (msg.userId === uid) {
+            msg.photoUrl = cleanPhotoUrl ? cleanPhotoUrl : undefined;
+          }
+        });
+      }
+    });
+  }
 
   // 3. Notificar todos os clientes conectados via WebSocket em tempo real
   const payload = {
@@ -1054,6 +1057,37 @@ async function startServer() {
 
   async function handleProfilePhotoUpload(req: express.Request, res: express.Response) {
     try {
+      const authorization = req.headers.authorization;
+      let uid: string | undefined;
+      if (authorization) {
+        const tokenMatch = /^Bearer\s+(.+)$/i.exec(authorization);
+        if (!tokenMatch) {
+          res.status(401).json({ success: false, error: "Autenticação inválida." });
+          return;
+        }
+        let decodedUser: any;
+        try {
+          decodedUser = await verifyFirebaseIdToken(tokenMatch[1], firebaseConfig.projectId);
+        } catch {
+          decodedUser = null;
+        }
+        if (!decodedUser || typeof decodedUser.uid !== "string" || !decodedUser.uid) {
+          res.status(401).json({ success: false, error: "Faça login novamente para enviar uma foto." });
+          return;
+        }
+        if (decodedUser.email && decodedUser.email_verified !== true) {
+          res.status(403).json({ success: false, error: "Verifique seu e-mail antes de salvar a foto." });
+          return;
+        }
+        uid = decodedUser.uid;
+      }
+
+      const claimedUid = req.body?.uid || req.headers["x-user-uid"];
+      if (!uid && claimedUid) {
+        res.status(401).json({ success: false, error: "Faça login para salvar a foto no perfil." });
+        return;
+      }
+
       let fileBuffer: Buffer | null = null;
 
       if (req.file) {
@@ -1098,22 +1132,10 @@ async function startServer() {
       }
 
       const photoUrl = uploadResult.url;
-      let uid = (req.body.uid || req.headers["x-user-uid"]) as string;
       const nickname = (req.body.nickname || "") as string;
 
       // Se houver Authorization Bearer token, valida e extrai UID verificado com segurança
-      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-        const token = req.headers.authorization.split("Bearer ")[1];
-        try {
-          const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
-          if (decoded && decoded.uid) {
-            uid = decoded.uid;
-          }
-        } catch (e) {}
-      }
-
-      // Se autenticado com UID, persistir no documento do usuário no Firestore
-      if (uid && typeof uid === "string") {
+      if (uid) {
         try {
           const userRef = doc(db, "users", uid);
           await setDoc(userRef, {
@@ -1122,14 +1144,17 @@ async function startServer() {
             photoUrl: photoUrl,
             updatedAt: Date.now()
           }, { merge: true });
-        } catch (e) {
-          console.error("[UploadPhoto] Erro ao sincronizar foto com Firestore:", e);
+        } catch (error) {
+          console.error("[UploadPhoto] Erro ao sincronizar foto com Firestore:", error);
+          res.status(500).json({ success: false, error: "Não foi possível salvar a foto no perfil. Tente novamente." });
+          return;
         }
       }
 
-      // Atualizar sessões ativas, histórico de mensagens em memória e transmitir evento em tempo real a todos os clientes
-      if (nickname) {
-        broadcastProfileUpdate(nickname, photoUrl, uid);
+      if (uid) {
+        const userSnapshot = await getDoc(doc(db, "users", uid));
+        const profileNickname = userSnapshot.data()?.nickname || userSnapshot.data()?.displayName || nickname;
+        if (profileNickname) broadcastProfileUpdate(profileNickname, photoUrl, uid);
       }
 
       res.json({
@@ -1210,46 +1235,50 @@ async function startServer() {
 
   app.post("/api/profile/remove-photo", async (req, res) => {
     try {
-      let { uid, nickname } = req.body;
-
-      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-        const token = req.headers.authorization.split("Bearer ")[1];
-        try {
-          const decoded = await verifyFirebaseIdToken(token, firebaseConfig.projectId);
-          if (decoded && decoded.uid) {
-            uid = decoded.uid;
-          }
-        } catch (e) {}
+      const authorization = req.headers.authorization;
+      const tokenMatch = authorization ? /^Bearer\s+(.+)$/i.exec(authorization) : null;
+      if (!tokenMatch) {
+        res.status(401).json({ success: false, error: "Faça login para remover a foto do perfil." });
+        return;
       }
 
-      if (uid && typeof uid === "string") {
-        try {
-          const userRef = doc(db, "users", uid);
-          await setDoc(userRef, {
-            photoURL: "",
-            profileImage: "",
-            photoUrl: "",
-            updatedAt: Date.now()
-          }, { merge: true });
-        } catch (e) {
-          console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", e);
-        }
-      } else if (nickname) {
-        try {
-          const q = query(collection(db, "users"), where("nickname", "==", nickname));
-          const snap = await getDocs(q);
-          snap.forEach(async (d) => {
-            await setDoc(doc(db, "users", d.id), { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
-          });
-        } catch (e) {}
+      let decodedUser: any;
+      try {
+        decodedUser = await verifyFirebaseIdToken(tokenMatch[1], firebaseConfig.projectId);
+      } catch {
+        decodedUser = null;
+      }
+      if (!decodedUser || typeof decodedUser.uid !== "string" || !decodedUser.uid) {
+        res.status(401).json({ success: false, error: "Faça login novamente para remover a foto." });
+        return;
+      }
+      if (decodedUser.email && decodedUser.email_verified !== true) {
+        res.status(403).json({ success: false, error: "Verifique seu e-mail antes de alterar o perfil." });
+        return;
       }
 
-      if (nickname && typeof nickname === "string") {
-        broadcastProfileUpdate(nickname, "", uid);
+      const uid = decodedUser.uid as string;
+      const userRef = doc(db, "users", uid);
+      try {
+        await setDoc(userRef, {
+          photoURL: "",
+          profileImage: "",
+          photoUrl: "",
+          updatedAt: Date.now()
+        }, { merge: true });
+      } catch (error) {
+        console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", error);
+        res.status(500).json({ success: false, error: "Não foi possível remover a foto do perfil." });
+        return;
       }
+
+      const userSnapshot = await getDoc(userRef);
+      const nickname = userSnapshot.data()?.nickname || userSnapshot.data()?.displayName;
+      if (nickname) broadcastProfileUpdate(nickname, "", uid);
 
       res.json({ success: true });
     } catch (err) {
+      console.error("[RemovePhoto] Erro inesperado:", err);
       res.status(500).json({ success: false, error: "Erro ao remover foto de perfil." });
     }
   });
@@ -2461,7 +2490,7 @@ async function startServer() {
             
             const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
             session.photoUrl = "";
-            if (session.uid && !isExplicitRemove) {
+            if (!isExplicitRemove) {
               const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
               if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
                 session.photoUrl = sanitizeHTML(incomingPhoto.trim());
@@ -2754,6 +2783,7 @@ async function startServer() {
             const msgObj = {
               id: msgId,
               sender: session.nickname,
+              userId: session.uid || undefined,
               text,
               time: getCurrentTime(),
               timestamp: Date.now(),

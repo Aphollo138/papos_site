@@ -286,10 +286,19 @@ const ChatEngine = {
       return false;
     }
     localStorage.setItem("papos_nickname", nick);
-    // Anônimos nunca herdam fotos de contas autenticadas anteriores
-    if (!currentUid && localStorage.getItem("papos_photo_owner_uid")) {
+    // Fotos locais de visitantes são mantidas somente para a identidade anônima que as enviou.
+    const guestId = window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function"
+      ? window.SecurityIdentity.getGuestId()
+      : localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id");
+    const photoOwnerId = localStorage.getItem("papos_photo_owner_id");
+    const photoOwnerUid = localStorage.getItem("papos_photo_owner_uid");
+    const hasMatchingOwner = currentAuth
+      ? photoOwnerId === `uid:${currentAuth.uid}` || (!photoOwnerId && photoOwnerUid === currentAuth.uid)
+      : Boolean(guestId && photoOwnerId === `guest:${guestId}`);
+    if ((photoOwnerId || photoOwnerUid) && !hasMatchingOwner) {
       localStorage.removeItem("papos_photo");
       localStorage.removeItem("papos_photo_owner_uid");
+      localStorage.removeItem("papos_photo_owner_id");
     }
     return true;
   },
@@ -385,7 +394,16 @@ const ChatEngine = {
       } else {
         const currentUser = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
         if (cleanName.toLowerCase() === currentUser.toLowerCase() || cleanName === "Você") {
-          photoUrl = localStorage.getItem("papos_photo") || "";
+        const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
+          ? window.FirebaseService.getCurrentUser()
+          : null;
+        const photoOwnerId = localStorage.getItem("papos_photo_owner_id");
+        const guestId = window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function"
+          ? window.SecurityIdentity.getGuestId()
+          : localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id");
+        const expectedOwnerId = authUser ? `uid:${authUser.uid}` : guestId ? `guest:${guestId}` : "";
+        const isLegacyAuthPhoto = authUser && !photoOwnerId && localStorage.getItem("papos_photo_owner_uid") === authUser.uid;
+        photoUrl = (photoOwnerId === expectedOwnerId || isLegacyAuthPhoto) ? localStorage.getItem("papos_photo") || "" : "";
         } else {
           const cache = window.profileCache;
           const cached = cache && (cache.get(cleanName.toLowerCase()) || cache.get(cleanName));
@@ -411,7 +429,7 @@ const ChatEngine = {
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith("papos_photo_")) {
+        if (k && k.startsWith("papos_photo_") && k !== "papos_photo_owner_uid" && k !== "papos_photo_owner_id") {
           keysToRemove.push(k);
         }
       }

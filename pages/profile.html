@@ -285,6 +285,7 @@
 
     <script type="module" src="/firebase/auth.js"></script>
     <script type="module" src="/assets/js/auth-controller.js"></script>
+    <script src="/assets/js/fingerprint.js"></script>
 
     <script src="/assets/js/main.js"></script>
 
@@ -378,11 +379,27 @@
         }
 
         // Função de Preview de Avatar em Tempo Real
+        function getOwnedLocalPhoto() {
+          const photo = localStorage.getItem("papos_photo") || "";
+          const ownerId = localStorage.getItem("papos_photo_owner_id");
+          const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
+            ? window.FirebaseService.getCurrentUser()
+            : null;
+          if (authUser) {
+            return ownerId === `uid:${authUser.uid}` ||
+              (!ownerId && localStorage.getItem("papos_photo_owner_uid") === authUser.uid) ? photo : "";
+          }
+          const guestId = window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function"
+            ? window.SecurityIdentity.getGuestId()
+            : localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id");
+          return guestId && ownerId === `guest:${guestId}` ? photo : "";
+        }
+
         function updateAvatarPreview(name, customPhoto = null) {
           if (window.ChatEngine) {
             let photoToUse = customPhoto;
             if (photoToUse === null) {
-              photoToUse = localStorage.getItem("papos_photo") || null;
+              photoToUse = getOwnedLocalPhoto() || null;
             }
             avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse);
             
@@ -440,17 +457,17 @@
             formData.append("image", file);
 
             const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
-            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
+            const currentUid = currentAuthUser ? currentAuthUser.uid : "";
             const currentNick = inputNickname.value.trim() || currentUser;
-
-            if (currentUid) {
-              formData.append("uid", currentUid);
-            }
             formData.append("nickname", currentNick);
 
+            const uploadHeaders = {};
+            if (currentAuthUser) {
+              uploadHeaders.Authorization = `Bearer ${await currentAuthUser.getIdToken()}`;
+            }
             const res = await fetch("/api/profile/upload-photo", {
               method: "POST",
-              headers: currentUid ? { "x-user-uid": currentUid } : {},
+              headers: uploadHeaders,
               body: formData
             });
 
@@ -461,6 +478,9 @@
 
             const data = await res.json();
             const finalUrl = data.url || data.link;
+            const photoOwnerId = currentAuthUser
+              ? `uid:${currentAuthUser.uid}`
+              : `guest:${window.SecurityIdentity?.getGuestId?.() || localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id") || ""}`;
 
             if (!finalUrl) {
               throw new Error("URL da foto não recebida.");
@@ -468,11 +488,17 @@
 
             // Armazenar URL no cache
             localStorage.setItem("papos_photo", finalUrl);
-            if (currentUid) {
+            if (currentAuthUser) {
               localStorage.setItem("papos_photo_owner_uid", currentUid);
+              localStorage.setItem("papos_photo_owner_id", photoOwnerId);
             } else {
-              localStorage.removeItem("papos_photo");
               localStorage.removeItem("papos_photo_owner_uid");
+              if (photoOwnerId !== "guest:") {
+                localStorage.setItem("papos_photo_owner_id", photoOwnerId);
+              } else {
+                localStorage.removeItem("papos_photo");
+                localStorage.removeItem("papos_photo_owner_id");
+              }
             }
 
             try {
@@ -487,14 +513,6 @@
               });
             } catch (e) {}
 
-            // Se autenticado no Firebase, salvar no perfil
-            if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
-              await window.FirebaseService.saveUserProfile({
-                photoURL: finalUrl,
-                profileImage: finalUrl
-              });
-            }
-
             updateAvatarPreview(currentNick, finalUrl);
 
             const toastFn = window.showToast || window.showAdminToast;
@@ -507,7 +525,7 @@
             photoError.classList.remove("d-none");
             
             // Reverter preview
-            const prevPhoto = localStorage.getItem("papos_photo") || null;
+            const prevPhoto = getOwnedLocalPhoto() || null;
             updateAvatarPreview(inputNickname.value.trim() || currentUser, prevPhoto);
 
             const toastFn = window.showToast || window.showAdminToast;
@@ -532,17 +550,24 @@
 
           try {
             const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
-            const currentUid = currentAuthUser ? currentAuthUser.uid : (localStorage.getItem("papos_uid") || "");
+            const currentUid = currentAuthUser ? currentAuthUser.uid : "";
             const currentNick = inputNickname.value.trim() || currentUser;
 
-            await fetch("/api/profile/remove-photo", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ uid: currentUid, nickname: currentNick })
-            }).catch(() => {});
+            if (currentAuthUser) {
+              const token = await currentAuthUser.getIdToken();
+              const response = await fetch("/api/profile/remove-photo", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || "Não foi possível remover a foto do perfil.");
+              }
+            }
 
             localStorage.removeItem("papos_photo");
             localStorage.removeItem("papos_photo_owner_uid");
+            localStorage.removeItem("papos_photo_owner_id");
 
             try {
               const syncChannel = new BroadcastChannel("papos_profile_sync");
@@ -555,13 +580,6 @@
                 userId: currentUid
               });
             } catch (e) {}
-
-            if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
-              await window.FirebaseService.saveUserProfile({
-                photoURL: "",
-                profileImage: ""
-              }).catch(() => {});
-            }
 
             updateAvatarPreview(currentNick, "");
 
@@ -637,9 +655,11 @@
                     if (photo) {
                       localStorage.setItem("papos_photo", photo);
                       localStorage.setItem("papos_photo_owner_uid", user.uid);
+                      localStorage.setItem("papos_photo_owner_id", `uid:${user.uid}`);
                     } else {
                       localStorage.removeItem("papos_photo");
                       localStorage.removeItem("papos_photo_owner_uid");
+                      localStorage.removeItem("papos_photo_owner_id");
                     }
                     updateAvatarPreview(nick, photo || null);
 

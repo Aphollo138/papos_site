@@ -459,9 +459,11 @@ document.addEventListener("DOMContentLoaded", () => {
               const validPhoto = photo.trim();
               localStorage.setItem("papos_photo", validPhoto);
               localStorage.setItem("papos_photo_owner_uid", user.uid);
+              localStorage.setItem("papos_photo_owner_id", `uid:${user.uid}`);
             } else if (profile.photoURL === null || profile.profileImage === null || profile.photoUrl === null) {
               localStorage.removeItem("papos_photo");
               localStorage.removeItem("papos_photo_owner_uid");
+              localStorage.removeItem("papos_photo_owner_id");
             }
 
             if (desktopUserName) desktopUserName.textContent = nick;
@@ -608,6 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.removeItem("papos_nickname");
         localStorage.removeItem("papos_photo");
         localStorage.removeItem("papos_photo_owner_uid");
+        localStorage.removeItem("papos_photo_owner_id");
         localStorage.removeItem("papos_permanent_id");
 
         const logoutModalEl = document.getElementById("logoutConfirmModal");
