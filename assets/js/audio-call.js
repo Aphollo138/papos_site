@@ -728,7 +728,7 @@
         callState = "idle";
         currentPartner = null;
         updateHeaderCallButton();
-        showCallToast(data.message || "Esta pessoa não pode aceitar ligações no momento.", "warning");
+        showCallToast(data.message || "A pessoa não pode receber ligação.", "error");
         return true;
       }
 

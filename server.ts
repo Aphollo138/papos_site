@@ -431,6 +431,7 @@ interface ClientSession {
   clientId?: string;
   ip?: string;
   blockCalls?: boolean;
+  blockPrivateMessages?: boolean;
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
@@ -730,6 +731,25 @@ async function startServer() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", activeConnections: activeSessions.size });
+  });
+
+  app.get("/api/nickname/availability", (req, res) => {
+    const requestedNickname = typeof req.query.nickname === "string" ? req.query.nickname.trim() : "";
+    if (requestedNickname.length < 2 || requestedNickname.length > 15) {
+      res.status(400).json({ error: "O apelido deve ter entre 2 e 15 caracteres." });
+      return;
+    }
+
+    const nickname = sanitizeHTML(requestedNickname).toLowerCase();
+    const isBotName = BOTS.some((bot) => bot.nickname.toLowerCase() === nickname);
+    const isInUse = isBotName || Array.from(activeSessions.entries()).some(
+      ([ws, session]) =>
+        ws.readyState === WebSocket.OPEN &&
+        session.nickname &&
+        session.nickname.toLowerCase() === nickname
+    );
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ available: !isInUse });
   });
 
   app.get("/api/webrtc-config", (req, res) => {
@@ -1453,6 +1473,9 @@ async function startServer() {
                 isAdsDisabled = userData.adsDisabled === true || isAdminUser;
                 if (userData.blockCalls !== undefined) {
                   session.blockCalls = Boolean(userData.blockCalls);
+                }
+                if (userData.blockPrivateMessages !== undefined) {
+                  session.blockPrivateMessages = Boolean(userData.blockPrivateMessages);
                 }
 
                 if (isReservedNickname(nickname)) {
@@ -2400,28 +2423,27 @@ async function startServer() {
               }
             }
 
-            activeSessions.forEach((s, key) => {
-              if (key !== ws && s.nickname && s.nickname.toLowerCase() === nickname.toLowerCase()) {
-                try {
-                  key.close();
-                } catch (err) {}
-                activeSessions.delete(key);
-              }
-            });
-
-            let taken = false;
-            activeSessions.forEach((s, key) => {
-              if (key !== ws && s.roomId === roomId && s.nickname.toLowerCase() === nickname.toLowerCase()) {
-                taken = true;
-              }
-            });
-
-            const finalNickname = taken ? `${nickname}#${Math.floor(100 + Math.random() * 900)}` : nickname;
+            const normalizedNickname = nickname.toLowerCase();
+            const isBotName = BOTS.some((bot) => bot.nickname.toLowerCase() === normalizedNickname);
+            const isNameInUse = isBotName || Array.from(activeSessions.entries()).some(
+              ([activeWs, activeSession]) =>
+                activeWs !== ws &&
+                activeWs.readyState === WebSocket.OPEN &&
+                activeSession.nickname &&
+                activeSession.nickname.toLowerCase() === normalizedNickname
+            );
+            if (isNameInUse) {
+              sendToClient(ws, "error", {
+                code: "nickname_taken",
+                message: "Esse nome já existe. Escolha outro apelido."
+              });
+              return;
+            }
 
             const oldRoomId = session.roomId;
             const oldNickname = session.nickname;
 
-            session.nickname = finalNickname;
+            session.nickname = nickname;
             session.roomId = roomId;
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
@@ -2429,11 +2451,17 @@ async function startServer() {
             if (payload.blockCalls !== undefined) {
               session.blockCalls = Boolean(payload.blockCalls);
             }
+            if (payload.blockPrivateMessages !== undefined) {
+              session.blockPrivateMessages = Boolean(payload.blockPrivateMessages);
+            }
+            sendToClient(ws, "chat_settings", {
+              blockCalls: Boolean(session.blockCalls),
+              blockPrivateMessages: Boolean(session.blockPrivateMessages)
+            });
             
             const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
-            if (isExplicitRemove) {
-              session.photoUrl = "";
-            } else {
+            session.photoUrl = "";
+            if (session.uid && !isExplicitRemove) {
               const incomingPhoto = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
               if (typeof incomingPhoto === "string" && incomingPhoto.trim() !== "" && !incomingPhoto.includes("null") && !incomingPhoto.includes("undefined")) {
                 session.photoUrl = sanitizeHTML(incomingPhoto.trim());
@@ -2468,7 +2496,7 @@ async function startServer() {
 
             sendToClient(ws, "room_state", {
               roomId,
-              nickname: finalNickname,
+              nickname: nickname,
               messages: messages[roomId],
               onlineUsers: getRoomOnlineUsers(roomId),
               userPhotos,
@@ -2484,7 +2512,7 @@ async function startServer() {
             });
 
             broadcastToRoom(roomId, "user_joined", {
-              nickname: finalNickname,
+              nickname: nickname,
               photoUrl: session.photoUrl || "",
               profileImage: session.photoUrl || null,
               time: getCurrentTime(),
@@ -2510,7 +2538,7 @@ async function startServer() {
                   isTyping: false
                 });
 
-                const text = `👋 Olá, ${finalNickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
+                const text = `👋 Olá, ${nickname}! Seja bem-vindo(a) ao Papo.net. Divirta-se e respeite as regras da comunidade!`;
                 
                 const welcomeMsgId = "bot-welcome-" + Date.now();
                 const welcomeMsg = {
@@ -2532,7 +2560,7 @@ async function startServer() {
 
             broadcastRoomsList();
 
-            if (!oldNickname) {
+            if (!oldNickname && !session.blockPrivateMessages) {
               
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return;
@@ -2557,11 +2585,11 @@ async function startServer() {
                   id: "pm-welcome-" + Date.now(),
                   senderId: "Bot_Papos",
                   senderName: "Bot_Papos",
-                  recipientId: finalNickname,
-                  recipientName: finalNickname,
+                  recipientId: nickname,
+                  recipientName: nickname,
                   content: welcomeText,
                   timestamp: Date.now(),
-                  conversationId: ["bot_papos", finalNickname.toLowerCase()].sort().join("--"),
+                  conversationId: ["bot_papos", nickname.toLowerCase()].sort().join("--"),
                   isDeleted: false
                 };
                 sendToClient(ws, "private_message", pmPayload);
@@ -2796,15 +2824,26 @@ async function startServer() {
             }
 
             let targetWs: WebSocket | null = null;
+            let targetSession: ClientSession | null = null;
             activeSessions.forEach((s, key) => {
               if (s.nickname.toLowerCase() === toNick.toLowerCase()) {
                 targetWs = key;
+                targetSession = s;
               }
             });
 
             const pmId = payload.id || ("pm-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6));
 
             if (toNick.toLowerCase() === session.nickname.toLowerCase()) return;
+
+            if (targetWs && targetWs !== ws && targetSession?.blockPrivateMessages) {
+              sendToClient(ws, "private_message_rejected", {
+                id: pmId,
+                to: toNick,
+                message: "A pessoa desabilitou mensagens privadas."
+              });
+              return;
+            }
 
             if (targetWs && targetWs !== ws) {
               const pmPayload = {
@@ -3120,6 +3159,28 @@ async function startServer() {
             break;
           }
 
+          case "update_chat_settings": {
+            if (payload.blockCalls !== undefined) {
+              session.blockCalls = Boolean(payload.blockCalls);
+            }
+            if (payload.blockPrivateMessages !== undefined) {
+              session.blockPrivateMessages = Boolean(payload.blockPrivateMessages);
+            }
+            if (session.uid) {
+              try {
+                await setDoc(doc(db, "users", session.uid), {
+                  blockCalls: Boolean(session.blockCalls),
+                  blockPrivateMessages: Boolean(session.blockPrivateMessages),
+                  updatedAt: Date.now()
+                }, { merge: true });
+              } catch (error) {
+                console.error("[Chat] Erro ao salvar configurações de privacidade:", error);
+                sendToClient(ws, "error", { message: "Não foi possível salvar suas configurações na conta." });
+              }
+            }
+            break;
+          }
+
           case "call:request": {
             if (!session.nickname) return;
             const toNick = (payload.to || "").trim();
@@ -3169,7 +3230,7 @@ async function startServer() {
             if (isTargetBlocked) {
               sendToClient(ws, "call:blocked", {
                 partner: toNick,
-                message: "Esta pessoa não pode aceitar ligações no momento."
+                message: "A pessoa não pode receber ligação."
               });
               return;
             }
@@ -3231,7 +3292,7 @@ async function startServer() {
             if (isTargetBlocked) {
               sendToClient(ws, "call:blocked", {
                 partner: toNick,
-                message: "Esta pessoa não pode aceitar ligações no momento."
+                message: "A pessoa não pode receber ligação."
               });
               return;
             }
@@ -3385,7 +3446,7 @@ async function startServer() {
             let gender = "";
             let photoUrl = "";
             let permanentId = "";
-            const isOnline = !!foundSession;
+            let isOnline = !!foundSession;
 
             if (foundSession) {
               bio = (foundSession as ClientSession).bio || "";
@@ -3393,20 +3454,6 @@ async function startServer() {
               gender = (foundSession as ClientSession).gender || "";
               photoUrl = (foundSession as ClientSession).photoUrl || "";
               permanentId = (foundSession as ClientSession).permanentId || "";
-
-              if (!bio || age === null || !gender || !permanentId) {
-                try {
-                  const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
-                  const snap = await getDocs(q);
-                  if (!snap.empty) {
-                    const userData = snap.docs[0].data();
-                    if (!bio) bio = userData.bio || "";
-                    if (age === null) age = userData.age || null;
-                    if (!gender) gender = userData.gender || "";
-                    if (!permanentId) permanentId = userData.permanentId || "";
-                  }
-                } catch (err) {}
-              }
             } else {
               try {
                 const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
@@ -3424,6 +3471,22 @@ async function startServer() {
               }
             }
 
+            if (!foundSession) {
+              activeSessions.forEach((s) => {
+                if (s.nickname && s.nickname.toLowerCase() === requestedNickname.toLowerCase()) {
+                  foundSession = s;
+                }
+              });
+              if (foundSession) {
+                isOnline = true;
+                bio = foundSession.bio || "";
+                age = foundSession.age || null;
+                gender = foundSession.gender || "";
+                photoUrl = foundSession.photoUrl || "";
+                permanentId = foundSession.permanentId || "";
+              }
+            }
+
             if (!permanentId) {
               if (BOTS.some(b => b.nickname.toLowerCase() === requestedNickname.toLowerCase())) {
                 permanentId = "BOT-ASSISTANT";
@@ -3434,6 +3497,7 @@ async function startServer() {
 
             sendToClient(ws, "profile_data", {
               nickname: foundSession ? (foundSession as ClientSession).nickname : requestedNickname,
+              requestId: payload.requestId,
               photoUrl,
               profileImage: photoUrl || null,
               bio,

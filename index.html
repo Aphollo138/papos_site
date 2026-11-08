@@ -507,6 +507,7 @@
                     <div class="form-text text-secondary" style="font-size: 0.75rem;">
                       De 2 a 15 caracteres. O apelido é armazenado localmente em seu navegador.
                     </div>
+                    <div class="form-text d-none" id="nickname-availability" role="status" aria-live="polite"></div>
                   </div>
 
                   <button type="submit" class="btn btn-premium w-100 py-3 font-display fw-bold" id="btn-submit-nickname">
@@ -607,11 +608,85 @@
         // Form submission and validation logic
         const nickForm = document.getElementById("nickname-form");
         if (nickForm) {
-          nickForm.addEventListener("submit", (e) => {
+          const nicknameInput = document.getElementById("user-nickname");
+          const availabilityMessage = document.getElementById("nickname-availability");
+          let availabilityTimer;
+          let availabilityRequest = 0;
+
+          const setAvailabilityMessage = (message, state) => {
+            if (!availabilityMessage) return;
+            availabilityMessage.textContent = message;
+            availabilityMessage.classList.toggle("d-none", !message);
+            availabilityMessage.classList.toggle("text-danger", state === "taken" || state === "error");
+            availabilityMessage.classList.toggle("text-success", state === "available");
+            if (nicknameInput) {
+              nicknameInput.classList.toggle("is-invalid", state === "taken" || state === "error");
+              nicknameInput.classList.toggle("is-valid", state === "available");
+              nicknameInput.setAttribute("aria-invalid", state === "taken" || state === "error" ? "true" : "false");
+            }
+          };
+
+          const checkNicknameAvailability = async (nickname, requestId) => {
+            try {
+              const response = await fetch(`/api/nickname/availability?nickname=${encodeURIComponent(nickname)}`, {
+                cache: "no-store"
+              });
+              if (!response.ok) throw new Error("Não foi possível verificar o apelido.");
+              const result = await response.json();
+              if (requestId !== availabilityRequest) return null;
+              const isAvailable = Boolean(result.available);
+              if (isAvailable) {
+                setAvailabilityMessage("Apelido disponível.", "available");
+              } else {
+                setAvailabilityMessage("Esse nome já existe. Escolha outro.", "taken");
+              }
+              return isAvailable;
+            } catch (error) {
+              if (requestId !== availabilityRequest) return null;
+              setAvailabilityMessage("Não foi possível verificar o apelido. Tente novamente.", "error");
+              console.error("[Nickname] Falha ao verificar disponibilidade:", error);
+              return null;
+            }
+          };
+
+          if (nicknameInput) {
+            nicknameInput.addEventListener("input", () => {
+              clearTimeout(availabilityTimer);
+              availabilityRequest += 1;
+              const nickname = nicknameInput.value.trim();
+              if (nickname.length < 2) {
+                setAvailabilityMessage("", "");
+                return;
+              }
+              setAvailabilityMessage("Verificando apelido...", "checking");
+              availabilityTimer = setTimeout(() => {
+                checkNicknameAvailability(nickname, availabilityRequest);
+              }, 350);
+            });
+          }
+
+          nickForm.addEventListener("submit", async (e) => {
             e.preventDefault();
-            const nicknameInput = document.getElementById("user-nickname");
+            if (!nicknameInput) return;
             const nickname = nicknameInput.value.trim();
-            
+            clearTimeout(availabilityTimer);
+            availabilityRequest += 1;
+            const requestId = availabilityRequest;
+            const available = await checkNicknameAvailability(nickname, requestId);
+            if (available === null) {
+              if (typeof window.showToast === "function") {
+                window.showToast("Não foi possível verificar o apelido. Tente novamente.", "error");
+              }
+              return;
+            }
+            if (!available) {
+              if (typeof window.showToast === "function") {
+                window.showToast("Esse nome já existe.", "error");
+              }
+              nicknameInput.focus();
+              return;
+            }
+
             if (window.ChatEngine && window.ChatEngine.saveUser(nickname)) {
               const targetRoom = localStorage.getItem("target_room_id") || "room-1";
               localStorage.removeItem("target_room_id");

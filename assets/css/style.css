@@ -407,6 +407,36 @@
 }
 
 /* Modais e Popups */
+#chatSettingsModal .modal-dialog {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(420px, calc(100vw - 2rem));
+  max-width: 420px;
+  height: calc(100% - 2rem);
+  margin: 1rem;
+}
+
+#chatSettingsModal .modal-content {
+  min-height: 100%;
+}
+
+@media (max-width: 767.98px) {
+  #chatSettingsModal .modal-dialog {
+    right: auto;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    margin: 0;
+  }
+
+  #chatSettingsModal .modal-content {
+    min-height: 100%;
+    border-radius: 0 !important;
+  }
+}
+
 [data-theme="light"] .modal-content {
   background-color: #FFFFFF !important;
   border: 1px solid #E5E7EB !important;
@@ -3463,5 +3493,174 @@ body.in-call-fullscreen {
   background: rgba(0, 0, 0, 0.12) !important;
 }
 
+/* Configurações do chat: estilos isolados para não herdar cores conflitantes do tema. */
+#chatSettingsModal .modal-content {
+  overflow: hidden;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
 
+#chatSettingsModal .modal-header,
+#chatSettingsModal .modal-footer {
+  background: var(--surface-secondary);
+  border-color: var(--border) !important;
+}
 
+#chatSettingsModal .chat-settings-title,
+#chatSettingsModal .chat-settings-option-title {
+  color: var(--text-primary) !important;
+}
+
+#chatSettingsModal .chat-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+#chatSettingsModal .chat-settings-title-icon {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: rgba(14, 165, 233, 0.14);
+  color: #38bdf8;
+}
+
+#chatSettingsModal .chat-settings-option {
+  min-height: 82px;
+  background: var(--surface-secondary);
+  border-color: var(--border) !important;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+#chatSettingsModal .chat-settings-option:hover {
+  border-color: rgba(56, 189, 248, 0.55) !important;
+  transform: translateY(-1px);
+}
+
+#chatSettingsModal .chat-settings-option-copy {
+  min-width: 0;
+}
+
+#chatSettingsModal .chat-settings-option-title {
+  margin-bottom: 0.35rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+#chatSettingsModal .chat-settings-option-icon {
+  width: 1.35rem;
+  margin-right: 0.45rem;
+  color: #38bdf8;
+  text-align: center;
+}
+
+#chatSettingsModal .chat-settings-option-description {
+  display: block;
+  color: var(--text-secondary) !important;
+  line-height: 1.45;
+}
+
+#chatSettingsModal .btn-secondary-custom {
+  min-width: 96px;
+}
+
+[data-theme="light"] #chatSettingsModal .modal-content {
+  background: #ffffff !important;
+  border-color: #d7e0ea !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2) !important;
+  color: #172033 !important;
+}
+
+[data-theme="light"] #chatSettingsModal .modal-header,
+[data-theme="light"] #chatSettingsModal .modal-footer {
+  background: #f5f8fc !important;
+  border-color: #dbe3ec !important;
+}
+
+[data-theme="light"] #chatSettingsModal .chat-settings-title,
+[data-theme="light"] #chatSettingsModal .chat-settings-option-title {
+  color: #172033 !important;
+}
+
+[data-theme="light"] #chatSettingsModal .chat-settings-title-icon {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+[data-theme="light"] #chatSettingsModal .chat-settings-option {
+  background: #f8fafc !important;
+  border-color: #dbe3ec !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="light"] #chatSettingsModal .chat-settings-option:hover {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.09);
+}
+
+[data-theme="light"] #chatSettingsModal .chat-settings-option-icon {
+  color: #0369a1 !important;
+}
+
+[data-theme="light"] #chatSettingsModal .chat-settings-option-description {
+  color: #526174 !important;
+}
+
+[data-theme="light"] #chatSettingsModal .papos-compact-switch {
+  background-color: #e2e8f0 !important;
+  border: 1px solid #94a3b8 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8) !important;
+}
+
+[data-theme="light"] #chatSettingsModal .papos-compact-switch:checked {
+  background-color: #15803d !important;
+  border-color: #15803d !important;
+  box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.16) !important;
+}
+
+[data-theme="light"] #chatSettingsModal .papos-compact-switch:focus {
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.24) !important;
+}
+
+[data-theme="light"] #chatSettingsModal .btn-secondary-custom {
+  background: #eaf0f6 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  box-shadow: none !important;
+}
+
+[data-theme="light"] #chatSettingsModal .btn-secondary-custom:hover {
+  background: #dce7f1 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] #chatSettingsModal .btn-close {
+  filter: none !important;
+  opacity: 0.72;
+}
+
+[data-theme="light"] #chatSettingsModal .btn-close:hover {
+  opacity: 1;
+}
+
+@media (max-width: 420px) {
+  #chatSettingsModal .chat-settings-option {
+    gap: 0.65rem !important;
+    padding: 0.85rem !important;
+  }
+
+  #chatSettingsModal .chat-settings-option-title {
+    font-size: 0.92rem;
+  }
+
+  #chatSettingsModal .chat-settings-option-description {
+    font-size: 0.78rem;
+  }
+}
