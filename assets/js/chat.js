@@ -264,7 +264,7 @@ function getUserCurrentPhoto(name) {
   if (!name) return "";
   const cleanName = name.trim();
   const cUser = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
-  const isMe = cleanLower === cUser.toLowerCase() || cleanName === "Você";
+  const isMe = cleanName.toLowerCase() === cUser.toLowerCase() || cleanName === "Você";
 
   if (isMe) {
     const expectedOwnerId = getLocalPhotoOwnerId();
