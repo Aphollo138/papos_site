@@ -405,6 +405,16 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const membersListContainer = document.getElementById("members-list-container");
   const searchMembersInput = document.getElementById("search-members-input");
+  if (membersListContainer) {
+    membersListContainer.addEventListener("click", (event) => {
+      const profileButton = event.target.closest("button.member-profile-button");
+      if (!profileButton || !membersListContainer.contains(profileButton)) return;
+      window.openUserProfile(
+        profileButton.dataset.profileNickname,
+        profileButton.dataset.profileDeviceId || ""
+      );
+    });
+  }
   
   const privateConversationsList = document.getElementById("private-conversations-list");
   const totalPrivateUnreadBadge = document.getElementById("total-private-unread");
@@ -1807,6 +1817,7 @@ document.addEventListener("DOMContentLoaded", () => {
           id: id,
           sender: sender,
           senderDeviceId: pm.senderDeviceId || "",
+          photoUrl: pm.senderPhotoUrl || "",
           recipient: recipient,
           text: content,
           mediaType: pm.mediaType,
@@ -2483,7 +2494,7 @@ document.addEventListener("DOMContentLoaded", () => {
         msgDiv.innerHTML = `
           ${actionsHtml}
           <button class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
-            ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", messageDeviceId ? msg.photoUrl || "" : "", messageDeviceId)}
+            ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", messageDeviceId ? msg.photoUrl || "" : "", messageDeviceId || undefined)}
           </button>
           <div class="msg-content">
             ${replyHtml}
@@ -2609,7 +2620,7 @@ document.addEventListener("DOMContentLoaded", () => {
     msgDiv.innerHTML = `
       ${actionsHtml}
       <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
-        ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", messageDeviceId ? msg.photoUrl || "" : "", messageDeviceId)}
+        ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", messageDeviceId ? msg.photoUrl || "" : "", messageDeviceId || undefined)}
       </button>
       <div class="msg-content">
         ${replyHtml}
@@ -3030,11 +3041,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const memberEl = document.createElement("div");
       memberEl.className = "member-item d-flex align-items-center justify-content-between p-2 rounded-2";
       memberEl.innerHTML = `
-        <button class="btn p-0 border-0 d-flex align-items-center gap-2 text-truncate text-start" onclick="window.openUserProfile('${u}', '${profile.deviceId || ""}')" style="cursor: pointer; background: transparent; color: inherit; min-width: 0; flex: 1;" tabindex="0" aria-label="Ver perfil de ${u}">
+        <button type="button" class="btn p-0 border-0 d-flex align-items-center gap-2 text-truncate text-start member-profile-button" style="cursor: pointer; background: transparent; color: inherit; min-width: 0; flex: 1;">
           ${avatarHtml}
           <span class="small text-truncate d-inline-flex align-items-center gap-1.5" title="${u}" style="min-width: 0; pointer-events: none; white-space: nowrap;">
-            ${isAdmin ? adminIconSvg : ''}
             <span class="text-truncate" style="${nameColorStyle}">${u}</span>
+            ${isAdmin ? adminIconSvg : ''}
             ${adminBadgeHtml}
             ${isMod ? '<span class="badge bg-danger-subtle text-danger flex-shrink-0" style="font-size:0.55rem; padding: 2px 4px;">MOD</span>' : ''}
           </span>
@@ -3051,6 +3062,10 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         ` : ''}
       `;
+      const profileButton = memberEl.querySelector(".member-profile-button");
+      profileButton.dataset.profileNickname = u;
+      profileButton.dataset.profileDeviceId = profile.deviceId || "";
+      profileButton.setAttribute("aria-label", `Ver perfil de ${u}`);
       membersListContainer.appendChild(memberEl);
     });
   }
@@ -3541,6 +3556,8 @@ document.addEventListener("DOMContentLoaded", () => {
       handleIncomingPrivateMessage({
         id: msgId,
         senderName: currentUser,
+        senderDeviceId: currentDeviceId,
+        senderPhotoUrl: getUserCurrentPhoto(currentUser) || "",
         recipientName: activePrivateRecipient,
         content: text,
         color: activeMessageColor || undefined,

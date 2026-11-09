@@ -446,6 +446,8 @@ const FirebaseService = {
       partner: partnerNickname,
       id: messageObj.id,
       sender: messageObj.sender,
+      senderDeviceId: messageObj.senderDeviceId || messageObj.deviceId || "",
+      photoUrl: messageObj.photoUrl || messageObj.senderPhotoUrl || "",
       recipient: messageObj.recipient || partnerNickname,
       text: messageObj.text,
       mediaType: messageObj.mediaType || null,
@@ -534,6 +536,8 @@ const FirebaseService = {
         const msg = {
           id: data.id,
           sender: data.sender,
+          senderDeviceId: data.senderDeviceId || "",
+          photoUrl: data.photoUrl || data.senderPhotoUrl || "",
           recipient: data.recipient,
           text: data.text,
           mediaType: data.mediaType,
