@@ -429,6 +429,7 @@ interface ClientSession {
   isAdmin?: boolean;
   fingerprint?: string;
   clientId?: string;
+  deviceId?: string;
   ip?: string;
   blockCalls?: boolean;
   blockPrivateMessages?: boolean;
@@ -467,25 +468,25 @@ function findCallForUser(nickname: string): ActiveCallSession | undefined {
   return undefined;
 }
 
-function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?: string) {
+function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?: string, deviceId?: string) {
   if (!nickname) return;
   const cleanNick = nickname.trim();
   const cleanPhotoUrl = (photoUrl && typeof photoUrl === "string" && photoUrl.trim() !== "") ? photoUrl.trim() : "";
 
   // 1. Atualizar sessões ativas com o novo estado em tempo real
   activeSessions.forEach((session) => {
-    const sameOwner = uid ? session.uid === uid : session.nickname?.toLowerCase() === cleanNick.toLowerCase();
+    const sameOwner = Boolean(deviceId && session.deviceId === deviceId);
     if (sameOwner) {
       session.photoUrl = cleanPhotoUrl;
     }
   });
 
   // Mensagens só podem ser atualizadas quando ainda identificam o dono da foto.
-  if (uid) {
+  if (deviceId) {
     Object.keys(messages).forEach((roomId) => {
       if (Array.isArray(messages[roomId])) {
         messages[roomId].forEach((msg) => {
-          if (msg.userId === uid) {
+          if (msg.deviceId === deviceId) {
             msg.photoUrl = cleanPhotoUrl ? cleanPhotoUrl : undefined;
           }
         });
@@ -498,6 +499,7 @@ function broadcastProfileUpdate(nickname: string, photoUrl: string | null, uid?:
     type: "profile_updated",
     nickname: cleanNick,
     userId: uid || undefined,
+    deviceId: deviceId || undefined,
     photoUrl: cleanPhotoUrl || "",
     profileImage: cleanPhotoUrl || null,
     action: cleanPhotoUrl ? "update_photo" : "remove_photo"
@@ -1068,41 +1070,9 @@ async function startServer() {
     };
   }
 
-  function getGuestPhotoDocumentId(fingerprint: unknown): string | null {
-    if (typeof fingerprint !== "string" || fingerprint.length < 8 || fingerprint.length > 256) return null;
-    return crypto.createHash("sha256").update(fingerprint).digest("hex");
-  }
-
-  function broadcastGuestProfileUpdate(fingerprint: string, photoUrl: string) {
-    const userId = `fingerprint:${fingerprint}`;
-    let nickname = "";
-    activeSessions.forEach((session) => {
-      if (session.fingerprint === fingerprint) {
-        session.photoUrl = photoUrl;
-        nickname = nickname || session.nickname;
-      }
-    });
-    if (!nickname) return;
-
-    Object.values(messages).forEach((roomMessages) => {
-      if (Array.isArray(roomMessages)) {
-        roomMessages.forEach((message) => {
-          if (message.userId === userId) message.photoUrl = photoUrl || undefined;
-        });
-      }
-    });
-
-    const payload = JSON.stringify({
-      type: "profile_updated",
-      nickname,
-      userId,
-      photoUrl,
-      profileImage: photoUrl || null,
-      action: photoUrl ? "update_photo" : "remove_photo"
-    });
-    activeSessions.forEach((session, ws) => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-    });
+  function getDevicePhotoDocumentId(deviceId: unknown): string | null {
+    if (typeof deviceId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(deviceId)) return null;
+    return crypto.createHash("sha256").update(deviceId).digest("hex");
   }
 
   async function handleProfilePhotoUpload(req: express.Request, res: express.Response) {
@@ -1137,10 +1107,10 @@ async function startServer() {
         res.status(401).json({ success: false, error: "Faça login para salvar a foto no perfil." });
         return;
       }
-      const fingerprint = typeof req.body?.fingerprint === "string" ? req.body.fingerprint : "";
-      const guestPhotoDocumentId = uid ? null : getGuestPhotoDocumentId(fingerprint);
-      if (!uid && !guestPhotoDocumentId) {
-        res.status(400).json({ success: false, error: "Não foi possível identificar este navegador para salvar a foto." });
+      const deviceId = typeof req.body?.deviceId === "string" ? req.body.deviceId : "";
+      const devicePhotoDocumentId = getDevicePhotoDocumentId(deviceId);
+      if (!devicePhotoDocumentId) {
+        res.status(400).json({ success: false, error: "Identificador do navegador inválido." });
         return;
       }
 
@@ -1193,17 +1163,13 @@ async function startServer() {
       }
 
       const photoUrl = uploadResult.url;
-      const nickname = (req.body.nickname || "") as string;
       const isEmbeddedPhoto = photoUrl.startsWith("data:image/jpeg;base64,");
       const resolvedPhotoUrl = isEmbeddedPhoto
-        ? uid
-          ? `/api/profile/photo?uid=${encodeURIComponent(uid)}`
-          : `/api/profile/guest-photo-image?fingerprint=${encodeURIComponent(fingerprint)}`
+        ? `/api/profile/photo?deviceId=${encodeURIComponent(deviceId)}`
         : photoUrl;
       if (isEmbeddedPhoto) {
-        const ownerDocumentId = uid ? `user_${uid}` : `guest_${guestPhotoDocumentId}`;
         try {
-          await adminDb.collection("profilePhotos").doc(ownerDocumentId).set({
+          await adminDb.collection("profilePhotos").doc(`device_${devicePhotoDocumentId}`).set({
             image: photoUrl.slice("data:image/jpeg;base64,".length),
             contentType: "image/jpeg",
             updatedAt: Date.now()
@@ -1214,39 +1180,7 @@ async function startServer() {
           return;
         }
       }
-      const photoFields = photoUrl.startsWith("data:image/")
-        ? { photoURL: resolvedPhotoUrl, updatedAt: Date.now() }
-        : { photoURL: resolvedPhotoUrl, profileImage: resolvedPhotoUrl, photoUrl: resolvedPhotoUrl, updatedAt: Date.now() };
-
       // Se houver Authorization Bearer token, valida e extrai UID verificado com segurança
-      if (uid) {
-        try {
-          await adminDb.collection("users").doc(uid).set(photoFields, { merge: true });
-        } catch (error) {
-          console.error("[UploadPhoto] Erro ao sincronizar foto com Firestore:", error);
-          res.status(500).json({ success: false, error: "Não foi possível salvar a foto no perfil. Tente novamente." });
-          return;
-        }
-      } else if (guestPhotoDocumentId) {
-        try {
-          await adminDb.collection("guestProfiles").doc(guestPhotoDocumentId).set({
-            photoURL: resolvedPhotoUrl,
-            updatedAt: Date.now()
-          });
-        } catch (error) {
-          console.error("[UploadPhoto] Erro ao salvar foto do visitante:", error);
-          res.status(500).json({ success: false, error: "Não foi possível salvar sua foto. Tente novamente." });
-          return;
-        }
-        broadcastGuestProfileUpdate(fingerprint, resolvedPhotoUrl);
-      }
-
-      if (uid) {
-        const userSnapshot = await adminDb.collection("users").doc(uid).get();
-        const profileNickname = userSnapshot.data()?.nickname || userSnapshot.data()?.displayName || nickname;
-        if (profileNickname) broadcastProfileUpdate(profileNickname, resolvedPhotoUrl, uid);
-      }
-
       res.json({
         success: true,
         url: resolvedPhotoUrl,
@@ -1274,89 +1208,45 @@ async function startServer() {
   app.post("/api/profile/upload-photo", receiveProfilePhoto, handleProfilePhotoUpload);
   app.post("/api/profile/upload-image", receiveProfilePhoto, handleProfilePhotoUpload);
 
-  app.get("/api/profile/guest-photo", async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    const profileId = getGuestPhotoDocumentId(req.query.fingerprint);
-    if (!profileId) {
-      res.status(400).json({ success: false, error: "Identificador do navegador inválido." });
-      return;
-    }
-    try {
-      const snapshot = await adminDb.collection("guestProfiles").doc(profileId).get();
-      const data = snapshot.data();
-      res.json({ url: data?.photoURL || data?.photoUrl || "" });
-    } catch (error) {
-      console.error("[GuestPhoto] Erro ao carregar foto:", error);
-      res.status(500).json({ success: false, error: "Não foi possível carregar sua foto salva." });
-    }
-  });
-
-  app.get("/api/profile/guest-photo-image", async (req, res) => {
-    const fingerprint = typeof req.query.fingerprint === "string" ? req.query.fingerprint : "";
-    const profileId = getGuestPhotoDocumentId(fingerprint);
-    if (!profileId) {
-      res.status(400).end();
-      return;
-    }
-    try {
-      const snapshot = await adminDb.collection("profilePhotos").doc(`guest_${profileId}`).get();
-      const image = snapshot.data()?.image;
-      if (typeof image !== "string") {
-        res.status(404).end();
-        return;
-      }
-      res.setHeader("Cache-Control", "no-store");
-      res.type("image/jpeg").send(Buffer.from(image, "base64"));
-    } catch (error) {
-      console.error("[GuestPhoto] Erro ao servir imagem:", error);
-      res.status(500).end();
-    }
-  });
-
   app.get("/api/profile/photo", async (req, res) => {
-    const uid = typeof req.query.uid === "string" ? req.query.uid : "";
-    if (!uid || uid.length > 128) {
-      res.status(400).end();
+    const deviceId = typeof req.query.deviceId === "string" ? req.query.deviceId : "";
+    const devicePhotoDocumentId = getDevicePhotoDocumentId(deviceId);
+    if (devicePhotoDocumentId) {
+      try {
+        const photoSnapshot = await adminDb.collection("profilePhotos").doc(`device_${devicePhotoDocumentId}`).get();
+        const image = photoSnapshot.data()?.image;
+        if (typeof image !== "string") {
+          res.status(404).end();
+          return;
+        }
+        res.setHeader("Cache-Control", "no-store");
+        res.type("image/jpeg").send(Buffer.from(image, "base64"));
+      } catch (error) {
+        console.error("[ProfilePhoto] Erro ao servir imagem deste navegador:", error);
+        res.status(500).end();
+      }
       return;
     }
-    try {
-      const userSnapshot = await adminDb.collection("users").doc(uid).get();
-      const expectedUrl = `/api/profile/photo?uid=${encodeURIComponent(uid)}`;
-      if (userSnapshot.data()?.photoURL !== expectedUrl) {
-        res.status(404).end();
-        return;
-      }
-      const photoSnapshot = await adminDb.collection("profilePhotos").doc(`user_${uid}`).get();
-      const image = photoSnapshot.data()?.image;
-      if (typeof image !== "string") {
-        res.status(404).end();
-        return;
-      }
-      res.setHeader("Cache-Control", "no-store");
-      res.type("image/jpeg").send(Buffer.from(image, "base64"));
-    } catch (error) {
-      console.error("[ProfilePhoto] Erro ao servir imagem:", error);
-      res.status(500).end();
-    }
+
+    res.status(404).end();
   });
 
-  app.delete("/api/profile/guest-photo", async (req, res) => {
-    const fingerprint = typeof req.query.fingerprint === "string" ? req.query.fingerprint : "";
-    const profileId = getGuestPhotoDocumentId(fingerprint);
-    if (!profileId) {
+  async function removeDevicePhoto(req: express.Request, res: express.Response) {
+    const devicePhotoDocumentId = getDevicePhotoDocumentId(req.query.deviceId);
+    if (!devicePhotoDocumentId) {
       res.status(400).json({ success: false, error: "Identificador do navegador inválido." });
       return;
     }
     try {
-      await adminDb.collection("guestProfiles").doc(profileId).delete();
-      await adminDb.collection("profilePhotos").doc(`guest_${profileId}`).delete();
-      broadcastGuestProfileUpdate(fingerprint, "");
+      await adminDb.collection("profilePhotos").doc(`device_${devicePhotoDocumentId}`).delete();
       res.json({ success: true });
     } catch (error) {
-      console.error("[GuestPhoto] Erro ao remover foto:", error);
-      res.status(500).json({ success: false, error: "Não foi possível remover sua foto salva." });
+      console.error("[ProfilePhoto] Erro ao remover foto deste navegador:", error);
+      res.status(500).json({ success: false, error: "Não foi possível remover a foto deste navegador." });
     }
-  });
+  }
+
+  app.delete("/api/profile/photo", removeDevicePhoto);
 
   app.post("/api/upload-audio", (req, res, next) => {
     upload.single("audio")(req, res, (err) => {
@@ -1420,56 +1310,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/profile/remove-photo", async (req, res) => {
-    try {
-      const authorization = req.headers.authorization;
-      const tokenMatch = authorization ? /^Bearer\s+(.+)$/i.exec(authorization) : null;
-      if (!tokenMatch) {
-        res.status(401).json({ success: false, error: "Faça login para remover a foto do perfil." });
-        return;
-      }
-
-      let decodedUser: any;
-      try {
-        decodedUser = await verifyFirebaseIdToken(tokenMatch[1], firebaseConfig.projectId);
-      } catch {
-        decodedUser = null;
-      }
-      if (!decodedUser || typeof decodedUser.uid !== "string" || !decodedUser.uid) {
-        res.status(401).json({ success: false, error: "Faça login novamente para remover a foto." });
-        return;
-      }
-      if (decodedUser.email && decodedUser.email_verified !== true) {
-        res.status(403).json({ success: false, error: "Verifique seu e-mail antes de alterar o perfil." });
-        return;
-      }
-
-      const uid = decodedUser.uid as string;
-      const userRef = adminDb.collection("users").doc(uid);
-      try {
-        await userRef.set({
-          photoURL: "",
-          profileImage: "",
-          photoUrl: "",
-          updatedAt: Date.now()
-        }, { merge: true });
-        await adminDb.collection("profilePhotos").doc(`user_${uid}`).delete();
-      } catch (error) {
-        console.error("[RemovePhoto] Erro ao limpar foto no Firestore:", error);
-        res.status(500).json({ success: false, error: "Não foi possível remover a foto do perfil." });
-        return;
-      }
-
-      const userSnapshot = await userRef.get();
-      const nickname = userSnapshot.data()?.nickname || userSnapshot.data()?.displayName;
-      if (nickname) broadcastProfileUpdate(nickname, "", uid);
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error("[RemovePhoto] Erro inesperado:", err);
-      res.status(500).json({ success: false, error: "Erro ao remover foto de perfil." });
-    }
-  });
+  app.post("/api/profile/remove-photo", removeDevicePhoto);
 
   const wss = new WebSocketServer({ noServer: true });
 
@@ -1512,6 +1353,25 @@ async function startServer() {
     }
 
     return Array.from(new Set(list)); 
+  }
+
+  function getRoomOnlineProfiles(roomId: string): Array<{ nickname: string; deviceId?: string; photoUrl?: string }> {
+    const profiles: Array<{ nickname: string; deviceId?: string; photoUrl?: string }> = [];
+    activeSessions.forEach((session) => {
+      if (session.roomId === roomId && session.nickname) {
+        profiles.push({
+          nickname: session.nickname,
+          deviceId: session.deviceId,
+          photoUrl: session.photoUrl || ""
+        });
+      }
+    });
+    if (systemSettings.botsEnabled) {
+      BOTS.forEach(bot => {
+        if (bot.rooms.includes(roomId)) profiles.push({ nickname: bot.nickname });
+      });
+    }
+    return profiles;
   }
 
   function getAdminNicknames(): string[] {
@@ -1557,16 +1417,10 @@ async function startServer() {
     broadcastRoomsList();
     activeSessions.forEach((session, ws) => {
       if (ws.readyState === WebSocket.OPEN && session.roomId) {
-        const userPhotos: Record<string, string> = {};
-        activeSessions.forEach((s) => {
-          if (s.roomId === session.roomId && s.nickname) {
-            userPhotos[s.nickname] = s.photoUrl || "";
-          }
-        });
         sendToClient(ws, "room_members_update", {
           roomId: session.roomId,
           onlineUsers: getRoomOnlineUsers(session.roomId),
-          userPhotos,
+          onlineUserProfiles: getRoomOnlineProfiles(session.roomId),
           adminUsers: getAdminNicknames()
         });
       }
@@ -2662,6 +2516,9 @@ async function startServer() {
 
             session.nickname = nickname;
             session.roomId = roomId;
+            if (typeof payload.deviceId === "string" && payload.deviceId.length <= 64) {
+              session.deviceId = payload.deviceId;
+            }
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
@@ -2684,21 +2541,6 @@ async function startServer() {
                 session.photoUrl = sanitizeHTML(incomingPhoto.trim());
               }
             }
-            if (!session.uid && session.fingerprint) {
-              const guestPhotoDocumentId = getGuestPhotoDocumentId(session.fingerprint);
-              if (guestPhotoDocumentId) {
-                try {
-                  const guestProfile = await adminDb.collection("guestProfiles").doc(guestPhotoDocumentId).get();
-                  const savedPhoto = guestProfile.data()?.photoURL || guestProfile.data()?.photoUrl;
-                  if (typeof savedPhoto === "string" && savedPhoto.trim()) {
-                    session.photoUrl = savedPhoto.trim();
-                  }
-                } catch (error) {
-                  console.error("[GuestPhoto] Erro ao restaurar foto na entrada da sala:", error);
-                }
-              }
-            }
-
             if (!session.uid) {
               notifyAdminsGuestList();
             }
@@ -2710,6 +2552,7 @@ async function startServer() {
                 time: getCurrentTime(),
                 timestamp: Date.now(),
                 onlineUsers: leftUsers,
+                onlineUserProfiles: getRoomOnlineProfiles(oldRoomId),
                 adminUsers: getAdminNicknames()
               });
             }
@@ -2718,19 +2561,12 @@ async function startServer() {
               messages[roomId] = [];
             }
 
-            const userPhotos: Record<string, string> = {};
-            activeSessions.forEach((s) => {
-              if (s.roomId === roomId && s.nickname) {
-                userPhotos[s.nickname] = s.photoUrl || "";
-              }
-            });
-
             sendToClient(ws, "room_state", {
               roomId,
               nickname: nickname,
               messages: messages[roomId],
               onlineUsers: getRoomOnlineUsers(roomId),
-              userPhotos,
+              onlineUserProfiles: getRoomOnlineProfiles(roomId),
               adminUsers: getAdminNicknames()
             });
 
@@ -2744,11 +2580,13 @@ async function startServer() {
 
             broadcastToRoom(roomId, "user_joined", {
               nickname: nickname,
+              deviceId: session.deviceId,
               photoUrl: session.photoUrl || "",
               profileImage: session.photoUrl || null,
               time: getCurrentTime(),
               timestamp: Date.now(),
               onlineUsers: getRoomOnlineUsers(roomId),
+              onlineUserProfiles: getRoomOnlineProfiles(roomId),
               adminUsers: getAdminNicknames()
             }, ws);
 
@@ -2853,7 +2691,8 @@ async function startServer() {
                 nickname: session.nickname,
                 time: getCurrentTime(),
                 timestamp: Date.now(),
-                onlineUsers: leftUsers
+                onlineUsers: leftUsers,
+                onlineUserProfiles: getRoomOnlineProfiles(oldRoomId)
               });
             }
 
@@ -2861,28 +2700,23 @@ async function startServer() {
               messages[roomId] = [];
             }
 
-            const switchUserPhotos: Record<string, string> = {};
-            activeSessions.forEach((s) => {
-              if (s.roomId === roomId && s.nickname) {
-                switchUserPhotos[s.nickname] = s.photoUrl || "";
-              }
-            });
-
             sendToClient(ws, "room_state", {
               roomId,
               nickname: session.nickname,
               messages: messages[roomId],
               onlineUsers: getRoomOnlineUsers(roomId),
-              userPhotos: switchUserPhotos
+              onlineUserProfiles: getRoomOnlineProfiles(roomId)
             });
 
             broadcastToRoom(roomId, "user_joined", {
               nickname: session.nickname,
+              deviceId: session.deviceId,
               photoUrl: session.photoUrl || "",
               profileImage: session.photoUrl || null,
               time: getCurrentTime(),
               timestamp: Date.now(),
-              onlineUsers: getRoomOnlineUsers(roomId)
+              onlineUsers: getRoomOnlineUsers(roomId),
+              onlineUserProfiles: getRoomOnlineProfiles(roomId)
             }, ws);
 
             const roomBots = BOTS.filter(b => b.rooms.includes(roomId) && (systemSettings.botsEnabled || ["bot_papos", "bots_papos"].includes(b.nickname.toLowerCase())));
@@ -2985,6 +2819,7 @@ async function startServer() {
             const msgObj = {
               id: msgId,
               sender: session.nickname,
+              deviceId: session.deviceId,
               userId: session.uid || (session.fingerprint ? `fingerprint:${session.fingerprint}` : undefined),
               text,
               time: getCurrentTime(),
@@ -3083,6 +2918,7 @@ async function startServer() {
                 id: pmId,
                 senderId: session.nickname,
                 senderName: session.nickname,
+                senderDeviceId: session.deviceId,
                 senderPhotoUrl: session.photoUrl || undefined,
                 recipientId: toNick,
                 recipientName: toNick,
@@ -3119,6 +2955,7 @@ async function startServer() {
                   id: pmId,
                   senderId: session.nickname,
                   senderName: session.nickname,
+                  senderDeviceId: session.deviceId,
                   recipientId: toNick,
                   recipientName: toNick,
                   content: text,
@@ -3541,6 +3378,7 @@ async function startServer() {
             sendToClient(targetWs, "call:incoming", {
               callId,
               from: session.nickname,
+              callerDeviceId: session.deviceId,
               callerPhotoUrl: session.photoUrl,
               offer: payload.offer
             });
@@ -3684,7 +3522,6 @@ async function startServer() {
               bio = (foundSession as ClientSession).bio || "";
               age = (foundSession as ClientSession).age || null;
               gender = (foundSession as ClientSession).gender || "";
-              photoUrl = (foundSession as ClientSession).photoUrl || "";
               permanentId = (foundSession as ClientSession).permanentId || "";
             } else {
               try {
@@ -3695,7 +3532,6 @@ async function startServer() {
                   bio = userData.bio || "";
                   age = userData.age || null;
                   gender = userData.gender || "";
-                  photoUrl = userData.photoURL || userData.profileImage || userData.photoUrl || "";
                   permanentId = userData.permanentId || "";
                 }
               } catch (err) {
@@ -3714,7 +3550,6 @@ async function startServer() {
                 bio = foundSession.bio || "";
                 age = foundSession.age || null;
                 gender = foundSession.gender || "";
-                photoUrl = foundSession.photoUrl || "";
                 permanentId = foundSession.permanentId || "";
               }
             }
@@ -3749,31 +3584,14 @@ async function startServer() {
             if (isExplicitRemove) {
               session.photoUrl = "";
               if (session.nickname) {
-                broadcastProfileUpdate(session.nickname, "", session.uid);
-              }
-              if (session.uid) {
-                try {
-                  const userRef = doc(db, "users", session.uid);
-                  await setDoc(userRef, { photoURL: "", profileImage: "", photoUrl: "", updatedAt: Date.now() }, { merge: true });
-                } catch (e) {}
+                broadcastProfileUpdate(session.nickname, "", session.uid, session.deviceId);
               }
             } else if (hasPhoto) {
               const raw = payload.photoUrl !== undefined ? payload.photoUrl : payload.profileImage;
               if (typeof raw === "string" && raw.trim() !== "" && !raw.includes("null") && !raw.includes("undefined")) {
                 session.photoUrl = sanitizeHTML(raw.trim());
                 if (session.nickname) {
-                  broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
-                }
-                if (session.uid) {
-                  try {
-                    const userRef = doc(db, "users", session.uid);
-                    await setDoc(userRef, {
-                      photoURL: session.photoUrl,
-                      profileImage: session.photoUrl,
-                      photoUrl: session.photoUrl,
-                      updatedAt: Date.now()
-                    }, { merge: true });
-                  } catch (e) {}
+                  broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid, session.deviceId);
                 }
               }
             }
@@ -3837,15 +3655,6 @@ async function startServer() {
                 if (session.blockCalls !== undefined) {
                   updateData.blockCalls = session.blockCalls;
                 }
-                if (session.photoUrl) {
-                  updateData.photoURL = session.photoUrl;
-                  updateData.profileImage = session.photoUrl;
-                  updateData.photoUrl = session.photoUrl;
-                } else if (isExplicitRemove) {
-                  updateData.photoURL = "";
-                  updateData.profileImage = "";
-                  updateData.photoUrl = "";
-                }
                 await setDoc(userRef, updateData, { merge: true });
               } catch (e) {
                 console.error("[update_profile] Erro ao atualizar Firestore:", e);
@@ -3855,7 +3664,7 @@ async function startServer() {
             }
 
             if (photoChanged && session.nickname) {
-              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid);
+              broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid, session.deviceId);
             }
 
             if (session.roomId) {
@@ -3911,7 +3720,8 @@ async function startServer() {
             nickname,
             time: getCurrentTime(),
             timestamp: Date.now(),
-            onlineUsers: leftUsers
+            onlineUsers: leftUsers,
+            onlineUserProfiles: getRoomOnlineProfiles(roomId)
           });
         }
         broadcastRoomsList();

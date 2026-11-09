@@ -14,6 +14,33 @@
     return clientId;
   }
 
+  function getOrCreateDeviceId() {
+    let deviceId = localStorage.getItem("papo_device_id");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(deviceId || "")) {
+      try {
+        deviceId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : "";
+      } catch {
+        deviceId = "";
+      }
+      if (!deviceId) {
+        const bytes = new Uint8Array(16);
+        if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+          crypto.getRandomValues(bytes);
+        } else {
+          for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+        }
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+        deviceId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      }
+      localStorage.setItem("papo_device_id", deviceId);
+    }
+    return deviceId;
+  }
+
   function computeFingerprint() {
     try {
       const parts = [];
@@ -131,6 +158,7 @@
   }
 
   const clientId = getOrCreateClientId();
+  const deviceId = getOrCreateDeviceId();
   const guestId = getOrCreateGuestId();
   let fingerprint;
   try {
@@ -142,7 +170,7 @@
   } catch (e) {
     fingerprint = computeFingerprint();
   }
-  const photoOwnerId = `fingerprint:${fingerprint}`;
+  const photoOwnerId = `device:${deviceId}`;
   let photoDatabasePromise;
 
   function openPhotoDatabase() {
@@ -223,12 +251,13 @@
 
   window.SecurityIdentity = {
     getClientId: function() { return clientId; },
+    getDeviceId: function() { return deviceId; },
     getGuestId: function() { return localStorage.getItem("papo_guest_id") || guestId; },
     getGuestToken: function() { return getGuestToken(); },
     setGuestToken: setGuestToken,
     initGuestToken: initGuestToken,
     getFingerprint: function() { return fingerprint; },
-    getPhotoOwnerId: function(uid) { return uid ? `uid:${uid}` : photoOwnerId; },
+    getPhotoOwnerId: function() { return photoOwnerId; },
     savePhoto: savePhoto,
     getSavedPhoto: getSavedPhoto,
     removeSavedPhoto: removeSavedPhoto,

@@ -165,30 +165,12 @@
     if (mobileTimer) mobileTimer.textContent = formatted;
   }
 
-  // Obter foto de um usuário
-  function resolveUserPhoto(nickname) {
-    if (!nickname) return null;
-    if (typeof window.getUserCurrentPhoto === "function") {
-      const p = window.getUserCurrentPhoto(nickname);
-      if (p) return p;
-    }
-    const myNick = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim().toLowerCase();
-    if (nickname.toLowerCase() === myNick || nickname === "Você") {
-      return localStorage.getItem("papos_photo") || null;
-    }
-    if (window.profileCache) {
-      const cached = window.profileCache.get(nickname.toLowerCase()) || window.profileCache.get(nickname);
-      if (cached && cached.data && (cached.data.photoUrl || cached.data.profileImage)) {
-        return cached.data.photoUrl || cached.data.profileImage;
-      }
-    }
-    return null;
-  }
-
   // Renderizar avatar formatado
-  function renderCallAvatar(nickname, sizePx = 130) {
-    const photo = resolveUserPhoto(nickname);
-    if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
+  function renderCallAvatar(nickname, sizePx = 130, photoUrl = "") {
+    const photo = typeof photoUrl === "string" && photoUrl.trim() !== "" && !photoUrl.includes("null") && !photoUrl.includes("undefined")
+      ? photoUrl.trim()
+      : "";
+    if (photo) {
       return `<img src="${photo}" alt="${nickname}" class="papos-call-avatar-img" style="width: ${sizePx}px; height: ${sizePx}px;" />`;
     }
     const initial = (nickname ? nickname.charAt(0) : "A").toUpperCase();
@@ -282,7 +264,7 @@
       <div class="papos-call-body">
         <div class="papos-call-avatar-wrapper">
           ${(isCalling || isIncoming) ? '<div class="papos-call-wave"></div>' : ''}
-          ${renderCallAvatar(partner, 130)}
+          ${renderCallAvatar(partner, 130, pendingIncomingData?.callerDeviceId ? pendingIncomingData.callerPhotoUrl : "")}
         </div>
 
         <h2 class="papos-call-name">${partner}</h2>
@@ -383,8 +365,8 @@
   }
 
   // Exibir Chamada Recebida
-  function showIncomingCallModal(callerNickname, offer) {
-    pendingIncomingData = { caller: callerNickname, offer };
+  function showIncomingCallModal(callerNickname, offer, callerDeviceId, callerPhotoUrl) {
+    pendingIncomingData = { caller: callerNickname, offer, callerDeviceId, callerPhotoUrl };
     callState = "incoming";
     currentPartner = callerNickname;
     renderFullScreenCallUI("Chamada de áudio recebida...");
@@ -747,7 +729,7 @@
         }
 
         // Exibir tela de chamada recebida 100% full screen
-        showIncomingCallModal(data.from, data.offer);
+        showIncomingCallModal(data.from, data.offer, data.callerDeviceId, data.callerPhotoUrl);
         return true;
       }
 

@@ -454,13 +454,8 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.setItem("papos_permanent_id", permId);
             localStorage.setItem("papos_is_admin", (profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") ? "true" : "false");
 
-            const photo = profile.photoURL || profile.profileImage || profile.photoUrl;
-            if (photo && typeof photo === "string" && photo.trim() !== "" && !photo.includes("null") && !photo.includes("undefined")) {
-              const validPhoto = photo.trim();
-              localStorage.setItem("papos_photo", validPhoto);
-              localStorage.setItem("papos_photo_owner_uid", user.uid);
-              localStorage.setItem("papos_photo_owner_id", `uid:${user.uid}`);
-            } else if (profile.photoURL === null || profile.profileImage === null || profile.photoUrl === null) {
+            const photoOwnerId = window.SecurityIdentity?.getPhotoOwnerId?.() || "";
+            if (localStorage.getItem("papos_photo_owner_id") && localStorage.getItem("papos_photo_owner_id") !== photoOwnerId) {
               localStorage.removeItem("papos_photo");
               localStorage.removeItem("papos_photo_owner_uid");
               localStorage.removeItem("papos_photo_owner_id");

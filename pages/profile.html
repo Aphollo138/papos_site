@@ -383,32 +383,14 @@
           const photo = localStorage.getItem("papos_photo") || "";
           const browserPhoto = window.paposBrowserPhoto;
           const ownerId = localStorage.getItem("papos_photo_owner_id");
-          const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
-            ? window.FirebaseService.getCurrentUser()
-            : null;
-          const expectedOwnerId = window.SecurityIdentity?.getPhotoOwnerId?.(authUser ? authUser.uid : "") || "";
+          const expectedOwnerId = window.SecurityIdentity?.getPhotoOwnerId?.() || "";
           if (browserPhoto && browserPhoto.ownerId === expectedOwnerId) return browserPhoto.url;
-          if (authUser) {
-            return ownerId === `uid:${authUser.uid}` ||
-              (!ownerId && localStorage.getItem("papos_photo_owner_uid") === authUser.uid) ? photo : "";
-          }
-          const guestId = window.SecurityIdentity && typeof window.SecurityIdentity.getGuestId === "function"
-            ? window.SecurityIdentity.getGuestId()
-            : localStorage.getItem("papo_guest_id") || localStorage.getItem("papos_permanent_id");
-          const guestPhotoOwnerId = window.SecurityIdentity && typeof window.SecurityIdentity.getPhotoOwnerId === "function"
-            ? window.SecurityIdentity.getPhotoOwnerId()
-            : "";
-          if (photo && guestId && ownerId === `guest:${guestId}`) {
-            localStorage.setItem("papos_photo_owner_id", guestPhotoOwnerId);
-            return photo;
-          }
-          return guestPhotoOwnerId && ownerId === guestPhotoOwnerId ? photo : "";
+          return expectedOwnerId && ownerId === expectedOwnerId ? photo : "";
         }
 
         async function restoreGuestPhoto() {
-          const fingerprint = window.SecurityIdentity?.getFingerprint?.();
-          if (!fingerprint) return;
-          const ownerId = window.SecurityIdentity.getPhotoOwnerId();
+          const ownerId = window.SecurityIdentity?.getPhotoOwnerId?.();
+          if (!ownerId) return;
           const savedPhoto = await window.SecurityIdentity.getSavedPhoto(ownerId);
           if (savedPhoto) {
             const localUrl = URL.createObjectURL(savedPhoto);
@@ -416,21 +398,11 @@
             updateAvatarPreview(inputNickname.value.trim() || currentUser, localUrl);
             return;
           }
-          const response = await fetch(`/api/profile/guest-photo?fingerprint=${encodeURIComponent(fingerprint)}`);
-          if (!response.ok) {
-            throw new Error("Não foi possível carregar sua foto salva.");
-          }
-          const data = await response.json();
-          const photo = typeof data.url === "string" ? data.url : "";
-          if (!photo) return;
-          localStorage.setItem("papos_photo", photo);
-          localStorage.setItem("papos_photo_owner_id", window.SecurityIdentity.getPhotoOwnerId());
-          localStorage.removeItem("papos_photo_owner_uid");
-          updateAvatarPreview(inputNickname.value.trim() || currentUser, photo);
+          updateAvatarPreview(inputNickname.value.trim() || currentUser, getOwnedLocalPhoto() || null);
         }
 
-        async function restoreAccountPhoto(uid, name) {
-          const ownerId = window.SecurityIdentity?.getPhotoOwnerId?.(uid);
+        async function restoreAccountPhoto(name) {
+          const ownerId = window.SecurityIdentity?.getPhotoOwnerId?.();
           if (!ownerId) return;
           const savedPhoto = await window.SecurityIdentity.getSavedPhoto(ownerId);
           if (!savedPhoto) return;
@@ -502,7 +474,7 @@
             const currentAuthUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function" ? window.FirebaseService.getCurrentUser() : null;
             const currentUid = currentAuthUser ? currentAuthUser.uid : "";
             const currentNick = inputNickname.value.trim() || currentUser;
-            const photoOwnerId = window.SecurityIdentity?.getPhotoOwnerId?.(currentUid) || "";
+            const photoOwnerId = window.SecurityIdentity?.getPhotoOwnerId?.() || "";
             if (!photoOwnerId || !window.SecurityIdentity?.savePhoto) {
               throw new Error("O navegador não oferece armazenamento local seguro para esta foto.");
             }
@@ -511,11 +483,9 @@
             window.paposBrowserPhoto = { ownerId: photoOwnerId, url: browserPhotoUrl };
             updateAvatarPreview(currentNick, browserPhotoUrl);
             formData.append("nickname", currentNick);
-            if (!currentAuthUser) {
-              const fingerprint = window.SecurityIdentity?.getFingerprint?.();
-              if (!fingerprint) throw new Error("Não foi possível identificar este navegador. Recarregue a página e tente novamente.");
-              formData.append("fingerprint", fingerprint);
-            }
+            const deviceId = window.SecurityIdentity?.getDeviceId?.();
+            if (!deviceId) throw new Error("Não foi possível identificar este navegador. Recarregue a página e tente novamente.");
+            formData.append("deviceId", deviceId);
 
             const uploadHeaders = {};
             if (currentAuthUser) {
@@ -542,7 +512,6 @@
             // Armazenar URL no cache
             localStorage.setItem("papos_photo", finalUrl);
             if (currentAuthUser) {
-              localStorage.setItem("papos_photo_owner_uid", currentUid);
               localStorage.setItem("papos_photo_owner_id", photoOwnerId);
             } else {
               localStorage.removeItem("papos_photo_owner_uid");
@@ -557,7 +526,8 @@
                 photoUrl: finalUrl,
                 profileImage: finalUrl,
                 action: "update_photo",
-                userId: currentAuthUser ? currentUid : photoOwnerId
+                userId: photoOwnerId,
+                deviceId
               });
             } catch (e) {}
 
@@ -603,7 +573,8 @@
 
             if (currentAuthUser) {
               const token = await currentAuthUser.getIdToken();
-              const response = await fetch("/api/profile/remove-photo", {
+              const deviceId = window.SecurityIdentity?.getDeviceId?.() || "";
+              const response = await fetch(`/api/profile/remove-photo?deviceId=${encodeURIComponent(deviceId)}`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}` }
               });
@@ -612,9 +583,8 @@
                 throw new Error(errorData.error || "Não foi possível remover a foto do perfil.");
               }
             } else {
-              const fingerprint = window.SecurityIdentity?.getFingerprint?.();
-              if (!fingerprint) throw new Error("Não foi possível identificar este navegador. Recarregue a página e tente novamente.");
-              const response = await fetch(`/api/profile/guest-photo?fingerprint=${encodeURIComponent(fingerprint)}`, {
+              const deviceId = window.SecurityIdentity?.getDeviceId?.() || "";
+              const response = await fetch(`/api/profile/photo?deviceId=${encodeURIComponent(deviceId)}`, {
                 method: "DELETE"
               });
               if (!response.ok) {
@@ -701,8 +671,6 @@
                     const age = profile.age !== undefined && profile.age !== null ? profile.age : "";
                     const gender = profile.gender || "";
                     const permId = profile.permanentId || profile.internalId || "USR-000000";
-                    const photo = profile.photoURL || profile.profileImage || "";
-
                     inputNickname.value = nick;
                     nameDisplay.textContent = nick;
                     inputBio.value = bio;
@@ -718,21 +686,10 @@
                       }
                     }
 
-                    if (photo) {
-                      localStorage.setItem("papos_photo", photo);
-                      localStorage.setItem("papos_photo_owner_uid", user.uid);
-                      localStorage.setItem("papos_photo_owner_id", `uid:${user.uid}`);
-                    } else {
-                      localStorage.removeItem("papos_photo");
-                      localStorage.removeItem("papos_photo_owner_uid");
-                      localStorage.removeItem("papos_photo_owner_id");
-                    }
-                    updateAvatarPreview(nick, photo || null);
-                    if (!photo) {
-                      restoreAccountPhoto(user.uid, nick).catch((error) => {
-                        console.error("Erro ao restaurar foto da conta neste navegador:", error);
-                      });
-                    }
+                    updateAvatarPreview(nick, getOwnedLocalPhoto() || null);
+                    restoreAccountPhoto(nick).catch((error) => {
+                      console.error("Erro ao restaurar foto deste navegador:", error);
+                    });
 
                     // Sincronizar Cache no LocalStorage
                     localStorage.setItem("papos_nickname", nick);
@@ -840,15 +797,12 @@
             }
 
             // Se autenticado, salvar diretamente no Firestore
-            const currentPhoto = localStorage.getItem("papos_photo") || "";
             if (currentAuthUser && window.FirebaseService && typeof window.FirebaseService.saveUserProfile === "function") {
               await window.FirebaseService.saveUserProfile({
                 nickname: newNick,
                 bio: bioVal,
                 age: ageVal,
-                gender: genderVal,
-                photoURL: currentPhoto,
-                profileImage: currentPhoto
+                gender: genderVal
               });
             }
 

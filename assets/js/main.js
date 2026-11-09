@@ -294,14 +294,11 @@ const ChatEngine = {
       ? window.SecurityIdentity.getPhotoOwnerId()
       : "";
     const photoOwnerId = localStorage.getItem("papos_photo_owner_id");
-    const photoOwnerUid = localStorage.getItem("papos_photo_owner_uid");
     if (!currentAuth && guestId && photoOwnerId === `guest:${guestId}` && localStorage.getItem("papos_photo")) {
       localStorage.setItem("papos_photo_owner_id", guestPhotoOwnerId);
     }
-    const hasMatchingOwner = currentAuth
-      ? photoOwnerId === `uid:${currentAuth.uid}` || (!photoOwnerId && photoOwnerUid === currentAuth.uid)
-      : Boolean(guestPhotoOwnerId && (photoOwnerId === guestPhotoOwnerId || photoOwnerId === `guest:${guestId}`));
-    if ((photoOwnerId || photoOwnerUid) && !hasMatchingOwner) {
+    const hasMatchingOwner = Boolean(guestPhotoOwnerId && photoOwnerId === guestPhotoOwnerId);
+    if (photoOwnerId && !hasMatchingOwner) {
       localStorage.removeItem("papos_photo");
       localStorage.removeItem("papos_photo_owner_uid");
       localStorage.removeItem("papos_photo_owner_id");
@@ -371,11 +368,16 @@ const ChatEngine = {
     return colors[sum % colors.length];
   },
 
-  createFallbackAvatarElement(name, sizeClass = "") {
+  createFallbackAvatarElement(name, sizeClass = "", deviceId = undefined) {
     const cleanName = (name && name.trim()) || "A";
     const initial = cleanName.charAt(0).toUpperCase();
     const currentNickname = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
-    const isOwnAvatar = cleanName === "Você" || (currentNickname && cleanName.toLowerCase() === currentNickname.toLowerCase());
+    const localDeviceId = window.SecurityIdentity && window.SecurityIdentity.getDeviceId
+      ? window.SecurityIdentity.getDeviceId()
+      : "";
+    const isOwnAvatar = deviceId !== undefined
+      ? Boolean(deviceId && localDeviceId && deviceId === localDeviceId)
+      : cleanName === "Você" || (currentNickname && cleanName.toLowerCase() === currentNickname.toLowerCase());
     const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
       ? window.FirebaseService.getCurrentUser()
       : null;
@@ -399,7 +401,7 @@ const ChatEngine = {
     return div;
   },
 
-  renderAvatar(name, sizeClass = "", customPhotoUrl = null) {
+  renderAvatar(name, sizeClass = "", customPhotoUrl = null, deviceId = undefined) {
     if (!name || name.trim() === "") name = "A";
     const cleanName = name.trim();
     const initial = cleanName.charAt(0).toUpperCase();
@@ -408,7 +410,7 @@ const ChatEngine = {
       ? customPhotoUrl.trim()
       : null;
 
-    if (!photoUrl) {
+    if (!photoUrl && deviceId === undefined) {
       if (typeof window.getUserCurrentPhoto === "function") {
         photoUrl = window.getUserCurrentPhoto(cleanName);
       } else {
@@ -427,9 +429,7 @@ const ChatEngine = {
         if (!authUser && guestId && photoOwnerId === `guest:${guestId}` && localStorage.getItem("papos_photo")) {
           localStorage.setItem("papos_photo_owner_id", guestPhotoOwnerId);
         }
-        const expectedOwnerId = authUser ? `uid:${authUser.uid}` : guestPhotoOwnerId;
-        const isLegacyAuthPhoto = authUser && !photoOwnerId && localStorage.getItem("papos_photo_owner_uid") === authUser.uid;
-        photoUrl = (photoOwnerId === expectedOwnerId || isLegacyAuthPhoto) ? localStorage.getItem("papos_photo") || "" : "";
+        photoUrl = photoOwnerId === guestPhotoOwnerId ? localStorage.getItem("papos_photo") || "" : "";
         } else {
           const cache = window.profileCache;
           const cached = cache && (cache.get(cleanName.toLowerCase()) || cache.get(cleanName));
@@ -444,7 +444,12 @@ const ChatEngine = {
       const safeUrl = photoUrl.replace(/"/g, '&quot;');
       const safeName = cleanName.replace(/"/g, '&quot;').replace(/'/g, "\\'");
       const currentNickname = (window.confirmedNickname || localStorage.getItem("papos_nickname") || "").trim();
-      const isOwnAvatar = cleanName === "Você" || (currentNickname && cleanName.toLowerCase() === currentNickname.toLowerCase());
+      const localDeviceId = window.SecurityIdentity && window.SecurityIdentity.getDeviceId
+        ? window.SecurityIdentity.getDeviceId()
+        : "";
+      const isOwnAvatar = deviceId !== undefined
+        ? Boolean(deviceId && localDeviceId && deviceId === localDeviceId)
+        : cleanName === "Você" || (currentNickname && cleanName.toLowerCase() === currentNickname.toLowerCase());
       const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
         ? window.FirebaseService.getCurrentUser()
         : null;
@@ -452,7 +457,8 @@ const ChatEngine = {
         ? window.SecurityIdentity.getPhotoOwnerId(authUser ? authUser.uid : "")
         : "";
       const safeOwnerId = photoOwnerId.replace(/"/g, "&quot;");
-      return `<img src="${safeUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover; aspect-ratio: 1 / 1;" ${safeOwnerId ? `data-photo-owner-id="${safeOwnerId}"` : ""} onerror="if(this.dataset.photoOwnerId&&window.SecurityIdentity&&window.SecurityIdentity.restoreAvatarImage){window.SecurityIdentity.restoreAvatarImage(this).catch(()=>{this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement)this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}'));});}else{this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement)this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}'));}" />`;
+      const safeDeviceId = String(deviceId || "").replace(/["'<>]/g, "");
+      return `<img src="${safeUrl}" class="avatar-circle ${sizeClass}" alt="Avatar de ${cleanName}" title="${cleanName}" loading="lazy" decoding="async" referrerPolicy="no-referrer" style="object-fit: cover; aspect-ratio: 1 / 1;" ${deviceId !== undefined ? `data-device-scoped="true" data-device-id="${safeDeviceId}"` : ""} ${safeOwnerId ? `data-photo-owner-id="${safeOwnerId}"` : ""} onerror="if(this.dataset.photoOwnerId&&window.SecurityIdentity&&window.SecurityIdentity.restoreAvatarImage){window.SecurityIdentity.restoreAvatarImage(this).catch(()=>{this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement)this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}',this.dataset.deviceScoped?this.dataset.deviceId:undefined));});}else{this.onerror=null;if(window.ChatEngine&&window.ChatEngine.createFallbackAvatarElement)this.replaceWith(window.ChatEngine.createFallbackAvatarElement('${safeName}','${sizeClass}',this.dataset.deviceScoped?this.dataset.deviceId:undefined));}" />`;
     }
     
     const bgColor = this.getAvatarColor(cleanName);
