@@ -1009,7 +1009,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  async function uploadToImgur(imageBuffer: Buffer): Promise<{ success: boolean; url?: string; error?: string }> {
+  async function storeProfilePhoto(imageBuffer: Buffer): Promise<{ success: boolean; url?: string; error?: string }> {
     const storageBucketName = firebaseConfig.storageBucket;
     if (storageBucketName) {
       try {
@@ -1027,36 +1027,6 @@ async function startServer() {
         return { success: true, url };
       } catch (error) {
         console.error("[AvatarStorage] Firebase Storage indisponível:", error);
-      }
-    }
-
-    const clientId = process.env.IMGUR_CLIENT_ID;
-    if (clientId && clientId.trim() !== "") {
-      try {
-        const base64Image = imageBuffer.toString("base64");
-        const response = await fetch("https://api.imgur.com/3/image", {
-          method: "POST",
-          headers: {
-            "Authorization": `Client-ID ${clientId.trim()}`,
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({
-            image: base64Image,
-            type: "base64",
-            title: "Papos Avatar",
-            description: "Foto de perfil Papos"
-          })
-        });
-
-        const data = await response.json() as any;
-        if (response.ok && data && data.success && data.data && data.data.link) {
-          return { success: true, url: data.data.link };
-        } else {
-          console.warn("[Imgur] Upload failed, status:", response.status, data);
-        }
-      } catch (e: any) {
-        console.error("[Imgur] Error contacting Imgur API:", e);
       }
     }
 
@@ -1156,7 +1126,7 @@ async function startServer() {
         return;
       }
 
-      const uploadResult = await uploadToImgur(optimizedBuffer);
+      const uploadResult = await storeProfilePhoto(optimizedBuffer);
       if (!uploadResult.success || !uploadResult.url) {
         res.status(500).json({ success: false, error: uploadResult.error || "Erro ao processar imagem." });
         return;
@@ -2770,6 +2740,7 @@ async function startServer() {
             sendToClient(ws, "room_members_update", {
               roomId: currentRoomId,
               onlineUsers: getRoomOnlineUsers(currentRoomId),
+              onlineUserProfiles: getRoomOnlineProfiles(currentRoomId),
               adminUsers: getAdminNicknames()
             });
             break;
@@ -2922,6 +2893,8 @@ async function startServer() {
                 senderPhotoUrl: session.photoUrl || undefined,
                 recipientId: toNick,
                 recipientName: toNick,
+                recipientDeviceId: targetSession?.deviceId,
+                recipientPhotoUrl: targetSession?.photoUrl || undefined,
                 content: text,
                 ...mediaPayload,
                 timestamp: Date.now(),

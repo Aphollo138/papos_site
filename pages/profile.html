@@ -384,17 +384,18 @@
           const browserPhoto = window.paposBrowserPhoto;
           const ownerId = localStorage.getItem("papos_photo_owner_id");
           const expectedOwnerId = window.SecurityIdentity?.getPhotoOwnerId?.() || "";
-          if (browserPhoto && browserPhoto.ownerId === expectedOwnerId) return browserPhoto.url;
-          return expectedOwnerId && ownerId === expectedOwnerId ? photo : "";
+          const currentUid = window.FirebaseService?.getCurrentUser?.()?.uid || "";
+          const ownerUid = localStorage.getItem("papos_photo_owner_uid") || "";
+          if (browserPhoto && browserPhoto.ownerId === expectedOwnerId && browserPhoto.userId === currentUid) return browserPhoto.url;
+          return expectedOwnerId && ownerId === expectedOwnerId && (!ownerUid || ownerUid === currentUid) ? photo : "";
         }
 
         async function restoreGuestPhoto() {
           const ownerId = window.SecurityIdentity?.getPhotoOwnerId?.();
           if (!ownerId) return;
-          const savedPhoto = await window.SecurityIdentity.getSavedPhoto(ownerId);
-          if (savedPhoto) {
-            const localUrl = URL.createObjectURL(savedPhoto);
-            window.paposBrowserPhoto = { ownerId, url: localUrl };
+          const localUrl = await window.SecurityIdentity.getSavedPhotoUrl(ownerId, "");
+          if (localUrl) {
+            window.paposBrowserPhoto = { ownerId, userId: "", url: localUrl };
             updateAvatarPreview(inputNickname.value.trim() || currentUser, localUrl);
             return;
           }
@@ -404,10 +405,10 @@
         async function restoreAccountPhoto(name) {
           const ownerId = window.SecurityIdentity?.getPhotoOwnerId?.();
           if (!ownerId) return;
-          const savedPhoto = await window.SecurityIdentity.getSavedPhoto(ownerId);
-          if (!savedPhoto) return;
-          const localUrl = URL.createObjectURL(savedPhoto);
-          window.paposBrowserPhoto = { ownerId, url: localUrl };
+          const userId = window.FirebaseService?.getCurrentUser?.()?.uid || "";
+          const localUrl = await window.SecurityIdentity.getSavedPhotoUrl(ownerId, userId);
+          if (!localUrl) return;
+          window.paposBrowserPhoto = { ownerId, userId, url: localUrl };
           updateAvatarPreview(name, localUrl);
         }
 
@@ -478,9 +479,20 @@
             if (!photoOwnerId || !window.SecurityIdentity?.savePhoto) {
               throw new Error("O navegador não oferece armazenamento local seguro para esta foto.");
             }
-            await window.SecurityIdentity.savePhoto(photoOwnerId, file);
-            const browserPhotoUrl = URL.createObjectURL(file);
-            window.paposBrowserPhoto = { ownerId: photoOwnerId, url: browserPhotoUrl };
+            const previousPhotoUid = localStorage.getItem("papos_photo_owner_uid") || "";
+            if (previousPhotoUid !== currentUid) {
+              localStorage.removeItem("papos_photo");
+            }
+            localStorage.setItem("papos_photo_owner_id", photoOwnerId);
+            if (currentUid) {
+              localStorage.setItem("papos_photo_owner_uid", currentUid);
+            } else {
+              localStorage.removeItem("papos_photo_owner_uid");
+            }
+            await window.SecurityIdentity.savePhoto(photoOwnerId, file, currentUid);
+            const browserPhotoUrl = await window.SecurityIdentity.getSavedPhotoUrl(photoOwnerId, currentUid);
+            if (!browserPhotoUrl) throw new Error("Não foi possível recuperar a foto salva neste navegador.");
+            window.paposBrowserPhoto = { ownerId: photoOwnerId, userId: currentUid, url: browserPhotoUrl };
             updateAvatarPreview(currentNick, browserPhotoUrl);
             formData.append("nickname", currentNick);
             const deviceId = window.SecurityIdentity?.getDeviceId?.();
@@ -513,6 +525,7 @@
             localStorage.setItem("papos_photo", finalUrl);
             if (currentAuthUser) {
               localStorage.setItem("papos_photo_owner_id", photoOwnerId);
+              localStorage.setItem("papos_photo_owner_uid", currentUid);
             } else {
               localStorage.removeItem("papos_photo_owner_uid");
               localStorage.setItem("papos_photo_owner_id", photoOwnerId);
@@ -597,7 +610,6 @@
               await window.SecurityIdentity.removeSavedPhoto(photoOwnerId);
             }
             if (window.paposBrowserPhoto?.ownerId === photoOwnerId) {
-              URL.revokeObjectURL(window.paposBrowserPhoto.url);
               window.paposBrowserPhoto = null;
             }
 

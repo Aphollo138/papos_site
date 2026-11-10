@@ -172,6 +172,39 @@
   }
   const photoOwnerId = `device:${deviceId}`;
   let photoDatabasePromise;
+  const photoObjectUrls = new Map();
+  const pendingPhotoObjectUrls = new Map();
+  const retiredPhotoObjectUrls = new Set();
+  const photoVersions = new Map();
+  let photoUrlCleanupQueued = false;
+
+  function revokeUnreferencedPhotoUrls() {
+    photoUrlCleanupQueued = false;
+    retiredPhotoObjectUrls.forEach((url) => {
+      const isInUse = Array.from(document.images).some(image => image.getAttribute("src") === url);
+      if (!isInUse) {
+        URL.revokeObjectURL(url);
+        retiredPhotoObjectUrls.delete(url);
+      }
+    });
+  }
+
+  function schedulePhotoUrlCleanup() {
+    if (photoUrlCleanupQueued) return;
+    photoUrlCleanupQueued = true;
+    setTimeout(revokeUnreferencedPhotoUrls, 0);
+  }
+
+  function retirePhotoObjectUrl(ownerId) {
+    photoVersions.set(ownerId, (photoVersions.get(ownerId) || 0) + 1);
+    const ownerPrefix = `${ownerId}\u0000`;
+    photoObjectUrls.forEach((url, cacheKey) => {
+      if (!cacheKey.startsWith(ownerPrefix)) return;
+      photoObjectUrls.delete(cacheKey);
+      retiredPhotoObjectUrls.add(url);
+      schedulePhotoUrlCleanup();
+    });
+  }
 
   function openPhotoDatabase() {
     if (!("indexedDB" in window)) {
@@ -194,7 +227,7 @@
     return photoDatabasePromise;
   }
 
-  async function savePhoto(ownerId, file) {
+  async function savePhoto(ownerId, file, userId = "") {
     if (!ownerId || !(file instanceof Blob)) {
       throw new Error("A foto ou o identificador do proprietário é inválido.");
     }
@@ -204,23 +237,74 @@
       transaction.objectStore("photos").put({
         blob: file,
         type: file.type || "image/jpeg",
-        savedAt: Date.now()
+        savedAt: Date.now(),
+        userId: userId || ""
       }, ownerId);
       transaction.oncomplete = resolve;
       transaction.onerror = () => reject(transaction.error || new Error("Não foi possível salvar a foto neste navegador."));
       transaction.onabort = () => reject(transaction.error || new Error("O armazenamento local da foto foi cancelado."));
     });
+    retirePhotoObjectUrl(ownerId);
   }
 
-  async function getSavedPhoto(ownerId) {
+  async function getSavedPhoto(ownerId, userId = getCurrentUserId()) {
     if (!ownerId) return null;
     const database = await openPhotoDatabase();
     return new Promise((resolve, reject) => {
       const transaction = database.transaction("photos", "readonly");
       const request = transaction.objectStore("photos").get(ownerId);
-      request.onsuccess = () => resolve(request.result?.blob instanceof Blob ? request.result.blob : null);
+      request.onsuccess = () => {
+        const record = request.result;
+        if (!(record?.blob instanceof Blob)) {
+          resolve(null);
+          return;
+        }
+        const savedUserId = localStorage.getItem("papos_photo_owner_uid") || "";
+        if (
+          (record.userId && record.userId !== userId) ||
+          (!userId && record.userId) ||
+          (savedUserId && savedUserId !== userId) ||
+          (userId && !record.userId && savedUserId !== userId)
+        ) {
+          resolve(null);
+          return;
+        }
+        resolve(record.blob);
+      };
       request.onerror = () => reject(request.error || new Error("Não foi possível ler a foto salva neste navegador."));
     });
+  }
+
+  function getCurrentUserId() {
+    const user = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
+      ? window.FirebaseService.getCurrentUser()
+      : null;
+    return user && typeof user.uid === "string" ? user.uid : "";
+  }
+
+  async function getSavedPhotoUrl(ownerId, userId = getCurrentUserId()) {
+    if (!ownerId) return "";
+    const cacheKey = `${ownerId}\u0000${userId}`;
+    if (photoObjectUrls.has(cacheKey)) return photoObjectUrls.get(cacheKey);
+    if (pendingPhotoObjectUrls.has(cacheKey)) return pendingPhotoObjectUrls.get(cacheKey);
+
+    const version = photoVersions.get(ownerId) || 0;
+    const pending = getSavedPhoto(ownerId, userId).then(async (blob) => {
+      if (!blob) return "";
+      let photoBlob = blob;
+      if ((photoVersions.get(ownerId) || 0) !== version) {
+        photoBlob = await getSavedPhoto(ownerId, userId);
+        if (!photoBlob) return "";
+      }
+      if (photoObjectUrls.has(cacheKey)) return photoObjectUrls.get(cacheKey);
+      const url = URL.createObjectURL(photoBlob);
+      photoObjectUrls.set(cacheKey, url);
+      return url;
+    }).finally(() => {
+      pendingPhotoObjectUrls.delete(cacheKey);
+    });
+    pendingPhotoObjectUrls.set(cacheKey, pending);
+    return pending;
   }
 
   async function removeSavedPhoto(ownerId) {
@@ -233,16 +317,57 @@
       transaction.onerror = () => reject(transaction.error || new Error("Não foi possível remover a foto deste navegador."));
       transaction.onabort = () => reject(transaction.error || new Error("A remoção da foto local foi cancelada."));
     });
+    retirePhotoObjectUrl(ownerId);
   }
 
   async function restoreAvatarImage(image) {
     const ownerId = image && image.dataset ? image.dataset.photoOwnerId : "";
     if (!ownerId) throw new Error("A imagem não possui proprietário local.");
-    const blob = await getSavedPhoto(ownerId);
-    if (!blob) throw new Error("Não há uma cópia local desta foto.");
-    image.onerror = null;
-    image.src = URL.createObjectURL(blob);
+    const sourceUrl = await getSavedPhotoUrl(ownerId);
+    if (!sourceUrl) throw new Error("Não há uma cópia local desta foto.");
+    if (image.dataset.localPhotoUrl === sourceUrl && image.getAttribute("src") === sourceUrl) {
+      throw new Error("A cópia local da foto não pôde ser exibida.");
+    }
+    if (!image.isConnected || image.dataset.photoOwnerId !== ownerId) return;
+    image.dataset.localPhotoUrl = sourceUrl;
+    image.src = sourceUrl;
   }
+
+  const photoUrlObserver = new MutationObserver(schedulePhotoUrlCleanup);
+  photoUrlObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["src"],
+    childList: true,
+    subtree: true
+  });
+
+  window.addEventListener("pagehide", () => {
+    photoUrlObserver.disconnect();
+    photoObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    retiredPhotoObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    photoObjectUrls.clear();
+    retiredPhotoObjectUrls.clear();
+  });
+
+  window.addEventListener("pageshow", () => {
+    photoUrlObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["src"],
+      childList: true,
+      subtree: true
+    });
+    document.querySelectorAll("img[data-photo-owner-id]").forEach((image) => {
+      const currentSource = image.getAttribute("src") || "";
+      const wasUsingLocalPhoto = image.dataset.localPhotoUrl === currentSource;
+      if (!wasUsingLocalPhoto && currentSource !== "data:image/jpeg;base64,invalid") return;
+      restoreAvatarImage(image).catch(() => {
+        if (!image.isConnected || !window.ChatEngine?.createFallbackAvatarElement) return;
+        const name = image.title || image.alt.replace(/^Avatar de /, "") || "A";
+        const sizeClass = image.className.replace("avatar-circle", "").trim();
+        image.replaceWith(window.ChatEngine.createFallbackAvatarElement(name, sizeClass));
+      });
+    });
+  });
 
   // Iniciar obtenção do token assinado do servidor em segundo plano
   if (!getGuestToken()) {
@@ -260,6 +385,7 @@
     getPhotoOwnerId: function() { return photoOwnerId; },
     savePhoto: savePhoto,
     getSavedPhoto: getSavedPhoto,
+    getSavedPhotoUrl: getSavedPhotoUrl,
     removeSavedPhoto: removeSavedPhoto,
     restoreAvatarImage: restoreAvatarImage
   };

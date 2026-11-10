@@ -454,13 +454,6 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.setItem("papos_permanent_id", permId);
             localStorage.setItem("papos_is_admin", (profile.admin === true || user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") ? "true" : "false");
 
-            const photoOwnerId = window.SecurityIdentity?.getPhotoOwnerId?.() || "";
-            if (localStorage.getItem("papos_photo_owner_id") && localStorage.getItem("papos_photo_owner_id") !== photoOwnerId) {
-              localStorage.removeItem("papos_photo");
-              localStorage.removeItem("papos_photo_owner_uid");
-              localStorage.removeItem("papos_photo_owner_id");
-            }
-
             if (desktopUserName) desktopUserName.textContent = nick;
             if (desktopDropdownName) desktopDropdownName.textContent = nick;
             if (mobileDropdownName) mobileDropdownName.textContent = nick;
@@ -603,9 +596,6 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.removeItem(`papos_pms_${currentNickname}`);
         }
         localStorage.removeItem("papos_nickname");
-        localStorage.removeItem("papos_photo");
-        localStorage.removeItem("papos_photo_owner_uid");
-        localStorage.removeItem("papos_photo_owner_id");
         localStorage.removeItem("papos_permanent_id");
 
         const logoutModalEl = document.getElementById("logoutConfirmModal");

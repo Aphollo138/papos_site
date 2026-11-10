@@ -260,6 +260,12 @@ function getLocalPhotoOwnerId() {
   return photoOwnerId;
 }
 
+function getCurrentDeviceId() {
+  return window.SecurityIdentity && typeof window.SecurityIdentity.getDeviceId === "function"
+    ? window.SecurityIdentity.getDeviceId()
+    : "";
+}
+
 function getUserCurrentPhoto(name) {
   if (!name) return "";
   const cleanName = name.trim();
@@ -270,6 +276,11 @@ function getUserCurrentPhoto(name) {
     const expectedOwnerId = getLocalPhotoOwnerId();
     const ownerId = localStorage.getItem("papos_photo_owner_id");
     if (!expectedOwnerId || ownerId !== expectedOwnerId) return "";
+    const authUser = window.FirebaseService && typeof window.FirebaseService.getCurrentUser === "function"
+      ? window.FirebaseService.getCurrentUser()
+      : null;
+    const ownerUid = localStorage.getItem("papos_photo_owner_uid") || "";
+    if (ownerUid && (!authUser || ownerUid !== authUser.uid)) return "";
     const myPhoto = localStorage.getItem("papos_photo");
     if (myPhoto && typeof myPhoto === "string" && myPhoto.trim() !== "" && !myPhoto.includes("null") && !myPhoto.includes("undefined")) {
       return myPhoto.trim();
@@ -370,9 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  const currentDeviceId = window.SecurityIdentity && window.SecurityIdentity.getDeviceId
-    ? window.SecurityIdentity.getDeviceId()
-    : "";
+  const currentDeviceId = getCurrentDeviceId();
   const getMessageDeviceId = (message) => message && (message.deviceId || message.senderDeviceId) || "";
   const isCurrentDeviceMessage = (message) => {
     const messageDeviceId = getMessageDeviceId(message);
@@ -758,6 +767,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   }
                   if (typeof renderPrivateConversationsSidebar === "function") {
                     renderPrivateConversationsSidebar();
+                    updateActivePrivateHeaderAvatar();
                   }
                 }
               });
@@ -964,6 +974,7 @@ document.addEventListener("DOMContentLoaded", () => {
             onlineUserProfiles = Array.isArray(data.onlineUserProfiles) ? data.onlineUserProfiles : [];
             renderMembers();
             renderPrivateConversationsSidebar();
+            updateActivePrivateHeaderAvatar();
             break;
 
           case "room_state":
@@ -1437,12 +1448,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (btnBackToPublic) btnBackToPublic.classList.remove("d-none");
       
       if (headerAvatarContainer) {
-        headerAvatarContainer.classList.remove("d-none");
-        headerAvatarContainer.innerHTML = `
-          <button class="btn p-0 border-0" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
-            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm", "", "")}
-          </button>
-        `;
+        updateActivePrivateHeaderAvatar();
       }
       if (headerStatus) headerStatus.classList.add("d-none");
 
@@ -1777,6 +1783,8 @@ document.addEventListener("DOMContentLoaded", () => {
         sender: sender,
         senderDeviceId: pm.senderDeviceId || "",
         photoUrl: pm.senderPhotoUrl || "",
+        recipientDeviceId: pm.recipientDeviceId || "",
+        recipientPhotoUrl: pm.recipientPhotoUrl || "",
         text: content,
         mediaType: pm.mediaType,
         mediaUrl: pm.mediaUrl,
@@ -1818,6 +1826,8 @@ document.addEventListener("DOMContentLoaded", () => {
           sender: sender,
           senderDeviceId: pm.senderDeviceId || "",
           photoUrl: pm.senderPhotoUrl || "",
+          recipientDeviceId: pm.recipientDeviceId || "",
+          recipientPhotoUrl: pm.recipientPhotoUrl || "",
           recipient: recipient,
           text: content,
           mediaType: pm.mediaType,
@@ -1834,6 +1844,34 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     }
+    else {
+      const existingMessage = privateChats[partner].find(message => message.id === id);
+      if (existingMessage) {
+        let identityUpdated = false;
+        [
+          ["senderDeviceId", pm.senderDeviceId],
+          ["photoUrl", pm.senderPhotoUrl],
+          ["recipientDeviceId", pm.recipientDeviceId],
+          ["recipientPhotoUrl", pm.recipientPhotoUrl]
+        ].forEach(([key, value]) => {
+          if (value && !existingMessage[key]) {
+            existingMessage[key] = value;
+            identityUpdated = true;
+          }
+        });
+        if (identityUpdated) {
+          localStorage.setItem(`papos_pms_${currentUser}`, JSON.stringify(privateChats));
+          if (window.FirebaseService && window.FirebaseService.getCurrentUser()) {
+            window.FirebaseService.savePrivateMessage(partner, {
+              ...existingMessage,
+              recipient
+            }).catch(err => {
+              console.error("[Firestore] Erro ao atualizar a identidade da mensagem:", err);
+            });
+          }
+        }
+      }
+    }
 
     if (isNew && chatMode === "private" && activePrivateRecipient === partner) {
       if (!muteBots || !isBotPartner) {
@@ -1842,6 +1880,8 @@ document.addEventListener("DOMContentLoaded", () => {
           sender: sender,
           senderDeviceId: pm.senderDeviceId || "",
           photoUrl: pm.senderPhotoUrl || "",
+          recipientDeviceId: pm.recipientDeviceId || "",
+          recipientPhotoUrl: pm.recipientPhotoUrl || "",
           text: content,
           mediaType: pm.mediaType,
           mediaUrl: pm.mediaUrl,
@@ -1855,6 +1895,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     renderPrivateConversationsSidebar();
+    updateActivePrivateHeaderAvatar();
   }
 
   function sendPrivateMessage(text, msgId, replyTo) {
@@ -1970,7 +2011,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       threadDiv.innerHTML = `
         <div class="d-flex align-items-center gap-2 text-truncate flex-grow-1" style="min-width: 0;">
-          ${window.ChatEngine.renderAvatar(partner, "avatar-sm", "", "")}
+          ${renderPrivatePartnerAvatar(partner, "avatar-sm", history)}
           <div class="text-start text-truncate flex-grow-1" style="min-width: 0;">
             <div class="d-flex align-items-center justify-content-between">
               <span class="fw-bold text-white small text-truncate me-1">${partner}</span>
@@ -1996,6 +2037,46 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     updatePrivateUnreadBadge(false);
+  }
+
+  function renderPrivatePartnerAvatar(partner, sizeClass, history = privateChats[partner] || []) {
+    const partnerLower = String(partner || "").toLowerCase();
+    const profile = onlineUserProfiles.find(item => String(item.nickname || "").toLowerCase() === partnerLower);
+    const partnerMessage = [...history].reverse().find(message =>
+      (
+        String(message.sender || "").toLowerCase() === partnerLower &&
+        (message.senderDeviceId || message.deviceId || message.photoUrl)
+      ) || (
+        String(message.sender || "").toLowerCase() === String(currentUser).toLowerCase() &&
+        String(message.recipient || "").toLowerCase() === partnerLower &&
+        (message.recipientDeviceId || message.recipientPhotoUrl)
+      )
+    );
+    const sentByPartner = partnerMessage && String(partnerMessage.sender || "").toLowerCase() === partnerLower;
+    const deviceId = (partnerMessage && (sentByPartner
+      ? partnerMessage.senderDeviceId || partnerMessage.deviceId
+      : partnerMessage.recipientDeviceId)) || (profile && profile.deviceId) || "";
+    const photoUrl = (deviceId && window.roomUserPhotos && window.roomUserPhotos[deviceId]) ||
+      (partnerMessage && (sentByPartner ? partnerMessage.photoUrl : partnerMessage.recipientPhotoUrl)) ||
+      (profile && profile.photoUrl) ||
+      "";
+    if (deviceId && photoUrl) {
+      window.roomUserPhotos = window.roomUserPhotos || {};
+      window.roomUserPhotos[deviceId] = photoUrl;
+    }
+    return window.ChatEngine.renderAvatar(partner, sizeClass, photoUrl, deviceId || undefined);
+  }
+
+  function updateActivePrivateHeaderAvatar() {
+    if (chatMode !== "private" || !activePrivateRecipient) return;
+    const headerAvatarContainer = document.getElementById("active-chat-avatar-container");
+    if (!headerAvatarContainer) return;
+    headerAvatarContainer.classList.remove("d-none");
+    headerAvatarContainer.innerHTML = `
+      <button class="btn p-0 border-0" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
+        ${renderPrivatePartnerAvatar(activePrivateRecipient, "avatar-sm")}
+      </button>
+    `;
   }
 
   if (!window.showToast) {
@@ -2499,7 +2580,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="msg-content">
             ${replyHtml}
             <div class="msg-header">
-              <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
+              <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
               <span class="msg-meta">${formatMessageTime(msg)}</span>
             </div>
             <div class="msg-bubble" style="${(msg.mediaType === 'sticker' && msg.mediaUrl) ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
@@ -2625,7 +2706,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="msg-content">
         ${replyHtml}
         <div class="msg-header">
-          <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
+          <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
           <span class="msg-meta">${formatMessageTime(msg)}</span>
         </div>
         <div class="msg-bubble" style="${(msg.mediaType === 'sticker' && msg.mediaUrl) ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
@@ -2680,7 +2761,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (sameOwner) {
           const avatarBtn = container.querySelector(".msg-avatar-btn") || container.querySelector("button.btn.flex-shrink-0");
           if (avatarBtn) {
-            avatarBtn.innerHTML = window.ChatEngine.renderAvatar(sender || targetNick, "avatar-sm", resolvedPhoto || "", deviceId);
+            avatarBtn.innerHTML = window.ChatEngine.renderAvatar(sender || targetNick, "avatar-sm", resolvedPhoto || "", deviceId || undefined);
           }
         }
       });
@@ -2702,7 +2783,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (headerAvatarContainer) {
         headerAvatarContainer.innerHTML = `
           <button class="btn p-0 border-0" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
-            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm", resolvedPhoto, deviceId)}
+            ${window.ChatEngine.renderAvatar(activePrivateRecipient, "avatar-sm", resolvedPhoto, deviceId || undefined)}
           </button>
         `;
       }
@@ -3003,7 +3084,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const isMod = !isAdmin && (u.toLowerCase().includes("mod") || u === "Sistema");
       
       const avatarHtml = window.ChatEngine
-        ? window.ChatEngine.renderAvatar(u, "avatar-member", profile.deviceId ? profile.photoUrl || "" : "", profile.deviceId || "")
+        ? window.ChatEngine.renderAvatar(u, "avatar-member", profile.deviceId ? profile.photoUrl || "" : "", profile.deviceId || undefined)
         : `<div class="avatar-member bg-secondary">P</div>`;
       
       const isThemeLight = document.documentElement.getAttribute("data-theme") === "light";
@@ -4433,10 +4514,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const realName = (nickname === "Você") ? currentNick : nickname;
     if (!realName) return;
     const isMe = profileDeviceId
-      ? profileDeviceId === currentDeviceId
+      ? profileDeviceId === getCurrentDeviceId()
       : currentNick && realName.toLowerCase() === currentNick.toLowerCase();
-    const devicePhoto = profileDeviceId && window.roomUserPhotos
-      ? window.roomUserPhotos[profileDeviceId] || ""
+    const targetDeviceId = profileDeviceId || (isMe ? getCurrentDeviceId() : "");
+    const devicePhoto = targetDeviceId && window.roomUserPhotos
+      ? window.roomUserPhotos[targetDeviceId] || ""
       : "";
 
     const cache = window.profileCache || profileCache;
@@ -4445,14 +4527,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Immediately construct instantaneous profile data (< 5ms)
     let initialProfile = null;
     if (cached && cached.data) {
-      initialProfile = profileDeviceId
-        ? { ...cached.data, deviceId: profileDeviceId, photoUrl: devicePhoto, profileImage: devicePhoto || null }
+      initialProfile = targetDeviceId
+        ? { ...cached.data, deviceId: targetDeviceId, photoUrl: devicePhoto, profileImage: devicePhoto || null }
         : cached.data;
     } else if (isMe) {
-      const mySavedPhoto = localStorage.getItem("papos_photo") || "";
+      const mySavedPhoto = getUserCurrentPhoto(realName) || "";
       initialProfile = {
         nickname: realName,
-        deviceId: profileDeviceId || currentDeviceId,
+        deviceId: targetDeviceId,
         photoUrl: devicePhoto || mySavedPhoto,
         profileImage: devicePhoto || mySavedPhoto,
         bio: localStorage.getItem("papos_bio") || "",
@@ -4463,10 +4545,10 @@ document.addEventListener("DOMContentLoaded", () => {
       };
       cache.set(realName.toLowerCase(), { data: initialProfile, timestamp: Date.now() });
     } else {
-      const knownPhoto = profileDeviceId ? devicePhoto : "";
+      const knownPhoto = targetDeviceId ? devicePhoto : "";
       initialProfile = {
         nickname: realName,
-        deviceId: profileDeviceId,
+        deviceId: targetDeviceId,
         photoUrl: knownPhoto,
         profileImage: knownPhoto,
         bio: "",
@@ -4489,7 +4571,8 @@ document.addEventListener("DOMContentLoaded", () => {
         window.pendingProfileRequest = {
           nickname: realName,
           isMe: isMe,
-          deviceId: profileDeviceId,
+          deviceId: targetDeviceId,
+          photoUrl: devicePhoto,
           timestamp: now,
           requestId
         };
@@ -4524,15 +4607,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const currentNick = (window.confirmedNickname || (typeof currentUser !== "undefined" ? currentUser : localStorage.getItem("papos_nickname")) || "").trim();
     const isMe = reqInfo.deviceId
-      ? reqInfo.deviceId === currentDeviceId
+      ? reqInfo.deviceId === getCurrentDeviceId()
       : data.nickname.toLowerCase() === currentNick.toLowerCase();
     
     const cache = window.profileCache || profileCache;
 
     const responseDeviceId = reqInfo.deviceId || "";
-    const photoToUse = responseDeviceId && window.roomUserPhotos
+    const photoToUse = (responseDeviceId && window.roomUserPhotos
       ? window.roomUserPhotos[responseDeviceId] || ""
-      : isMe ? getUserCurrentPhoto(data.nickname) : "";
+      : "") || reqInfo.photoUrl || (isMe ? getUserCurrentPhoto(data.nickname) : "");
     if (responseDeviceId) data.deviceId = responseDeviceId;
     data.photoUrl = photoToUse || "";
     data.profileImage = photoToUse || null;
@@ -4569,7 +4652,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (avatarContainer) {
       const pPhoto = (profile.photoUrl || profile.photoURL || profile.profileImage || "");
-      avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-xl mx-auto", pPhoto ? pPhoto : "");
+      avatarContainer.innerHTML = ChatEngine.renderAvatar(profile.nickname, "avatar-xl mx-auto", pPhoto ? pPhoto : "", profile.deviceId || undefined);
     }
 
     if (onlineIndicator) {
