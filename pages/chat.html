@@ -170,6 +170,65 @@
           gap: 8px !important;
         }
       }
+
+      /* Keep the same wallpaper behind global and private conversations. */
+      #chat-messages-container {
+        background-color: #090a0d !important;
+        background-image:
+          linear-gradient(rgba(8, 10, 14, 0.24), rgba(8, 10, 14, 0.24)),
+          url("/assets/img/chat-background.png") !important;
+        background-position: center top !important;
+        background-repeat: repeat !important;
+        background-size: 384px auto !important;
+      }
+
+      .chat-messages .msg-container,
+      .chat-messages .msg-container.msg-me,
+      .chat-messages .msg-container:hover {
+        background-color: transparent !important;
+      }
+
+      .chat-messages .msg-content {
+        flex: 0 1 auto !important;
+        width: auto !important;
+        max-width: calc(100% - 44px) !important;
+      }
+
+      .chat-messages .msg-header {
+        flex-wrap: wrap !important;
+        gap: 4px 8px !important;
+      }
+
+      .chat-messages .msg-bubble {
+        display: inline-block !important;
+        width: fit-content !important;
+        max-width: 100% !important;
+        margin-top: 3px !important;
+        padding: 8px 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 3px 14px 14px 14px !important;
+        background-color: rgba(24, 26, 32, 0.96) !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+      }
+
+      [data-theme="light"] .chat-messages .msg-bubble {
+        border-color: rgba(17, 17, 17, 0.12) !important;
+        background-color: rgba(255, 255, 255, 0.96) !important;
+      }
+
+      @media (max-width: 768px) {
+        #chat-messages-container {
+          background-size: 320px auto !important;
+        }
+
+        .chat-messages .msg-content {
+          max-width: calc(100% - 38px) !important;
+        }
+
+        .chat-messages .msg-bubble {
+          padding: 7px 10px !important;
+        }
+      }
     </style>
   </head>
   <body class="chat-page">
