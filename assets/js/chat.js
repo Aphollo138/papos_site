@@ -3694,6 +3694,13 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   if (messageInput) {
+    const desktopPlaceholder = messageInput.getAttribute("placeholder") || "";
+    const updateMessagePlaceholder = () => {
+      messageInput.placeholder = window.innerWidth <= 768 ? "Mensagem..." : desktopPlaceholder;
+    };
+    updateMessagePlaceholder();
+    window.addEventListener("resize", updateMessagePlaceholder);
+
     adjustMessageInputHeight();
     updateSendButtonState();
 
@@ -4383,35 +4390,19 @@ window.switchEmojiCategory = function(category) {
 
 document.addEventListener("DOMContentLoaded", () => {
   const searchDesktop = document.getElementById("emoji-search-desktop");
-  const searchMobile = document.getElementById("emoji-search-mobile");
   
   if (searchDesktop) {
     searchDesktop.addEventListener("input", (e) => {
       window.filterEmojis(e.target.value, "emoji-grid-container", false);
     });
   }
-  
-  if (searchMobile) {
-    searchMobile.addEventListener("input", (e) => {
-      window.filterEmojis(e.target.value, "mobile-emoji-grid-container", true);
-    });
-  }
 
-  const btnMobileOpenEmojis = document.getElementById("btn-mobile-open-emojis");
-  const btnMobileOpenColors = document.getElementById("btn-mobile-open-colors");
-  const btnMobileEmojiBack = document.getElementById("btn-mobile-emoji-back");
-  const btnMobileColorBack = document.getElementById("btn-mobile-color-back");
-
-  const step1 = document.getElementById("mobile-menu-step-1");
-  const menuEmojis = document.getElementById("mobile-menu-emojis");
-  const menuColors = document.getElementById("mobile-menu-colors");
-
-  // Delegação global estável e resiliente para botões de emojis/figurinhas e gravação de áudio
+  // Delegação global estável para botões de emoji e gravação de áudio
   document.addEventListener("click", (e) => {
     const target = e.target;
     if (!target) return;
 
-    // 1. Botão de Emojis/Figurinhas no campo de digitação (fa-note-sticky)
+    // 1. Botão de emojis no campo de digitação
     const btnEmojiPicker = target.closest("#btn-emoji-picker");
     if (btnEmojiPicker) {
       e.preventDefault();
@@ -4440,64 +4431,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // 3. Botão mobile de abrir emojis
-    const btnMobileOpenEmojis = target.closest("#btn-mobile-open-emojis");
-    if (btnMobileOpenEmojis) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (typeof window.closeMobileDropdown === "function") {
-        window.closeMobileDropdown();
-      }
-      if (window.PaposMediaPicker && typeof window.PaposMediaPicker.open === "function") {
-        window.PaposMediaPicker.open("emojis");
-      } else if (typeof window.mountMediaPicker === "function") {
-        window.mountMediaPicker();
-        setTimeout(() => {
-          if (window.PaposMediaPicker && typeof window.PaposMediaPicker.open === "function") {
-            window.PaposMediaPicker.open("emojis");
-          }
-        }, 60);
-      }
-    }
   });
-
-  if (btnMobileOpenColors) {
-    btnMobileOpenColors.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (step1) step1.classList.add("d-none");
-      if (menuColors) menuColors.classList.remove("d-none");
-    });
-  }
-
-  if (btnMobileEmojiBack) {
-    btnMobileEmojiBack.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (menuEmojis) menuEmojis.classList.add("d-none");
-      if (step1) step1.classList.remove("d-none");
-    });
-  }
-
-  if (btnMobileColorBack) {
-    btnMobileColorBack.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (menuColors) menuColors.classList.add("d-none");
-      if (step1) step1.classList.remove("d-none");
-    });
-  }
-
-  const btnMobileActions = document.getElementById("btn-mobile-actions");
-  if (btnMobileActions) {
-    btnMobileActions.addEventListener("click", () => {
-      if (step1) step1.classList.remove("d-none");
-      if (menuEmojis) menuEmojis.classList.add("d-none");
-      if (menuColors) menuColors.classList.add("d-none");
-      if (searchMobile) searchMobile.value = "";
-      window.switchEmojiCategory("faces");
-    });
-  }
 
   const fetchProfileFromFirestore = async (nickname) => {
     // Identity & profile photos are strictly bound to verified UIDs.

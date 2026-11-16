@@ -400,8 +400,30 @@
                 <div class="chat-input-wrapper position-relative flex-grow-1 d-flex align-items-center">
                   <textarea class="form-control bg-dark border-secondary py-2 text-white" id="message-input" placeholder="Digite sua mensagem por aqui..." rows="1" maxlength="250" autocomplete="off" aria-label="Digite sua mensagem" style="resize: none; font-size: 16px; min-height: 40px; max-height: 120px; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none; padding-left: 14px; padding-right: 42px;"></textarea>
                   <button class="btn btn-input-emoji d-flex align-items-center justify-content-center" type="button" id="btn-emoji-picker" title="Escolher figurinhas, emojis e GIFs" aria-label="Escolher figurinhas, emojis e GIFs">
-                    <i class="fa-solid fa-note-sticky" aria-hidden="true"></i>
+                    <i class="fa-solid fa-face-smile d-md-none" aria-hidden="true"></i>
+                    <i class="fa-solid fa-note-sticky d-none d-md-inline" aria-hidden="true"></i>
                   </button>
+                  <div class="dropdown dropup d-block d-md-none" id="dropdown-actions-wrapper">
+                    <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-mobile-actions" data-bs-toggle="dropdown" data-bs-display="static" data-bs-auto-close="outside" aria-expanded="false" title="Escolher cor do texto" aria-label="Escolher cor do texto">
+                      <i class="fa-solid fa-pencil" aria-hidden="true"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-3 border-secondary shadow-lg" id="mobile-actions-dropdown" aria-labelledby="btn-mobile-actions" style="background-color: var(--surface); width: 240px; max-width: 90vw; z-index: 1060; border-radius: var(--radius-md);">
+                      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
+                        <span class="text-white small fw-bold">Cor do texto</span>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small" onclick="window.setMessageColor('', ''); window.closeMobileDropdown();" style="color: var(--text-secondary); font-size: 0.75rem;">Padrão</button>
+                      </div>
+                      <div class="d-flex flex-wrap gap-3 justify-content-center">
+                        <button type="button" class="btn p-0 rounded-circle border border-secondary" style="width: 32px; height: 32px; background-color: var(--text-primary);" onclick="window.setMessageColor('', 'var(--text-primary)'); window.closeMobileDropdown();" title="Cor padrão"></button>
+                        <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #00d2ff;" onclick="window.setMessageColor('#00d2ff', '#00d2ff'); window.closeMobileDropdown();" title="Azul Claro"></button>
+                        <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #ff4d4d;" onclick="window.setMessageColor('#ff4d4d', '#ff4d4d'); window.closeMobileDropdown();" title="Vermelho"></button>
+                        <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #ff66cc;" onclick="window.setMessageColor('#ff66cc', '#ff66cc'); window.closeMobileDropdown();" title="Rosa Lindo"></button>
+                        <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #2ecc71;" onclick="window.setMessageColor('#2ecc71', '#2ecc71'); window.closeMobileDropdown();" title="Verde Esmeralda"></button>
+                        <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #f1c40f;" onclick="window.setMessageColor('#f1c40f', '#f1c40f'); window.closeMobileDropdown();" title="Amarelo Sol"></button>
+                        <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #e67e22;" onclick="window.setMessageColor('#e67e22', '#e67e22'); window.closeMobileDropdown();" title="Laranja Cenoura"></button>
+                        <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #9b59b6;" onclick="window.setMessageColor('#9b59b6', '#9b59b6'); window.closeMobileDropdown();" title="Roxo Ametista"></button>
+                      </div>
+                    </div>
+                  </div>
                   <div id="audio-recording-bar" class="d-none position-absolute top-0 start-0 w-100 h-100 align-items-center justify-content-between px-3 bg-dark border border-secondary" style="border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none; z-index: 5;">
                     <div class="d-flex align-items-center gap-2">
                       <span class="recording-pulse-dot" style="width: 10px; height: 10px; border-radius: 50%; background-color: #ef4444; display: inline-block;"></span>
@@ -422,75 +444,6 @@
                 <button class="btn btn-premium d-flex align-items-center justify-content-center" type="submit" id="btn-send" title="Gravar áudio" aria-label="Gravar áudio" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; align-self: flex-end; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; border-right: none; padding: 0;">
                   <i class="bi bi-mic-fill" style="font-size: 1rem;"></i>
                 </button>
-
-                <div class="dropdown dropup d-block d-md-none" id="dropdown-actions-wrapper" style="align-self: flex-end;">
-                  <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-mobile-actions" data-bs-toggle="dropdown" data-bs-display="static" data-bs-auto-close="outside" aria-expanded="false" title="Mais opções" style="height: 40px; width: 38px; min-width: 38px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0; border-left: none;">
-                    <i class="bi bi-three-dots-vertical" style="font-size: 1rem; color: var(--text-secondary);"></i>
-                  </button>
-                  <div class="dropdown-menu dropdown-menu-end p-3 border-secondary shadow-lg" id="mobile-actions-dropdown" aria-labelledby="btn-mobile-actions" style="background-color: var(--surface); width: 320px; max-width: 90vw; z-index: 1060; border-radius: var(--radius-md);">
-                    
-                    <div id="mobile-menu-step-1" class="d-flex justify-content-around py-2 gap-3">
-                      <button type="button" class="btn btn-secondary-custom d-flex flex-column align-items-center justify-content-center p-3 text-white border-secondary transition-all" id="btn-mobile-open-emojis" style="width: 110px; height: 95px; border-radius: var(--radius-md); background-color: rgba(255, 255, 255, 0.03);">
-                        <i class="bi bi-emoji-smile text-warning mb-2" style="font-size: 1.8rem;"></i>
-                        <span style="font-size: 0.82rem; font-weight: 500;">Emojis</span>
-                      </button>
-                      <button type="button" class="btn btn-secondary-custom d-flex flex-column align-items-center justify-content-center p-3 text-white border-secondary transition-all" id="btn-mobile-open-colors" style="width: 110px; height: 95px; border-radius: var(--radius-md); background-color: rgba(255, 255, 255, 0.03);">
-                        <i class="bi bi-palette-fill mb-2" style="font-size: 1.8rem; color: #00d2ff;"></i>
-                        <span style="font-size: 0.82rem; font-weight: 500;">Cor Texto</span>
-                      </button>
-                    </div>
-
-                    <div id="mobile-menu-emojis" class="d-none">
-                      <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom border-secondary">
-                        <button type="button" class="btn btn-sm text-secondary p-0 d-flex align-items-center gap-1" id="btn-mobile-emoji-back" style="box-shadow: none; font-size: 0.85rem;">
-                          <i class="bi bi-chevron-left"></i> Voltar
-                        </button>
-                        <span class="text-white small fw-bold">Emojis</span>
-                        <span style="width: 50px;"></span>
-                      </div>
-
-                      <div class="mb-2">
-                        <input type="text" id="emoji-search-mobile" class="form-control form-control-sm bg-dark border-secondary text-white" placeholder="Pesquisar emoji..." style="font-size: 0.85rem;">
-                      </div>
-
-                      <div class="d-flex justify-content-between border-bottom border-secondary pb-2 mb-2 emoji-tabs" style="font-size: 1.1rem; overflow-x: auto; scrollbar-width: none;">
-                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none active-emoji-tab" onclick="window.switchEmojiCategory('faces')" style="box-shadow: none;">😀</button>
-                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('animals')" style="box-shadow: none;">🐱</button>
-                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('food')" style="box-shadow: none;">🍔</button>
-                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('activities')" style="box-shadow: none;">⚽</button>
-                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('travel')" style="box-shadow: none;">🚗</button>
-                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('objects')" style="box-shadow: none;">💡</button>
-                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="window.switchEmojiCategory('hearts')" style="box-shadow: none;">💖</button>
-                      </div>
-                      <div class="emoji-grid d-flex flex-wrap gap-1" id="mobile-emoji-grid-container" style="max-height: 180px; overflow-y: auto; font-size: 1.3rem; padding: 2px; justify-content: center;">
-                        
-                      </div>
-                    </div>
-
-                    <div id="mobile-menu-colors" class="d-none">
-                      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
-                        <button type="button" class="btn btn-sm text-secondary p-0 d-flex align-items-center gap-1" id="btn-mobile-color-back" style="box-shadow: none; font-size: 0.85rem;">
-                          <i class="bi bi-chevron-left"></i> Voltar
-                        </button>
-                        <span class="text-white small fw-bold">Cor das Mensagens</span>
-                        <span style="width: 50px;"></span>
-                      </div>
-                      <div class="p-1">
-                        <div class="d-flex flex-wrap gap-3 justify-content-center">
-                          <button type="button" class="btn p-0 rounded-circle border border-secondary" style="width: 32px; height: 32px; background-color: var(--text-primary);" onclick="window.setMessageColor('', 'var(--text-primary)'); window.closeMobileDropdown();" title="Cor padrão"></button>
-                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #00d2ff;" onclick="window.setMessageColor('#00d2ff', '#00d2ff'); window.closeMobileDropdown();" title="Azul Claro"></button>
-                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #ff4d4d;" onclick="window.setMessageColor('#ff4d4d', '#ff4d4d'); window.closeMobileDropdown();" title="Vermelho"></button>
-                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #ff66cc;" onclick="window.setMessageColor('#ff66cc', '#ff66cc'); window.closeMobileDropdown();" title="Rosa Lindo"></button>
-                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #2ecc71;" onclick="window.setMessageColor('#2ecc71', '#2ecc71'); window.closeMobileDropdown();" title="Verde Esmeralda"></button>
-                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #f1c40f;" onclick="window.setMessageColor('#f1c40f', '#f1c40f'); window.closeMobileDropdown();" title="Amarelo Sol"></button>
-                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #e67e22;" onclick="window.setMessageColor('#e67e22', '#e67e22'); window.closeMobileDropdown();" title="Laranja Cenoura"></button>
-                          <button type="button" class="btn p-0 rounded-circle" style="width: 32px; height: 32px; background-color: #9b59b6;" onclick="window.setMessageColor('#9b59b6', '#9b59b6'); window.closeMobileDropdown();" title="Roxo Ametista"></button>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
 
                 <div class="dropdown d-none d-md-block" style="align-self: flex-end;">
                   <button class="btn btn-secondary-custom d-flex align-items-center justify-content-center border-secondary" type="button" id="btn-color-picker" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Escolher cor da mensagem" style="height: 40px; width: 40px; min-height: 40px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0;">

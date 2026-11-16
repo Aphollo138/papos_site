@@ -2032,22 +2032,28 @@ button, .btn, .reaction-pill, .private-chat-item {
   }
 
   [data-theme="light"] .chat-input-area #message-input {
-    background-color: #F3F4F6 !important;
-    border-color: #D1D5DB !important;
+    background-color: transparent !important;
     color: #111111 !important;
   }
 
-  [data-theme="light"] .chat-input-area #message-input:focus {
+  [data-theme="light"] .chat-input-area .chat-input-wrapper {
+    background-color: #F3F4F6 !important;
+    border-color: #D1D5DB !important;
+  }
+
+  [data-theme="light"] .chat-input-area .chat-input-wrapper:focus-within {
     background-color: #FFFFFF !important;
     border-color: #111111 !important;
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1) !important;
   }
 
-  /* No mobile, o botão de emoji dentro do input é visível e acessível por toque */
-  .chat-input-area #dropdown-emoji-wrapper,
-  .chat-input-area .dropdown:has(#btn-emoji-picker) {
-    display: none !important;
+  [data-theme="light"] .chat-input-area #message-input:focus {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
   }
+
+  /* Ações de emoji e cor ficam dentro do campo sem reduzir a área de envio. */
   .chat-input-area .btn-input-emoji,
   #btn-emoji-picker.btn-input-emoji {
     display: inline-flex !important;
@@ -2055,29 +2061,60 @@ button, .btn, .reaction-pill, .private-chat-item {
     left: auto !important;
   }
 
-  /* Ordem no Mobile: [Campo de mensagem com figurinhas à direita] [⋮] [Enviar/Mic] */
+  /* Ordem no Mobile: [Campo com emoji e cor] [Enviar/Mic] */
   .chat-input-area .chat-input-wrapper {
     order: 1 !important;
     flex: 1 1 auto !important;
     min-width: 0 !important;
-  }
-  .chat-input-area #message-input {
-    width: 100% !important;
-    padding-left: 14px !important;
-    padding-right: 42px !important;
+    min-height: 42px !important;
+    box-sizing: border-box !important;
+    align-items: center !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 20px !important;
+    background-color: #212529 !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
   }
 
-  .chat-input-area #dropdown-actions-wrapper,
-  .chat-input-area .dropdown.d-block.d-md-none {
-    order: 2 !important;
-    align-self: flex-end !important;
-    flex-shrink: 0 !important;
+  .chat-input-area .chat-input-wrapper:focus-within {
+    border-color: var(--accent-color, #22c55e) !important;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2) !important;
+  }
+
+  .chat-input-area #message-input {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    border: 0 !important;
+    border-radius: inherit !important;
+    background-color: transparent !important;
+    padding-left: 14px !important;
+    padding-right: 82px !important;
+    box-shadow: none !important;
+  }
+
+  .chat-input-area #btn-emoji-picker {
+    position: absolute !important;
+    right: 8px !important;
+    bottom: 4px !important;
+    left: auto !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+  }
+
+  .chat-input-area #dropdown-actions-wrapper {
+    position: absolute !important;
+    right: 42px !important;
+    bottom: 4px !important;
+    z-index: 6 !important;
     margin: 0 !important;
     padding: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    position: relative !important;
   }
 
   .chat-input-area #btn-send {
@@ -2114,24 +2151,13 @@ button, .btn, .reaction-pill, .private-chat-item {
     line-height: 1 !important;
   }
 
-  .chat-input-area #dropdown-actions-wrapper,
-  .chat-input-area .dropdown.d-block.d-md-none {
-    align-self: flex-end !important;
-    flex-shrink: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
   .chat-input-area #btn-mobile-actions {
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 40px !important;
-    min-height: 40px !important;
-    max-width: 40px !important;
-    max-height: 40px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    max-width: 32px !important;
+    max-height: 32px !important;
     border-radius: 50% !important;
     border: 1px solid var(--border) !important;
     padding: 0 !important;
@@ -2150,7 +2176,7 @@ button, .btn, .reaction-pill, .private-chat-item {
   }
 
   .chat-input-area #btn-mobile-actions i {
-    font-size: 1.05rem !important;
+    font-size: 0.9rem !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -2174,7 +2200,7 @@ button, .btn, .reaction-pill, .private-chat-item {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
     transform: none !important;
-    right: -48px !important;
+    right: 0 !important;
     left: auto !important;
     max-height: min(340px, calc(100dvh - 120px)) !important;
     max-width: calc(100vw - 24px) !important;
