@@ -238,25 +238,14 @@
                 <nav class="d-flex flex-column gap-1" id="blog-categories-list" aria-label="Categorias de artigos">
                   <a href="#" class="category-filter-item active text-success" data-slug="all">
                     <span><i class="bi bi-grid-fill me-2"></i> Todos os artigos</span>
-                    <span class="badge bg-secondary bg-opacity-25 text-white-50" id="cat-count-all">20</span>
+                    <span class="badge bg-secondary bg-opacity-25 text-white-50" id="cat-count-all">21</span>
                   </a>
                   
                 </nav>
               </div>
 
               <div class="card p-4">
-                <h3 class="h6 fw-bold text-uppercase tracking-wider text-white mb-2 font-display">Newsletter Semanal</h3>
-                <p class="text-secondary small mb-4">Receba em primeira mão nossas melhores dicas de oratória, conversas e psicologia social.</p>
-                <form id="newsletter-form" onsubmit="event.preventDefault(); alert('Inscrição realizada com sucesso!'); this.reset();">
-                  <div class="mb-3">
-                    <input type="email" class="form-control bg-dark border-secondary text-white small" placeholder="Seu melhor e-mail" required>
-                  </div>
-                  <button type="submit" class="btn btn-outline-light btn-sm w-100 rounded-pill py-2">Inscrever-se</button>
-                </form>
-              </div>
-
-              <div class="card p-4">
-                <h3 class="h6 fw-bold text-uppercase tracking-wider text-white mb-3 font-display">Artigos Populares</h3>
+                <h3 class="h6 fw-bold text-uppercase tracking-wider text-white mb-3 font-display">Artigos Recentes</h3>
                 <ul class="list-unstyled d-flex flex-column gap-3 mb-0" id="popular-posts-list">
                   
                 </ul>
@@ -271,11 +260,11 @@
       <section class="py-5" style="border-top: 1px solid var(--border); background-color: var(--surface);">
         <div class="container py-4 text-center">
           <div class="p-4 p-md-5 border border-secondary rounded-4 bg-dark max-width-md mx-auto" style="max-width: 720px;">
-            <span class="text-secondary fw-bold text-uppercase tracking-wider small">Mais de 10.000 papos hoje</span>
-            <h2 class="h1 fw-extrabold text-white mt-2 mb-3 font-display" style="letter-spacing: -1px;">Entre agora no Papos e converse com pessoas reais.</h2>
-            <p class="text-secondary small mb-4 mx-auto" style="max-width: 480px;">Sem burocracias, sem anúncios invasivos, sem criar perfis permanentes. Comece a conversar no seu tempo de forma anônima e gratuita.</p>
-            <a href="/#login-anchor" class="btn btn-premium py-3 px-5 rounded-pill font-display fw-bold">
-              Começar uma conversa <i class="bi bi-chat-fill ms-2"></i>
+            <span class="text-secondary fw-bold text-uppercase tracking-wider small">Leitura recomendada</span>
+            <h2 class="h1 fw-extrabold text-white mt-2 mb-3 font-display" style="letter-spacing: -1px;">Segurança e respeito também fazem parte de uma boa conversa.</h2>
+            <p class="text-secondary small mb-4 mx-auto" style="max-width: 480px;">Confira orientações práticas para proteger seus dados, respeitar limites e lidar com mensagens suspeitas em salas de bate-papo.</p>
+            <a href="/blog/guia-pratico-de-seguranca-e-boas-conversas-no-chat" class="btn btn-premium py-3 px-5 rounded-pill font-display fw-bold">
+              Ler o guia prático <i class="bi bi-arrow-right-short ms-2"></i>
             </a>
           </div>
         </div>
@@ -320,7 +309,7 @@
             </ul>
           </div>
           <div class="col-md-4">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Artigos Populares</h3>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Artigos Recentes</h3>
             <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
               
             </ul>
@@ -355,6 +344,11 @@
         const categoriesList = document.getElementById("blog-categories-list");
         const popularList = document.getElementById("popular-posts-list");
         const footerPopularList = document.getElementById("footer-popular-posts");
+        const allPostsCount = document.getElementById("cat-count-all");
+
+        if (allPostsCount) {
+          allPostsCount.textContent = BlogEngine.getPosts().length;
+        }
 
         // 1. Renderizar os cards iniciais de posts
         if (postsGrid) {
@@ -384,7 +378,7 @@
 
         // 3. Renderizar artigos populares no Sidebar
         if (popularList) {
-          const popular = BlogEngine.getPopularPosts(4);
+          const popular = BlogEngine.getRecentPosts(4);
           let html = "";
           popular.forEach(post => {
             html += `
@@ -404,7 +398,7 @@
 
         // 4. Renderizar artigos populares no Footer
         if (footerPopularList) {
-          const popular = BlogEngine.getPopularPosts(3);
+          const popular = BlogEngine.getRecentPosts(3);
           let html = "";
           popular.forEach(post => {
             html += `

@@ -17,11 +17,6 @@
       return this.getPosts().slice(0, limit);
     },
 
-    getPopularPosts(limit = 4) {
-      
-      return this.getPosts().filter((_, i) => i % 2 === 0).slice(0, limit);
-    },
-
     getRelatedPosts(categorySlug, currentSlug, limit = 3) {
       return this.getPosts()
         .filter(p => p.categorySlug === categorySlug && p.slug !== currentSlug)
@@ -76,7 +71,7 @@
       this.setMetaProperty("og:locale", "pt_BR");
       this.setMetaProperty("article:published_time", post.dateIso);
       this.setMetaProperty("article:modified_time", post.dateIso);
-      this.setMetaProperty("article:author", post.author);
+      this.setMetaProperty("article:author", "https://papo.net.br/sobre");
       this.setMetaProperty("article:section", post.category);
 
       this.setMeta("twitter:card", "summary_large_image");
@@ -96,7 +91,7 @@
         "datePublished": post.dateIso,
         "dateModified": post.dateIso,
         "author": {
-          "@type": "Person",
+          "@type": "Organization",
           "name": post.author,
           "url": "https://papo.net.br/sobre"
         },

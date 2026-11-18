@@ -271,7 +271,7 @@
             </ul>
           </div>
           <div class="col-md-4">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Artigos Populares</h3>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Artigos Recentes</h3>
             <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
               
             </ul>
@@ -340,7 +340,7 @@
 
         // 4. Renderizar artigos populares no Footer
         if (footerPopularList) {
-          const popular = BlogEngine.getPopularPosts(3);
+          const popular = BlogEngine.getRecentPosts(3);
           let html = "";
           popular.forEach(post => {
             html += `

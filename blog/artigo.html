@@ -248,51 +248,9 @@
                 </div>
                 <div>
                   <h4 class="h6 fw-bold text-white mb-1 font-display">Escrito por Equipe Papos</h4>
-                  <p class="text-secondary small mb-0">Nossa equipe é formada por entusiastas de psicologia social, tecnologia e comunicação digital em tempo real. Produzimos artigos para melhorar a socialização saudável dos brasileiros na internet.</p>
+                  <p class="text-secondary small mb-0">Conteúdo editorial da equipe do Papos. Para conhecer o serviço, consulte a página <a href="/sobre">Sobre</a>; para dúvidas ou correções, acesse <a href="/contato">Contato</a>.</p>
                 </div>
               </div>
-
-              <section class="mt-5 pt-5 border-top border-secondary">
-                <h3 class="h4 fw-bold text-white mb-4 font-display"><i class="bi bi-chat-left-text-fill me-2 text-success"></i> Comentários (<span id="comments-count">3</span>)</h3>
-                
-                <div class="d-flex flex-column gap-4 mb-5" id="comments-list">
-                  <div class="p-3 border border-secondary rounded-4 bg-dark">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                      <div class="avatar-circle avatar-sm" style="background-color: #f43f5e; width: 26px; height: 26px; border-radius: 50%; font-size: 0.72rem; color: #fff; display: flex; align-items: center; justify-content: center;">R</div>
-                      <strong class="text-white small">Rodrigo_Silva</strong>
-                      <span class="text-secondary small ms-auto" style="font-size: 0.75rem;">Há 2 horas</span>
-                    </div>
-                    <p class="text-secondary small mb-0">Nossa, esse artigo era exatamente o que eu precisava. O medo do julgamento me travava muito, mas conversar anônimo no Papos realmente ajuda a relaxar e treinar.</p>
-                  </div>
-                  <div class="p-3 border border-secondary rounded-4 bg-dark">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                      <div class="avatar-circle avatar-sm" style="background-color: #3b82f6; width: 26px; height: 26px; border-radius: 50%; font-size: 0.72rem; color: #fff; display: flex; align-items: center; justify-content: center;">G</div>
-                      <strong class="text-white small">gaby_coruja</strong>
-                      <span class="text-secondary small ms-auto" style="font-size: 0.75rem;">Há 5 horas</span>
-                    </div>
-                    <p class="text-secondary small mb-0">Adorei as dicas de segurança digital! Tem muita gente mal-intencionada por aí, é sempre bom lembrar de não passar celular logo de cara. Excelente texto.</p>
-                  </div>
-                </div>
-
-                <div class="p-4 border border-secondary rounded-4 bg-dark">
-                  <h4 class="h6 fw-bold text-white mb-3 font-display">Deixe seu comentário</h4>
-                  <form id="comment-form" onsubmit="submitComment(event)">
-                    <div class="row g-3">
-                      <div class="col-sm-6">
-                        <label class="form-label text-secondary small">Seu nome ou apelido</label>
-                        <input type="text" class="form-control bg-transparent border-secondary text-white small" id="comment-author" placeholder="Ex: coruja_viajante" required>
-                      </div>
-                      <div class="col-12">
-                        <label class="form-label text-secondary small">Comentário</label>
-                        <textarea class="form-control bg-transparent border-secondary text-white small" id="comment-text" rows="3" placeholder="Escreva o que você achou sobre o artigo..." required></textarea>
-                      </div>
-                      <div class="col-12">
-                        <button type="submit" class="btn btn-premium btn-sm px-4 rounded-pill">Enviar Comentário</button>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-              </section>
 
             </div>
 
@@ -376,7 +334,7 @@
             </ul>
           </div>
           <div class="col-md-4">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Artigos Populares</h3>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-3 text-white font-display">Artigos Recentes</h3>
             <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
               
             </ul>
@@ -400,14 +358,15 @@
     <script type="module" src="/assets/js/blog.js"></script>
 
     <script>
-      let commentsCount = 2;
-
       document.addEventListener("DOMContentLoaded", () => {
         const BlogEngine = window.BlogEngine;
         if (!BlogEngine) return;
 
         const urlParams = new URLSearchParams(window.location.search);
-        const slug = urlParams.get("slug") || "como-conversar-com-pessoas-online-com-seguranca";
+        const pathSlug = window.location.pathname.replace(/\/+$/, "").split("/").pop();
+        const slug = urlParams.get("slug") || (pathSlug && !pathSlug.endsWith(".html")
+          ? pathSlug
+          : "como-conversar-com-pessoas-online-com-seguranca");
 
         const post = BlogEngine.getPostBySlug(slug);
         if (!post) {
@@ -518,7 +477,7 @@
         // 8. Renderizar artigos populares no Footer
         const footerPopularList = document.getElementById("footer-popular-posts");
         if (footerPopularList) {
-          const popular = BlogEngine.getPopularPosts(3);
+          const popular = BlogEngine.getRecentPosts(3);
           let html = "";
           popular.forEach(p => {
             html += `
@@ -552,47 +511,6 @@
 
       });
 
-      // Lógica de Comentários em JS Local
-      function submitComment(e) {
-        e.preventDefault();
-        const authorEl = document.getElementById("comment-author");
-        const textEl = document.getElementById("comment-text");
-        const listEl = document.getElementById("comments-list");
-        const countEl = document.getElementById("comments-count");
-
-        if (!authorEl || !textEl || !listEl) return;
-
-        const author = authorEl.value.trim();
-        const text = textEl.value.trim();
-
-        if (author === "" || text === "") return;
-
-        const colorList = ["#f43f5e", "#ec4899", "#d946ef", "#a855f7", "#8b5cf6", "#6366f1", "#3b82f6", "#0ea5e9", "#06b6d4"];
-        const randomColor = colorList[Math.floor(Math.random() * colorList.length)];
-        const initial = author.charAt(0).toUpperCase();
-
-        const commentDiv = document.createElement("div");
-        commentDiv.className = "p-3 border border-secondary rounded-4 bg-dark scroll-reveal revealed";
-        commentDiv.innerHTML = `
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <div class="avatar-circle avatar-sm" style="background-color: ${randomColor}; width: 26px; height: 26px; border-radius: 50%; font-size: 0.72rem; color: #fff; display: flex; align-items: center; justify-content: center;">${initial}</div>
-            <strong class="text-white small">${author}</strong>
-            <span class="text-secondary small ms-auto" style="font-size: 0.75rem;">Agora mesmo</span>
-          </div>
-          <p class="text-secondary small mb-0">${text}</p>
-        `;
-
-        listEl.appendChild(commentDiv);
-        
-        commentsCount++;
-        if (countEl) countEl.textContent = commentsCount;
-
-        // Limpar form
-        authorEl.value = "";
-        textEl.value = "";
-        
-        alert("Obrigado! Seu comentário foi postado com sucesso.");
-      }
     </script>
   </body>
 </html>

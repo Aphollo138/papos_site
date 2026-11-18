@@ -148,7 +148,7 @@
 
               <div class="border-top border-secondary pt-4 mb-5">
                 <h2 class="h3 fw-bold text-white mb-3">2. Uso de Cookies e Rastreamento</h2>
-                <p class="text-secondary">O Papos não utiliza cookies de publicidade direcionada ou ferramentas invasivas de terceiros para perfilar seu comportamento. Usamos apenas armazenamento local (LocalStorage) estritamente funcional para lembrar seu apelido, seu tema de preferência (Claro/Escuro) e sua lista de usuários bloqueados.</p>
+                <p class="text-secondary">Usamos armazenamento local (LocalStorage) para lembrar preferências como apelido, tema e lista de usuários bloqueados. Também carregamos anúncios do Google AdSense, que pode usar cookies ou identificadores semelhantes para exibir, limitar e medir anúncios, conforme as configurações de publicidade e as escolhas de consentimento aplicáveis. Consulte as <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">informações do Google sobre publicidade e cookies</a> para saber mais e gerenciar suas preferências.</p>
               </div>
 
               <div class="border-top border-secondary pt-4 mb-5">
@@ -162,7 +162,7 @@
               </div>
 
               <div class="border-top border-secondary pt-4 mb-5">
-                <p class="text-secondary small">Última atualização: Julho de 2026. Em caso de dúvidas, entre em contato através do nosso canal oficial.</p>
+                <p class="text-secondary small">Última atualização: Novembro de 2026. Em caso de dúvidas, entre em contato pela página <a href="/contato">Contato</a>.</p>
               </div>
             </article>
           </div>
@@ -193,7 +193,7 @@
             </ul>
           </div>
           <div class="col-md-4">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Artigos Populares</h3>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Artigos Recentes</h3>
             <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
               
             </ul>
@@ -219,7 +219,7 @@
         if (window.BlogEngine) {
           const footerPopular = document.getElementById("footer-popular-posts");
           if (footerPopular) {
-            const popular = window.BlogEngine.getPopularPosts(3);
+            const popular = window.BlogEngine.getRecentPosts(3);
             let html = "";
             popular.forEach(post => {
               html += `

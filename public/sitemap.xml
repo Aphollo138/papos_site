@@ -84,6 +84,12 @@
 
   <!-- Artigos do Blog (URLs Limpas & SEO Otimizado) -->
   <url>
+    <loc>https://papo.net.br/blog/guia-pratico-de-seguranca-e-boas-conversas-no-chat</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://papo.net.br/blog/como-conversar-com-pessoas-online-com-seguranca</loc>
     <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>

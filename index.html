@@ -184,7 +184,7 @@
             <div class="col-lg-6 text-center text-lg-start">
               <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 mb-4 border border-secondary rounded-pill bg-dark scroll-reveal" style="font-size: 0.8rem;">
                 <span class="status-indicator status-online d-inline-block"></span>
-                <span class="text-secondary fw-medium text-white-50">Sempre tem alguém online querendo conversar agora.</span>
+                <span class="text-secondary fw-medium text-white-50">Entre em uma sala e participe no seu ritmo.</span>
               </div>
               <h1 class="display-4 fw-extrabold mb-4 lh-sm text-white scroll-reveal delay-100" style="letter-spacing: -1.5px;">
                 Chat Online Grátis e Bate-Papo Brasileiro em Tempo Real
@@ -229,7 +229,7 @@
                         <span class="fw-bold d-block text-white" style="font-size: 0.82rem; line-height: 1.2;">Papo Geral 💬</span>
                         <span class="text-secondary d-flex align-items-center gap-1" style="font-size: 0.65rem;">
                           <span class="status-indicator status-online position-static d-inline-block" style="width: 6px; height: 6px;"></span>
-                          946 pessoas online
+                          Prévia ilustrativa
                         </span>
                       </div>
                     </div>
@@ -552,7 +552,7 @@
             </ul>
           </div>
           <div class="col-md-4">
-            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Artigos Populares</h3>
+            <h3 class="h6 fw-bold text-uppercase tracking-wider mb-2 text-white font-display">Artigos Recentes</h3>
             <ul class="list-unstyled d-flex flex-column gap-2" id="footer-popular-posts">
               
             </ul>
@@ -789,7 +789,7 @@
 
           const footerPopular = document.getElementById("footer-popular-posts");
           if (footerPopular) {
-            const popular = window.BlogEngine.getPopularPosts(3);
+            const popular = window.BlogEngine.getRecentPosts(3);
             let html = "";
             popular.forEach(post => {
               html += `

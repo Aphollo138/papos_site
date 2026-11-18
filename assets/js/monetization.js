@@ -1,7 +1,7 @@
 
 window.MONETAG_CONFIG = {
-  enableInPagePush: true,  
-  enableVignette: true     
+  enableInPagePush: false,
+  enableVignette: false
 };
 
 (function() {
