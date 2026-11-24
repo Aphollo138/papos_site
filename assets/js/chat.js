@@ -397,6 +397,28 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeRoomDesc = "Bate-papo público livre.";
 
   const chatMessagesContainer = document.getElementById("chat-messages-container");
+  if (chatMessagesContainer) {
+    const openMessageProfile = (target) => {
+      const messageElement = target.closest(".msg-container");
+      if (!messageElement) return;
+      const nickname = messageElement.getAttribute("data-sender");
+      if (nickname) {
+        window.openUserProfile(nickname, messageElement.getAttribute("data-sender-device-id") || "");
+      }
+    };
+
+    chatMessagesContainer.addEventListener("click", (event) => {
+      const target = event.target.closest(".msg-avatar-btn, .msg-username");
+      if (target) openMessageProfile(target);
+    });
+
+    chatMessagesContainer.addEventListener("keydown", (event) => {
+      if ((event.key === "Enter" || event.key === " ") && event.target.closest(".msg-username")) {
+        event.preventDefault();
+        openMessageProfile(event.target);
+      }
+    });
+  }
   const messageInput = document.getElementById("message-input");
   const sendButton = document.getElementById("btn-send");
   const sidebarUsername = document.getElementById("sidebar-username");
@@ -2080,11 +2102,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const headerAvatarContainer = document.getElementById("active-chat-avatar-container");
     if (!headerAvatarContainer) return;
     headerAvatarContainer.classList.remove("d-none");
-    headerAvatarContainer.innerHTML = `
-      <button class="btn p-0 border-0" onclick="window.openUserProfile('${activePrivateRecipient}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${activePrivateRecipient}">
-        ${renderPrivatePartnerAvatar(activePrivateRecipient, "avatar-sm")}
-      </button>
-    `;
+    const profileButton = document.createElement("button");
+    profileButton.type = "button";
+    profileButton.className = "btn p-0 border-0";
+    profileButton.style.cursor = "pointer";
+    profileButton.tabIndex = 0;
+    profileButton.setAttribute("aria-label", `Ver perfil de ${activePrivateRecipient}`);
+    profileButton.innerHTML = renderPrivatePartnerAvatar(activePrivateRecipient, "avatar-sm");
+    profileButton.addEventListener("click", () => window.openUserProfile(activePrivateRecipient));
+    headerAvatarContainer.replaceChildren(profileButton);
   }
 
   if (!window.showToast) {
@@ -2583,13 +2609,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         msgDiv.innerHTML = `
           ${actionsHtml}
-          <button class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+          <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
             ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", messageDeviceId ? msg.photoUrl || "" : "", messageDeviceId || undefined)}
           </button>
           <div class="msg-content">
             ${replyHtml}
             <div class="msg-header">
-              <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
+              <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
               <span class="msg-meta">${formatMessageTime(msg)}</span>
             </div>
             <div class="msg-bubble" data-media-type="${msg.mediaType || ""}" style="${isSticker ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
@@ -2710,13 +2736,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     msgDiv.innerHTML = `
       ${actionsHtml}
-      <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+      <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
         ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", messageDeviceId ? msg.photoUrl || "" : "", messageDeviceId || undefined)}
       </button>
       <div class="msg-content">
         ${replyHtml}
         <div class="msg-header">
-          <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
+          <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
           <span class="msg-meta">${formatMessageTime(msg)}</span>
         </div>
         <div class="msg-bubble" data-media-type="${msg.mediaType || ""}" style="${isSticker ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
