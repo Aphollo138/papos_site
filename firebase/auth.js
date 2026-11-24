@@ -710,9 +710,6 @@ const FirebaseService = {
     const city = profileData.city !== undefined ? String(profileData.city).trim() : undefined;
     const country = profileData.country !== undefined ? String(profileData.country).trim() : undefined;
     const blockCalls = profileData.blockCalls !== undefined ? Boolean(profileData.blockCalls) : undefined;
-    const bannerId = ["none", "white-tree", "thunder", "red-energy", "hotline-miami", "black-cat"].includes(profileData.bannerId) ? profileData.bannerId : undefined;
-    const avatarFrameId = ["none", "orbit", "neon", "gold", "portal", "minimal"].includes(profileData.avatarFrameId) ? profileData.avatarFrameId : undefined;
-
     const userDocRef = doc(db, "users", user.uid);
     const updatePayload = {
       updatedAt: Date.now()
@@ -733,9 +730,6 @@ const FirebaseService = {
     if (city !== undefined) updatePayload.city = city;
     if (country !== undefined) updatePayload.country = country;
     if (blockCalls !== undefined) updatePayload.blockCalls = blockCalls;
-    if (bannerId !== undefined) updatePayload.bannerId = bannerId;
-    if (avatarFrameId !== undefined) updatePayload.avatarFrameId = avatarFrameId;
-
     if (user.uid === "iMDKTiIEezc2w2VQ2SO27bXsQTd2") {
       updatePayload.admin = true;
     }

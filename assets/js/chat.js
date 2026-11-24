@@ -1,4 +1,6 @@
 
+import { isOffensiveMessage } from "../../src/message-moderation.ts";
+
 function containsLink(str) {
   if (!str || typeof str !== "string") return false;
 
@@ -331,8 +333,6 @@ function clearCachedNicknameProfile(name) {
         bio: localStorage.getItem("papos_bio") || "",
         age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
         gender: localStorage.getItem("papos_gender") || "",
-        bannerId: localStorage.getItem("papos_banner_id") || "none",
-        avatarFrameId: localStorage.getItem("papos_avatar_frame_id") || "none",
         permanentId: localStorage.getItem("papos_permanent_id") || localStorage.getItem("papo_guest_id") || "USR-Membro"
       },
       timestamp: Date.now()
@@ -578,77 +578,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (mobileMenuUserNick) mobileMenuUserNick.textContent = `Olá, ${nick}`;
 
     if (sidebarUsername) sidebarUsername.textContent = nick;
-    const bannerId = profile && profile.bannerId || localStorage.getItem("papos_banner_id") || "none";
-    const avatarFrameId = profile && profile.avatarFrameId || localStorage.getItem("papos_avatar_frame_id") || "none";
-    applyProfileLook(nick, bannerId, avatarFrameId);
-    if (desktopAvatarContainer) renderDecoratedAvatar(desktopAvatarContainer, nick, "avatar-xs", "", avatarFrameId);
-    if (mobileAvatarContainer) renderDecoratedAvatar(mobileAvatarContainer, nick, "avatar-xs", "", avatarFrameId);
+    if (desktopAvatarContainer && window.ChatEngine) {
+      desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-xs");
+    }
+    if (mobileAvatarContainer && window.ChatEngine) {
+      mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-xs");
+    }
+    if (sidebarUserAvatarPlaceholder && window.ChatEngine) {
+      sidebarUserAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(nick, "avatar-lg mx-auto mb-2");
+    }
   }
-
-  function getSafeDecorationId(value, allowedIds) {
-    return allowedIds.includes(value) ? value : "none";
-  }
-
-  function renderDecoratedAvatar(container, nickname, sizeClass, photoUrl, frameId) {
-    if (!container || !window.ChatEngine) return;
-    const safeFrameId = getSafeDecorationId(frameId, ["none", "orbit", "neon", "gold", "portal", "minimal"]);
-    container.innerHTML = `<span class="avatar-frame-wrap frame-style-${safeFrameId}">${window.ChatEngine.renderAvatar(nickname, sizeClass, photoUrl || null)}</span>`;
-  }
-
-  function applyProfileLook(nickname, bannerId, avatarFrameId) {
-    const safeBannerId = getSafeDecorationId(bannerId, ["none", "white-tree", "thunder", "red-energy", "hotline-miami", "black-cat"]);
-    const safeFrameId = getSafeDecorationId(avatarFrameId, ["none", "orbit", "neon", "gold", "portal", "minimal"]);
-    const bannerArt = document.getElementById("sidebar-profile-banner-art");
-    if (bannerArt) bannerArt.className = `sidebar-profile-banner-art profile-banner-art banner-style-${safeBannerId}`;
-    const sidebarCard = document.getElementById("user-profile-sidebar-card");
-    if (sidebarCard) sidebarCard.dataset.profileBanner = safeBannerId;
-    const sidebarAvatar = document.getElementById("sidebar-user-avatar-placeholder");
-    if (sidebarAvatar) renderDecoratedAvatar(sidebarAvatar, nickname, "avatar-lg mx-auto mb-2", "", safeFrameId);
-  }
-
-  function applyModalProfileBanner(bannerId) {
-    const safeBannerId = getSafeDecorationId(bannerId, ["none", "white-tree", "thunder", "red-energy", "hotline-miami", "black-cat"]);
-    const modalBanner = document.getElementById("modal-profile-banner-art");
-    if (modalBanner) modalBanner.className = `modal-profile-banner profile-banner-art banner-style-${safeBannerId}`;
-    const modalContent = document.querySelector("#userProfileModal .modal-content");
-    if (modalContent) modalContent.dataset.profileBanner = safeBannerId;
-  }
-
-  const decorationSelector = ".profile-banner-art, .avatar-frame-wrap, .avatar-frame-preview, .msg-avatar-btn";
-  const observedDecorations = new WeakSet();
-  const decorationObserver = "IntersectionObserver" in window
-    ? new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        entry.target.classList.toggle("is-animation-visible", entry.isIntersecting);
-      });
-    }, { rootMargin: "80px" })
-    : null;
-
-  function observeDecorations(root = document) {
-    const candidates = [];
-    if (root instanceof Element && root.matches(decorationSelector)) candidates.push(root);
-    if (root.querySelectorAll) candidates.push(...root.querySelectorAll(decorationSelector));
-    candidates.forEach(element => {
-      if (observedDecorations.has(element)) return;
-      observedDecorations.add(element);
-      if (decorationObserver) decorationObserver.observe(element);
-      else element.classList.add("is-animation-visible");
-    });
-  }
-
-  observeDecorations();
-  if ("MutationObserver" in window && document.body) {
-    const decorationMutationObserver = new MutationObserver(records => {
-      records.forEach(record => record.addedNodes.forEach(node => {
-        if (node instanceof Element) observeDecorations(node);
-      }));
-    });
-    decorationMutationObserver.observe(document.body, { childList: true, subtree: true });
-  }
-  document.addEventListener("visibilitychange", () => {
-    document.documentElement.classList.toggle("decorations-paused", document.hidden);
-  });
-  document.documentElement.classList.toggle("decorations-paused", document.hidden);
 
   const initializeFirebaseSync = () => {
     if (window.FirebaseService) {
@@ -733,8 +672,6 @@ document.addEventListener("DOMContentLoaded", () => {
               localStorage.setItem("papos_bio", initialProfile.bio || "");
               localStorage.setItem("papos_age", String(initialProfile.age !== undefined && initialProfile.age !== null ? initialProfile.age : ""));
               localStorage.setItem("papos_gender", initialProfile.gender || "");
-              localStorage.setItem("papos_banner_id", initialProfile.bannerId || "none");
-              localStorage.setItem("papos_avatar_frame_id", initialProfile.avatarFrameId || "none");
               localStorage.setItem("papos_permanent_id", initialProfile.permanentId || initialProfile.internalId || "");
 
               updateDOMUserInfo(nick, initialProfile);
@@ -790,8 +727,6 @@ document.addEventListener("DOMContentLoaded", () => {
                   localStorage.setItem("papos_bio", newBio);
                   localStorage.setItem("papos_age", String(newAge));
                   localStorage.setItem("papos_gender", newGender);
-                  localStorage.setItem("papos_banner_id", profile.bannerId || "none");
-                  localStorage.setItem("papos_avatar_frame_id", profile.avatarFrameId || "none");
                   localStorage.setItem("papos_permanent_id", permanentId);
 
                   updateDOMUserInfo(newNick, profile);
@@ -814,8 +749,6 @@ document.addEventListener("DOMContentLoaded", () => {
                       bio: newBio,
                       age: newAge,
                       gender: newGender,
-                      bannerId: profile.bannerId || "none",
-                      avatarFrameId: profile.avatarFrameId || "none",
                       uid: uid,
                       roomId: currentRoomId
                     }));
@@ -857,10 +790,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   initializeFirebaseSync();
 
-  if (sidebarUsername && sidebarAvatarPlaceholder) {
+  if (sidebarUsername && sidebarAvatarPlaceholder && window.ChatEngine) {
     sidebarUsername.textContent = currentUser;
-    renderDecoratedAvatar(sidebarAvatarPlaceholder, currentUser, "avatar-lg mx-auto mb-2", "", localStorage.getItem("papos_avatar_frame_id"));
-    applyProfileLook(currentUser, localStorage.getItem("papos_banner_id"), localStorage.getItem("papos_avatar_frame_id"));
+    sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(currentUser, "avatar-lg mx-auto mb-2");
   }
 
   function isValidPrivateMessage(pm) {
@@ -910,8 +842,6 @@ document.addEventListener("DOMContentLoaded", () => {
       bio: localStorage.getItem("papos_bio") || "",
       age: localStorage.getItem("papos_age") ? Number(localStorage.getItem("papos_age")) : null,
       gender: localStorage.getItem("papos_gender") || "",
-      bannerId: localStorage.getItem("papos_banner_id") || "none",
-      avatarFrameId: localStorage.getItem("papos_avatar_frame_id") || "none",
       photoUrl: myPhoto,
       profileImage: myPhoto,
       clientId: clientId,
@@ -1238,6 +1168,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 window.showToast("Esse nome já existe.", "error");
               } else {
                 appendSystemMessage(friendlyMsg);
+              }
+            } else if (data.code === "offensive_message") {
+              const message = data.message || "Essa mensagem é ofensiva e não pode ser enviada.";
+              if (typeof window.showToast === "function") {
+                window.showToast(message, "error");
+              } else {
+                appendSystemMessage(message);
               }
             } else if (data.message && data.message.includes("Links não são permitidos")) {
               if (typeof window.showToast === "function") {
@@ -2526,21 +2463,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return msg.text;
   }
 
-  function getMessageCustomization(message, deviceId) {
-    const onlineProfile = onlineUserProfiles.find(profile =>
-      (deviceId && profile.deviceId === deviceId) ||
-      (!deviceId && String(profile.nickname || "").toLowerCase() === String(message.sender || "").toLowerCase())
-    );
-    const cachedProfile = profileCache.get(String(message.sender || "").toLowerCase());
-    const profile = onlineProfile || (cachedProfile && cachedProfile.data) || {};
-    const bannerIds = ["none", "white-tree", "thunder", "red-energy", "hotline-miami", "black-cat"];
-    const avatarFrameIds = ["none", "orbit", "neon", "gold", "portal", "minimal"];
-    return {
-      bannerId: bannerIds.includes(profile.bannerId) ? profile.bannerId : "none",
-      avatarFrameId: avatarFrameIds.includes(profile.avatarFrameId) ? profile.avatarFrameId : "none"
-    };
-  }
-
   function renderMessages(filterText = "") {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.innerHTML = "";
@@ -2581,7 +2503,6 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         const messageDeviceId = getMessageDeviceId(msg);
         const isMe = isCurrentDeviceMessage(msg);
-        const customization = getMessageCustomization(msg, messageDeviceId);
         const isSticker = msg.mediaType === "sticker" && msg.mediaUrl;
         
         const isGrouped = messageDeviceId && lastSenderDeviceId
@@ -2662,7 +2583,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         msgDiv.innerHTML = `
           ${actionsHtml}
-          <button class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" data-avatar-frame="${customization.avatarFrameId}" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+          <button class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
             ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", messageDeviceId ? msg.photoUrl || "" : "", messageDeviceId || undefined)}
           </button>
           <div class="msg-content">
@@ -2671,7 +2592,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
               <span class="msg-meta">${formatMessageTime(msg)}</span>
             </div>
-            <div class="msg-bubble ${!isSticker && customization.bannerId !== "none" ? `banner-message-${customization.bannerId}` : ""}" data-media-type="${msg.mediaType || ""}" style="${isSticker ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
+            <div class="msg-bubble" data-media-type="${msg.mediaType || ""}" style="${isSticker ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
             ${reactionsHtml}
           </div>
         `;
@@ -2701,7 +2622,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const messageDeviceId = getMessageDeviceId(msg);
     const isMe = isCurrentDeviceMessage(msg);
-    const customization = getMessageCustomization(msg, messageDeviceId);
     const isSticker = msg.mediaType === "sticker" && msg.mediaUrl;
     
     const lastMsgDiv = chatMessagesContainer.lastElementChild;
@@ -2790,7 +2710,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     msgDiv.innerHTML = `
       ${actionsHtml}
-      <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" data-avatar-frame="${customization.avatarFrameId}" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
+      <button type="button" class="btn p-0 border-0 flex-shrink-0 msg-avatar-btn" data-sender="${msg.sender}" data-sender-device-id="${messageDeviceId}" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" style="cursor: pointer;" tabindex="0" aria-label="Ver perfil de ${msg.sender}">
         ${window.ChatEngine.renderAvatar(msg.sender, "avatar-sm", messageDeviceId ? msg.photoUrl || "" : "", messageDeviceId || undefined)}
       </button>
       <div class="msg-content">
@@ -2799,7 +2719,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="msg-username" style="color: ${window.getUsernameColor(msg.sender)} !important; cursor: pointer;" onclick="window.openUserProfile('${msg.sender}', '${messageDeviceId}')" tabindex="0" role="button" aria-label="Ver perfil de ${msg.sender}">${isMe ? 'Você' : msg.sender}</span>
           <span class="msg-meta">${formatMessageTime(msg)}</span>
         </div>
-        <div class="msg-bubble ${!isSticker && customization.bannerId !== "none" ? `banner-message-${customization.bannerId}` : ""}" data-media-type="${msg.mediaType || ""}" style="${isSticker ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
+        <div class="msg-bubble" data-media-type="${msg.mediaType || ""}" style="${isSticker ? 'background: transparent !important; box-shadow: none !important; padding: 2px !important;' : (msg.color ? `color: ${msg.color} !important; font-weight: 500;` : '')}">${renderMessageBubbleContent(msg)}</div>
         ${reactionsHtml}
       </div>
     `;
@@ -2890,28 +2810,24 @@ document.addEventListener("DOMContentLoaded", () => {
       ) {
         const modalAvatarContainer = document.getElementById("modal-profile-avatar-container");
         if (modalAvatarContainer) {
-          const modalProfile = profileCache.get(targetLower)?.data || {};
-          renderDecoratedAvatar(modalAvatarContainer, targetNick, "avatar-xl mx-auto", resolvedPhoto || "", modalProfile.avatarFrameId);
+          modalAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(targetNick, "avatar-xl mx-auto", resolvedPhoto || "");
         }
-        const modalProfile = profileCache.get(targetLower)?.data || {};
-        applyModalProfileBanner(modalProfile.bannerId);
       }
     }
 
     // 6. Se for o próprio usuário conectado, atualizar cards da interface
     if (isMe) {
       if (sidebarAvatarPlaceholder && window.ChatEngine) {
-        renderDecoratedAvatar(sidebarAvatarPlaceholder, myNick, "avatar-lg mx-auto mb-2", resolvedPhoto, localStorage.getItem("papos_avatar_frame_id"));
+        sidebarAvatarPlaceholder.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-lg mx-auto mb-2", resolvedPhoto);
       }
       const mobileAvatarContainer = document.getElementById("mobile-nav-user-avatar");
       if (mobileAvatarContainer && window.ChatEngine) {
-        renderDecoratedAvatar(mobileAvatarContainer, myNick, "avatar-xs", resolvedPhoto, localStorage.getItem("papos_avatar_frame_id"));
+        mobileAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", resolvedPhoto);
       }
       const desktopAvatarContainer = document.getElementById("desktop-nav-user-avatar");
       if (desktopAvatarContainer && window.ChatEngine) {
-        renderDecoratedAvatar(desktopAvatarContainer, myNick, "avatar-xs", resolvedPhoto, localStorage.getItem("papos_avatar_frame_id"));
+        desktopAvatarContainer.innerHTML = window.ChatEngine.renderAvatar(myNick, "avatar-xs", resolvedPhoto);
       }
-      applyProfileLook(myNick, localStorage.getItem("papos_banner_id"), localStorage.getItem("papos_avatar_frame_id"));
     }
   }
 
@@ -2965,38 +2881,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.bio !== undefined) cached.data.bio = data.bio;
         if (data.age !== undefined) cached.data.age = data.age;
         if (data.gender !== undefined) cached.data.gender = data.gender;
-        if (data.bannerId !== undefined) cached.data.bannerId = data.bannerId;
-        if (data.avatarFrameId !== undefined) cached.data.avatarFrameId = data.avatarFrameId;
       }
-    }
-
-    if (data.bannerId !== undefined || data.avatarFrameId !== undefined) {
-      onlineUserProfiles.forEach(profile => {
-        if (profile.deviceId === data.deviceId) {
-          if (data.bannerId !== undefined) profile.bannerId = data.bannerId;
-          if (data.avatarFrameId !== undefined) profile.avatarFrameId = data.avatarFrameId;
-        }
-      });
-      if (isMe) {
-        if (data.bannerId !== undefined) localStorage.setItem("papos_banner_id", data.bannerId);
-        if (data.avatarFrameId !== undefined) localStorage.setItem("papos_avatar_frame_id", data.avatarFrameId);
-      }
-      document.querySelectorAll(".msg-container").forEach(messageElement => {
-        const sameDevice = messageElement.getAttribute("data-sender-device-id") === data.deviceId;
-        const sameNickname = !data.deviceId && messageElement.getAttribute("data-sender")?.toLowerCase() === targetLower;
-        if (!sameDevice && !sameNickname) return;
-        const avatarButton = messageElement.querySelector(".msg-avatar-btn");
-        if (avatarButton && data.avatarFrameId !== undefined) {
-          avatarButton.dataset.avatarFrame = data.avatarFrameId;
-        }
-        if (data.bannerId !== undefined) {
-          const bubble = messageElement.querySelector(".msg-bubble");
-          if (bubble && bubble.dataset.mediaType !== "sticker") {
-            bubble.classList.remove("banner-message-white-tree", "banner-message-thunder", "banner-message-red-energy", "banner-message-hotline-miami", "banner-message-black-cat");
-            if (data.bannerId !== "none") bubble.classList.add(`banner-message-${data.bannerId}`);
-          }
-        }
-      });
     }
 
     // 3. Atualizar mensagens públicas em memória
@@ -3049,9 +2934,7 @@ document.addEventListener("DOMContentLoaded", () => {
             deviceId: currentDeviceId,
             photoUrl: event.data.photoUrl,
             profileImage: event.data.profileImage,
-            action: event.data.action,
-            bannerId: event.data.bannerId,
-            avatarFrameId: event.data.avatarFrameId
+            action: event.data.action
           }));
         }
         if (event.data.blockCalls !== undefined) {
@@ -3210,9 +3093,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const isAdmin = window.isAdminUser ? window.isAdminUser(u) : (u.toLowerCase().includes("admin") || u.toLowerCase().includes("mod") || u === "Sistema");
       const isMod = !isAdmin && (u.toLowerCase().includes("mod") || u === "Sistema");
       
-      const avatarFrameId = getSafeDecorationId(profile.avatarFrameId, ["none", "orbit", "neon", "gold", "portal", "minimal"]);
       const avatarHtml = window.ChatEngine
-        ? `<span class="avatar-frame-preview member-avatar-frame frame-style-${avatarFrameId}">${window.ChatEngine.renderAvatar(u, "avatar-member", profile.deviceId ? profile.photoUrl || "" : "", profile.deviceId || undefined)}</span>`
+        ? window.ChatEngine.renderAvatar(u, "avatar-member", profile.deviceId ? profile.photoUrl || "" : "", profile.deviceId || undefined)
         : `<div class="avatar-member bg-secondary">P</div>`;
       
       const isThemeLight = document.documentElement.getAttribute("data-theme") === "light";
@@ -3598,6 +3480,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const defaultCaption = mediaType === "gif" ? "🎞️ GIF" : (mediaType === "audio" ? "🎤 Mensagem de voz" : "🧸 Figurinha");
     const text = caption || defaultCaption;
 
+    if (isOffensiveMessage(text)) {
+      const message = "Essa mensagem é ofensiva e não pode ser enviada.";
+      if (typeof window.showToast === "function") {
+        window.showToast(message, "error");
+      } else {
+        alert(message);
+      }
+      return;
+    }
+
     if (chatMode === "public") {
       const clientMsgId = "m-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
       const replyData = replyTargetMsg ? {
@@ -3692,6 +3584,16 @@ document.addEventListener("DOMContentLoaded", () => {
         finishAndSendVoiceRecording();
       } else {
         startVoiceRecording();
+      }
+      return;
+    }
+
+    if (isOffensiveMessage(text)) {
+      const message = "Essa mensagem é ofensiva e não pode ser enviada.";
+      if (typeof window.showToast === "function") {
+        window.showToast(message, "error");
+      } else {
+        alert(message);
       }
       return;
     }
@@ -4715,13 +4617,9 @@ document.addEventListener("DOMContentLoaded", () => {
       (profile.deviceId && item.deviceId === profile.deviceId) ||
       String(item.nickname || "").toLowerCase() === String(profile.nickname || "").toLowerCase()
     );
-    const bannerId = profile.bannerId || (onlineProfile && onlineProfile.bannerId) || "none";
-    const avatarFrameId = profile.avatarFrameId || (onlineProfile && onlineProfile.avatarFrameId) || "none";
-    applyModalProfileBanner(bannerId);
-
-    if (avatarContainer) {
+    if (avatarContainer && window.ChatEngine) {
       const pPhoto = (profile.photoUrl || profile.photoURL || profile.profileImage || "");
-      renderDecoratedAvatar(avatarContainer, profile.nickname, "avatar-xl mx-auto", pPhoto, avatarFrameId);
+      avatarContainer.innerHTML = window.ChatEngine.renderAvatar(profile.nickname, "avatar-xl mx-auto", pPhoto);
     }
 
     if (onlineIndicator) {

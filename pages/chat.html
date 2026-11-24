@@ -239,12 +239,6 @@
         <aside class="chat-sidebar" id="chat-sidebar">
           
           <div class="p-3 border-bottom border-secondary d-flex flex-column align-items-center text-center gap-2 position-relative" id="user-profile-sidebar-card" style="background-color: var(--surface-secondary);">
-            <div class="sidebar-profile-banner-art profile-banner-art banner-style-none" id="sidebar-profile-banner-art" aria-hidden="true">
-              <span class="profile-banner-layer profile-banner-layer-one"></span>
-              <span class="profile-banner-layer profile-banner-layer-two"></span>
-              <span class="profile-banner-particles"></span>
-            </div>
-            
             <button class="btn btn-close btn-close-white d-md-none position-absolute" type="button" id="btn-close-sidebar" aria-label="Fechar" style="top: 12px; right: 12px; font-size: 0.8rem;"></button>
             
             <div id="sidebar-user-avatar-placeholder">
@@ -791,12 +785,6 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar" style="filter: invert(1);"></button>
           </div>
           <div class="modal-body p-4 text-center">
-            <div class="modal-profile-banner profile-banner-art banner-style-none" id="modal-profile-banner-art" aria-hidden="true">
-              <span class="profile-banner-layer profile-banner-layer-one"></span>
-              <span class="profile-banner-layer profile-banner-layer-two"></span>
-              <span class="profile-banner-particles"></span>
-            </div>
-            
             <div class="mb-4 text-center position-relative d-inline-block">
               <div id="modal-profile-avatar-container" class="mx-auto d-flex align-items-center justify-content-center">
                 
@@ -1267,7 +1255,7 @@
 
     <script src="/assets/js/audio-call.js"></script>
 
-    <script src="/assets/js/chat.js"></script>
+    <script type="module" src="/assets/js/chat.js"></script>
     <script type="module" src="/src/chat-media-picker.tsx"></script>
   </body>
 </html>

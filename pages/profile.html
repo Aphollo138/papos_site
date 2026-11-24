@@ -169,12 +169,6 @@
               </div>
 
               <form id="profile-form">
-                <div class="profile-tabs mb-4" role="tablist" aria-label="Seções do perfil">
-                  <button type="button" class="profile-tab is-active" id="profile-tab-details" role="tab" aria-selected="true" aria-controls="profile-details-panel">Perfil</button>
-                  <button type="button" class="profile-tab" id="profile-tab-customization" role="tab" aria-selected="false" aria-controls="profile-customization-panel">Personalização</button>
-                </div>
-
-                <div id="profile-details-panel" role="tabpanel" aria-labelledby="profile-tab-details">
                 <div class="mb-4">
                   <label for="profile-nickname" class="form-label fw-bold small text-secondary">Alterar Apelido</label>
                   <div class="input-group">
@@ -234,73 +228,6 @@
                     Selecione uma opção válida para o campo sexo.
                   </div>
                 </div>
-                </div>
-
-                <section id="profile-customization-panel" class="d-none" role="tabpanel" aria-labelledby="profile-tab-customization" aria-hidden="true">
-                  <div class="customization-preview mb-4">
-                    <div class="customization-preview-banner" id="customization-preview-banner">
-                      <div class="profile-banner-art banner-style-none" id="customization-preview-art" aria-hidden="true">
-                        <span class="profile-banner-layer profile-banner-layer-one"></span>
-                        <span class="profile-banner-layer profile-banner-layer-two"></span>
-                        <span class="profile-banner-particles"></span>
-                      </div>
-                      <span class="customization-preview-label">Prévia do perfil</span>
-                    </div>
-                    <div class="customization-preview-content">
-                      <div class="customization-preview-user">
-                        <div id="customization-preview-avatar" class="avatar-frame-preview"></div>
-                        <div class="min-w-0">
-                          <strong class="d-block text-white text-truncate" id="customization-preview-name"></strong>
-                          <span class="small text-secondary">Seu perfil no Papos</span>
-                        </div>
-                      </div>
-                      <div class="customization-preview-mini-card" aria-label="Prévia do mini-card no canto da tela">
-                        <div class="profile-banner-art banner-style-none" id="customization-mini-art" aria-hidden="true">
-                          <span class="profile-banner-layer profile-banner-layer-one"></span>
-                          <span class="profile-banner-layer profile-banner-layer-two"></span>
-                          <span class="profile-banner-particles"></span>
-                        </div>
-                        <div class="customization-mini-card-content">
-                          <div id="customization-mini-avatar" class="avatar-frame-preview avatar-frame-preview-sm frame-style-none"></div>
-                          <div class="min-w-0">
-                            <strong class="d-block text-white text-truncate" id="customization-mini-name"></strong>
-                            <span class="small text-white-50">Conectado</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="customization-preview-chat" aria-label="Exemplo de mensagem no chat">
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                          <div id="customization-chat-avatar" class="avatar-frame-preview avatar-frame-preview-sm"></div>
-                          <span class="small fw-semibold text-white" id="customization-chat-name"></span>
-                        </div>
-                        <div class="customization-chat-bubble" id="customization-chat-bubble">Oi! Este é um exemplo de como suas mensagens vão aparecer.</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="customization-section mb-4">
-                    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-                      <div>
-                        <h2 class="h6 fw-bold text-white mb-1">Banner animado</h2>
-                        <p class="small text-secondary mb-0">Banners animados otimizados para carregar com leveza.</p>
-                      </div>
-                    </div>
-                    <div class="customization-options" id="banner-options" role="group" aria-label="Escolha um banner"></div>
-                    <p class="small text-secondary mt-3 mb-0">
-                      Banners de teste — novos banners em breve. Créditos das artes:
-                      <a href="https://pfps.gg" target="_blank" rel="noopener noreferrer" class="link-success">pfps.gg</a>.
-                    </p>
-                  </div>
-
-                  <div class="customization-section mb-4">
-                    <div class="mb-3">
-                      <h2 class="h6 fw-bold text-white mb-1">Moldura do avatar</h2>
-                      <p class="small text-secondary mb-0">A moldura também aparece ao lado das suas mensagens.</p>
-                    </div>
-                    <div class="customization-options" id="avatar-frame-options" role="group" aria-label="Escolha uma moldura de avatar"></div>
-                  </div>
-                  <p class="small text-secondary mb-0">As escolhas serão aplicadas ao perfil e ao chat depois de salvar.</p>
-                </section>
 
                 <div class="d-flex flex-column flex-sm-row gap-3">
                   <button type="submit" class="btn btn-premium w-100 py-3 font-display fw-bold" id="btn-save-profile">
@@ -429,128 +356,6 @@
         const savedBio = localStorage.getItem("papos_bio") || "";
         const savedAge = localStorage.getItem("papos_age") || "";
         const savedGender = localStorage.getItem("papos_gender") || "";
-        const bannerIds = ["none", "white-tree", "thunder", "red-energy", "hotline-miami", "black-cat"];
-        const avatarFrameIds = ["none", "orbit", "neon", "gold", "portal", "minimal"];
-        const bannerOptions = [
-          ["none", "Sem banner"], ["white-tree", "White Tree"], ["thunder", "Thunder"],
-          ["red-energy", "Energia Rubra"], ["hotline-miami", "Hotline Miami"], ["black-cat", "Gato Noturno"]
-        ];
-        const avatarFrameOptions = [
-          ["none", "Sem moldura"], ["orbit", "Órbita Cósmica"], ["neon", "Energia Elétrica"],
-          ["gold", "Ouro Imperial"], ["portal", "Portal Místico"], ["minimal", "Anel Minimalista"]
-        ];
-        const customization = {
-          bannerId: bannerIds.includes(localStorage.getItem("papos_banner_id")) ? localStorage.getItem("papos_banner_id") : "none",
-          avatarFrameId: avatarFrameIds.includes(localStorage.getItem("papos_avatar_frame_id")) ? localStorage.getItem("papos_avatar_frame_id") : "none"
-        };
-        const bannerOptionsEl = document.getElementById("banner-options");
-        const frameOptionsEl = document.getElementById("avatar-frame-options");
-        const customizationPreviewArt = document.getElementById("customization-preview-art");
-        const customizationMiniArt = document.getElementById("customization-mini-art");
-        const customizationMiniAvatar = document.getElementById("customization-mini-avatar");
-        const customizationMiniName = document.getElementById("customization-mini-name");
-        const customizationPreview = document.querySelector(".customization-preview");
-        const customizationPreviewAvatar = document.getElementById("customization-preview-avatar");
-        const customizationChatAvatar = document.getElementById("customization-chat-avatar");
-        const customizationPreviewName = document.getElementById("customization-preview-name");
-        const customizationChatName = document.getElementById("customization-chat-name");
-        const customizationChatBubble = document.getElementById("customization-chat-bubble");
-        function renderCustomizationOptions(container, options, selectedId, type) {
-          container.innerHTML = options.map(([id, label]) => `
-            <button type="button" class="customization-option ${selectedId === id ? "is-selected" : ""}" data-option-type="${type}" data-option-id="${id}" aria-pressed="${selectedId === id}">
-              <span class="customization-option-swatch ${type}-swatch-${id}" aria-hidden="true"></span>
-              <span>${label}</span>
-              <i class="bi bi-check-circle-fill customization-option-check" aria-hidden="true"></i>
-            </button>
-          `).join("");
-        }
-
-        function renderCustomizationPreview() {
-          const nick = inputNickname.value.trim() || currentUser;
-          const avatar = window.ChatEngine
-            ? window.ChatEngine.renderAvatar(nick, "avatar-lg", getOwnedLocalPhoto() || null)
-            : "";
-          customizationPreviewArt.className = `profile-banner-art banner-style-${customization.bannerId}`;
-          customizationMiniArt.className = `profile-banner-art banner-style-${customization.bannerId}`;
-          customizationPreview.className = "customization-preview mb-4";
-          customizationChatBubble.className = `customization-chat-bubble banner-message-${customization.bannerId}`;
-          customizationPreviewAvatar.className = `avatar-frame-preview frame-style-${customization.avatarFrameId}`;
-          customizationChatAvatar.className = `avatar-frame-preview avatar-frame-preview-sm frame-style-${customization.avatarFrameId}`;
-          customizationPreviewAvatar.innerHTML = avatar;
-          customizationChatAvatar.innerHTML = window.ChatEngine
-            ? window.ChatEngine.renderAvatar(nick, "avatar-sm", getOwnedLocalPhoto() || null)
-            : "";
-          customizationMiniAvatar.className = `avatar-frame-preview avatar-frame-preview-sm frame-style-${customization.avatarFrameId}`;
-          customizationMiniAvatar.innerHTML = window.ChatEngine
-            ? window.ChatEngine.renderAvatar(nick, "avatar-sm", getOwnedLocalPhoto() || null)
-            : "";
-          customizationMiniName.textContent = nick;
-          customizationPreviewName.textContent = nick;
-          customizationChatName.textContent = nick;
-          renderCustomizationOptions(bannerOptionsEl, bannerOptions, customization.bannerId, "banner");
-          renderCustomizationOptions(frameOptionsEl, avatarFrameOptions, customization.avatarFrameId, "frame");
-          observeProfileDecorations();
-        }
-
-        document.querySelectorAll(".profile-tab").forEach((tab) => {
-          tab.addEventListener("click", () => {
-            const showCustomization = tab.id === "profile-tab-customization";
-            const detailsPanel = document.getElementById("profile-details-panel");
-            detailsPanel.classList.toggle("d-none", showCustomization);
-            detailsPanel.setAttribute("aria-hidden", String(showCustomization));
-            const customizationPanel = document.getElementById("profile-customization-panel");
-            customizationPanel.classList.toggle("d-none", !showCustomization);
-            customizationPanel.setAttribute("aria-hidden", String(!showCustomization));
-            document.querySelectorAll(".profile-tab").forEach((item) => {
-              const isSelected = item === tab;
-              item.classList.toggle("is-active", isSelected);
-              item.setAttribute("aria-selected", String(isSelected));
-            });
-          });
-        });
-
-        document.getElementById("profile-form").addEventListener("click", (event) => {
-          const option = event.target.closest("[data-option-type][data-option-id]");
-          if (!option) return;
-          if (option.dataset.optionType === "banner") customization.bannerId = option.dataset.optionId;
-          if (option.dataset.optionType === "frame") customization.avatarFrameId = option.dataset.optionId;
-          updateAvatarPreview(inputNickname.value.trim() || currentUser);
-        });
-
-        const observedProfileDecorations = new WeakSet();
-        const profileDecorationObserver = "IntersectionObserver" in window
-          ? new IntersectionObserver((entries) => {
-            entries.forEach((entry) => entry.target.classList.toggle("is-animation-visible", entry.isIntersecting));
-          }, { rootMargin: "80px" })
-          : null;
-
-        function observeProfileDecorations(root = document) {
-          const selector = ".profile-banner-art, .avatar-frame-wrap, .avatar-frame-preview";
-          const elements = [];
-          if (root instanceof Element && root.matches(selector)) elements.push(root);
-          if (root.querySelectorAll) elements.push(...root.querySelectorAll(selector));
-          elements.forEach((element) => {
-            if (observedProfileDecorations.has(element)) return;
-            observedProfileDecorations.add(element);
-            if (profileDecorationObserver) profileDecorationObserver.observe(element);
-            else element.classList.add("is-animation-visible");
-          });
-        }
-
-        if ("MutationObserver" in window && document.body) {
-          const profileDecorationMutationObserver = new MutationObserver((records) => {
-            records.forEach((record) => record.addedNodes.forEach((node) => {
-              if (node instanceof Element) observeProfileDecorations(node);
-            }));
-          });
-          profileDecorationMutationObserver.observe(document.body, { childList: true, subtree: true });
-        }
-        document.addEventListener("visibilitychange", () => {
-          document.documentElement.classList.toggle("decorations-paused", document.hidden);
-        });
-        document.documentElement.classList.toggle("decorations-paused", document.hidden);
-        renderCustomizationPreview();
-        
         inputBio.value = savedBio;
         bioCharCounter.textContent = `${savedBio.length}/400`;
         inputAge.value = savedAge;
@@ -612,8 +417,7 @@
             if (photoToUse === null) {
               photoToUse = getOwnedLocalPhoto() || null;
             }
-            avatarContainer.innerHTML = `<span class="avatar-frame-wrap frame-style-${customization.avatarFrameId}">${window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse)}</span>`;
-            renderCustomizationPreview();
+            avatarContainer.innerHTML = window.ChatEngine.renderAvatar(name, "avatar-xl mx-auto", photoToUse);
             
             // Gerenciar botão Remover
             if (photoToUse && typeof photoToUse === "string" && photoToUse.trim() !== "" && !photoToUse.includes("undefined") && !photoToUse.includes("null")) {
@@ -877,10 +681,6 @@
                     const bio = profile.bio || "";
                     const age = profile.age !== undefined && profile.age !== null ? profile.age : "";
                     const gender = profile.gender || "";
-                    customization.bannerId = bannerIds.includes(profile.bannerId) ? profile.bannerId : customization.bannerId;
-                    customization.avatarFrameId = avatarFrameIds.includes(profile.avatarFrameId) ? profile.avatarFrameId : customization.avatarFrameId;
-                    localStorage.setItem("papos_banner_id", customization.bannerId);
-                    localStorage.setItem("papos_avatar_frame_id", customization.avatarFrameId);
                     const permId = profile.permanentId || profile.internalId || "USR-000000";
                     inputNickname.value = nick;
                     nameDisplay.textContent = nick;
@@ -938,9 +738,6 @@
           const ageValStr = inputAge.value.trim();
           const ageVal = ageValStr ? Number(ageValStr) : null;
           const genderVal = inputGender.value;
-          const bannerId = customization.bannerId;
-          const avatarFrameId = customization.avatarFrameId;
-
           const validGenders = ["Masculino", "Feminino", "Outro", "Prefiro não informar"];
 
           // Validação no cliente
@@ -1016,14 +813,10 @@
                 bio: bioVal,
                 age: ageVal,
                 gender: genderVal,
-                bannerId,
-                avatarFrameId
               });
             }
 
             // Atualizar cache local
-            localStorage.setItem("papos_banner_id", bannerId);
-            localStorage.setItem("papos_avatar_frame_id", avatarFrameId);
             localStorage.setItem("papos_bio", bioVal);
             if (ageVal !== null) {
               localStorage.setItem("papos_age", String(ageVal));
@@ -1042,9 +835,7 @@
                 type: "profile_updated",
                 nickname: newNick,
                 userId: currentUid,
-                deviceId: window.SecurityIdentity?.getDeviceId?.() || "",
-                bannerId,
-                avatarFrameId
+                deviceId: window.SecurityIdentity?.getDeviceId?.() || ""
               });
             } catch (e) {}
 

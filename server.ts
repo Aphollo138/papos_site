@@ -12,6 +12,7 @@ import multer from "multer";
 import sharp from "sharp";
 import { getStorage } from "firebase-admin/storage";
 import { verifyIdToken, checkAdminByUid, authenticateAdmin, adminDb } from "./src/firebase-admin";
+import { isOffensiveMessage } from "./src/message-moderation";
 
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY || "",
@@ -417,8 +418,6 @@ interface ClientSession {
   bio?: string;
   age?: number;
   gender?: string;
-  bannerId?: string;
-  avatarFrameId?: string;
   photoUrl?: string;
   uid?: string;
   guestId?: string;
@@ -435,13 +434,6 @@ interface ClientSession {
   ip?: string;
   blockCalls?: boolean;
   blockPrivateMessages?: boolean;
-}
-
-const PROFILE_BANNER_IDS = new Set(["none", "white-tree", "thunder", "red-energy", "hotline-miami", "black-cat"]);
-const PROFILE_AVATAR_FRAME_IDS = new Set(["none", "orbit", "neon", "gold", "portal", "minimal"]);
-
-function getAllowedCustomizationId(value: unknown, allowedIds: Set<string>): string | undefined {
-  return typeof value === "string" && allowedIds.has(value) ? value : undefined;
 }
 
 const activeSessions = new Map<WebSocket, ClientSession>();
@@ -1334,16 +1326,14 @@ async function startServer() {
     return Array.from(new Set(list)); 
   }
 
-  function getRoomOnlineProfiles(roomId: string): Array<{ nickname: string; deviceId?: string; photoUrl?: string; bannerId?: string; avatarFrameId?: string }> {
-    const profiles: Array<{ nickname: string; deviceId?: string; photoUrl?: string; bannerId?: string; avatarFrameId?: string }> = [];
+  function getRoomOnlineProfiles(roomId: string): Array<{ nickname: string; deviceId?: string; photoUrl?: string }> {
+    const profiles: Array<{ nickname: string; deviceId?: string; photoUrl?: string }> = [];
     activeSessions.forEach((session) => {
       if (session.roomId === roomId && session.nickname) {
         profiles.push({
           nickname: session.nickname,
           deviceId: session.deviceId,
-          photoUrl: session.photoUrl || "",
-          bannerId: session.bannerId || "none",
-          avatarFrameId: session.avatarFrameId || "none"
+          photoUrl: session.photoUrl || ""
         });
       }
     });
@@ -2503,8 +2493,6 @@ async function startServer() {
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
-            session.bannerId = getAllowedCustomizationId(payload.bannerId, PROFILE_BANNER_IDS) || session.bannerId || "none";
-            session.avatarFrameId = getAllowedCustomizationId(payload.avatarFrameId, PROFILE_AVATAR_FRAME_IDS) || session.avatarFrameId || "none";
             if (payload.blockCalls !== undefined) {
               session.blockCalls = Boolean(payload.blockCalls);
             }
@@ -2770,6 +2758,15 @@ async function startServer() {
               return;
             }
 
+            const rawText = payload.text || "";
+            if (typeof rawText === "string" && isOffensiveMessage(rawText)) {
+              sendToClient(ws, "error", {
+                code: "offensive_message",
+                message: "Essa mensagem é ofensiva e não pode ser enviada."
+              });
+              return;
+            }
+
             const now = Date.now();
             session.lastMessageTime = session.lastMessageTime.filter(t => now - t < 4000); 
             if (session.lastMessageTime.length >= 4) {
@@ -2778,7 +2775,6 @@ async function startServer() {
             }
             session.lastMessageTime.push(now);
 
-            const rawText = payload.text || "";
             if (containsLink(rawText) || (payload.replyTo && containsLink(payload.replyTo.text || ""))) {
               sendToClient(ws, "error", { message: "Links não são permitidos nas conversas." });
               return;
@@ -2844,6 +2840,13 @@ async function startServer() {
             const rawText = payload.text || "";
 
             if (!toNick || !rawText) return;
+            if (typeof rawText === "string" && isOffensiveMessage(rawText)) {
+              sendToClient(ws, "error", {
+                code: "offensive_message",
+                message: "Essa mensagem é ofensiva e não pode ser enviada."
+              });
+              return;
+            }
 
             // Proteção contra flood de mensagens privadas (máximo 5 mensagens a cada 4 segundos)
             const now = Date.now();
@@ -3502,8 +3505,6 @@ async function startServer() {
             let gender = "";
             let photoUrl = "";
             let permanentId = "";
-            let bannerId = "none";
-            let avatarFrameId = "none";
             let isOnline = !!foundSession;
 
             if (foundSession) {
@@ -3511,8 +3512,6 @@ async function startServer() {
               age = (foundSession as ClientSession).age || null;
               gender = (foundSession as ClientSession).gender || "";
               permanentId = (foundSession as ClientSession).permanentId || "";
-              bannerId = (foundSession as ClientSession).bannerId || "none";
-              avatarFrameId = (foundSession as ClientSession).avatarFrameId || "none";
             } else {
               try {
                 const q = query(collection(db, "users"), where("nickname", "==", requestedNickname));
@@ -3523,8 +3522,6 @@ async function startServer() {
                   age = userData.age || null;
                   gender = userData.gender || "";
                   permanentId = userData.permanentId || "";
-                  bannerId = getAllowedCustomizationId(userData.bannerId, PROFILE_BANNER_IDS) || "none";
-                  avatarFrameId = getAllowedCustomizationId(userData.avatarFrameId, PROFILE_AVATAR_FRAME_IDS) || "none";
                 }
               } catch (err) {
                 console.error("[Firestore] Error fetching profile:", err);
@@ -3543,8 +3540,6 @@ async function startServer() {
                 age = foundSession.age || null;
                 gender = foundSession.gender || "";
                 permanentId = foundSession.permanentId || "";
-                bannerId = foundSession.bannerId || "none";
-                avatarFrameId = foundSession.avatarFrameId || "none";
               }
             }
 
@@ -3565,9 +3560,7 @@ async function startServer() {
               age,
               gender,
               online: isOnline,
-              permanentId,
-              bannerId,
-              avatarFrameId
+              permanentId
             });
             break;
           }
@@ -3576,14 +3569,6 @@ async function startServer() {
           case "profile_updated": {
             const isExplicitRemove = payload.action === "remove_photo" || payload.photoUrl === null || payload.profileImage === null;
             const hasPhoto = payload.photoUrl !== undefined || payload.profileImage !== undefined;
-            const bannerId = getAllowedCustomizationId(payload.bannerId, PROFILE_BANNER_IDS);
-            const avatarFrameId = getAllowedCustomizationId(payload.avatarFrameId, PROFILE_AVATAR_FRAME_IDS);
-            const customizationChanged = Boolean(
-              (bannerId && bannerId !== session.bannerId) ||
-              (avatarFrameId && avatarFrameId !== session.avatarFrameId)
-            );
-            if (bannerId) session.bannerId = bannerId;
-            if (avatarFrameId) session.avatarFrameId = avatarFrameId;
 
             if (isExplicitRemove) {
               session.photoUrl = "";
@@ -3598,31 +3583,6 @@ async function startServer() {
                   broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid, session.deviceId);
                 }
               }
-            }
-            if (customizationChanged) {
-              if (session.uid) {
-                try {
-                  await setDoc(doc(db, "users", session.uid), {
-                    bannerId: session.bannerId || "none",
-                    avatarFrameId: session.avatarFrameId || "none",
-                    updatedAt: Date.now()
-                  }, { merge: true });
-                } catch (error) {
-                  console.error("[profile_updated] Erro ao salvar personalização:", error);
-                }
-              }
-              const customizationUpdate = {
-                type: "profile_updated",
-                nickname: session.nickname,
-                deviceId: session.deviceId,
-                bannerId: session.bannerId || "none",
-                avatarFrameId: session.avatarFrameId || "none"
-              };
-              activeSessions.forEach((activeSession, activeWs) => {
-                if (activeWs.readyState === WebSocket.OPEN) {
-                  sendToClient(activeWs, "profile_updated", customizationUpdate);
-                }
-              });
             }
             break;
           }
@@ -3650,14 +3610,6 @@ async function startServer() {
             session.bio = payload.bio !== undefined ? sanitizeHTML(payload.bio) : session.bio;
             session.age = payload.age !== undefined && payload.age !== null ? Number(payload.age) : session.age;
             session.gender = payload.gender !== undefined ? sanitizeHTML(payload.gender) : session.gender;
-            const bannerId = getAllowedCustomizationId(payload.bannerId, PROFILE_BANNER_IDS);
-            const avatarFrameId = getAllowedCustomizationId(payload.avatarFrameId, PROFILE_AVATAR_FRAME_IDS);
-            const customizationChanged = Boolean(
-              (bannerId && bannerId !== session.bannerId) ||
-              (avatarFrameId && avatarFrameId !== session.avatarFrameId)
-            );
-            if (bannerId) session.bannerId = bannerId;
-            if (avatarFrameId) session.avatarFrameId = avatarFrameId;
             if (payload.blockCalls !== undefined) {
               session.blockCalls = Boolean(payload.blockCalls);
             }
@@ -3687,8 +3639,6 @@ async function startServer() {
                   bio: session.bio,
                   age: session.age,
                   gender: session.gender,
-                  bannerId: session.bannerId || "none",
-                  avatarFrameId: session.avatarFrameId || "none",
                   updatedAt: Date.now()
                 };
                 if (session.blockCalls !== undefined) {
@@ -3705,21 +3655,6 @@ async function startServer() {
             if (photoChanged && session.nickname) {
               broadcastProfileUpdate(session.nickname, session.photoUrl, session.uid, session.deviceId);
             }
-            if (customizationChanged && session.nickname) {
-              const customizationUpdate = {
-                type: "profile_updated",
-                nickname: session.nickname,
-                deviceId: session.deviceId,
-                bannerId: session.bannerId || "none",
-                avatarFrameId: session.avatarFrameId || "none"
-              };
-              activeSessions.forEach((activeSession, activeWs) => {
-                if (activeWs.readyState === WebSocket.OPEN) {
-                  sendToClient(activeWs, "profile_updated", customizationUpdate);
-                }
-              });
-            }
-
             if (session.roomId) {
               broadcastToRoom(session.roomId, "user_joined", {
                 user: {
