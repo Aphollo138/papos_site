@@ -437,6 +437,32 @@
   }
 }
 
+@media (max-width: 767.98px) {
+  #userProfileModal {
+    padding: 0 !important;
+  }
+
+  #userProfileModal .modal-dialog {
+    width: 100%;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    margin: 0;
+  }
+
+  #userProfileModal .modal-content {
+    height: 100%;
+    min-height: 100%;
+    border-radius: 0 !important;
+  }
+
+  #userProfileModal .modal-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 [data-theme="light"] .modal-content {
   background-color: #FFFFFF !important;
   border: 1px solid #E5E7EB !important;

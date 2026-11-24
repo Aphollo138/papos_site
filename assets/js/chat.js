@@ -397,28 +397,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeRoomDesc = "Bate-papo público livre.";
 
   const chatMessagesContainer = document.getElementById("chat-messages-container");
-  if (chatMessagesContainer) {
-    const openMessageProfile = (target) => {
-      const messageElement = target.closest(".msg-container");
-      if (!messageElement) return;
-      const nickname = messageElement.getAttribute("data-sender");
-      if (nickname) {
-        window.openUserProfile(nickname, messageElement.getAttribute("data-sender-device-id") || "");
-      }
-    };
-
-    chatMessagesContainer.addEventListener("click", (event) => {
-      const target = event.target.closest(".msg-avatar-btn, .msg-username");
-      if (target) openMessageProfile(target);
-    });
-
-    chatMessagesContainer.addEventListener("keydown", (event) => {
-      if ((event.key === "Enter" || event.key === " ") && event.target.closest(".msg-username")) {
-        event.preventDefault();
-        openMessageProfile(event.target);
-      }
-    });
-  }
   const messageInput = document.getElementById("message-input");
   const sendButton = document.getElementById("btn-send");
   const sidebarUsername = document.getElementById("sidebar-username");
@@ -2489,6 +2467,23 @@ document.addEventListener("DOMContentLoaded", () => {
     return msg.text;
   }
 
+  function bindMessageProfileActions(messageElement, nickname, deviceId) {
+    const openProfile = () => window.openUserProfile(nickname, deviceId || "");
+    const avatarButton = messageElement.querySelector(".msg-avatar-btn");
+    const username = messageElement.querySelector(".msg-username");
+
+    if (avatarButton) avatarButton.addEventListener("click", openProfile);
+    if (username) {
+      username.addEventListener("click", openProfile);
+      username.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openProfile();
+        }
+      });
+    }
+  }
+
   function renderMessages(filterText = "") {
     if (!chatMessagesContainer) return;
     chatMessagesContainer.innerHTML = "";
@@ -2623,6 +2618,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         `;
 
+        bindMessageProfileActions(msgDiv, msg.sender, messageDeviceId);
         chatMessagesContainer.appendChild(msgDiv);
         lastSender = msg.sender;
         lastSenderDeviceId = messageDeviceId;
@@ -2750,6 +2746,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
+    bindMessageProfileActions(msgDiv, msg.sender, messageDeviceId);
     chatMessagesContainer.appendChild(msgDiv);
     scrollToBottom();
   }
@@ -4639,10 +4636,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const bioEl = document.getElementById("modal-profile-bio");
     const actionBtn = document.getElementById("btn-modal-profile-action");
     modalEl.dataset.profileDeviceId = profile.deviceId || "";
-    const onlineProfile = onlineUserProfiles.find(item =>
-      (profile.deviceId && item.deviceId === profile.deviceId) ||
-      String(item.nickname || "").toLowerCase() === String(profile.nickname || "").toLowerCase()
-    );
     if (avatarContainer && window.ChatEngine) {
       const pPhoto = (profile.photoUrl || profile.photoURL || profile.profileImage || "");
       avatarContainer.innerHTML = window.ChatEngine.renderAvatar(profile.nickname, "avatar-xl mx-auto", pPhoto);
